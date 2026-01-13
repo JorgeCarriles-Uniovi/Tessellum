@@ -4,7 +4,31 @@ use std::fs::metadata;
 use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
+use notify::{RecommendedWatcher, RecursiveMode, Watcher, Config, Event, Error};
+use tauri::{AppHandle, Emitter, Manager, State};
+use std::sync::Mutex;
 
+/// Struct representing metadata information for a file or directory.
+///
+/// This structure contains details about a file or directory, including its path,
+/// filename, whether it's a directory, its size, and the last modified timestamp.
+///
+/// # Fields
+///
+/// * `path` - A `String` representing the full path of the file or directory.
+/// * `filename` - A `String` representing the name of the file or directory.
+/// * `is_dir` - A `bool` indicating whether the path is a directory (`true`) or a file (`false`).
+/// * `size` - A `u64` representing the size of the file in bytes. For directories, this may be set to 0 or depend on the implementation specifics.
+/// * `last_modified` - An `i64` representing the last modified timestamp of the file or directory, typically in Unix epoch time.
+///
+/// # Traits
+///
+/// The `FileMetadata` struct implements the following traits:
+/// * `Serialize` - Enables the struct to be serialized into formats like JSON.
+/// * `Deserialize` - Allows the struct to be deserialized from formats like JSON.
+/// * `Clone` - Allows cloning of the struct.
+/// * `Debug` - Enables the struct to be formatted using the `{:?}` formatter.
+///
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct FileMetadata {
     path: String,
@@ -12,6 +36,57 @@ pub struct FileMetadata {
     is_dir: bool,
     size: u64,
     last_modified: i64,
+}
+
+/// Represents the shared state of an application.
+///
+/// This structure is designed to hold application-wide shared resources.
+/// It can be used to maintain state or manage resources that need to
+/// be accessed across multiple parts of the application.
+///
+/// # Fields
+/// - `watcher`: A thread-safe `Mutex` wrapping an `Option<RecommendedWatcher>`.
+///   This is used for managing a file watcher, which may or may not be active (hence the `Option`).
+///   The `Mutex` ensures that access to the watcher is synchronized across
+///   multiple threads.
+///
+/// # Use Case
+/// - This struct is ideal for scenarios where a watcher, such as a file or directory monitoring system,
+///   is required to track changes asynchronously within a shared state.
+/// - The `watcher` field can be `None` if there is no current need for a watcher,
+///   or it may hold an active `RecommendedWatcher` instance if monitoring is enabled.
+///
+/// # Example
+/// ```rust
+/// use notify::{RecommendedWatcher, RecursiveMode, Watcher};
+/// use std::sync::Mutex;
+/// use my_crate::AppState;
+///
+/// let app_state = AppState {
+///     watcher: Mutex::new(None),
+/// };
+///
+/// // Later in the application, the watcher can be initialized and used:
+/// {
+///     let mut watcher_guard = app_state.watcher.lock().unwrap();
+///     *watcher_guard = Some(RecommendedWatcher::new(|res| {
+///         match res {
+///             Ok(event) => println!("Changed: {:?}", event),
+///             Err(e) => println!("Watcher error: {:?}", e),
+///         }
+///     }).unwrap());
+/// }
+/// ```
+pub struct AppState {
+    watcher: Mutex<Option<RecommendedWatcher>>
+}
+
+impl Default for AppState {
+    fn default() -> Self {
+        Self {
+            watcher: Mutex::new(None)
+        }
+    }
 }
 
 /// Creates a new note file in the specified vault directory with a unique name.
@@ -369,6 +444,101 @@ fn list_files(vault_path: String) -> Result<Vec<FileMetadata>, String> {
     
 }
 
+/// Watches a directory and emits an event to the frontend whenever a file within the directory changes.
+///
+/// This function initializes a file system watcher for the specified directory (`vault_path`) and listens for changes
+/// such as file creation, modification, or deletion. Upon detecting a change, the function emits a `file-changed`
+/// event to the frontend.
+///
+/// # Arguments
+///
+/// * `vault_path` - The path to the directory that should be watched.
+/// * `handle` - A handle to the Tauri application that enables communication with the frontend.
+/// * `state` - A shared application state containing the watcher that allows for thread-safe management
+///   of the watcher instance.
+///
+/// # Returns
+///
+/// * `Ok(())` - If the watcher is successfully initialized and begins monitoring the directory.
+/// * `Err(String)` - If an error occurs during watcher creation, lock acquisition, or directory monitoring.
+///
+/// # Behavior
+///
+/// - The function locks the `state.watcher` to obtain access to the shared watcher instance. Any failure to acquire
+///   the lock results in an error.
+/// - Creates a new instance of `RecommendedWatcher` with a callback that emits the `file-changed` event to the
+///   frontend upon detecting changes in the directory.
+/// - Sets up the watcher to monitor the specified directory path recursively, meaning it will also monitor
+///   subdirectories for changes.
+/// - Updates the shared watcher instance with the new watcher to ensure proper management and avoid resource
+///   conflicts.
+///
+/// # Errors
+///
+/// This function can return an error in the following scenarios:
+/// - If acquiring the lock on the `state.watcher` fails.
+/// - If initializing the `RecommendedWatcher` fails.
+/// - If watching the specified path with the watcher fails.
+///
+/// # Example Usage
+///
+/// ```rust
+/// #[tauri::command]
+/// fn example_command(handle: AppHandle, state: State<AppState>) -> Result<(), String> {
+///     let vault_path = "/path/to/watched/directory".to_string();
+///     watch_vault(vault_path, handle, state)
+/// }
+/// ```
+///
+/// # Notes
+///
+/// - The `file-changed` event sent to the frontend should be handled appropriately in your frontend code to perform
+///   any necessary updates or actions.
+/// - Ensure that `vault_path` is a valid directory path that exists before invoking this function.
+///
+/// # Dependencies
+///
+/// This function depends on the following external crates:
+/// - `tauri` for app command and state handling.
+/// - `notify` for file system event watching.
+#[tauri::command]
+fn watch_vault(vault_path: String, handle: AppHandle, state: State<'_,
+    AppState>) -> Result<(), String>{
+    
+    // Initialize the watcher
+    let mut watcher_guard = state
+        .watcher
+        .lock()
+        .map_err(|_| "Unable to acquire lock on watcher")?;
+    
+    let app_handle_clone = handle.clone();
+    let notify_config = Config::default();
+    
+    let mut watcher = RecommendedWatcher::new(move |res: Result<Event, Error>| {
+        match res {
+            Ok(res) => {
+                // Emit event to frontend
+                // We serialize the event as a struct or just pass raw data
+                // if needed
+                // For simplicity, we just emit "file-changed"
+                let _ = app_handle_clone.emit("file-changed", ());
+            }
+            
+            Err(e) => println!("watch error: {:?}", e)
+        }
+        
+    }, notify_config,
+    ).map_err(|e| e.to_string())?;
+    
+    watcher
+        .watch(Path::new(&vault_path), RecursiveMode::Recursive).map_err(|e| e.to_string())?;
+    
+    *watcher_guard = Some(watcher);
+    
+    Ok(())
+    
+}
+
 /// Sanitizes a given string by filtering out any characters that are not alphanumeric
 /// or one of the following allowed special characters: space (' '), hyphen ('-'), or underscore ('_').
 ///
@@ -394,12 +564,15 @@ fn sanitize_string(s: String) -> String {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
+        .manage(AppState::default())
         .invoke_handler(tauri::generate_handler![
             create_note,
             trash_note,
             read_file,
             write_file,
-            list_files
+            list_files,
+            watch_vault
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
