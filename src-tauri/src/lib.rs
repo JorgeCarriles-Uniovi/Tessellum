@@ -149,7 +149,7 @@ fn create_note(vault_path: String, title: String) -> Result<String, String> {
     // Sanitize title for avoiding invalid characters
     let sanitized_title = sanitize_string(title);
     let sanitized_title = {
-        if sanitized_title.is_empty()
+        if sanitized_title.trim().is_empty()
             { String::from("Untitled") }
         else
             { sanitized_title }
@@ -259,11 +259,12 @@ fn trash_note(note_path: String, vault_path: String) -> Result<(), String> {
         unwrap().
         as_millis();
     let filename_as_str = filename.to_string_lossy();
+    let filename_as_str = filename_as_str.trim_end_matches(".md");
     
     // Get the parent directory of the note for clarity
     let parent_directory = note_to_trash.parent().unwrap().file_name().unwrap()
         .to_string_lossy();
-    let trash_filename = format!("{} ({}) {}", filename_as_str,
+    let trash_filename = format!("{} ({}) {}.md", filename_as_str,
         parent_directory, timestamp);
     
     // Get the final destination path with the new filename
@@ -412,8 +413,12 @@ fn list_files(vault_path: String) -> Result<Vec<FileMetadata>, String> {
         let path = entry.path();
         let path_str = path.to_string_lossy().to_string();
         
+        let filename = path.file_name().unwrap().to_string_lossy();
+        
         // Ignore hidden files/dirs
-        if path_str.starts_with(".") { continue; }
+        if filename.starts_with(".git") || filename.starts_with(".trash") {
+            continue;
+        }
         
         // If able to get metadata, add it to the list
         if let Ok(metadata) = metadata(path) {
@@ -576,4 +581,152 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+    
+    #[test]
+    fn test_save_and_get_file_content() {
+        let dir = tempdir().unwrap();
+        let file_path = dir.path().join("test_note.md");
+        let path_str = file_path.to_str().unwrap().to_string();
+        let content = "# Hello World";
+        
+        // Test save
+        let save_result = write_file(path_str.clone(), content.to_string());
+        assert!(save_result.is_ok());
+        assert!(file_path.exists());
+        
+        // Test get
+        let get_result = read_file(path_str.clone());
+        assert!(
+            get_result.is_ok(),
+            "Failed to get content: {:?}",
+            get_result.err()
+        );
+        assert_eq!(get_result.unwrap(), content);
+        
+        // Test overwrite
+        let new_content = "# New Content";
+        let save_result = write_file(path_str.clone(), new_content.to_string());
+        assert!(save_result.is_ok());
+        
+        let get_result = read_file(path_str);
+        assert_eq!(get_result.unwrap(), new_content);
+    }
+    
+    #[test]
+    fn test_list_files() {
+        let dir = tempdir().unwrap();
+        let vault_path = dir.path().to_str().unwrap().to_string();
+        
+        // Create some files
+        let file1 = dir.path().join("note1.md");
+        let file2 = dir.path().join("note2.txt");
+        let hidden = dir.path().join(".hidden");
+        let git_dir = dir.path().join(".git");
+        let trash_dir = dir.path().join(".trash");
+        
+        fs::write(&file1, "content").unwrap();
+        fs::write(&file2, "content").unwrap();
+        fs::write(&hidden, "content").unwrap();
+        fs::create_dir(&git_dir).unwrap();
+        fs::create_dir(&trash_dir).unwrap();
+        
+        let result = list_files(vault_path);
+        assert!(result.is_ok());
+        
+        let files = result.unwrap();
+        let names: Vec<String> = files.iter().map(|f| f.filename.clone())
+            .collect();
+        
+        // Should contain note1.md and note2.txt
+        assert!(names.contains(&"note1.md".to_string()));
+        assert!(names.contains(&"note2.txt".to_string()));
+        
+        // Should contain .hidden because we only filter .git and .trash specifically in list_files logic?
+        // Let's check logic: if path_str.contains(".git") || path_str.contains(".trash")
+        // It does NOT filter general dotfiles, only .git and .trash.
+        assert!(names.contains(&".hidden".to_string()));
+        
+        // Should NOT contain .git or .trash
+        // Note: WalkDir returns directories too.
+        // ".git" dir should be filtered.
+        assert!(!names.iter().any(|n| n == ".git"));
+        assert!(!names.iter().any(|n| n == ".trash"));
+    }
+    
+    #[test]
+    fn test_create_note() {
+        let dir = tempdir().unwrap();
+        let vault_path = dir.path().to_str().unwrap().to_string();
+        
+        // 1. Basic creation
+        let path1 = create_note(vault_path.clone(), "My Note".to_string()).unwrap();
+        assert!(Path::new(&path1).exists());
+        assert!(path1.ends_with("My Note.md"));
+        
+        // 2. Collision handling -> should append (1)
+        let path2 = create_note(vault_path.clone(), "My Note".to_string()).unwrap();
+        assert!(Path::new(&path2).exists());
+        assert!(path2.ends_with("My Note (1).md"));
+        
+        // 3. Collision handling -> should append (2)
+        let path3 = create_note(vault_path.clone(), "My Note".to_string()).unwrap();
+        assert!(Path::new(&path3).exists());
+        assert!(path3.ends_with("My Note (2).md"));
+        
+        // 4. Empty title -> check logic
+        // "Untitled"
+        let path4 = create_note(vault_path.clone(), "   ".to_string()).unwrap();
+        println!("path4: {}", path4);
+        assert!(path4.contains("Untitled"));
+        
+        // 5. Sanitization
+        // "Note: With / Invalid * Chars?" -> "Note With  Invalid  Chars" (strips non-alphanumeric except space, -, _)
+        let path5 = create_note(vault_path, "Note/With*Chars".to_string()).unwrap();
+        // "Note" "With" "Chars" -> "NoteWithChars"
+        assert!(path5.ends_with("NoteWithChars.md"));
+    }
+    
+    #[test]
+    fn test_trash_note() {
+        let dir = tempdir().unwrap();
+        let vault_path = dir.path().to_str().unwrap().to_string();
+        let trash_path = dir.path().join(".trash");
+        
+        // Create a subfolder to test parent name
+        let subfolder = dir.path().join("subfolder");
+        fs::create_dir(&subfolder).unwrap();
+        
+        // Create a file to delete inside subfolder
+        let file_path = subfolder.join("todelete.md");
+        fs::write(&file_path, "content").unwrap();
+        let file_path_str = file_path.to_str().unwrap().to_string();
+        
+        // Delete it
+        let result = trash_note(file_path_str.clone(), vault_path.clone());
+        assert!(result.is_ok());
+        
+        // File should be gone from original spot
+        assert!(!file_path.exists());
+        
+        // Trash should exist
+        assert!(trash_path.exists());
+        assert!(trash_path.is_dir());
+        
+        // Verify trash content naming
+        let trash_files: Vec<_> = fs::read_dir(&trash_path).unwrap().collect();
+        assert_eq!(trash_files.len(), 1);
+        
+        let trash_entry = trash_files[0].as_ref().unwrap();
+        let trash_filename = trash_entry.file_name().to_string_lossy().to_string();
+        
+        // Expected format: todelete (subfolder) <timestamp>.md
+        assert!(trash_filename.starts_with("todelete (subfolder) "));
+        assert!(trash_filename.ends_with(".md"));
+    }
 }

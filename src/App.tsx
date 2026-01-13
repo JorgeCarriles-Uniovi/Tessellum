@@ -24,13 +24,16 @@ function App() {
   // Refresh files when a change is detected (file-changed event from backend)
   useEffect(() => {
       const unlistenPromise = listen('file-changed', () => {
-          if (vaultPath) refreshFiles(vaultPath);
+          if (vaultPath) {
+              refreshFiles(vaultPath);
+          }
       });
       return () => {
           unlistenPromise.then(unlisten => unlisten());
       };
   }, [vaultPath]);
 
+    // @ts-ignore
     /**
      * Refreshes the list of files in the specified vault path by invoking a file listing operation,
      * sorting the results, and updating the file state.
@@ -39,9 +42,9 @@ function App() {
      * @return {Promise<void>} A promise that resolves when the file refreshing process is completed.
      */
 
-  async function refreshFiles(vaultPath: string): Promise<void> {
+    async function refreshFiles(vaultPath: string): Promise<void> {
       try {
-          const result = await invoke<FileMetadata[]>('list_files', {vaultPath: path})
+          const result = await invoke<FileMetadata[]>('list_files', {vaultPath})
           const sorted = result.sort((a,b) => {
               if(a.is_dir === b.is_dir)
                   return a.filename.localeCompare(b.filename);

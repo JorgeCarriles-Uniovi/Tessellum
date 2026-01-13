@@ -96,7 +96,7 @@ export function Editor() {
 
         const loadContent = async () => {
             try {
-                const content = await invoke<string>('get_file_content', { path: activeNote.path });
+                const content = await invoke<string>('read_file', { path: activeNote.path });
                 // Compare with current? If we setContent it resets cursor.
                 // Only set if completely different (new note).
                 // But we can't easily diff.
@@ -129,7 +129,7 @@ export function Editor() {
         // Ideally we check if content != saved content.
 
         if (debouncedNoteContent) {
-            invoke('save_file_content', { path: activeNote.path, content: debouncedNoteContent })
+            invoke('write_file', { path: activeNote.path, content: debouncedNoteContent })
                 .catch(e => console.error("Save failed", e));
         }
     }, [debouncedNoteContent, activeNote]);
