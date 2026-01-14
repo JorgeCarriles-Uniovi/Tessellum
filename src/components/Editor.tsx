@@ -1,186 +1,124 @@
-import { useEditor, EditorContent } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
-import Link from '@tiptap/extension-link';
-import Placeholder from '@tiptap/extension-placeholder';
-import { Markdown } from 'tiptap-markdown';
-import { useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import CodeMirror from '@uiw/react-codemirror';
+import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
+import { languages } from '@codemirror/language-data';
+import { EditorView } from '@codemirror/view';
 import { useEditorStore } from '../stores/editorStore';
 import { invoke } from '@tauri-apps/api/core';
-import { WikiLinkExtension } from '../extensions';
-import { createRoot, Root } from 'react-dom/client';
-import { Content } from '@tiptap/core';
-
-// Placeholder Selector component - replace with actual implementation
-function Selector({ text, onSelection }: { text: string; onSelection: (data: { id: string; text: string }) => void }) {
-    return (
-        <div className="bg-white border rounded shadow-lg p-2">
-            <div
-                className="cursor-pointer hover:bg-gray-100 p-1"
-                onClick={() => onSelection({ id: text.replace(/\[|\]/g, ''), text: text.replace(/\[|\]/g, '') })}
-            >
-                {text.replace(/\[|\]/g, '')}
-            </div>
-        </div>
-    );
-}
-
-// Debounce helper
-function useDebounce(value: string, delay: number) {
-    const [debouncedValue, setDebouncedValue] = useState(value);
-    useEffect(() => {
-        const handler = setTimeout(() => setDebouncedValue(value), delay);
-        return () => clearTimeout(handler);
-    }, [value, delay]);
-    return debouncedValue;
-}
+import { syntaxHighlighting, HighlightStyle } from '@codemirror/language';
+import { tags } from '@lezer/highlight';
 
 export function Editor() {
-    const { activeNote, activeNoteContent, setActiveNoteContent, isDirty } = useEditorStore();
+    const { activeNote } = useEditorStore();
 
-    const elRoot = useRef<Root | null>(null);
+    // 1. Local state to hold the actual text content
+    const [content, setContent] = useState<string>("");
+    const [isLoading, setIsLoading] = useState(false);
 
-    const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const activeNoteRef = useRef(activeNote);
-    const isLoadingRef = useRef(false);
-
+    // 2. FETCH LOGIC: When activeNote changes, read from disk
     useEffect(() => {
-        activeNoteRef.current = activeNote;
-    }, [activeNote]);
+        if (!activeNote) return;
 
-    const editor = useEditor({
-        extensions: [
-            StarterKit,
-            Placeholder.configure({ placeholder: 'Start writing...' }),
-            Link.configure({ openOnClick: false }),
-            WikiLinkExtension.configure({
-                renderSuggestionFunction: (element, text, editor, range) => {
-                    if (!elRoot.current) {
-                        elRoot.current = createRoot(element);
-                    }
-                    elRoot.current.render(
-                        <>
-                            <Selector
-                                text={text}
-                                onSelection={({ id, text }: { id: string; text: string }) => {
-                                    let content: Content = [
-                                        {
-                                            type: "wikiLink",
-                                            attrs: { name: text, id: id },
-                                        },
-                                    ];
-                                    console.log({ editor });
-                                    return editor.chain().focus().insertContentAt(range, content).insertContent(" ").run();
-                                }}
-                            />
-                        </>
-                    );
-                },
-                onWikiLinkClick: (id, name, event) => {
-                    console.log({ id, name, event });
-                },
-            }),
-            Markdown.configure({
-                html: false,
-                transformPastedText: true,
-                transformCopiedText: true,
-            }),
-        ],
-        editorProps: {
-            attributes: {
-                class: 'prose prose-sm sm:prose lg:prose-lg max-w-none focus:outline-none min-h-[500px]',
-            },
-        },
-        content: '',
-        onUpdate: ({ editor }) => {
-            // Stop if we are currently loading a file
-            if (isLoadingRef.current) return;
-
-            const md = (editor.storage as any).markdown.getMarkdown();
-            setActiveNoteContent(md);
-
-            // Clear existing timer
-            if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-
-            saveTimeoutRef.current = setTimeout(() => {
-                const currentNote = activeNoteRef.current;
-
-                if(currentNote && currentNote.path) {
-                    invoke('write_file', {
-                        path: currentNote.path,
-                        content: md
-                    }).catch(console.error);
-                }
-
-            }, 1000);
-        },
-    });
-
-    // Load active note content
-    useEffect(() => {
-
-        if (saveTimeoutRef.current) {
-            clearTimeout(saveTimeoutRef.current);
-        }
-
-        if (!activeNote || !editor) return;
-
-        const loadContent = async () => {
+        const loadFile = async () => {
             try {
-
-                // Lock the editor so onUpdate ignores changes
-                isLoadingRef.current = true;
-
-                const content = await invoke<string>('read_file', { path: activeNote.path });
-
-                // Updates the editor visually without triggering onUpdate
-                editor.commands.setContent(content, {emitUpdate: false});
-                isLoadingRef.current = false;
-            } catch (e) {
-                console.error("Failed to load note", e);
-                isLoadingRef.current = false;
+                setIsLoading(true);
+                // Ensure this command name matches your Rust command exactly
+                const text = await invoke<string>('read_file', { path: activeNote.path });
+                setContent(text);
+            } catch (error) {
+                console.error("Failed to read file:", error);
+                setContent("Error loading file.");
+            } finally {
+                setIsLoading(false);
             }
         };
 
-        loadContent();
-    }, [activeNote?.path, editor]); // Only re-run if path changes
+        loadFile();
+    }, [activeNote?.path]); // Re-run only when the file path changes
 
-    // Debounce save
-    const debouncedNoteContent = useDebounce(activeNoteContent, 1000);
+    // 3. SAVE LOGIC: Write back to disk on change
+    const onChange = useCallback((val: string) => {
+        setContent(val); // Update local view immediately
 
-    useEffect(() => {
-        if (!activeNote || !activeNote.path) return;
-        // Only save if dirty? Since we update store on every keypress, content updates.
-        // But we don't track "original content" to verify dirty.
-        // We just save if content exists and user stopped typing.
-        // But this runs on mount too?
-        // Issue: On mount, we load X. setContent triggers onUpdate?
-        // Tiptap: setContent triggers onUpdate.
-        // So loading triggers a "save" 1s later.
-        // This is inefficient but safe (idempotent).
-        // Ideally we check if content != saved content.
-
-        if (debouncedNoteContent) {
-            invoke('write_file', { path: activeNote.path, content: debouncedNoteContent })
-                .catch(e => console.error("Save failed", e));
+        if (activeNote) {
+            // You might want to debounce this later, but for now it works
+            invoke('write_file', { path: activeNote.path, content: val })
+                .catch(console.error);
         }
-    }, [debouncedNoteContent, activeNote]);
+    }, [activeNote]);
+
+    // 4. THEME (Sprint 1: Styled Source Mode)
+    const baseTheme = EditorView.theme({
+        ".cm-content": {
+            fontFamily: "'Inter', sans-serif",
+            fontSize: "16px",
+            lineHeight: "1.6",
+            padding: "20px",
+            maxWidth: "800px",
+            margin: "0 auto",
+        },
+        ".cm-header-1": { fontSize: "2.2em", fontWeight: "bold", color: "#111827" },
+        ".cm-header-2": { fontSize: "1.8em", fontWeight: "bold", color: "#1f2937" },
+        ".cm-formatting": { color: "#9ca3af" }, // Makes the syntax (#, **) subtle gray
+    });
+
+    const myMarkdownTheme = HighlightStyle.define([
+        {
+            tag: tags.heading1,
+            fontSize: "2.2em",
+            fontWeight: "bold"
+        },
+        {
+            tag: tags.heading2,
+            fontSize: "1.8em",
+            fontWeight: "bold"
+        },
+        {
+            tag: tags.heading3,
+            fontSize: "1.5em",
+            fontWeight: "bold"
+        },
+        {
+            tag: tags.strong,
+            fontWeight: "bold"
+        },
+        {
+            tag: tags.emphasis,
+            fontStyle: "italic"
+        },
+        // This targets the syntax characters (#, *, >) specifically
+        {
+            tag: tags.processingInstruction, // or tags.meta depending on parser version
+            color: "#9ca3af"
+        }
+    ]);
 
     if (!activeNote) {
         return (
-            <div className="flex-1 flex flex-col items-center justify-center text-gray-400 bg-gray-50 h-full">
-                <h2 className="text-xl font-medium mb-2">No Note Selected</h2>
-                <p>Select a note from the sidebar or create a new one.</p>
+            <div className="h-full flex items-center justify-center text-gray-400">
+                Select a note to edit
             </div>
         );
     }
 
+    if (isLoading) {
+        return <div className="p-10 text-gray-400">Loading...</div>;
+    }
+
     return (
-        <div className="flex-1 h-full overflow-y-auto bg-white relative">
-            <EditorContent editor={editor} className="p-8 pb-32" />
-            {/* Status Indicator */}
-            <div className="absolute bottom-4 right-8 text-xs text-gray-400">
-                {isDirty ? 'Unsaved' : 'Saved'}
-            </div>
+        <div className="h-full w-full overflow-auto bg-white">
+            <CodeMirror
+                key={activeNote.path} // IMPORTANT: Forces a fresh editor instance when switching files
+                value={content}       // We use our local 'content' state here
+                height="100%"
+                extensions={[
+                    markdown({ base: markdownLanguage, codeLanguages: languages }),
+                    syntaxHighlighting(myMarkdownTheme),
+                    EditorView.lineWrapping,
+                    baseTheme
+                ]}
+                onChange={onChange}
+            />
         </div>
     );
 }
