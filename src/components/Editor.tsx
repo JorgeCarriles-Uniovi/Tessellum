@@ -39,6 +39,14 @@ export function Editor() {
 
     const elRoot = useRef<Root | null>(null);
 
+    const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const activeNoteRef = useRef(activeNote);
+    const isLoadingRef = useRef(false);
+
+    useEffect(() => {
+        activeNoteRef.current = activeNote;
+    }, [activeNote]);
+
     const editor = useEditor({
         extensions: [
             StarterKit,
@@ -84,29 +92,52 @@ export function Editor() {
         },
         content: '',
         onUpdate: ({ editor }) => {
-            // We save Markdown
+            // Stop if we are currently loading a file
+            if (isLoadingRef.current) return;
+
             const md = (editor.storage as any).markdown.getMarkdown();
             setActiveNoteContent(md);
+
+            // Clear existing timer
+            if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+
+            saveTimeoutRef.current = setTimeout(() => {
+                const currentNote = activeNoteRef.current;
+
+                if(currentNote && currentNote.path) {
+                    invoke('write_file', {
+                        path: currentNote.path,
+                        content: md
+                    }).catch(console.error);
+                }
+
+            }, 1000);
         },
     });
 
     // Load active note content
     useEffect(() => {
+
+        if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current);
+        }
+
         if (!activeNote || !editor) return;
 
         const loadContent = async () => {
             try {
+
+                // Lock the editor so onUpdate ignores changes
+                isLoadingRef.current = true;
+
                 const content = await invoke<string>('read_file', { path: activeNote.path });
-                // Compare with current? If we setContent it resets cursor.
-                // Only set if completely different (new note).
-                // But we can't easily diff.
-                // Strategy: When activeNote ID/Path changes, we load.
-                // We assume activeNote object identity changes when selected.
-                editor.commands.setContent(content);
-                // Reset dirty?
-                setActiveNoteContent(content); // Sync store immediately
+
+                // Updates the editor visually without triggering onUpdate
+                editor.commands.setContent(content, {emitUpdate: false});
+                isLoadingRef.current = false;
             } catch (e) {
                 console.error("Failed to load note", e);
+                isLoadingRef.current = false;
             }
         };
 
