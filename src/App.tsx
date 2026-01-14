@@ -3,7 +3,6 @@ import { invoke } from "@tauri-apps/api/core";
 import {FileMetadata} from "./types.ts";
 import {useEditorStore} from "./stores/editorStore.ts";
 import {listen} from "@tauri-apps/api/event";
-import {path} from "@tauri-apps/api";
 import { open } from '@tauri-apps/plugin-dialog';
 import {Editor} from "./components/Editor.tsx";
 import {VaultExplorer} from "./components/VaultExplorer.tsx";
@@ -33,7 +32,6 @@ function App() {
       };
   }, [vaultPath]);
 
-    // @ts-ignore
     /**
      * Refreshes the list of files in the specified vault path by invoking a file listing operation,
      * sorting the results, and updating the file state.

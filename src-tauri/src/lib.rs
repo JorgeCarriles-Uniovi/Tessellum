@@ -158,17 +158,17 @@ fn create_note(vault_path: String, title: String) -> Result<String, String> {
     // Create a file path
     let mut filename = format!("{}.md", sanitized_title);
     let mut file_path = Path::new(&vault_path).join(filename);
-    let mut colision_index = 1;
+    let mut collision_index = 1;
     
     // Check for collisions in the filenames
     while file_path.exists() {
-        filename = format!("{} ({}).md", sanitized_title, colision_index);
+        filename = format!("{} ({}).md", sanitized_title, collision_index);
         file_path = Path::new(&vault_path).join(filename);
-        colision_index += 1;
+        collision_index += 1;
     };
     
     // Create an empty file
-    fs::write(&file_path, String::new()).expect("Unable to create file");
+    fs::write(&file_path, String::new()).map_err(|e| e.to_string())?;
     
     // to_string_lossy() is used to avoid encoding issues
     
@@ -243,7 +243,8 @@ fn trash_note(note_path: String, vault_path: String) -> Result<(), String> {
     // Get the trash directory or create it if it doesn't exist
     let trash_path = Path::new(&vault_path).join(".trash");
     if !trash_path.exists() {
-        fs::create_dir(&trash_path).expect("Unable to create trash directory");
+        fs::create_dir(&trash_path).map_err(|e| format!("Failed to create \
+        trash directory: {}", e))?;
     }
     
     // Get note filename
