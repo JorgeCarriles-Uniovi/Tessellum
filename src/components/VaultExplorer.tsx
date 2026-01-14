@@ -58,7 +58,7 @@ export function VaultExplorer() {
         if (!confirm(`Delete ${file.filename}?`)) return;
 
         try {
-            await invoke('trash_file', { path: file.path, vaultPath });
+            await invoke('trash_note', { notePath: file.path, vaultPath });
             await refreshFiles();
             if (activeNote?.path === file.path) {
                 setActiveNote(null);

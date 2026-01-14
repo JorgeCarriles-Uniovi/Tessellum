@@ -413,10 +413,8 @@ fn list_files(vault_path: String) -> Result<Vec<FileMetadata>, String> {
         let path = entry.path();
         let path_str = path.to_string_lossy().to_string();
         
-        let filename = path.file_name().unwrap().to_string_lossy();
-        
         // Ignore hidden files/dirs
-        if filename.starts_with(".git") || filename.starts_with(".trash") {
+        if path_str.contains(".git") || path_str.contains(".trash") {
             continue;
         }
         
