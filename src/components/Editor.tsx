@@ -19,6 +19,7 @@ export function Editor() {
     useEffect(() => {
         if (!activeNote) return;
 
+        // Clear any pending save timeout when switching to a different file
         if (saveTimeoutRef.current) {
             clearTimeout(saveTimeoutRef.current);
         }
@@ -38,7 +39,7 @@ export function Editor() {
         };
 
         loadFile();
-    }, [activeNote?.path, setIsLoading, setContent]); // Re-run only when the file path changes
+    }, [activeNote?.path]); // Re-run only when the file path changes
 
     // 3. SAVE LOGIC: Write back to disk on change
     const onChange = useCallback((val: string) => {
