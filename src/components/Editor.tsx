@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { languages } from '@codemirror/language-data';
@@ -14,7 +14,14 @@ export function Editor() {
     const [content, setContent] = useState<string>("");
     const [isLoading, setIsLoading] = useState(false);
 
+    const saveTimeoutRef = useRef<number | null>(null);
+
     useEffect(() => {
+
+        if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current);
+        }
+
         if (!activeNote) return;
 
         const loadFile = async () => {
@@ -25,7 +32,7 @@ export function Editor() {
                 setContent(text);
             } catch (error) {
                 console.error("Failed to read file:", error);
-                setContent("Error loading file.");
+                setContent(`Error loading file: ${activeNote.path}\n\nDetails: ${String(error)}`);
             } finally {
                 setIsLoading(false);
             }
@@ -39,11 +46,26 @@ export function Editor() {
         setContent(val); // Update local view immediately
 
         if (activeNote) {
-            // You might want to debounce this later, but for now it works
-            invoke('write_file', { path: activeNote.path, content: val })
-                .catch(console.error);
+
+            if (saveTimeoutRef.current) {
+                clearTimeout(saveTimeoutRef.current);
+            }
+
+            saveTimeoutRef.current = window.setTimeout(() => {
+                invoke('write_file', { path: activeNote.path, content: val })
+                    .catch(console.error);
+            }, 1000);
+
         }
     }, [activeNote]);
+
+    useEffect(() => {
+        return () => {
+            if (saveTimeoutRef.current) {
+                clearTimeout(saveTimeoutRef.current);
+            }
+        };
+    }, []);
 
     if (!activeNote) {
         return (
