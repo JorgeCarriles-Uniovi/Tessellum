@@ -5,7 +5,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher, Config, Event, Error};
-use tauri::{AppHandle, Emitter, Manager, State};
+use tauri::{AppHandle, Emitter, State};
 use std::sync::Mutex;
 
 /// Struct representing metadata information for a file or directory.
