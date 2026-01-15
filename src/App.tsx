@@ -1,11 +1,11 @@
 import { useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import {FileMetadata} from "./types.ts";
-import {useEditorStore} from "./stores/editorStore.ts";
-import {listen} from "@tauri-apps/api/event";
+import { FileMetadata } from "./types.ts";
+import { useEditorStore } from "./stores/editorStore.ts";
+import { listen } from "@tauri-apps/api/event";
 import { open } from '@tauri-apps/plugin-dialog';
-import {Editor} from "./components/Editor.tsx";
-import {VaultExplorer} from "./components/VaultExplorer.tsx";
+import { Editor } from "./components/Editor.tsx";
+import { VaultExplorer } from "./components/VaultExplorer.tsx";
 
 
 function App() {
