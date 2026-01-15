@@ -17,12 +17,12 @@ export function Editor() {
     const saveTimeoutRef = useRef<number | null>(null);
 
     useEffect(() => {
+        if (!activeNote) return;
 
+        // Clear any pending save timeout when switching to a different file
         if (saveTimeoutRef.current) {
             clearTimeout(saveTimeoutRef.current);
         }
-
-        if (!activeNote) return;
 
         const loadFile = async () => {
             try {
