@@ -17,12 +17,11 @@ export function Editor() {
     const saveTimeoutRef = useRef<number | null>(null);
 
     useEffect(() => {
+        if (!activeNote) return;
 
         if (saveTimeoutRef.current) {
             clearTimeout(saveTimeoutRef.current);
         }
-
-        if (!activeNote) return;
 
         const loadFile = async () => {
             try {
@@ -39,7 +38,7 @@ export function Editor() {
         };
 
         loadFile();
-    }, [activeNote?.path]); // Re-run only when the file path changes
+    }, [activeNote?.path, setIsLoading, setContent]); // Re-run only when the file path changes
 
     // 3. SAVE LOGIC: Write back to disk on change
     const onChange = useCallback((val: string) => {
