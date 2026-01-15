@@ -29,11 +29,12 @@ const baseTheme = EditorView.theme({
     ".cm-cursor": {
         borderLeftColor: "black"
     },
-    // Fix for the quote vertical bar
+    // Ensure block layout so the quote's vertical bar and styling render correctly,
+    // especially for multi-line quotes.
     ".cm-quote": {
         borderLeft: "4px solid #e5e7eb",
-        paddingLeft: "10px",
-        display: "block", // This helps with block layout
+        display: "block", // Forces block layout so the quote bar spans all wrapped lines
+        paddingLeft: "10px", // This helps with block layout
         marginLeft: "0px"
     }
 });

@@ -14,7 +14,7 @@ export function Editor() {
     const [content, setContent] = useState<string>("");
     const [isLoading, setIsLoading] = useState(false);
 
-    const saveTimeoutRef = useRef<number | null>(null);
+    const saveTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
 
     useEffect(() => {
 
@@ -57,7 +57,7 @@ export function Editor() {
             }, 1000);
 
         }
-    }, [activeNote]);
+    }, [activeNote?.path]);
 
     useEffect(() => {
         return () => {
