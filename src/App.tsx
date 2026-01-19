@@ -6,6 +6,7 @@ import { listen } from "@tauri-apps/api/event";
 import { open } from '@tauri-apps/plugin-dialog';
 import { Editor } from "./components/Editor.tsx";
 import { VaultExplorer } from "./components/VaultExplorer.tsx";
+import { Toaster } from "sonner";
 
 
 function App() {
@@ -92,6 +93,7 @@ function App() {
             <div className="flex-1 flex flex-col min-w-0 bg-white">
                 <Editor />
             </div>
+            <Toaster position="bottom-right" richColors />
         </div>
     );
 
