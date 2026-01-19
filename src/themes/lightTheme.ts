@@ -36,6 +36,11 @@ const baseTheme = EditorView.theme({
         display: "block", // Forces block layout so the quote bar spans all wrapped lines
         paddingLeft: "10px", // This helps with block layout
         marginLeft: "0px"
+    },
+    ".cm-wikilink": {
+        color: "#2563eb",
+        textDecoration: "underline",
+        cursor: "pointer"
     }
 });
 

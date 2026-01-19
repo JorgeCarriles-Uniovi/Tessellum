@@ -65,7 +65,8 @@ pub struct FileMetadata {
 ///
 /// ## Example
 /// ```
-/// use std::sync::{Arc, Mutex};
+/// use std::sync::Arc;
+/// use tokio::sync::Mutex
 /// use notify::RecommendedWatcher;
 ///
 /// let app_state = AppState {
@@ -74,7 +75,7 @@ pub struct FileMetadata {
 /// };
 /// ```
 pub struct AppState {
-    watcher: Mutex<Option<RecommendedWatcher>>,
+    watcher: std::sync::Mutex<Option<RecommendedWatcher>>,
     db: Arc<Mutex<Option<Database>>>
 }
 
@@ -82,7 +83,7 @@ impl Default for AppState {
     fn default() -> Self {
         Self {
             db: Arc::new(Mutex::new(None)),
-            watcher: Mutex::new(None)
+            watcher: std::sync::Mutex::new(None)
         }
     }
 }
@@ -332,9 +333,12 @@ fn read_file(path: String) -> Result<String, String> {
 /// }
 /// ```
 #[tauri::command]
-async fn write_file(state: State<'_, AppState>,path: String, content: String) ->
-Result<(), String> {
-    fs::write(&path, &content).map_err(|e| e.to_string())?;
+async fn write_file(
+    state: State<'_, AppState>,
+    path: String,
+    content: String
+    ) -> Result<(), String> {
+    tokio::fs::write(&path, &content).await.map_err(|e| e.to_string())?;
     
     let db_guard = state.db.lock().await;
     
@@ -355,7 +359,6 @@ Result<(), String> {
     }
     
     Ok(())
-    
 }
 
 /**
@@ -532,7 +535,8 @@ fn watch_vault(vault_path: String, handle: AppHandle, state: State<'_,
     // Initialize the watcher
     let mut watcher_guard = state
         .watcher
-        .blocking_lock();
+        .lock()
+        .map_err(|e| e.to_string())?;
     
     if watcher_guard.is_some() {
         return Ok(())
@@ -582,9 +586,18 @@ fn watch_vault(vault_path: String, handle: AppHandle, state: State<'_,
 /// assert_eq!(sanitized, "Hello World-2023");
 /// ```
 fn sanitize_string(s: String) -> String {
-    s.chars()
-        .filter(|c| c.is_alphanumeric() || *c == ' ' || *c == '-' || *c == '_')
-        .collect()
+    let sanitized: String = s.chars()
+        .filter(|c| {
+            c.is_alphanumeric()
+                || *c == ' '
+                || *c == '-'
+                || *c == '_'
+                || *c == '('
+                || *c == ')'
+                || *c == '.'
+        })
+        .collect();
+    sanitized.trim_end_matches(|c| c == '.' || c == ' ').to_string()
 }
 
 /// Extracts all wikilinks from the given input string.
@@ -618,8 +631,17 @@ fn sanitize_string(s: String) -> String {
 /// regex string used in this function is predefined and tested, so this is
 /// unlikely to occur under normal conditions.
 fn extract_wikilinks(content: &str) -> Vec<String> {
-    let reg = Regex::new (r"\[\[(.*?)\]\]").unwrap();
-    reg.captures_iter(content).map(|c| c[1].to_string()).collect()
+    let reg = Regex::new(r"(\\)?\[\[(.*?)\]\]").unwrap();
+    reg.captures_iter(content)
+        .filter_map(|c| {
+            // If there is a backslash before `[[`, this was an escaped literal and not a wikilink.
+            if c.get(1).is_some() {
+                None
+            } else {
+                Some(c[2].to_string())
+            }
+        })
+        .collect()
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -645,9 +667,8 @@ pub fn run() {
             // D. Construct the full path and URL for SQLite
             let db_path = app_dir.join("index.db");
             // Windows paths need special handling if they contain spaces, but usually this works:
-            let db_url = format!("sqlite://{}", db_path.to_string_lossy());
+            let db_url = db_path.to_string_lossy().to_string();
             
-            println!("Database path: {}", db_path.display());
             
             // E. Initialize the DB in a background thread (because .setup is synchronous)
             // We clone the DB Arc pointer so we can move it into the thread

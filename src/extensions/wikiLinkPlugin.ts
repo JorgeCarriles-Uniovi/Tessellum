@@ -1,8 +1,13 @@
-import { Decoration, ViewPlugin, MatchDecorator } from "@codemirror/view";
+import {
+    Decoration,
+    ViewPlugin,
+    MatchDecorator,
+    EditorView, ViewUpdate
+} from "@codemirror/view";
 
 // 1. The Logic
 const wikiLinkDecorator = new MatchDecorator({
-    regexp: /\[\[([^\]]+)\]\]/g,
+    regexp: /\[\[((?:\\\]|\](?!\])|[^\]])+)\]\]/g,
     decoration: (match) => Decoration.mark({
         tagName: "span",
         class: "cm-wikilink",
@@ -13,10 +18,10 @@ const wikiLinkDecorator = new MatchDecorator({
 // 2. The Extension
 export const wikiLinkPlugin = ViewPlugin.fromClass(class {
     decorations: any;
-    constructor(view: any) {
+    constructor(view: EditorView) {
         this.decorations = wikiLinkDecorator.createDeco(view);
     }
-    update(update: any) {
+    update(update: ViewUpdate) {
         if (update.docChanged || update.viewportChanged) {
             this.decorations = wikiLinkDecorator.createDeco(update.view);
         }
