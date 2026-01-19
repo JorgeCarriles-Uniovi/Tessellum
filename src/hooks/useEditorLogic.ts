@@ -79,7 +79,6 @@ export function useWikiLinkNavigation() {
         }
 
         // 2. If not, create new
-        console.log("Creating new note:", targetName);
         const separator = activeNote.path.includes("\\") ? "\\" : "/";
         const vaultPath = activeNote.path.substring(0, activeNote.path.lastIndexOf(separator));
 
@@ -109,7 +108,6 @@ export function useWikiLinkNavigation() {
 
 // --- HOOK 3: Bundles Editor Extensions ---
 export function useEditorExtensions(onWikiLinkClick: (text: string) => void) {
-    // Memoize the click handler separately
     const clickHandler = useMemo(() => EditorView.domEventHandlers({
         mousedown: (event) => {
             const target = event.target as HTMLElement;
