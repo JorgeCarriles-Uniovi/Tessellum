@@ -1,3 +1,5 @@
+mod db;
+
 use std::path::{Path};
 use std::fs;
 use std::fs::metadata;
@@ -5,8 +7,11 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 use walkdir::WalkDir;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher, Config, Event, Error};
-use tauri::{AppHandle, Emitter, State};
-use std::sync::Mutex;
+use tauri::{AppHandle, Emitter, Manager, State};
+use db::Database;
+use tokio::sync::Mutex;
+use std::sync::Arc;
+use regex::Regex;
 
 /// Struct representing metadata information for a file or directory.
 ///
@@ -38,52 +43,45 @@ pub struct FileMetadata {
     last_modified: i64,
 }
 
-/// Represents the shared state of an application.
-///
-/// This structure is designed to hold application-wide shared resources.
-/// It can be used to maintain state or manage resources that need to
-/// be accessed across multiple parts of the application.
+/// Represents the application state that contains shared resources such as
+/// a file watcher and a database connection.
 ///
 /// # Fields
-/// - `watcher`: A thread-safe `Mutex` wrapping an `Option<RecommendedWatcher>`.
-///   This is used for managing a file watcher, which may or may not be active (hence the `Option`).
-///   The `Mutex` ensures that access to the watcher is synchronized across
-///   multiple threads.
 ///
-/// # Use Case
-/// - This struct is ideal for scenarios where a watcher, such as a file or directory monitoring system,
-///   is required to track changes asynchronously within a shared state.
-/// - The `watcher` field can be `None` if there is no current need for a watcher,
-///   or it may hold an active `RecommendedWatcher` instance if monitoring is enabled.
+/// * `watcher` - A thread-safe, optional wrapper around a `RecommendedWatcher` instance.
+///   This watcher is typically used for monitoring file system events.
+///   It is wrapped in a `Mutex` to ensure safe concurrent access across threads.
 ///
-/// # Example
-/// ```rust
-/// use notify::{RecommendedWatcher, RecursiveMode, Watcher};
-/// use std::sync::Mutex;
-/// use my_crate::AppState;
+/// * `db` - A thread-safe, optional shared reference to a `Database` instance.
+///   The `Database` is wrapped in both an `Arc` for shared ownership across threads
+///   and a `Mutex` to provide mutable access, ensuring thread-safe operations.
+///
+/// # Usage
+///
+/// The `AppState` struct is designed to be utilized in scenarios where
+/// multiple parts of an application need shared access to these resources.
+/// The use of `Mutex` and `Arc` ensures that these resources can be safely
+/// accessed and modified across threads.
+///
+/// ## Example
+/// ```
+/// use std::sync::{Arc, Mutex};
+/// use notify::RecommendedWatcher;
 ///
 /// let app_state = AppState {
 ///     watcher: Mutex::new(None),
+///     db: Arc::new(Mutex::new(None)),
 /// };
-///
-/// // Later in the application, the watcher can be initialized and used:
-/// {
-///     let mut watcher_guard = app_state.watcher.lock().unwrap();
-///     *watcher_guard = Some(RecommendedWatcher::new(|res| {
-///         match res {
-///             Ok(event) => println!("Changed: {:?}", event),
-///             Err(e) => println!("Watcher error: {:?}", e),
-///         }
-///     }).unwrap());
-/// }
 /// ```
 pub struct AppState {
-    watcher: Mutex<Option<RecommendedWatcher>>
+    watcher: Mutex<Option<RecommendedWatcher>>,
+    db: Arc<Mutex<Option<Database>>>
 }
 
 impl Default for AppState {
     fn default() -> Self {
         Self {
+            db: Arc::new(Mutex::new(None)),
             watcher: Mutex::new(None)
         }
     }
@@ -334,8 +332,30 @@ fn read_file(path: String) -> Result<String, String> {
 /// }
 /// ```
 #[tauri::command]
-fn write_file(path: String, content: String) -> Result<(), String> {
-    fs::write(&path, content).map_err(|e| e.to_string())
+async fn write_file(state: State<'_, AppState>,path: String, content: String) ->
+Result<(), String> {
+    fs::write(&path, &content).map_err(|e| e.to_string())?;
+    
+    let db_guard = state.db.lock().await;
+    
+    if let Some(db) = db_guard.as_ref() {
+        let metadata = fs::metadata(&path).map_err(|e| e.to_string())?;
+        let size = metadata.len();
+        let modified = metadata.modified()
+            .unwrap_or(SystemTime::now())
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64;
+        
+        let links = extract_wikilinks(&content);
+        
+        db.index_file(&path, modified, size, &links)
+            .await
+            .map_err(|e| e.to_string())?;
+    }
+    
+    Ok(())
+    
 }
 
 /**
@@ -512,8 +532,11 @@ fn watch_vault(vault_path: String, handle: AppHandle, state: State<'_,
     // Initialize the watcher
     let mut watcher_guard = state
         .watcher
-        .lock()
-        .map_err(|_| "Unable to acquire lock on watcher")?;
+        .blocking_lock();
+    
+    if watcher_guard.is_some() {
+        return Ok(())
+    }
     
     let app_handle_clone = handle.clone();
     let notify_config = Config::default();
@@ -564,12 +587,88 @@ fn sanitize_string(s: String) -> String {
         .collect()
 }
 
+/// Extracts all wikilinks from the given input string.
+///
+/// Wikilinks are denoted by the pattern `[[...]]`, where "..." represents
+/// the content of the link. This function uses a regular expression to find
+/// all occurrences of these patterns and extracts their inner content.
+///
+/// # Arguments
+///
+/// * `content` - A string slice that contains the text from which wikilinks
+///   will be extracted. The input can contain any text, and the function will
+///   identify and extract wikilink patterns.
+///
+/// # Returns
+///
+/// A `Vec<String>` containing all extracted string values inside the `[[...]]`
+/// wikilink patterns. If no wikilinks are found, an empty vector is returned.
+///
+/// # Examples
+///
+/// ```
+/// let content = "This is a [[wikilink]] in a sentence. Here's another [[link]].";
+/// let links = extract_wikilinks(content);
+/// assert_eq!(links, vec!["wikilink".to_string(), "link".to_string()]);
+/// ```
+///
+/// # Panics
+///
+/// This function will panic if the regex definition is invalid. However, the
+/// regex string used in this function is predefined and tested, so this is
+/// unlikely to occur under normal conditions.
+fn extract_wikilinks(content: &str) -> Vec<String> {
+    let reg = Regex::new (r"\[\[(.*?)\]\]").unwrap();
+    reg.captures_iter(content).map(|c| c[1].to_string()).collect()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState::default())
+        .setup(|app| {
+            // A. Access the state we just registered
+            let app_state = app.state::<AppState>();
+            
+            // B. Resolve the path
+            let app_dir = app.path().app_data_dir()
+                .expect("Failed to resolve app data directory");
+            
+            // C. Ensure the directory actually exists on disk
+            if !app_dir.exists() {
+                fs::create_dir_all(&app_dir)
+                    .expect("Failed to create app data directory");
+            }
+            
+            // D. Construct the full path and URL for SQLite
+            let db_path = app_dir.join("index.db");
+            // Windows paths need special handling if they contain spaces, but usually this works:
+            let db_url = format!("sqlite://{}", db_path.to_string_lossy());
+            
+            println!("Database path: {}", db_path.display());
+            
+            // E. Initialize the DB in a background thread (because .setup is synchronous)
+            // We clone the DB Arc pointer so we can move it into the thread
+            let db_state_clone = app_state.db.clone();
+            
+            tauri::async_runtime::spawn(async move {
+                // Call your Database::init function
+                match Database::init(&db_url).await {
+                    Ok(db_instance) => {
+                        // Lock the Mutex and save the connection
+                        let mut db_guard = db_state_clone.lock().await;
+                        *db_guard = Some(db_instance);
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to initialize database: {}", e);
+                    }
+                }
+            });
+            
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             create_note,
             trash_note,
@@ -587,15 +686,25 @@ mod tests {
     use super::*;
     use tempfile::tempdir;
     
-    #[test]
-    fn test_save_and_get_file_content() {
+    fn get_test_state() -> State<'static, AppState> {
+        // In a real scenario, use tauri::test or proper mocking
+        // Here we just leak memory to get a static reference for the test signature
+        let state = Box::new(AppState::default());
+        let static_ref = Box::leak(state);
+        unsafe { std::mem::transmute(static_ref) }
+    }
+    
+    #[tokio::test]
+    async fn test_save_and_get_file_content() {
         let dir = tempdir().unwrap();
         let file_path = dir.path().join("test_note.md");
         let path_str = file_path.to_str().unwrap().to_string();
         let content = "# Hello World";
+        let state = get_test_state();
         
         // Test save
-        let save_result = write_file(path_str.clone(), content.to_string());
+        let save_result = write_file(state.clone(), path_str.clone(), content
+            .to_string()).await;
         assert!(save_result.is_ok());
         assert!(file_path.exists());
         
@@ -610,7 +719,8 @@ mod tests {
         
         // Test overwrite
         let new_content = "# New Content";
-        let save_result = write_file(path_str.clone(), new_content.to_string());
+        let save_result = write_file(state.clone(), path_str.clone(),
+            new_content.to_string()).await;
         assert!(save_result.is_ok());
         
         let get_result = read_file(path_str);
