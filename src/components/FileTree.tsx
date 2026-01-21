@@ -1,32 +1,58 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useEditorStore } from '../stores/editorStore';
 import { TreeNode } from '../utils/fileHelpers';
+import { FileMetadata } from '../types';
 import {
     ChevronRight,
     ChevronDown,
     File as FileIcon,
-    Folder as FolderIcon, FolderOpenIcon
-} from 'lucide-react'; // Assuming you use Lucide for native-looking icons
+    Folder as FolderIcon,
+    FolderOpenIcon,
+} from 'lucide-react';
+
+// --- Props Interfaces ---
+
+interface FileTreeProps {
+    data: TreeNode[];
+    onContextMenu: (e: React.MouseEvent, file: FileMetadata) => void;
+}
+
+interface FileNodeProps {
+    node: TreeNode;
+    level: number;
+    onContextMenu: (e: React.MouseEvent, file: FileMetadata) => void;
+}
 
 // --- Recursive Node Component ---
-const FileNode = ({ node, level }: { node: TreeNode; level: number }) => {
-    const { activeNote, setActiveNote, files } = useEditorStore();
-    const [isOpen, setIsOpen] = useState(false);
+const FileNode = ({ node, level, onContextMenu }: FileNodeProps) => {
+    const { activeNote, setActiveNote, files, expandedFolders, toggleFolder } = useEditorStore();
 
-    // Styling: Indent based on depth level
+    const isOpen = expandedFolders[node.id] || false;
+
+    // Styling
     const paddingLeft = `${level * 24 + 12}px`;
-
     const isActive = activeNote?.path === node.id;
 
+    // Helper: Find the real file object from the store
+    const getOriginalFile = () => files.find(f => f.path === node.id);
+
+    // Left Click: Selection / Toggling
     const handleClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         if (node.isDir) {
-            setIsOpen(!isOpen);
+            toggleFolder(node.id);
         } else {
-            // Find the original metadata object to set active
-            // (In a real app, maybe store the full metadata in the tree node too)
-            const originalFile = files.find(f => f.path === node.id);
+            const originalFile = getOriginalFile();
             if (originalFile) setActiveNote(originalFile);
+        }
+    };
+
+    // Right Click: Context Menu
+    const handleContextMenu = (e: React.MouseEvent) => {
+        const originalFile = getOriginalFile();
+        if (originalFile) {
+            // Pass the event and the Full Metadata object up to Sidebar
+            onContextMenu(e, originalFile);
         }
     };
 
@@ -35,6 +61,7 @@ const FileNode = ({ node, level }: { node: TreeNode; level: number }) => {
             {/* The Row Item */}
             <div
                 onClick={handleClick}
+                onContextMenu={handleContextMenu}
                 className={`
                     group flex items-center py-1 pr-2 cursor-pointer select-none
                     text-sm transition-colors duration-100 ease-in-out
@@ -42,24 +69,30 @@ const FileNode = ({ node, level }: { node: TreeNode; level: number }) => {
                 `}
                 style={{ paddingLeft }}
             >
-                {/* Icon Area: Chevron for folders, Spacer for files */}
-                <span className="mr-1 w-4 flex justify-center text-gray-400">
+                {/* 1. Expand/Collapse Icon */}
+                <span
+                    className="mr-1 w-4 flex justify-center text-gray-400 hover:text-gray-600"
+                    onClick={(e) => {
+                        // Allow clicking chevron separately to toggle folders
+                        e.stopPropagation();
+                        if(node.isDir) toggleFolder(node.id);
+                    }}
+                >
                     {node.isDir && (
                         isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />
                     )}
                 </span>
 
-                {/* 2. File/Folder Icon */}
+                {/* 2. File Type Icon */}
                 <span className={`mr-2 ${node.isDir ? "text-yellow-500" : "text-gray-400"}`}>
                     {node.isDir ? (
-                        // Show Open/Closed Folder Icon based on state
                         isOpen ? <FolderOpenIcon size={16} /> : <FolderIcon size={16} />
                     ) : (
                         <FileIcon size={16} />
                     )}
                 </span>
 
-                {/* Name */}
+                {/* 3. Name */}
                 <span className="truncate">{node.name}</span>
             </div>
 
@@ -67,7 +100,12 @@ const FileNode = ({ node, level }: { node: TreeNode; level: number }) => {
             {isOpen && node.children && (
                 <div>
                     {node.children.map(child => (
-                        <FileNode key={child.id} node={child} level={level + 1} />
+                        <FileNode
+                            key={child.id}
+                            node={child}
+                            level={level + 1}
+                            onContextMenu={onContextMenu}
+                        />
                     ))}
                 </div>
             )}
@@ -76,12 +114,16 @@ const FileNode = ({ node, level }: { node: TreeNode; level: number }) => {
 };
 
 // --- Main Tree Component ---
-export function FileTree({ data }: { data: TreeNode[] }) {
+export function FileTree({ data, onContextMenu }: FileTreeProps) {
     return (
         <div className="w-full h-full overflow-y-auto pb-4">
-            {/* Loop through root items */}
             {data.map(node => (
-                <FileNode key={node.id} node={node} level={0} />
+                <FileNode
+                    key={node.id}
+                    node={node}
+                    level={0}
+                    onContextMenu={onContextMenu} // 👈 Pass it to root nodes
+                />
             ))}
         </div>
     );

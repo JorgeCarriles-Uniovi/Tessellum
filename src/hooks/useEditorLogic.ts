@@ -120,6 +120,104 @@ export function useWikiLinkNavigation() {
     return onWikiLinkClick;
 }
 
+export function useNoteRenaming() {
+    const { activeNote, renameFile } = useEditorStore();
+
+    // 1. Local state for the input field
+    const [titleInput, setTitleInput] = useState("");
+
+    // 2. Sync local state when the active note changes (swapping files)
+    useEffect(() => {
+        if (activeNote) {
+            // Remove .md extension for the display title
+            setTitleInput(activeNote.filename.replace(/\.md$/i, ''));
+        } else {
+            setTitleInput("");
+        }
+    }, [activeNote]);
+
+    // 3. The Rename Action
+    const handleRename = useCallback(async () => {
+        if (!activeNote) return;
+
+        const cleanName = titleInput.trim();
+        const currentName = activeNote.filename.replace(/\.md$/i, '');
+
+        if (!cleanName || cleanName === currentName) {
+            if (!cleanName) setTitleInput(currentName);
+            return;
+        }
+
+        try {
+            // 1. Backend: Rename on disk
+            const newPath = await invoke<string>('rename_file', {
+                oldPath: activeNote.path,
+                newName: cleanName
+            });
+
+            // 2. Store: Update State (This is the function you were looking for)
+            const newFilename = `${cleanName}.md`;
+            renameFile(newPath, newFilename);
+
+            toast.success("Renamed successfully");
+
+        } catch (e: any) {
+            console.error("Rename failed", e);
+            toast.error(typeof e === 'string' ? e : "Failed to rename");
+            setTitleInput(currentName);
+        }
+    }, [activeNote, titleInput, renameFile])
+
+    return {
+        titleInput,
+        setTitleInput,
+        handleRename
+    };
+}
+
+export function useCreateFolder() {
+    const { files, setFiles, vaultPath, toggleFolder } = useEditorStore();
+
+    // Now accepts name and path as arguments
+    return useCallback(async (name: string, parentPath?: string) => {
+        const targetDir = parentPath || vaultPath;
+        if (!targetDir || !name) return;
+
+        try {
+            const newPath = await invoke<string>('create_folder', {
+                vaultPath: targetDir,
+                folderName: name
+            });
+
+            const newFolder: FileMetadata = {
+                path: newPath,
+                filename: name,
+                is_dir: true,
+                size: 0,
+                last_modified: Math.floor(Date.now() / 1000)
+            };
+
+            // Force open the parent folder so user sees the new folder
+            if (parentPath) {
+                toggleFolder(parentPath, true);
+            }
+
+            // Update list
+            const updated = [...files, newFolder].sort((a,b) => {
+                if(a.is_dir === b.is_dir) return a.filename.localeCompare(b.filename);
+                return a.is_dir ? -1 : 1;
+            });
+
+            setFiles(updated);
+            toast.success("Folder created");
+
+        } catch (e: any) {
+            console.error(e);
+            toast.error(typeof e === 'string' ? e : "Failed to create folder");
+        }
+    }, [files, vaultPath, setFiles, toggleFolder]);
+}
+
 // --- HOOK 3: Bundles Editor Extensions ---
 export function useEditorExtensions(onWikiLinkClick: (text: string) => void) {
     const clickHandler = useMemo(() => EditorView.domEventHandlers({

@@ -2,10 +2,10 @@ import CodeMirror from '@uiw/react-codemirror';
 import { useEditorStore } from '../stores/editorStore';
 import { useFileSynchronization,
          useWikiLinkNavigation,
-         useEditorExtensions } from '../hooks';
+         useEditorExtensions,
+         useNoteRenaming } from '../hooks';
 import { lightTheme } from "../themes/lightTheme.ts";
 import { EditorView } from '@codemirror/view';
-import { useMemo } from 'react';
 
 export function Editor() {
     const { activeNote } = useEditorStore();
@@ -15,17 +15,13 @@ export function Editor() {
     const onWikiLinkClick = useWikiLinkNavigation();
     const extensions = useEditorExtensions(onWikiLinkClick);
 
-    const title = useMemo(() => {
-        return activeNote?.filename.replace(/\.md$/i, '') || '';
-    }, [activeNote]);
+    const { titleInput, setTitleInput, handleRename } = useNoteRenaming();
 
     // 2. Render logic
     if (!activeNote) {
-        return (
-            <div className="h-full flex items-center justify-center text-gray-400">
-                Select a note to edit
-            </div>
-        );
+        return <div className="h-full flex items-center justify-center text-gray-400">
+            Select a note
+        </div>;
     }
 
     if (isLoading) {
@@ -45,9 +41,18 @@ export function Editor() {
             <div className="max-w-[800px] mx-auto px-8 py-12 flex flex-col">
 
                 {/* THE FILE HEADING */}
-                <h1 className="text-4xl font-bold text-gray-900 mb-8 break-words outline-none">
-                    {title}
-                </h1>
+                <input
+                    className="text-4xl font-bold text-gray-900 mb-8 bg-transparent outline-none border-none placeholder-gray-300 w-full"
+                    value={titleInput}
+                    onChange={(e) => setTitleInput(e.target.value)}
+                    onBlur={handleRename} // Save on click away
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                            e.currentTarget.blur(); // Trigger blur to save
+                        }
+                    }}
+                    placeholder="Untitled"
+                />
 
                 {/* THE EDITOR */}
                 <CodeMirror
