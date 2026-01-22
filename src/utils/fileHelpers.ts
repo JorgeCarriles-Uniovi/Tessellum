@@ -1,11 +1,12 @@
 // src/utils/fileHelpers.ts
-import { FileMetadata } from "../types";
+import {FileMetadata} from "../types";
 
 export interface TreeNode {
     id: string; // The full path
     name: string;
     isDir: boolean;
     children: TreeNode[];
+    file: FileMetadata;
 }
 
 export function buildFileTree(files: FileMetadata[]): TreeNode[] {
@@ -17,13 +18,13 @@ export function buildFileTree(files: FileMetadata[]): TreeNode[] {
     // but this logic builds strictly based on paths.
     files.forEach(file => {
         // Create the node object
-        const node: TreeNode = {
+        map[file.path] = {
             id: file.path,
             name: file.filename,
             isDir: file.is_dir,
-            children: []
+            children: [],
+            file: file
         };
-        map[file.path] = node;
     });
 
     // 2. Link children to parents

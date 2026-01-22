@@ -21,16 +21,25 @@ export function useDeleteFile() {
         try {
             await invoke('trash_item', { itemPath: target.path, vaultPath });
 
+            // Determine path separator based on the target path (supports Windows and POSIX)
+            const separator = target.path.includes('\\') ? '\\' : '/';
+            const childPrefix = target.path + separator;
             // Remove item AND its children from store
             const updatedFiles = files.filter(f =>
-                f.path !== target.path && !f.path.startsWith(target.path + (target.is_dir ? "" : "/"))
+                // Always remove the target itself
+                f.path !== target.path &&
+                // If target is a directory, remove its descendants with a proper boundary
+                !(target.is_dir && f.path.startsWith(childPrefix))
             );
-
             setFiles(updatedFiles);
-
-            if (activeNote && (activeNote.path === target.path || activeNote.path.startsWith(target.path))) {
-                setActiveNote(null);
-            }
+            if (activeNote) {
+                const activeIsTarget = activeNote.path === target.path;
+                const activeIsDescendant =
+                    target.is_dir && activeNote.path.startsWith(childPrefix);
+                if (activeIsTarget || activeIsDescendant) {
+                    setActiveNote(null);
+                }
+                }
 
             toast.success("Moved to trash");
         } catch (e) {

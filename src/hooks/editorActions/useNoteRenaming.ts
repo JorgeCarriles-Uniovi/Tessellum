@@ -15,7 +15,7 @@ const toStorageName = (name: string, isDir: boolean) =>
 
 
 export function useNoteRenaming() {
-    const { activeNote, renameFile } = useEditorStore();
+    const { activeNote, renameFile, vaultPath } = useEditorStore();
     const [titleInput, setTitleInput] = useState("");
 
     // 1. Sync local state when active note changes
@@ -46,6 +46,7 @@ export function useNoteRenaming() {
 
             // Backend: Rename on disk
             const newPath = await invoke<string>('rename_file', {
+                vaultPath: vaultPath,
                 oldPath: activeNote.path,
                 newName: cleanName // Backend likely handles the move logic
             });

@@ -25,7 +25,7 @@ interface FileNodeProps {
 
 // --- Recursive Node Component ---
 const FileNode = ({ node, level, onContextMenu }: FileNodeProps) => {
-    const { activeNote, setActiveNote, files, expandedFolders, toggleFolder } = useEditorStore();
+    const { activeNote, setActiveNote, expandedFolders, toggleFolder } = useEditorStore();
 
     const isOpen = expandedFolders[node.id] || false;
 
@@ -33,27 +33,19 @@ const FileNode = ({ node, level, onContextMenu }: FileNodeProps) => {
     const paddingLeft = `${level * 24 + 12}px`;
     const isActive = activeNote?.path === node.id;
 
-    // Helper: Find the real file object from the store
-    const getOriginalFile = () => files.find(f => f.path === node.id);
-
     // Left Click: Selection / Toggling
     const handleClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         if (node.isDir) {
             toggleFolder(node.id);
         } else {
-            const originalFile = getOriginalFile();
-            if (originalFile) setActiveNote(originalFile);
+            setActiveNote(node.file);
         }
     };
 
     // Right Click: Context Menu
     const handleContextMenu = (e: React.MouseEvent) => {
-        const originalFile = getOriginalFile();
-        if (originalFile) {
-            // Pass the event and the Full Metadata object up to Sidebar
-            onContextMenu(e, originalFile);
-        }
+        onContextMenu(e, node.file);
     };
 
     return (
@@ -122,7 +114,7 @@ export function FileTree({ data, onContextMenu }: FileTreeProps) {
                     key={node.id}
                     node={node}
                     level={0}
-                    onContextMenu={onContextMenu} // 👈 Pass it to root nodes
+                    onContextMenu={onContextMenu}
                 />
             ))}
         </div>

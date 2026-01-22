@@ -5,14 +5,17 @@ import { toast } from "sonner";
 import { FileMetadata } from "../../types";
 
 export function useRenameFile() {
-    const { files, setFiles, activeNote, setActiveNote } = useEditorStore();
+    const { files, setFiles, activeNote, setActiveNote, vaultPath } = useEditorStore();
 
     return useCallback(async (target: FileMetadata) => {
-        const newName = window.prompt("Rename to:", target.filename.replace(/\.md$/, ''));
-        if (!newName || newName === target.filename) return;
+
+        const defaultName = target.is_dir ? target.filename : target.filename.replace(/\.md$/, '');
+        const newName = window.prompt("Rename to:", defaultName);
+        if (!newName || newName === defaultName) return;
 
         try {
             const newPath = await invoke<string>('rename_file', {
+                vaultPath,
                 oldPath: target.path,
                 newName: newName
             });
