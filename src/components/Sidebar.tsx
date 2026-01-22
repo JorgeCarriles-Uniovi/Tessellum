@@ -1,72 +1,26 @@
-import {useMemo, useState} from 'react';
-import { useEditorStore } from '../stores/editorStore';
-import { buildFileTree } from '../utils/fileHelpers';
 import { FileTree } from './FileTree';
 import { FilePlusCorner as NewFileIcon, FolderPlus as NewFolderIcon } from 'lucide-react';
 import { SidebarContextMenu } from './SidebarContextMenu';
 import { InputModal } from './InputModal';
-
-import { useSidebarActions,
-         useContextMenu
-        } from '../hooks';
-
-import { useCreateFolder } from "../hooks/editorActions";
+import { useFileTree } from '../hooks';
 
 export function Sidebar() {
-    const { files } = useEditorStore();
-
-    // 1. Hooks for Logic
-    const { createNote, deleteFile, renameFile } = useSidebarActions();
-    const createFolder = useCreateFolder();
-    const { menuState, handleContextMenu, closeMenu } = useContextMenu();
-
-    const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
-    const [folderTarget, setFolderTarget] = useState<string | undefined>(undefined);
-
-    const handleHeaderNewFolder = () => {
-        setFolderTarget(undefined); // undefined means "Root"
-        setIsFolderModalOpen(true);
-    };
-
-    const handleContextNewFolder = () => {
-        if (menuState?.target) {
-            // If target is folder, use it. If file, use its parent.
-            const path = menuState.target.is_dir
-                ? menuState.target.path
-                : menuState.target.path.substring(0, menuState.target.path.lastIndexOf(menuState.target.path.includes('\\') ? '\\' : '/'));
-
-            setFolderTarget(path);
-            setIsFolderModalOpen(true);
-            closeMenu();
-        }
-    };
-
-    const handleCreateFolderConfirm = async (name: string) => {
-        await createFolder(name, folderTarget);
-        setIsFolderModalOpen(false);
-    };
-    const handleContextCreateNote = async () => {
-        if (!menuState?.target) return;
-
-        const { target } = menuState;
-        let parentPath = "";
-
-        if (target.is_dir) {
-            // If it's a folder, create INSIDE it
-            parentPath = target.path;
-        } else {
-            // If it's a file, create NEXT TO it (in its parent)
-            // Robust way to get parent dir regardless of OS separator
-            const separator = target.path.includes('\\') ? '\\' : '/';
-            parentPath = target.path.substring(0, target.path.lastIndexOf(separator));
-        }
-
-        await createNote(parentPath);
-        closeMenu();
-    };
-
-    // 2. Data Transformation
-    const treeData = useMemo(() => buildFileTree(files), [files]);
+    const {
+        files,
+        treeData,
+        menuState,
+        handleContextMenu,
+        closeMenu,
+        deleteFile,
+        renameFile,
+        createNote,
+        isFolderModalOpen,
+        closeFolderModal,
+        handleHeaderNewFolder,
+        handleContextNewFolder,
+        handleCreateFolderConfirm,
+        handleContextCreateNote,
+    } = useFileTree();
 
     return (
         <>
@@ -91,7 +45,7 @@ export function Sidebar() {
                     ) : (
                         <FileTree
                             data={treeData}
-                            onContextMenu={handleContextMenu} // 👇 Clean handler
+                            onContextMenu={handleContextMenu}
                         />
                     )}
                 </div>
@@ -113,7 +67,7 @@ export function Sidebar() {
             <InputModal
                 isOpen={isFolderModalOpen}
                 title="Create New Folder"
-                onClose={() => setIsFolderModalOpen(false)}
+                onClose={closeFolderModal}
                 onConfirm={handleCreateFolderConfirm}
             />
         </>
