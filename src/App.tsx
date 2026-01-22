@@ -28,12 +28,7 @@ function App() {
     async function refreshFiles(vaultPath: string): Promise<void> {
         try {
             const result = await invoke<FileMetadata[]>('list_files', {vaultPath});
-            // Note: Sorting happens in buildFileTree now, but keeping this doesn't hurt
-            const sorted = result.sort((a,b) => {
-                if(a.is_dir === b.is_dir) return a.filename.localeCompare(b.filename);
-                return a.is_dir ? -1 : 1;
-            });
-            setFiles(sorted);
+            setFiles(result);
         } catch (e) {console.error(e);}
     }
 

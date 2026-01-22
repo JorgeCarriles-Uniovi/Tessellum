@@ -49,7 +49,7 @@ const baseTheme = EditorView.theme({
         marginLeft: "0px"
     },
     ".cm-wikilink": {
-        color: "#2563eb",
+        color: "#1d4ed8",
         textDecoration: "underline",
         cursor: "pointer"
     }

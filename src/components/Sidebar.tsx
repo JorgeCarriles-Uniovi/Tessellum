@@ -76,7 +76,7 @@ export function Sidebar() {
                     <span className="font-semibold text-gray-500 uppercase tracking-wider text-xs">
                         Files
                     </span>
-                    <button onClick={() => createNote} className="ml-auto text-gray-400 hover:text-gray-600 cursor-pointer">
+                    <button onClick={() => createNote()} className="ml-auto text-gray-400 hover:text-gray-600 cursor-pointer">
                         <NewFileIcon size={16} />
                     </button>
                     <button onClick={handleHeaderNewFolder} className="ml-auto text-gray-400 hover:text-gray-600 cursor-pointer">

@@ -28,8 +28,7 @@ export function Editor() {
 
     return (
         // MAIN CONTAINER
-        // h-full ensures it takes the full right-panel height
-        // flex flex-col allows us to stack Title + Editor
+        // Contains the title and editor area
         <div className="h-full w-full bg-white flex flex-col">
 
             {/* TITLE AREA (Fixed at top) */}
@@ -47,7 +46,6 @@ export function Editor() {
             </div>
 
             {/* EDITOR AREA (Fills remaining space) */}
-            {/* flex-1 makes this div grow to hit the bottom of the window */}
             <div className="flex-1 w-full relative min-h-0 cursor-text"
             onMouseDown={editorClick}>
                 <CodeMirror
@@ -57,7 +55,6 @@ export function Editor() {
                     extensions={[...editorExtensions, EditorView.lineWrapping]}
                     onChange={handleContentChange}
 
-                    // 👇 CRITICAL: "100%" makes the React component fill the wrapper
                     height="100%"
                     className="h-full w-full"
 

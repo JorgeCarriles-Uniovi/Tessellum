@@ -572,34 +572,33 @@ fn list_files(vault_path: String) -> Result<Vec<FileMetadata>, String> {
 /// }
 /// ```
 #[tauri::command]
-async fn rename_file( old_path: String, new_name: String ) -> Result<String,
-String>{
-    
+async fn rename_file(old_path: String, new_name: String) -> Result<String, String> {
     let old = Path::new(&old_path);
     let parent = old.parent().ok_or("Invalid path")?;
     
-    let new_filename = sanitize_string(new_name);
-    let new_filename = if new_filename.ends_with(".md") {
-        new_filename.clone()
-    }
-    else {
-        if old.is_dir() {
-            new_filename.to_string()
-        }
-        else {
-            format!("{}.md", new_filename)
-        }
-    };
-    let new_path = parent.join(new_filename);
+    // 1. Sanitize the base name
+    let clean_name = sanitize_string(new_name);
     
-    if (new_path.exists()) {
+    // 2. Determine final filename based on file type
+    // If it's a directory, use name as is.
+    // If it's a file, ensure it has .md extension.
+    let final_filename = if old.is_dir() {
+        clean_name
+    } else if clean_name.ends_with(".md") {
+        clean_name
+    } else {
+        format!("{}.md", clean_name)
+    };
+    
+    let new_path = parent.join(final_filename);
+    
+    if new_path.exists() {
         return Err("File already exists".to_string());
     }
     
     tokio::fs::rename(old, &new_path).await.map_err(|e| e.to_string())?;
     
     Ok(new_path.to_string_lossy().to_string())
-
 }
 
 /// Watches a directory and emits an event to the frontend whenever a file within the directory changes.
