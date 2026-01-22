@@ -1,6 +1,6 @@
 mod db;
 
-use std::path::{Path};
+use std::path::{Path, PathBuf};
 use std::fs;
 use std::fs::metadata;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -175,6 +175,30 @@ fn create_note(vault_path: String, title: String) -> Result<String, String> {
 
 }
 
+#[tauri::command]
+async fn create_folder(vault_path: String, folder_name: String) -> Result<String, String> {
+    let sanitized_folder_name = sanitize_string(folder_name);
+    
+    // 1. SECURITY & VALIDATION:
+    // Ensure the name isn't empty after sanitization.
+    // This prevents joining "" to the path, which would target the vault root itself.
+    if sanitized_folder_name.trim().is_empty() {
+        return Err("Invalid folder name: Name cannot be empty".to_string());
+    }
+    
+    let folder_path = Path::new(&vault_path).join(&sanitized_folder_name);
+    
+    // 2. Check for existence
+    if folder_path.exists() {
+        return Err(String::from("Folder already exists"));
+    }
+    
+    // 3. Create the directory
+    tokio::fs::create_dir(&folder_path).await.map_err(|e| e.to_string())?;
+    
+    Ok(folder_path.to_string_lossy().to_string())
+}
+
 /// Moves a note file to a trash directory within the specified vault directory.
 ///
 /// This function is useful for "soft-deleting" notes by moving them to a `.trash`
@@ -238,41 +262,87 @@ fn create_note(vault_path: String, title: String) -> Result<String, String> {
 /// - Ensure the process running the function has proper permissions to create directories, delete,
 ///   and move files.
 #[tauri::command]
-fn trash_note(note_path: String, vault_path: String) -> Result<(), String> {
-    // Get the trash directory or create it if it doesn't exist
-    let trash_path = Path::new(&vault_path).join(".trash");
-    if !trash_path.exists() {
-        fs::create_dir(&trash_path).map_err(|e| format!("Failed to create \
-        trash directory: {}", e))?;
+async fn trash_item(item_path: String, vault_path: String) -> Result<(), String> {
+    let source_path = Path::new(&item_path);
+    let vault_root = Path::new(&vault_path);
+    
+    let trash_dir = vault_root.join(".trash");
+    if !trash_dir.exists() {
+        tokio::fs::create_dir(&trash_dir).await.map_err(|e| format!("Failed to \
+        create .trash: {}", e))?;
     }
     
-    // Get note filename
-    let note_to_trash = Path::new(&note_path);
-    let filename = note_to_trash.file_name().ok_or("Invalid path")?;
+    if !source_path.exists() {
+        return Err("Item does not exist".to_string());
+    }
     
-    // Create the destination path
-    let mut dest = trash_path.join(filename);
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis();
     
-    // Get the timestamp to ensure uniqueness
-    let timestamp = SystemTime::now().
-        duration_since(UNIX_EPOCH).
-        unwrap().
-        as_millis();
-    let filename_as_str = filename.to_string_lossy();
-    let filename_as_str = filename_as_str.trim_end_matches(".md");
+    // --- Step A: Rename the Main Item ---
+    let trash_filename = generate_trash_name(source_path, timestamp)
+        .ok_or("Failed to generate name")?;
     
-    // Get the parent directory of the note for clarity
-    let parent_directory = note_to_trash.parent().unwrap().file_name().unwrap()
-        .to_string_lossy();
-    let trash_filename = format!("{} ({}) {}.md", filename_as_str,
-        parent_directory, timestamp);
+    let dest_path = trash_dir.join(&trash_filename);
     
-    // Get the final destination path with the new filename
-    dest = trash_path.join(trash_filename);
+    // Move the folder (and all contents) to .trash
+    tokio::fs::rename(source_path, &dest_path).await.map_err(|e| e.to_string
+    ())?;
     
-    // Rename the file and move to destination
-    fs::rename(note_to_trash, dest).map_err(|e| e.to_string())
+    // --- Step B: Recursively Rename Contents ---
+    // If we just moved a directory, we now go inside it and rename everything there too.
+    if dest_path.is_dir() {
+        rename_recursively(&dest_path, timestamp).map_err(|e| e.to_string())?;
+    }
     
+    Ok(())
+}
+
+fn generate_trash_name(path: &Path, timestamp: u128) -> Option<String> {
+    let filename = path.file_name()?.to_string_lossy();
+    
+    // Get parent name, but clean it up!
+    // If parent is "Folder (Root) 12345", we just want "Folder" for the child's context.
+    let raw_parent = path.parent()
+        .and_then(|p| p.file_name())
+        .map(|n| n.to_string_lossy())
+        .unwrap_or_else(|| "root".into());
+    
+    // Simple parser: Stop at the first " (" to strip previous timestamps
+    let clean_parent = raw_parent.split(" (").next().unwrap_or(&raw_parent);
+    
+    if path.is_dir() {
+        Some(format!("{} ({}) {}", filename, clean_parent, timestamp))
+    } else {
+        let stem = filename.trim_end_matches(".md");
+        Some(format!("{} ({}) {}.md", stem, clean_parent, timestamp))
+    }
+}
+
+fn rename_recursively(dir: &Path, timestamp: u128) -> std::io::Result<()> {
+    if !dir.is_dir() { return Ok(()); }
+    
+    // Collect paths first to avoid issues while modifying the directory
+    let entries: Vec<PathBuf> = fs::read_dir(dir)?
+        .filter_map(|e| e.ok().map(|entry| entry.path()))
+        .collect();
+    
+    for path in entries {
+        if let Some(new_name) = generate_trash_name(&path, timestamp) {
+            let new_path = path.parent().unwrap().join(new_name);
+            
+            // Rename the current item
+            fs::rename(&path, &new_path)?;
+            
+            // If it is a directory, we must recurse into the NEW path
+            if new_path.is_dir() {
+                rename_recursively(&new_path, timestamp)?;
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Reads the contents of a file at the given path and returns it as a `String`.
@@ -343,7 +413,7 @@ async fn write_file(
     let db_guard = state.db.lock().await;
     
     if let Some(db) = db_guard.as_ref() {
-        let metadata = fs::metadata(&path).map_err(|e| e.to_string())?;
+        let metadata = metadata(&path).map_err(|e| e.to_string())?;
         let size = metadata.len();
         let modified = metadata.modified()
             .unwrap_or(SystemTime::now())
@@ -469,6 +539,93 @@ fn list_files(vault_path: String) -> Result<Vec<FileMetadata>, String> {
     
     Ok(files)
     
+}
+
+/// Asynchronous Tauri command to rename a file.
+///
+/// # Parameters
+/// - `old_path` (String): The current path of the file to be renamed.
+/// - `new_name` (String): The new name for the file. If it does not include
+///   a `.md` extension, it will be automatically added.
+///
+/// # Returns
+/// - `Ok(String)`: The new path of the renamed file as a string if the
+///   operation is successful.
+/// - `Err(String)`: An error message as a string if the operation fails.
+///
+/// # Errors
+/// - Returns `"Invalid path"` if the parent directory of the `old_path`
+///   cannot be determined.
+/// - Returns `"File already exists"` if a file with the same name
+///   already exists in the directory.
+/// - Returns the specific error message returned from `tokio::fs::rename`
+///   if the rename operation fails.
+///
+/// # Notes
+/// - The function uses the helper function `sanitize_string` to
+///   clean or sanitize the `new_name`.
+/// - The `.md` extension is automatically appended to the file name if
+///   it is not included in the `new_name`.
+///
+/// # Examples
+/// ```rust
+/// let result = rename_file(
+///     "/path/to/old_file.md".to_string(),
+///     "new_file".to_string()
+/// )
+/// .await;
+///
+/// match result {
+///     Ok(new_path) => println!("File renamed to: {}", new_path),
+///     Err(err) => eprintln!("Error: {}", err),
+/// }
+/// ```
+#[tauri::command]
+async fn rename_file(vault_path: String, old_path: String, new_name: String) -> Result<String, String> {
+    let vault_root = Path::new(&vault_path);
+    let old = Path::new(&old_path);
+    
+    // 1. SECURITY: Ensure the file being renamed is actually inside the vault
+    // We strictly check if old_path starts with vault_path
+    if !old.starts_with(vault_root) {
+        return Err("Security Error: Cannot rename files outside the vault".to_string());
+    }
+    
+    let parent = old.parent().ok_or("Invalid path: No parent directory")?;
+    
+    // 2. Sanitize and Validate Name
+    let clean_name = sanitize_string(new_name);
+    
+    // Explicitly reject empty names instead of creating ".md" or "parent/.md"
+    if clean_name.trim().is_empty() {
+        return Err("Invalid name: Filename cannot be empty".to_string());
+    }
+    
+    // 3. Format Filename (Directory vs File)
+    let final_filename = if old.is_dir() {
+        clean_name
+    } else if clean_name.ends_with(".md") {
+        clean_name
+    } else {
+        format!("{}.md", clean_name)
+    };
+    
+    let new_path = parent.join(final_filename);
+    
+    // 4. SECURITY: Ensure the NEW path is also inside the vault
+    // (Prevents renaming "file.md" to "../outside.md")
+    if !new_path.starts_with(vault_root) {
+        return Err("Security Error: Cannot rename file to outside the vault".to_string());
+    }
+    
+    if new_path.exists() {
+        return Err("A file or folder with that name already exists".to_string());
+    }
+    
+    // 5. Perform the Rename
+    tokio::fs::rename(old, &new_path).await.map_err(|e| e.to_string())?;
+    
+    Ok(new_path.to_string_lossy().to_string())
 }
 
 /// Watches a directory and emits an event to the frontend whenever a file within the directory changes.
@@ -692,11 +849,13 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             create_note,
-            trash_note,
+            trash_item,
             read_file,
             write_file,
             list_files,
-            watch_vault
+            watch_vault,
+            rename_file,
+            create_folder
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -706,6 +865,7 @@ pub fn run() {
 mod tests {
     use super::*;
     use tempfile::tempdir;
+    use tokio::fs::File;
     
     fn get_test_state() -> State<'static, AppState> {
         // In a real scenario, use tauri::test or proper mocking
@@ -822,24 +982,24 @@ mod tests {
         assert!(path5.ends_with("NoteWithChars.md"));
     }
     
-    #[test]
-    fn test_trash_note() {
+    #[tokio::test]
+    async fn test_trash_note() {
         let dir = tempdir().unwrap();
         let vault_path = dir.path().to_str().unwrap().to_string();
         let trash_path = dir.path().join(".trash");
         
         // Create a subfolder to test parent name
         let subfolder = dir.path().join("subfolder");
-        fs::create_dir(&subfolder).unwrap();
+        tokio::fs::create_dir(&subfolder).await.unwrap();
         
         // Create a file to delete inside subfolder
         let file_path = subfolder.join("todelete.md");
-        fs::write(&file_path, "content").unwrap();
+        tokio::fs::write(&file_path, "content").await.unwrap();
         let file_path_str = file_path.to_str().unwrap().to_string();
         
         // Delete it
-        let result = trash_note(file_path_str.clone(), vault_path.clone());
-        assert!(result.is_ok());
+        let result = trash_item(file_path_str.clone(), vault_path.clone());
+        assert!(result.await.is_ok());
         
         // File should be gone from original spot
         assert!(!file_path.exists());
@@ -858,5 +1018,139 @@ mod tests {
         // Expected format: todelete (subfolder) <timestamp>.md
         assert!(trash_filename.starts_with("todelete (subfolder) "));
         assert!(trash_filename.ends_with(".md"));
+    }
+    
+    #[tokio::test]
+    async fn test_create_folder_success() {
+        let dir = tempdir().unwrap();
+        let vault_path = dir.path().to_str().unwrap().to_string();
+        
+        let result = create_folder(vault_path.clone(), "New Project".to_string()).await;
+        
+        assert!(result.is_ok());
+        let created_path = dir.path().join("New Project");
+        assert!(created_path.exists());
+        assert!(created_path.is_dir());
+    }
+    
+    #[tokio::test]
+    async fn test_create_folder_empty_or_invalid_name() {
+        let dir = tempdir().unwrap();
+        let vault_path = dir.path().to_str().unwrap().to_string();
+        
+        // Assuming sanitize_string turns "   " into ""
+        let result = create_folder(vault_path, "   ".to_string()).await;
+        
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), "Invalid folder name: Name cannot be empty");
+    }
+    
+    #[tokio::test]
+    async fn test_create_folder_already_exists() {
+        let dir = tempdir().unwrap();
+        let vault_path = dir.path().to_str().unwrap().to_string();
+        
+        // Manually create the folder first
+        let existing_path = dir.path().join("Duplicate");
+        tokio::fs::create_dir(&existing_path).await.unwrap();
+        
+        // Try creating it again via the function
+        let result = create_folder(vault_path, "Duplicate".to_string()).await;
+        
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), "Folder already exists");
+    }
+    
+    // --- Rename File Tests ---
+    
+    #[tokio::test]
+    async fn test_rename_markdown_file_adds_extension() {
+        let dir = tempdir().unwrap();
+        let vault_path = dir.path().to_str().unwrap().to_string();
+        
+        // Create source file: "old_note.md"
+        let old_path = dir.path().join("old_note.md");
+        File::create(&old_path).await.unwrap();
+        
+        // Rename "old_note.md" -> "new_note" (should become "new_note.md")
+        let result = rename_file(
+            vault_path,
+            old_path.to_str().unwrap().to_string(),
+            "new_note".to_string()
+        ).await;
+        
+        assert!(result.is_ok());
+        
+        // Verify old is gone and new exists with extension
+        assert!(!old_path.exists());
+        assert!(dir.path().join("new_note.md").exists());
+    }
+    
+    #[tokio::test]
+    async fn test_rename_directory_no_extension() {
+        let dir = tempdir().unwrap();
+        let vault_path = dir.path().to_str().unwrap().to_string();
+        
+        // Create source directory: "OldFolder"
+        let old_folder = dir.path().join("OldFolder");
+        tokio::fs::create_dir(&old_folder).await.unwrap();
+        
+        // Rename "OldFolder" -> "NewFolder" (should stay "NewFolder")
+        let result = rename_file(
+            vault_path,
+            old_folder.to_str().unwrap().to_string(),
+            "NewFolder".to_string()
+        ).await;
+        
+        assert!(result.is_ok());
+        
+        // Verify new folder exists without .md extension
+        assert!(!old_folder.exists());
+        assert!(dir.path().join("NewFolder").exists());
+        assert!(dir.path().join("NewFolder").is_dir());
+    }
+    
+    #[tokio::test]
+    async fn test_rename_security_outside_vault() {
+        let vault_dir = tempdir().unwrap();
+        let outside_dir = tempdir().unwrap(); // Completely separate temp dir
+        
+        let vault_path = vault_dir.path().to_str().unwrap().to_string();
+        
+        // Create a file OUTSIDE the vault
+        let outside_file = outside_dir.path().join("hacker.md");
+        File::create(&outside_file).await.unwrap();
+        
+        // Attempt to rename the outside file using the vault context
+        let result = rename_file(
+            vault_path,
+            outside_file.to_str().unwrap().to_string(),
+            "innocent.md".to_string()
+        ).await;
+        
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Security Error"));
+    }
+    
+    #[tokio::test]
+    async fn test_rename_collision() {
+        let dir = tempdir().unwrap();
+        let vault_path = dir.path().to_str().unwrap().to_string();
+        
+        // Create File A and File B
+        let path_a = dir.path().join("note_a.md");
+        let path_b = dir.path().join("note_b.md");
+        File::create(&path_a).await.unwrap();
+        File::create(&path_b).await.unwrap();
+        
+        // Try to rename A to B
+        let result = rename_file(
+            vault_path,
+            path_a.to_str().unwrap().to_string(),
+            "note_b".to_string() // Function adds .md automatically
+        ).await;
+        
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("already exists"));
     }
 }

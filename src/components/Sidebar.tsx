@@ -1,0 +1,75 @@
+import { FileTree } from './FileTree';
+import { FilePlusCorner as NewFileIcon, FolderPlus as NewFolderIcon } from 'lucide-react';
+import { SidebarContextMenu } from './SidebarContextMenu';
+import { InputModal } from './InputModal';
+import { useFileTree } from '../hooks';
+
+export function Sidebar() {
+    const {
+        files,
+        treeData,
+        menuState,
+        handleContextMenu,
+        closeMenu,
+        deleteFile,
+        renameFile,
+        createNote,
+        isFolderModalOpen,
+        closeFolderModal,
+        handleHeaderNewFolder,
+        handleContextNewFolder,
+        handleCreateFolderConfirm,
+        handleContextCreateNote,
+    } = useFileTree();
+
+    return (
+        <>
+            <aside className="w-64 h-full flex flex-col border-r border-gray-200 bg-white flex-shrink-0">
+                {/* Header */}
+                <div className="h-10 flex items-center px-4 border-b border-gray-200 shadow-sm z-10">
+                    <span className="font-semibold text-gray-500 uppercase tracking-wider text-xs">
+                        Files
+                    </span>
+                    <button onClick={() => createNote()} className="ml-auto text-gray-400 hover:text-gray-600 cursor-pointer">
+                        <NewFileIcon size={16} />
+                    </button>
+                    <button onClick={handleHeaderNewFolder} className="ml-auto text-gray-400 hover:text-gray-600 cursor-pointer">
+                        <NewFolderIcon size={16} />
+                    </button>
+                </div>
+
+                {/* Tree */}
+                <div className="flex-1 overflow-y-auto py-2">
+                    {files.length === 0 ? (
+                        <div className="px-4 py-8 text-center text-gray-400 italic">No files found</div>
+                    ) : (
+                        <FileTree
+                            data={treeData}
+                            onContextMenu={handleContextMenu}
+                        />
+                    )}
+                </div>
+            </aside>
+
+            {/* Context Menu */}
+            {menuState && (
+                <SidebarContextMenu
+                    x={menuState.x}
+                    y={menuState.y}
+                    target={menuState.target}
+                    onClose={closeMenu}
+                    onRename={() => renameFile(menuState.target)}
+                    onDelete={() => deleteFile(menuState.target)}
+                    onNewNote={handleContextCreateNote}
+                    onNewFolder={handleContextNewFolder}
+                />
+            )}
+            <InputModal
+                isOpen={isFolderModalOpen}
+                title="Create New Folder"
+                onClose={closeFolderModal}
+                onConfirm={handleCreateFolderConfirm}
+            />
+        </>
+    );
+}

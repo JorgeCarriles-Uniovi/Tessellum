@@ -1,24 +1,25 @@
-import CodeMirror from '@uiw/react-codemirror';
+import CodeMirror, {ReactCodeMirrorRef} from '@uiw/react-codemirror';
 import { useEditorStore } from '../stores/editorStore';
-import { useFileSynchronization,
-         useWikiLinkNavigation,
-         useEditorExtensions } from '../hooks';
+import {
+    useFileSynchronization,
+    useEditorActions
+} from '../hooks';
+import { lightTheme } from "../themes/lightTheme.ts";
+import { EditorView } from '@codemirror/view';
+import {useRef} from "react";
 
 export function Editor() {
     const { activeNote } = useEditorStore();
 
-    // 1. Use the hooks
+    // 1. Logic Hooks
     const { content, isLoading, handleContentChange } = useFileSynchronization(activeNote);
-    const onWikiLinkClick = useWikiLinkNavigation();
-    const extensions = useEditorExtensions(onWikiLinkClick);
 
-    // 2. Render logic
+    const editorRef = useRef<ReactCodeMirrorRef>(null);
+
+    const { noteRenaming, editorExtensions, editorClick } = useEditorActions(editorRef);
+
     if (!activeNote) {
-        return (
-            <div className="h-full flex items-center justify-center text-gray-400">
-                Select a note to edit
-            </div>
-        );
+        return <div className="h-full flex items-center justify-center text-gray-400 select-none">Select a note</div>;
     }
 
     if (isLoading) {
@@ -26,14 +27,46 @@ export function Editor() {
     }
 
     return (
-        <div className="h-full w-full overflow-auto bg-white">
-            <CodeMirror
-                key={activeNote.path}
-                value={content}
-                height="100%"
-                extensions={extensions}
-                onChange={handleContentChange}
-            />
+        // MAIN CONTAINER
+        // Contains the title and editor area
+        <div className="h-full w-full bg-white flex flex-col">
+
+            {/* TITLE AREA (Fixed at top) */}
+            <div className="w-full max-w-[800px] mx-auto px-8 pt-12 pb-4 flex-shrink-0">
+                <input
+                    className="text-4xl font-bold text-gray-900 bg-transparent outline-none border-none placeholder-gray-300 w-full"
+                    value={noteRenaming.titleInput}
+                    onChange={(e) => noteRenaming.setTitleInput(e.target.value)}
+                    onBlur={noteRenaming.handleRename}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') e.currentTarget.blur();
+                    }}
+                    placeholder="Untitled"
+                />
+            </div>
+
+            {/* EDITOR AREA (Fills remaining space) */}
+            <div className="flex-1 w-full relative min-h-0 cursor-text"
+            onMouseDown={editorClick}>
+                <CodeMirror
+                    ref={editorRef}
+                    key={activeNote.path}
+                    value={content}
+                    extensions={[...editorExtensions, EditorView.lineWrapping]}
+                    onChange={handleContentChange}
+
+                    height="100%"
+                    className="h-full w-full"
+
+                    basicSetup={{
+                        lineNumbers: false,
+                        foldGutter: false,
+                        highlightActiveLine: false,
+                        highlightActiveLineGutter: false,
+                    }}
+                    theme={lightTheme}
+                />
+            </div>
         </div>
     );
 }

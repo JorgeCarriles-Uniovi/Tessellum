@@ -18,19 +18,30 @@ const markdownHighlighting = HighlightStyle.define([
 ]);
 
 const baseTheme = EditorView.theme({
+    "&": {
+        backgroundColor: "transparent",
+        height: "100%",
+    },
+    "&.cm-focused": {
+        outline: "none !important",
+    },
     ".cm-content": {
         fontFamily: "'Inter', sans-serif",
         fontSize: "16px",
         lineHeight: "1.6",
-        padding: "20px",
         maxWidth: "800px",
         margin: "0 auto",
+        padding: "2rem",
+        minHeight: "100%",
+        paddingBottom: "50vh",
+    },
+    ".cm-scroller": {
+        height: "100%",
+        overflow: "auto",
     },
     ".cm-cursor": {
         borderLeftColor: "black"
     },
-    // Ensure block layout so the quote's vertical bar and styling render correctly,
-    // especially for multi-line quotes.
     ".cm-quote": {
         borderLeft: "4px solid #e5e7eb",
         display: "block", // Forces block layout so the quote bar spans all wrapped lines
@@ -38,7 +49,7 @@ const baseTheme = EditorView.theme({
         marginLeft: "0px"
     },
     ".cm-wikilink": {
-        color: "#2563eb",
+        color: "#1d4ed8",
         textDecoration: "underline",
         cursor: "pointer"
     }
