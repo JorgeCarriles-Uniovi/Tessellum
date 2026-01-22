@@ -1,13 +1,7 @@
 // src/utils/fileHelpers.ts
-import {FileMetadata} from "../types";
+import { FileMetadata, TreeNode } from "../types";
 
-export interface TreeNode {
-    id: string; // The full path
-    name: string;
-    isDir: boolean;
-    children: TreeNode[];
-    file: FileMetadata;
-}
+export type { TreeNode };
 
 export function buildFileTree(files: FileMetadata[]): TreeNode[] {
     const root: TreeNode[] = [];

@@ -5,3 +5,11 @@ export interface FileMetadata {
     size: number,
     last_modified: number
 }
+
+export interface TreeNode {
+    id: string; // The full path
+    name: string;
+    isDir: boolean;
+    children: TreeNode[];
+    file: FileMetadata;
+}
