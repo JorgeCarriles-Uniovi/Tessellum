@@ -1,27 +1,25 @@
-import CodeMirror from '@uiw/react-codemirror';
+import CodeMirror, {ReactCodeMirrorRef} from '@uiw/react-codemirror';
 import { useEditorStore } from '../stores/editorStore';
-import { useFileSynchronization,
-         useWikiLinkNavigation,
-         useEditorExtensions,
-         useNoteRenaming } from '../hooks';
+import {
+    useFileSynchronization,
+    useEditorActions
+} from '../hooks';
 import { lightTheme } from "../themes/lightTheme.ts";
 import { EditorView } from '@codemirror/view';
+import {useRef} from "react";
 
 export function Editor() {
     const { activeNote } = useEditorStore();
 
-    // 1. Use the hooks
+    // 1. Logic Hooks
     const { content, isLoading, handleContentChange } = useFileSynchronization(activeNote);
-    const onWikiLinkClick = useWikiLinkNavigation();
-    const extensions = useEditorExtensions(onWikiLinkClick);
 
-    const { titleInput, setTitleInput, handleRename } = useNoteRenaming();
+    const editorRef = useRef<ReactCodeMirrorRef>(null);
 
-    // 2. Render logic
+    const { noteRenaming, editorExtensions, editorClick } = useEditorActions(editorRef);
+
     if (!activeNote) {
-        return <div className="h-full flex items-center justify-center text-gray-400">
-            Select a note
-        </div>;
+        return <div className="h-full flex items-center justify-center text-gray-400 select-none">Select a note</div>;
     }
 
     if (isLoading) {
@@ -29,42 +27,40 @@ export function Editor() {
     }
 
     return (
-        // SCROLL CONTAINER: The parent div handles the scrolling for the whole document
-        <div className="h-full w-full overflow-y-auto bg-white cursor-text"
-             onClick={(e) => {
-                 if (e.target === e.currentTarget) {
-                     // logic to focus editor could go here
-                 }
-             }}
-        >
-            {/* CONTENT WRAPPER: Centers the text */}
-            <div className="max-w-[800px] mx-auto px-8 py-12 flex flex-col">
+        // MAIN CONTAINER
+        // h-full ensures it takes the full right-panel height
+        // flex flex-col allows us to stack Title + Editor
+        <div className="h-full w-full bg-white flex flex-col">
 
-                {/* THE FILE HEADING */}
+            {/* TITLE AREA (Fixed at top) */}
+            <div className="w-full max-w-[800px] mx-auto px-8 pt-12 pb-4 flex-shrink-0">
                 <input
-                    className="text-4xl font-bold text-gray-900 mb-8 bg-transparent outline-none border-none placeholder-gray-300 w-full"
-                    value={titleInput}
-                    onChange={(e) => setTitleInput(e.target.value)}
-                    onBlur={handleRename} // Save on click away
+                    className="text-4xl font-bold text-gray-900 bg-transparent outline-none border-none placeholder-gray-300 w-full"
+                    value={noteRenaming.titleInput}
+                    onChange={(e) => noteRenaming.setTitleInput(e.target.value)}
+                    onBlur={noteRenaming.handleRename}
                     onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                            e.currentTarget.blur(); // Trigger blur to save
-                        }
+                        if (e.key === 'Enter') e.currentTarget.blur();
                     }}
                     placeholder="Untitled"
                 />
+            </div>
 
-                {/* THE EDITOR */}
+            {/* EDITOR AREA (Fills remaining space) */}
+            {/* flex-1 makes this div grow to hit the bottom of the window */}
+            <div className="flex-1 w-full relative min-h-0 cursor-text"
+            onMouseDown={editorClick}>
                 <CodeMirror
-                    key={activeNote.path} // Forces re-render on file switch
+                    ref={editorRef}
+                    key={activeNote.path}
                     value={content}
-                    extensions={[
-                        ...extensions,
-                        EditorView.lineWrapping
-                    ]}
+                    extensions={[...editorExtensions, EditorView.lineWrapping]}
                     onChange={handleContentChange}
-                    // "auto" makes the editor grow with text, so the window scrolls
-                    height="auto"
+
+                    // 👇 CRITICAL: "100%" makes the React component fill the wrapper
+                    height="100%"
+                    className="h-full w-full"
+
                     basicSetup={{
                         lineNumbers: false,
                         foldGutter: false,
@@ -72,8 +68,6 @@ export function Editor() {
                         highlightActiveLineGutter: false,
                     }}
                     theme={lightTheme}
-                    // Minimal styling to blend in
-                    className="text-lg w-full"
                 />
             </div>
         </div>

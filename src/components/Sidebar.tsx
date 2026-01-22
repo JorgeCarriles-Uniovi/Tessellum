@@ -6,11 +6,11 @@ import { FilePlusCorner as NewFileIcon, FolderPlus as NewFolderIcon } from 'luci
 import { SidebarContextMenu } from './SidebarContextMenu';
 import { InputModal } from './InputModal';
 
-// 👇 Import your new hooks
-import { useCreateFolder,
-         useSidebarActions,
+import { useSidebarActions,
          useContextMenu
         } from '../hooks';
+
+import { useCreateFolder } from "../hooks/editorActions";
 
 export function Sidebar() {
     const { files } = useEditorStore();

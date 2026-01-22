@@ -63,9 +63,9 @@ function App() {
     }
 
     return (
-        <div className="flex h-screen w-screen overflow-hidden">
+        <div className="flex h-screen w-screen overflow-hidden bg-white">
             <Sidebar />
-            <div className="flex-1 flex flex-col h-full min-w-0 bg-white">
+            <div className="flex-1 h-full ">
                 <Editor />
             </div>
 

@@ -404,7 +404,7 @@ async fn write_file(
     let db_guard = state.db.lock().await;
     
     if let Some(db) = db_guard.as_ref() {
-        let metadata = fs::metadata(&path).map_err(|e| e.to_string())?;
+        let metadata = metadata(&path).map_err(|e| e.to_string())?;
         let size = metadata.len();
         let modified = metadata.modified()
             .unwrap_or(SystemTime::now())
@@ -583,7 +583,12 @@ String>{
         new_filename.clone()
     }
     else {
-        format!("{}.md", new_filename)
+        if old.is_dir() {
+            new_filename.to_string()
+        }
+        else {
+            format!("{}.md", new_filename)
+        }
     };
     let new_path = parent.join(new_filename);
     
