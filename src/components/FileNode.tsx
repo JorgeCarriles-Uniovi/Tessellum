@@ -37,7 +37,6 @@ export function FileNode({ node, level, onContextMenu }: FileNodeProps) {
 
     // Right Click: Context Menu
     const handleContextMenu = (e: React.MouseEvent) => {
-        e.preventDefault();
         onContextMenu(e, node.file);
     };
 
