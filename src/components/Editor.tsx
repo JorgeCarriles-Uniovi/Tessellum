@@ -1,12 +1,15 @@
-import CodeMirror, {ReactCodeMirrorRef} from '@uiw/react-codemirror';
+import CodeMirror, { ReactCodeMirrorRef } from '@uiw/react-codemirror';
 import { useEditorStore } from '../stores/editorStore';
 import {
     useFileSynchronization,
     useEditorActions
 } from '../hooks';
-import { lightTheme } from "../themes/lightTheme.ts";
-import { EditorView } from '@codemirror/view';
-import {useRef} from "react";
+import { lightTheme } from "../themes/lightTheme";
+import { useRef } from "react";
+import { useSlashCommand } from "../hooks/editorActions";
+import { CommandItem } from "../types";
+import { SlashMenu } from "./SlashMenu";
+import {dividerPlugin} from "../extensions/divider";
 
 export function Editor() {
     const { activeNote } = useEditorStore();
@@ -17,6 +20,8 @@ export function Editor() {
     const editorRef = useRef<ReactCodeMirrorRef>(null);
 
     const { noteRenaming, editorExtensions, editorClick } = useEditorActions(editorRef);
+
+    const { slashExtension, slashProps } = useSlashCommand();
 
     if (!activeNote) {
         return <div className="h-full flex items-center justify-center text-gray-400 select-none">Select a note</div>;
@@ -47,12 +52,12 @@ export function Editor() {
 
             {/* EDITOR AREA (Fills remaining space) */}
             <div className="flex-1 w-full relative min-h-0 cursor-text"
-            onMouseDown={editorClick}>
+                 onMouseDown={editorClick}>
                 <CodeMirror
                     ref={editorRef}
                     key={activeNote.path}
                     value={content}
-                    extensions={[...editorExtensions, EditorView.lineWrapping]}
+                    extensions={[...editorExtensions, slashExtension, dividerPlugin]}
                     onChange={handleContentChange}
 
                     height="100%"
@@ -65,6 +70,20 @@ export function Editor() {
                         highlightActiveLineGutter: false,
                     }}
                     theme={lightTheme}
+                />
+                <SlashMenu
+                    isOpen={slashProps.isOpen}
+                    x={slashProps.position.x}
+                    y={slashProps.position.y}
+                    selectedIndex={slashProps.selectedIndex}
+                    commands={slashProps.filteredCommands}
+                    onSelect={(item: CommandItem) => {
+                        // We need the view instance here.
+                        // Access it via editorRef.current.view
+                        if (editorRef.current?.view) {
+                            slashProps.performCommand(editorRef.current.view, item);
+                        }
+                    }}
                 />
             </div>
         </div>

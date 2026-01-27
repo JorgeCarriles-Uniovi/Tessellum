@@ -1,3 +1,5 @@
+import React from "react";
+
 export interface FileMetadata {
     path: string,
     filename: string,
@@ -12,4 +14,12 @@ export interface TreeNode {
     isDir: boolean;
     children: TreeNode[];
     file: FileMetadata;
+}
+
+export type CommandItem = {
+    label: string;
+    value: string;
+    icon: React.ReactNode;
+    insertText: string; // Markdown text to be inserted
+    cursorOffset: number; // Where to put cursor after insertion
 }

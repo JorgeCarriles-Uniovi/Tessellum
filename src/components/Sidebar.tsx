@@ -6,20 +6,24 @@ import { useFileTree } from '../hooks';
 
 export function Sidebar() {
     const {
-        files,
-        treeData,
-        menuState,
-        handleContextMenu,
-        closeMenu,
-        deleteFile,
-        renameFile,
-        createNote,
-        isFolderModalOpen,
-        closeFolderModal,
+        // Data & State
+        files, treeData, menuState,
+        isFolderModalOpen, closeFolderModal,
+        isRenameModalOpen, closeRenameModal,
+        renameTarget,
+
+        // Handlers
+        handleContextMenu, closeMenu,
+        createNote, deleteFile,
         handleHeaderNewFolder,
         handleContextNewFolder,
-        handleCreateFolderConfirm,
         handleContextCreateNote,
+
+        // Modal Handlers
+        handleCreateFolderConfirm,
+        handleContextRename,
+        handleRenameConfirm,
+        getRenameInitialValue
     } = useFileTree();
 
     return (
@@ -58,7 +62,7 @@ export function Sidebar() {
                     y={menuState.y}
                     target={menuState.target}
                     onClose={closeMenu}
-                    onRename={() => renameFile(menuState.target)}
+                    onRename={handleContextRename}
                     onDelete={() => deleteFile(menuState.target)}
                     onNewNote={handleContextCreateNote}
                     onNewFolder={handleContextNewFolder}
@@ -67,8 +71,17 @@ export function Sidebar() {
             <InputModal
                 isOpen={isFolderModalOpen}
                 title="Create New Folder"
-                onClose={closeFolderModal}
+                confirmLabel="Create"
+                onClose={() => closeFolderModal()}
                 onConfirm={handleCreateFolderConfirm}
+            />
+            <InputModal
+                isOpen={isRenameModalOpen}
+                title={`Rename ${renameTarget?.is_dir ? 'Folder' : 'File'}`}
+                confirmLabel="Rename"
+                initialValue={getRenameInitialValue()}
+                onClose={() => closeRenameModal()}
+                onConfirm={handleRenameConfirm}
             />
         </>
     );

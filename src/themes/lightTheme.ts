@@ -52,6 +52,13 @@ const baseTheme = EditorView.theme({
         color: "#1d4ed8",
         textDecoration: "underline",
         cursor: "pointer"
+    },
+    ".cm-divider-widget": {
+        height: "1px",
+        backgroundColor: "#9ca3af",
+        margin: "1.5rem 0",         // Vertical spacing
+        width: "100%",
+        display: "block"
     }
 });
 
