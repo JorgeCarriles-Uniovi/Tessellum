@@ -1,131 +1,282 @@
-import { useState, useCallback, useMemo } from 'react';
-import { EditorView } from '@codemirror/view';
+import {
+    useState,
+    useCallback,
+    useMemo,
+    useRef,
+    useEffect,
+    RefObject
+} from 'react';
+import { EditorView, keymap } from '@codemirror/view';
 import { CommandItem } from '../../types';
+import { Prec } from "@codemirror/state";
+import {COMMANDS} from "../../constants/commands.tsx";
 
-export function useSlashCommand() {
+// ===== PURE UTILITIES (no React dependencies) =====
+
+function getSlashContext(state: any, cursorPos: number) {
+    const line = state.doc.lineAt(cursorPos);
+    const lineOffset = cursorPos - line.from;
+    const slashPos = line.text.lastIndexOf('/', lineOffset);
+
+    if (slashPos === -1) return null;
+
+    const queryText = line.text.slice(slashPos + 1, lineOffset);
+    const hasSpace = queryText.includes(' ');
+    const cursorAfterSlash = lineOffset >= slashPos;
+
+    return hasSpace || !cursorAfterSlash ? null : {
+        queryText,
+        absoluteSlashPos: line.from + slashPos
+    };
+}
+
+function canTriggerSlash(state: any, cursorPos: number) {
+    if (cursorPos === 0) return true;
+    const charBefore = state.doc.sliceString(cursorPos - 1, cursorPos);
+    return charBefore === ' ' || charBefore === '\n';
+}
+
+function useSlashTrigger(isOpenRef: RefObject<boolean>, openMenu: (coords: any) => void) {
+    return useMemo(() => EditorView.domEventHandlers({
+        keydown: (event, view) => {
+            if (event.key === '/' && !isOpenRef.current) {
+                const { state } = view;
+                const cursorPos = state.selection.main.from;
+                if (state.selection.main.empty && canTriggerSlash(state, cursorPos)) {
+                    const coords = view.coordsAtPos(cursorPos);
+                    if (coords) openMenu(coords);
+                    // Do NOT prevent default. We want the "/" to be typed.
+                }
+            }
+            return false;
+        }
+    }), [openMenu, isOpenRef]);
+}
+
+// ===== MENU STATE HOOK =====
+
+function useMenuState() {
     const [isOpen, setIsOpen] = useState(false);
     const [position, setPosition] = useState({ x: 0, y: 0 });
     const [query, setQuery] = useState("");
     const [selectedIndex, setSelectedIndex] = useState(0);
 
-    // This Extension handles key events inside the editor
-    const slashExtension = useMemo(() => EditorView.domEventHandlers({
-        keydown: (event, view) => {
-            if (!isOpen) {
-                // Trigger logic: "/" key
-                if (event.key === '/') {
-                    const { state } = view;
-                    const range = state.selection.main;
-                    // Check if at start of line OR preceded by space
-                    const charBefore = state.doc.sliceString(range.from - 1, range.from);
+    const isOpenRef = useRef(false);
+    const selectedIndexRef = useRef(0);
 
-                    if (range.empty && (range.from === 0 || charBefore === ' ' || charBefore === '\n')) {
-                        const coords = view.coordsAtPos(range.from);
-                        if (coords) {
-                            setIsOpen(true);
-                            setPosition({ x: coords.left, y: coords.top });
-                            setQuery("");
-                            setSelectedIndex(0);
-                            // We do NOT preventDefault here, we want the '/' to appear
-                        }
-                    }
+    // Keep ref in sync
+    useEffect(() => {
+        selectedIndexRef.current = selectedIndex;
+    }, [selectedIndex]);
+
+    const openMenu = useCallback((coords: { left: number; top: number }) => {
+        setIsOpen(true);
+        isOpenRef.current = true;
+        setPosition({ x: coords.left, y: coords.top });
+        setQuery("");
+        setSelectedIndex(0);
+    }, []);
+
+    const closeMenu = useCallback(() => {
+        setIsOpen(false);
+        isOpenRef.current = false;
+    }, []);
+
+    const updateQuery = useCallback((newQuery: string) => {
+        setQuery(newQuery);
+    }, []);
+
+    const moveSelection = useCallback((direction: 'up' | 'down', maxIndex: number) => {
+        setSelectedIndex(prev => {
+            if (direction === 'up') return prev > 0 ? prev - 1 : maxIndex;
+            return prev < maxIndex ? prev + 1 : 0;
+        });
+    }, []);
+
+    return {
+        isOpen,
+        isOpenRef,
+        position,
+        query,
+        selectedIndex,
+        openMenu,
+        closeMenu,
+        updateQuery,
+        moveSelection,
+        setSelectedIndex,
+        selectedIndexRef
+    };
+}
+
+// ===== DOCUMENT CHANGE TRACKING =====
+
+function useDocumentTracking(isOpen: boolean, updateQuery: (q: string) => void, closeMenu: () => void) {
+    return useMemo(() =>
+            EditorView.updateListener.of((update) => {
+                if (!isOpen || !update.docChanged) return;
+
+                const context = getSlashContext(update.state, update.state.selection.main.from);
+
+                if (context) {
+                    updateQuery(context.queryText);
+                } else {
+                    closeMenu();
                 }
-                return;
-            }
+            }),
+        [isOpen, updateQuery, closeMenu]);
+}
 
-            // --- Menu is OPEN navigation logic ---
+// ===== KEYBOARD HANDLING =====
 
-            if (event.key === 'Escape') {
-                setIsOpen(false);
-                event.preventDefault();
-                return;
-            }
-
-            if (event.key === 'ArrowUp') {
-                setSelectedIndex(prev => Math.max(0, prev - 1));
-                event.preventDefault();
-                return;
-            }
-
-            if (event.key === 'ArrowDown') {
-                // Note: ideally you pass the filtered list length here to clamp
-                setSelectedIndex(prev => prev + 1);
-                event.preventDefault();
-                return;
-            }
-
-            if (event.key === 'Enter') {
-                event.preventDefault();
-                // We handle execution in the component via 'onSelect' usually,
-                // but strictly speaking, keydown needs to fire an event or we need access to the data here.
-                // For simplicity, we can let the UI render handle the click, or emit a custom event.
-
-                // Better approach: Trigger a custom callback prop if we moved this logic into the component
-                return;
+function useKeyboardHandling(
+    isOpenRef: RefObject<boolean>,
+    closeMenu: () => void,
+    moveSelection: (dir: 'up' | 'down') => boolean,
+    executeSelected: (view: EditorView) => boolean
+) {
+    // We use Prec.highest to ensure this runs BEFORE the editor moves the cursor
+    return useMemo(() => Prec.highest(keymap.of([
+        {
+            key: "ArrowUp",
+            run: () => {
+                if (!isOpenRef.current) return false;
+                return moveSelection('up');
             }
         },
-
-        // Listen to input to update the query string (e.g. "/h1")
-        input: (event, view) => {
-            if (isOpen) {
-                // Find where the '/' command started.
-                // This is a naive implementation; for production, track the 'start position' in state.
-                const range = view.state.selection.main;
-                const line = view.state.doc.lineAt(range.from);
-                const lineText = line.text;
-
-                // Look backward from cursor for the last '/'
-                const lastSlash = lineText.lastIndexOf('/', range.from - line.from);
-                if (lastSlash !== -1) {
-                    const typedText = lineText.slice(lastSlash + 1, range.from - line.from);
-                    // If user typed space, close menu
-                    if (typedText.includes(' ')) {
-                        setIsOpen(false);
-                    } else {
-                        setQuery(typedText);
-                    }
-                } else {
-                    setIsOpen(false); // Slash was deleted
-                }
+        {
+            key: "ArrowDown",
+            run: () => {
+                if (!isOpenRef.current) return false;
+                return moveSelection('down');
+            }
+        },
+        {
+            key: "Enter",
+            run: (view) => {
+                if (!isOpenRef.current) return false;
+                return executeSelected(view);
+            }
+        },
+        {
+            key: "Escape",
+            run: () => {
+                if (!isOpenRef.current) return false;
+                closeMenu();
+                return true;
             }
         }
-    }), [isOpen]);
+    ])), [isOpenRef, closeMenu, moveSelection, executeSelected]);
+}
 
-    // The Action: What happens when user selects an item
-    const performCommand = useCallback((view: EditorView, item: CommandItem) => {
-        const range = view.state.selection.main;
-        const line = view.state.doc.lineAt(range.from);
+// ===== COMMAND EXECUTION =====
 
-        // Calculate start of the command (where the '/' is)
-        const lineText = line.text;
-        const slashPos = lineText.lastIndexOf('/', range.from - line.from);
-        const absoluteSlashPos = line.from + slashPos;
+function useCommandExecution(closeMenu: () => void) {
+    return useCallback((view: EditorView, item: CommandItem) => {
+        const { state } = view;
+        const context = getSlashContext(state, state.selection.main.from);
+
+        if (!context) return;
 
         view.dispatch({
             changes: {
-                from: absoluteSlashPos, // Start replacing at '/'
-                to: range.from,         // End replacing at cursor
+                from: context.absoluteSlashPos,
+                to: state.selection.main.from,
                 insert: item.insertText
             },
             selection: {
-                // Move cursor to specific offset (e.g. inside brackets)
-                anchor: absoluteSlashPos + item.cursorOffset
+                anchor: context.absoluteSlashPos + item.cursorOffset
             }
         });
 
-        setIsOpen(false);
+        closeMenu();
         view.focus();
-    }, []);
+    }, [closeMenu]);
+}
+
+// ===== MAIN HOOK =====
+
+export function useSlashCommand(
+) {
+    const menuState = useMenuState();
+    const performCommandInternal = useCommandExecution(menuState.closeMenu);
+
+    // 1. Calculate filtered commands internally
+    const filteredCommands = useMemo(() => {
+        return COMMANDS.filter(cmd =>
+            cmd.label.toLowerCase().includes(menuState.query.toLowerCase()) ||
+            cmd.value.includes(menuState.query.toLowerCase())
+        );
+    }, [menuState.query]);
+
+    // 1. Command Ref (for stable access)
+    const latestCommandsRef = useRef(filteredCommands);
+    useEffect(() => {
+        latestCommandsRef.current = filteredCommands;
+    }, [filteredCommands]);
+
+    // 2. Stable Callbacks
+    const executeSelected = useCallback((view: EditorView) => {
+        const cmds = latestCommandsRef.current;
+        if (!cmds?.length) return false;
+
+        const selectedCommand = cmds[menuState.selectedIndexRef.current];
+        if (selectedCommand) {
+            performCommandInternal(view, selectedCommand);
+            return true;
+        }
+        return false;
+    }, [performCommandInternal, menuState.selectedIndexRef]); // Removed selectedIndex from deps
+
+    const moveSelection = useCallback((dir: 'up' | 'down') => {
+        const cmds = latestCommandsRef.current;
+        const maxIndex = Math.max(0, (cmds?.length ?? 0) - 1);
+        // console.log(`[Slash] Move ${dir}, maxIndex: ${maxIndex}, cmds: ${cmds?.length}`);
+        menuState.moveSelection(dir, maxIndex);
+        return true;
+    }, [menuState.moveSelection]);
+
+    // 3. Assemble Extensions
+    const keymapExtension = useKeyboardHandling(
+        menuState.isOpenRef,
+        menuState.closeMenu,
+        moveSelection,
+        executeSelected
+    );
+
+    const slashTriggerExtension = useSlashTrigger(
+        menuState.isOpenRef,
+        menuState.openMenu
+    );
+
+    const updateListener = useDocumentTracking(
+        menuState.isOpen,
+        menuState.updateQuery,
+        menuState.closeMenu
+    );
+
+    const slashExtension = useMemo(
+        () => [updateListener, keymapExtension, slashTriggerExtension],
+        [updateListener, keymapExtension, slashTriggerExtension]
+    );
+
+    // 4. Clamping Effect
+    useEffect(() => {
+        const maxIndex = Math.max(0, filteredCommands.length - 1);
+        if (menuState.selectedIndex > maxIndex) {
+            menuState.setSelectedIndex(maxIndex);
+        }
+    }, [filteredCommands.length, menuState.selectedIndex, menuState.setSelectedIndex]);
 
     return {
         slashExtension,
         slashProps: {
-            isOpen,
-            position,
-            selectedIndex,
-            query,
-            performCommand,
-            closeMenu: () => setIsOpen(false)
+            isOpen: menuState.isOpen,
+            position: menuState.position,
+            selectedIndex: menuState.selectedIndex,
+            query: menuState.query,
+            filteredCommands, // EXPORT THIS
+            performCommand: performCommandInternal,
+            closeMenu: menuState.closeMenu
         }
     };
 }

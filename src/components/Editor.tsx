@@ -1,4 +1,4 @@
-import CodeMirror, {ReactCodeMirrorRef} from '@uiw/react-codemirror';
+import CodeMirror, { ReactCodeMirrorRef } from '@uiw/react-codemirror';
 import { useEditorStore } from '../stores/editorStore';
 import {
     useFileSynchronization,
@@ -6,10 +6,10 @@ import {
 } from '../hooks';
 import { lightTheme } from "../themes/lightTheme.ts";
 import { EditorView } from '@codemirror/view';
-import {useRef} from "react";
-import {useSlashCommand} from "../hooks/editorActions";
-import {CommandItem} from "../types.ts";
-import {SlashMenu} from "./SlashMenu.tsx";
+import { useRef } from "react";
+import { useSlashCommand } from "../hooks/editorActions";
+import { CommandItem } from "../types.ts";
+import { SlashMenu } from "./SlashMenu.tsx";
 
 export function Editor() {
     const { activeNote } = useEditorStore();
@@ -52,7 +52,7 @@ export function Editor() {
 
             {/* EDITOR AREA (Fills remaining space) */}
             <div className="flex-1 w-full relative min-h-0 cursor-text"
-            onMouseDown={editorClick}>
+                 onMouseDown={editorClick}>
                 <CodeMirror
                     ref={editorRef}
                     key={activeNote.path}
@@ -77,7 +77,8 @@ export function Editor() {
                     y={slashProps.position.y}
                     selectedIndex={slashProps.selectedIndex}
                     query={slashProps.query}
-                    onSelect={(item : CommandItem)  => {
+                    commands={slashProps.filteredCommands}
+                    onSelect={(item: CommandItem) => {
                         // We need the view instance here.
                         // Access it via editorRef.current.view
                         if (editorRef.current?.view) {
