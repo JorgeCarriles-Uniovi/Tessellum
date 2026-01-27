@@ -4,13 +4,13 @@ import {
     useFileSynchronization,
     useEditorActions
 } from '../hooks';
-import { lightTheme } from "../themes/lightTheme.ts";
+import { lightTheme } from "../themes/lightTheme";
 import { EditorView } from '@codemirror/view';
 import { useRef } from "react";
 import { useSlashCommand } from "../hooks/editorActions";
-import { CommandItem } from "../types.ts";
-import { SlashMenu } from "./SlashMenu.tsx";
-import {dividerPlugin} from "../extensions/divider.ts";
+import { CommandItem } from "../types";
+import { SlashMenu } from "./SlashMenu";
+import {dividerPlugin} from "../extensions/divider";
 
 export function Editor() {
     const { activeNote } = useEditorStore();
