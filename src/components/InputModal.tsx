@@ -4,11 +4,12 @@ interface InputModalProps {
     isOpen: boolean;
     title: string;
     initialValue?: string;
+    confirmLabel?: string;
     onClose: () => void;
     onConfirm: (value: string) => void;
 }
 
-export function InputModal({ isOpen, title, initialValue = "", onClose, onConfirm }: InputModalProps) {
+export function InputModal({ isOpen, title, initialValue = "", confirmLabel = "Create", onClose, onConfirm }: InputModalProps) {
     const [value, setValue] = useState(initialValue);
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -58,7 +59,7 @@ export function InputModal({ isOpen, title, initialValue = "", onClose, onConfir
                             type="submit"
                             className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
                         >
-                            Create
+                            {confirmLabel}
                         </button>
                     </div>
                 </form>

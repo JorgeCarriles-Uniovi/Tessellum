@@ -10,6 +10,7 @@ import { useRef } from "react";
 import { useSlashCommand } from "../hooks/editorActions";
 import { CommandItem } from "../types.ts";
 import { SlashMenu } from "./SlashMenu.tsx";
+import {dividerPlugin} from "../extensions/divider.ts";
 
 export function Editor() {
     const { activeNote } = useEditorStore();
@@ -57,7 +58,7 @@ export function Editor() {
                     ref={editorRef}
                     key={activeNote.path}
                     value={content}
-                    extensions={[...editorExtensions, slashExtension, EditorView.lineWrapping]}
+                    extensions={[...editorExtensions, slashExtension, EditorView.lineWrapping, dividerPlugin]}
                     onChange={handleContentChange}
 
                     height="100%"

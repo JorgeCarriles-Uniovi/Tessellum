@@ -3,39 +3,43 @@ import { useEditorStore } from '../stores/editorStore';
 import { buildFileTree } from '../utils/fileHelpers';
 import { useSidebarActions, useContextMenu } from '../hooks';
 import { useCreateFolder } from './editorActions';
+import { invoke } from "@tauri-apps/api/core";
+import { toast } from "sonner";
+import { FileMetadata } from "../types";
 
 export function useFileTree() {
-    const { files } = useEditorStore();
-    
-    // Sidebar actions (create, delete, rename)
-    const { createNote, deleteFile, renameFile } = useSidebarActions();
+    const { files, vaultPath, renameFile } = useEditorStore();
+
+    // 1. Core Actions
+    const { createNote, deleteFile } = useSidebarActions(); // Removed simple renameFile, we use the complex one here
     const createFolder = useCreateFolder();
     const { menuState, handleContextMenu, closeMenu } = useContextMenu();
 
-    // Folder creation modal state
+    // 2. State: Create Folder Modal
     const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
     const [folderTarget, setFolderTarget] = useState<string | undefined>(undefined);
 
-    // Transform flat file list to tree structure
+    // 3. State: Rename Modal (New)
+    const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
+    const [renameTarget, setRenameTarget] = useState<FileMetadata | null>(null);
+
+    // --- Transform Data ---
     const treeData = useMemo(() => buildFileTree(files), [files]);
 
-    // Handle new folder from header (creates at root)
+    // ===========================
+    // Folder Creation Logic
+    // ===========================
+
     const handleHeaderNewFolder = useCallback(() => {
         setFolderTarget(undefined);
         setIsFolderModalOpen(true);
     }, []);
 
-    // Handle new folder from context menu
     const handleContextNewFolder = useCallback(() => {
         if (menuState?.target) {
             const path = menuState.target.is_dir
                 ? menuState.target.path
-                : menuState.target.path.substring(
-                    0,
-                    menuState.target.path.lastIndexOf(
-                        menuState.target.path.includes('\\') ? '\\' : '/'
-                    )
-                );
+                : menuState.target.path.substring(0, menuState.target.path.lastIndexOf(menuState.target.path.includes('\\') ? '\\' : '/'));
 
             setFolderTarget(path);
             setIsFolderModalOpen(true);
@@ -43,16 +47,68 @@ export function useFileTree() {
         }
     }, [menuState, closeMenu]);
 
-    // Handle folder creation confirmation
     const handleCreateFolderConfirm = useCallback(async (name: string) => {
         await createFolder(name, folderTarget);
         setIsFolderModalOpen(false);
     }, [createFolder, folderTarget]);
 
-    // Handle creating note from context menu
+    // ===========================
+    // Renaming Logic (New)
+    // ===========================
+
+    // Triggered from Context Menu
+    const handleContextRename = useCallback(() => {
+        if (menuState?.target) {
+            setRenameTarget(menuState.target);
+            setIsRenameModalOpen(true);
+            closeMenu();
+        }
+    }, [menuState, closeMenu]);
+
+    // Executed when Modal Confirms
+    const handleRenameConfirm = useCallback(async (newName: string) => {
+        if (!renameTarget || !vaultPath) return;
+
+        try {
+            // 1. Backend Rename
+            const newPath = await invoke<string>('rename_file', {
+                vaultPath,
+                oldPath: renameTarget.path,
+                newName
+            });
+
+            // 2. Logic to keep extension in the store if it's a file
+            const finalFilename = renameTarget.is_dir
+                ? newName
+                : newName.endsWith('.md') ? newName : `${newName}.md`;
+
+            // 3. Store Update
+            renameFile(renameTarget.path, newPath, finalFilename);
+
+            toast.success("Renamed successfully");
+            setIsRenameModalOpen(false);
+            setRenameTarget(null);
+
+        } catch (e: any) {
+            console.error("Rename failed", e);
+            toast.error(typeof e === 'string' ? e : "Failed to rename");
+        }
+    }, [renameTarget, vaultPath, renameFile]);
+
+    // Helper for input default value
+    const getRenameInitialValue = useCallback(() => {
+        if (!renameTarget) return "";
+        return renameTarget.is_dir
+            ? renameTarget.filename
+            : renameTarget.filename.replace(/\.md$/i, '');
+    }, [renameTarget]);
+
+    // ===========================
+    // Other Context Actions
+    // ===========================
+
     const handleContextCreateNote = useCallback(async () => {
         if (!menuState?.target) return;
-
         const { target } = menuState;
         let parentPath = "";
 
@@ -67,32 +123,34 @@ export function useFileTree() {
         closeMenu();
     }, [menuState, createNote, closeMenu]);
 
-    // Handle closing the folder modal
-    const closeFolderModal = useCallback(() => {
-        setIsFolderModalOpen(false);
-    }, []);
-
     return {
         // Data
         files,
         treeData,
-        
-        // Context menu
         menuState,
+
+        // Actions
         handleContextMenu,
         closeMenu,
-        
-        // File operations
         createNote,
         deleteFile,
-        renameFile,
-        
-        // Folder modal
+
+        // Folder Modal
         isFolderModalOpen,
-        closeFolderModal,
+        setIsFolderModalOpen, // Exposed setter for closing via prop if needed
         handleHeaderNewFolder,
         handleContextNewFolder,
         handleCreateFolderConfirm,
-        handleContextCreateNote,
+
+        // Rename Modal
+        isRenameModalOpen,
+        setIsRenameModalOpen,
+        renameTarget,
+        handleContextRename,
+        handleRenameConfirm,
+        getRenameInitialValue,
+
+        // Misc
+        handleContextCreateNote
     };
 }
