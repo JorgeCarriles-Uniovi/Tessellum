@@ -8,7 +8,7 @@ import {
 } from "@codemirror/view";
 import { RangeSetBuilder } from "@codemirror/state";
 
-// 1. The Visual Widget (Same as before)
+// 1. The Visual Widget
 class DividerWidget extends WidgetType {
     toDOM() {
         const div = document.createElement("div");

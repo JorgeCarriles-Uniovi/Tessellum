@@ -36,13 +36,13 @@ export function useFileTree() {
 
         // Folder creation
         isFolderModalOpen: folderCreation.isOpen,
-        setIsFolderModalOpen: folderCreation.close,
+        closeFolderModal: folderCreation.close,
         handleHeaderNewFolder: folderCreation.openForRoot,
         handleCreateFolderConfirm: folderCreation.confirm,
 
         // File rename
         isRenameModalOpen: fileRename.isOpen,
-        setIsRenameModalOpen: fileRename.close,
+        closeRenameModal: fileRename.close,
         renameTarget: fileRename.target,
         handleRenameConfirm: fileRename.confirm,
         getRenameInitialValue: fileRename.getInitialValue

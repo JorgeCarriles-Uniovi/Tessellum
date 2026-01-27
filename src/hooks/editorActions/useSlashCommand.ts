@@ -208,7 +208,7 @@ export function useSlashCommand(
         );
     }, [menuState.query]);
 
-    // 1. Command Ref (for stable access)
+    // 1. Ref holding the latest filteredCommands for use in keyboard handlers without stale closures
     const latestCommandsRef = useRef(filteredCommands);
     useEffect(() => {
         latestCommandsRef.current = filteredCommands;
@@ -225,12 +225,11 @@ export function useSlashCommand(
             return true;
         }
         return false;
-    }, [performCommandInternal, menuState.selectedIndexRef]); // Removed selectedIndex from deps
+    }, [performCommandInternal, menuState.selectedIndexRef]);
 
     const moveSelection = useCallback((dir: 'up' | 'down') => {
         const cmds = latestCommandsRef.current;
         const maxIndex = Math.max(0, (cmds?.length ?? 0) - 1);
-        // console.log(`[Slash] Move ${dir}, maxIndex: ${maxIndex}, cmds: ${cmds?.length}`);
         menuState.moveSelection(dir, maxIndex);
         return true;
     }, [menuState.moveSelection]);
@@ -274,7 +273,7 @@ export function useSlashCommand(
             position: menuState.position,
             selectedIndex: menuState.selectedIndex,
             query: menuState.query,
-            filteredCommands, // EXPORT THIS
+            filteredCommands,
             performCommand: performCommandInternal,
             closeMenu: menuState.closeMenu
         }

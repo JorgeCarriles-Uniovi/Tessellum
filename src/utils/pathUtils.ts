@@ -5,7 +5,12 @@ import { FileMetadata } from "../types";
  */
 export function getParentPath(path: string): string {
     const separator = path.includes('\\') ? '\\' : '/';
-    return path.substring(0, path.lastIndexOf(separator));
+    const lastSeparatorIndex = path.lastIndexOf(separator);
+    // If no separator is found, there is no parent directory; return empty string.
+    if (lastSeparatorIndex === -1) {
+        return "";
+    }
+    return path.substring(0, lastSeparatorIndex);
 }
 
 /**
@@ -20,7 +25,7 @@ export function getParentFromTarget(target: FileMetadata): string {
  */
 export function getNameWithoutExtension(filename: string, isDir: boolean): string {
     if (isDir) return filename;
-    return filename.replace(/\.md$/i, '');
+    return filename.replace(/\.md$/, '');
 }
 
 /**
@@ -28,5 +33,5 @@ export function getNameWithoutExtension(filename: string, isDir: boolean): strin
  */
 export function ensureMarkdownExtension(name: string, isDir: boolean): string {
     if (isDir) return name;
-    return name.endsWith('.md') ? name : `${name}.md`;
+    return name.toLowerCase().endsWith('.md') ? name : `${name}.md`;
 }

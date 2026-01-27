@@ -55,7 +55,7 @@ const baseTheme = EditorView.theme({
     },
     ".cm-divider-widget": {
         height: "1px",
-        backgroundColor: "#9ca3af", // Tailwind gray-200
+        backgroundColor: "#9ca3af",
         margin: "1.5rem 0",         // Vertical spacing
         width: "100%",
         display: "block"

@@ -5,7 +5,6 @@ import {
     useEditorActions
 } from '../hooks';
 import { lightTheme } from "../themes/lightTheme";
-import { EditorView } from '@codemirror/view';
 import { useRef } from "react";
 import { useSlashCommand } from "../hooks/editorActions";
 import { CommandItem } from "../types";
@@ -58,7 +57,7 @@ export function Editor() {
                     ref={editorRef}
                     key={activeNote.path}
                     value={content}
-                    extensions={[...editorExtensions, slashExtension, EditorView.lineWrapping, dividerPlugin]}
+                    extensions={[...editorExtensions, slashExtension, dividerPlugin]}
                     onChange={handleContentChange}
 
                     height="100%"
@@ -77,7 +76,6 @@ export function Editor() {
                     x={slashProps.position.x}
                     y={slashProps.position.y}
                     selectedIndex={slashProps.selectedIndex}
-                    query={slashProps.query}
                     commands={slashProps.filteredCommands}
                     onSelect={(item: CommandItem) => {
                         // We need the view instance here.

@@ -8,8 +8,8 @@ export function Sidebar() {
     const {
         // Data & State
         files, treeData, menuState,
-        isFolderModalOpen, setIsFolderModalOpen,
-        isRenameModalOpen, setIsRenameModalOpen,
+        isFolderModalOpen, closeFolderModal,
+        isRenameModalOpen, closeRenameModal,
         renameTarget,
 
         // Handlers
@@ -72,7 +72,7 @@ export function Sidebar() {
                 isOpen={isFolderModalOpen}
                 title="Create New Folder"
                 confirmLabel="Create"
-                onClose={() => setIsFolderModalOpen(false)}
+                onClose={() => closeFolderModal()}
                 onConfirm={handleCreateFolderConfirm}
             />
             <InputModal
@@ -80,7 +80,7 @@ export function Sidebar() {
                 title={`Rename ${renameTarget?.is_dir ? 'Folder' : 'File'}`}
                 confirmLabel="Rename"
                 initialValue={getRenameInitialValue()}
-                onClose={() => setIsRenameModalOpen(false)}
+                onClose={() => closeRenameModal()}
                 onConfirm={handleRenameConfirm}
             />
         </>

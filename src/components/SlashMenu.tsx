@@ -6,7 +6,6 @@ interface SlashMenuProps {
     x: number;
     y: number;
     selectedIndex: number;
-    query: string;
     commands: CommandItem[];
     onSelect: (command: CommandItem) => void;
 }

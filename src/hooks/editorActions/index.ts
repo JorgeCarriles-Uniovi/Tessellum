@@ -3,4 +3,4 @@ export * from './useNoteRenaming';
 export * from './useCreateFolder';
 export * from './useEditorExtensions';
 export * from './useEditorClick';
-export * from './useSlashCommand.ts';
+export * from './useSlashCommand';
