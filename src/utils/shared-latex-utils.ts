@@ -25,7 +25,7 @@ export function findLatexExpressions(text: string): LatexMatch[] {
                 if (text[i] === '$' && text[i + 1] === '$') {
                     const end = i + 2;
                     const formula = text.slice(start + 2, i);
-                    matches.push({ start, end, formula, isBlock: true });
+                    matches.push({ start: start, end, formula, isBlock: true });
                     i = end;
                     break;
                 }
@@ -53,7 +53,7 @@ export function findLatexExpressions(text: string): LatexMatch[] {
                 if (text[i] === '$') {
                     const end = i + 1;
                     const formula = text.slice(start + 1, i);
-                    matches.push({ start, end, formula, isBlock: false });
+                    matches.push({ start: start, end, formula, isBlock: false });
                     i = end;
                     break;
                 }

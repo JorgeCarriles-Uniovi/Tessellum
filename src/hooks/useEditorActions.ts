@@ -62,5 +62,5 @@ export function useEditorActions() {
     const noteRenaming = useNoteRenaming();
     const wikiLinkNavigation = useWikiLinkNavigation();
     const editorExtensions = useEditorExtensions(wikiLinkNavigation);
-    return { createFolder, noteRenaming, editorExtensions, wikiLinkNavigation };
+    return { createFolder: createFolder, noteRenaming, editorExtensions, wikiLinkNavigation };
 }
