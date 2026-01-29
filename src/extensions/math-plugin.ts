@@ -1,3 +1,4 @@
+// math-plugin.ts
 import {
     Decoration,
     DecorationSet,
@@ -6,13 +7,14 @@ import {
 } from "@codemirror/view";
 import { StateField, EditorState, RangeSetBuilder } from "@codemirror/state";
 import katex from "katex";
+import { findLatexExpressions } from "../utils/shared-latex-utils";
 
-// 1. The Math Widget (Visual Render)
 class MathWidget extends WidgetType {
     constructor(
         readonly formula: string,
         readonly isBlock: boolean,
-        readonly pos: number // Add position parameter
+        readonly startPos: number,
+        readonly endPos: number
     ) {
         super();
     }
@@ -21,23 +23,48 @@ class MathWidget extends WidgetType {
         return (
             this.formula === other.formula &&
             this.isBlock === other.isBlock &&
-            this.pos === other.pos
+            this.startPos === other.startPos
         );
     }
 
-    toDOM() {
+    toDOM(view: EditorView) {
         const dom = document.createElement(this.isBlock ? "div" : "span");
         dom.className = this.isBlock ? "cm-math-block" : "cm-math-inline";
-
-        // Add the latex class for the click handler to detect
         dom.classList.add(this.isBlock ? "latex" : "latex-inline");
-
-        // CRITICAL: Store the position for the click handler
-        dom.setAttribute("data-pos", this.pos.toString());
 
         if (this.isBlock) {
             dom.style.display = "flex";
             dom.style.justifyContent = "center";
+        }
+
+        // Make the widget non-clickable at the CSS level
+        dom.style.pointerEvents = "none";
+
+        // Create an overlay that captures clicks
+        const clickOverlay = document.createElement("div");
+        clickOverlay.style.position = "absolute";
+        clickOverlay.style.inset = "0";
+        clickOverlay.style.pointerEvents = "auto";
+        clickOverlay.style.cursor = "pointer";
+        clickOverlay.style.zIndex = "1";
+
+        clickOverlay.addEventListener('mousedown', (e: Event) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            // Select the entire LaTeX block
+            view.dispatch({
+                selection: { anchor: this.startPos, head: this.endPos },
+            });
+            view.focus();
+        });
+
+        // Wrapper for positioning
+        const wrapper = document.createElement(this.isBlock ? "div" : "span");
+        wrapper.style.position = "relative";
+        if (this.isBlock) {
+            wrapper.style.display = "flex";
+            wrapper.style.justifyContent = "center";
         }
 
         try {
@@ -50,60 +77,26 @@ class MathWidget extends WidgetType {
         } catch (e) {
             dom.innerText = this.formula;
         }
-        return dom;
+
+        wrapper.appendChild(dom);
+        wrapper.appendChild(clickOverlay);
+
+        return wrapper;
     }
 
-    ignoreEvent() {
-        return false;
+    ignoreEvent(): boolean {
+        return true;
     }
 }
 
-// 2. The Logic
 function buildMathDecorations(state: EditorState) {
     const builder = new RangeSetBuilder<Decoration>();
     const selection = state.selection.main;
     const docText = state.doc.toString();
 
-    // We need to collect ALL matches first, then sort them.
-    const matches: { start: number, end: number, formula: string, isBlock: boolean }[] = [];
-
-    // Regex Definitions
-    const blockRegex = /\$\$([\s\S]*?)\$\$/g;
-    const inlineRegex = /\$((?:[^\$\n]|\\[\s\S])+)\$/g;
-
-    let match;
-
-    // 1. Find all Block Math
-    while ((match = blockRegex.exec(docText)) !== null) {
-        matches.push({
-            start: match.index,
-            end: match.index + match[0].length,
-            formula: match[1],
-            isBlock: true
-        });
-    }
-
-    // 2. Find all Inline Math
-    while ((match = inlineRegex.exec(docText)) !== null) {
-        matches.push({
-            start: match.index,
-            end: match.index + match[0].length,
-            formula: match[1],
-            isBlock: false
-        });
-    }
-
-    // 3. SORT matches by position (Crucial Step to fix the crash)
-    matches.sort((a, b) => a.start - b.start);
-
-    // 4. Add to builder (filtering overlaps)
-    let lastIndex = 0;
+    const matches = findLatexExpressions(docText);
 
     for (const m of matches) {
-        // Skip if this match overlaps with a previous one (e.g. inline inside block)
-        if (m.start < lastIndex) continue;
-
-        // Check if cursor is inside this specific match
         const cursorOverlap = selection.from >= m.start && selection.to <= m.end;
 
         if (!cursorOverlap) {
@@ -111,19 +104,16 @@ function buildMathDecorations(state: EditorState) {
                 m.start,
                 m.end,
                 Decoration.replace({
-                    widget: new MathWidget(m.formula, m.isBlock, m.start), // Pass position
-                    block: m.isBlock, // Important for layout
+                    widget: new MathWidget(m.formula, m.isBlock, m.start, m.end),
+                    block: m.isBlock,
                 })
             );
         }
-
-        lastIndex = m.end;
     }
 
     return builder.finish();
 }
 
-// 3. The StateField Definition
 export const mathPlugin = StateField.define<DecorationSet>({
     create(state) {
         return buildMathDecorations(state);
@@ -135,4 +125,42 @@ export const mathPlugin = StateField.define<DecorationSet>({
         return oldState;
     },
     provide: (field) => EditorView.decorations.from(field),
+});
+
+export const mathClickHandler = EditorView.domEventHandlers({
+    mousedown(event, view) {
+        const target = event.target as HTMLElement;
+
+        // Check if we clicked on or inside a LaTeX widget
+        const latexElement = target.closest('.cm-math-block, .cm-math-inline');
+
+        if (latexElement) {
+            // Prevent CodeMirror from handling this click
+            event.preventDefault();
+            event.stopPropagation();
+
+            // Get the position from the widget
+            const wrapper = latexElement.parentElement;
+            if (wrapper) {
+                // Find which decoration this corresponds to
+                const pos = view.posAtDOM(wrapper);
+                if (pos !== null) {
+                    const docText = view.state.doc.toString();
+                    const matches = findLatexExpressions(docText);
+                    const match = matches.find(m => pos >= m.start && pos < m.end);
+
+                    if (match) {
+                        view.dispatch({
+                            selection: { anchor: match.start, head: match.end },
+                        });
+                        view.focus();
+                    }
+                }
+            }
+
+            return true; // Prevent CodeMirror from processing
+        }
+
+        return false; // Let CodeMirror handle other clicks
+    }
 });
