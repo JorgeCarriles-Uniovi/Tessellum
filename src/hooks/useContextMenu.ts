@@ -14,7 +14,7 @@ export function useContextMenu() {
         setMenuState({ x: e.clientX, y: e.clientY, target: file });
     };
 
-    const closeMenu = () => setMenuState(null);
+    const closeMenu = function() { return setMenuState(null) };
 
-    return { menuState, handleContextMenu, closeMenu };
+    return { menuState: menuState, handleContextMenu, closeMenu };
 }

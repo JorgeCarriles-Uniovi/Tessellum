@@ -14,7 +14,7 @@ export function useEditorExtensions(onWikiLinkClick: (text: string) => void) {
                     : target.closest(".cm-wikilink");
                 const destination = linkElement?.getAttribute("data-destination");
 
-                if (destination) {
+                if (destination != null) {
                     event.preventDefault();
                     onWikiLinkClick(destination);
                 }

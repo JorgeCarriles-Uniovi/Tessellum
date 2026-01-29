@@ -11,7 +11,7 @@ const toInputName = (filename: string, isDir: boolean) =>
 
 // Converts "My Note" -> "My Note.md" (Only for files)
 const toStorageName = (name: string, isDir: boolean) =>
-    isDir ? name : `${name}.md`;
+    isDir ? name : ""+name+".md";
 
 
 export function useNoteRenaming() {
@@ -20,7 +20,7 @@ export function useNoteRenaming() {
 
     // 1. Sync local state when active note changes
     useEffect(() => {
-        if (!activeNote) {
+        if (!(Boolean(activeNote))) {
             setTitleInput("");
             return;
         }
@@ -29,7 +29,7 @@ export function useNoteRenaming() {
 
     // 2. The Rename Action
     const handleRename = useCallback(async () => {
-        if (!activeNote) return;
+        if (!(Boolean(activeNote))) return;
 
         const cleanName = titleInput.trim();
         const currentInputName = toInputName(activeNote.filename, activeNote.is_dir);

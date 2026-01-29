@@ -28,10 +28,10 @@ export function useFolderCreation() {
     }, []);
 
     return {
-        isOpen,
+        isOpen: isOpen,
         openForRoot,
-        openForTarget,
-        confirm,
-        close
+        openForTarget: openForTarget,
+        confirm: confirm,
+        close: close
     };
 }

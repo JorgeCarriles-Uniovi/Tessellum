@@ -8,9 +8,9 @@ export function useCreateNote() {
     const { files, setFiles, setActiveNote, vaultPath, toggleFolder } = useEditorStore();
     return useCallback(async (parentPath?: string) => {
         // Use the passed path, or fallback to the root vault
-        const targetDir = parentPath || vaultPath;
+        const targetDir = (parentPath != null) || vaultPath;
 
-        if (!targetDir) return;
+        if (!(Boolean(targetDir))) return;
 
         try {
             // Backend will create "Untitled.md" inside 'targetDir'
@@ -19,7 +19,7 @@ export function useCreateNote() {
                 title: 'Untitled'
             });
 
-            const filename = newPath.split(/[\\/]/).pop() || 'Untitled.md';
+            const filename = (Boolean(newPath.split(/[\\/]/).pop())) || 'Untitled.md';
 
             const newNote: FileMetadata = {
                 path: newPath,
@@ -29,7 +29,7 @@ export function useCreateNote() {
                 last_modified: Math.floor(Date.now() / 1000)
             };
 
-            if (parentPath) toggleFolder(parentPath, true);
+            if (parentPath != null) toggleFolder(parentPath, true);
 
             setFiles([...files, newNote]);
             setActiveNote(newNote);

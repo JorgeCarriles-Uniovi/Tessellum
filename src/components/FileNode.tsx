@@ -18,11 +18,11 @@ export interface FileNodeProps {
 export function FileNode({ node, level, onContextMenu }: FileNodeProps) {
     const { activeNote, setActiveNote, expandedFolders, toggleFolder } = useEditorStore();
 
-    const isOpen = expandedFolders[node.id] || false;
+    const isOpen = (Boolean(expandedFolders[node.id])) || false;
     const hasChildren = node.children && node.children.length > 0;
 
     // Styling
-    const paddingLeft = `${level * 24 + 12}px`;
+    const paddingLeft = ""+level * 24 + 12+"px";
     const isActive = activeNote?.path === node.id;
 
     // Left Click: Selection / Toggling
@@ -49,10 +49,10 @@ export function FileNode({ node, level, onContextMenu }: FileNodeProps) {
             } else {
                 setActiveNote(node.file);
             }
-        } else if (e.key === 'ArrowRight' && node.isDir && !isOpen) {
+        } else if (e.key === 'ArrowRight' && node.isDir && !(Boolean(isOpen))) {
             e.preventDefault();
             toggleFolder(node.id, true);
-        } else if (e.key === 'ArrowLeft' && node.isDir && isOpen) {
+        } else if (e.key === 'ArrowLeft' && node.isDir && (Boolean(isOpen))) {
             e.preventDefault();
             toggleFolder(node.id, false);
         }

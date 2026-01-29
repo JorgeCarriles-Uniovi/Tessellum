@@ -17,12 +17,12 @@ export function useFileTree() {
     );
 
     // Derived data
-    const treeData = useMemo(() => buildFileTree(files), [files]);
+    const treeData = useMemo(function() { return buildFileTree(files) }, [files]);
 
     return {
         // Data
         files,
-        treeData,
+        treeData: treeData,
         menuState: actions.menuState,
 
         // Context menu actions

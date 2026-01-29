@@ -47,9 +47,9 @@ export const useEditorStore = create<EditorState>((set) => ({
         localStorage.setItem('vaultPath', path);
         set({ vaultPath: path });
     },
-    setFiles: (files) => set({ files: sortFiles(files) }), // Auto-sort on set
-    setActiveNote: (activeNote) => set({ activeNote }),
-    setActiveNoteContent: (activeNoteContent) => set({ activeNoteContent }),
+    setFiles: function(files) { return set({ files: sortFiles(files) }) }, // Auto-sort on set
+    setActiveNote: function(activeNote) { return set({ activeNote }) },
+    setActiveNoteContent: function(activeNoteContent) { return set({ activeNoteContent }) },
     setIsDirty: (isDirty) => set({ isDirty }),
 
     // --- Complex Logic ---

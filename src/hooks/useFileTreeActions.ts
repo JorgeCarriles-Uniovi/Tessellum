@@ -3,8 +3,8 @@ import { useSidebarActions, useContextMenu } from '../hooks';
 import { getParentFromTarget } from '../utils/pathUtils';
 
 export function useFileTreeActions(
-    onOpenFolderModal: (target: any) => void,
-    onOpenRenameModal: (target: any) => void
+    onOpenFolderModal: (target: unknown) => void,
+    onOpenRenameModal: (target: unknown) => void
 ) {
     const { createNote, deleteFile } = useSidebarActions();
     const { menuState, handleContextMenu, closeMenu } = useContextMenu();
@@ -32,13 +32,13 @@ export function useFileTreeActions(
     }, [menuState, onOpenRenameModal, closeMenu]);
 
     return {
-        menuState,
-        handleContextMenu,
+        menuState: menuState,
+        handleContextMenu: handleContextMenu,
         closeMenu,
         createNote,
-        deleteFile,
-        createNoteInContext,
-        createFolderInContext,
+        deleteFile: deleteFile,
+        createNoteInContext: createNoteInContext,
+        createFolderInContext: createFolderInContext,
         renameInContext
     };
 }

@@ -33,5 +33,5 @@ export function getNameWithoutExtension(filename: string, isDir: boolean): strin
  */
 export function ensureMarkdownExtension(name: string, isDir: boolean): string {
     if (isDir) return name;
-    return name.toLowerCase().endsWith('.md') ? name : `${name}.md`;
+    return name.toLowerCase().endsWith('.md') ? name : ""+name+".md";
 }

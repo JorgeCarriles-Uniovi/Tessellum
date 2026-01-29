@@ -9,7 +9,7 @@ export function useWikiLinkNavigation() {
     const { activeNote, files, setActiveNote, setFiles } = useEditorStore();
 
     return useCallback(async (linkText: string) => {
-        if (!activeNote) return;
+        if (!(Boolean(activeNote))) return;
 
         try {
             // 1. Sanitize Input

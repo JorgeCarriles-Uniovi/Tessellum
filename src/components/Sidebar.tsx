@@ -28,13 +28,13 @@ export function Sidebar() {
 
     return (
         <>
-            <aside className="w-64 h-full flex flex-col border-r border-gray-200 bg-white flex-shrink-0">
+            <aside className="w-64 h-full flex flex-col border-r border-gray-200 bg-white shrink-0">
                 {/* Header */}
                 <div className="h-10 flex items-center px-4 border-b border-gray-200 shadow-sm z-10">
                     <span className="font-semibold text-gray-500 uppercase tracking-wider text-xs">
                         Files
                     </span>
-                    <button onClick={() => createNote()} className="ml-auto text-gray-400 hover:text-gray-600 cursor-pointer">
+                    <button onClick={function() { return createNote() }} className="ml-auto text-gray-400 hover:text-gray-600 cursor-pointer">
                         <NewFileIcon size={16} />
                     </button>
                     <button onClick={handleHeaderNewFolder} className="ml-auto text-gray-400 hover:text-gray-600 cursor-pointer">
@@ -63,7 +63,7 @@ export function Sidebar() {
                     target={menuState.target}
                     onClose={closeMenu}
                     onRename={handleContextRename}
-                    onDelete={() => deleteFile(menuState.target)}
+                    onDelete={function() { return deleteFile(menuState.target) }}
                     onNewNote={handleContextCreateNote}
                     onNewFolder={handleContextNewFolder}
                 />
@@ -72,15 +72,15 @@ export function Sidebar() {
                 isOpen={isFolderModalOpen}
                 title="Create New Folder"
                 confirmLabel="Create"
-                onClose={() => closeFolderModal()}
+                onClose={function() { return closeFolderModal() }}
                 onConfirm={handleCreateFolderConfirm}
             />
             <InputModal
                 isOpen={isRenameModalOpen}
-                title={`Rename ${renameTarget?.is_dir ? 'Folder' : 'File'}`}
+                title={"Rename "+renameTarget?.is_dir ? 'Folder' : 'File'}
                 confirmLabel="Rename"
                 initialValue={getRenameInitialValue()}
-                onClose={() => closeRenameModal()}
+                onClose={() => { closeRenameModal(); }}
                 onConfirm={handleRenameConfirm}
             />
         </>

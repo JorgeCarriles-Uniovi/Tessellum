@@ -17,7 +17,7 @@ export function InputModal({ isOpen, title, initialValue = "", confirmLabel = "C
     useEffect(() => {
         if (isOpen) {
             setValue(initialValue);
-            setTimeout(() => inputRef.current?.focus(), 50);
+            setTimeout(function() { return inputRef.current?.focus() }, 50);
         }
     }, [isOpen, initialValue]);
 
@@ -43,7 +43,7 @@ export function InputModal({ isOpen, title, initialValue = "", confirmLabel = "C
                         type="text"
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mb-6"
                         value={value}
-                        onChange={(e) => setValue(e.target.value)}
+                        onChange={function(e) { return setValue(e.target.value) }}
                         placeholder="Enter name..."
                     />
 

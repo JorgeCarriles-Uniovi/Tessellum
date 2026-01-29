@@ -8,8 +8,8 @@ export function useCreateFolder() {
 
     // Now accepts name and path as arguments
     return useCallback(async (name: string, parentPath?: string) => {
-        const targetDir = parentPath || vaultPath;
-        if (!targetDir || !name) return;
+        const targetDir = parentPath ?? vaultPath;
+        if (!(Boolean(targetDir)) || !name) return;
 
         try {
             // 1. Backend Operation
@@ -32,7 +32,7 @@ export function useCreateFolder() {
 
             toast.success("Folder created");
 
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error(e);
             toast.error(typeof e === 'string' ? e : "Failed to create folder");
         }
