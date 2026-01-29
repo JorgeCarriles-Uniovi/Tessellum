@@ -30,7 +30,7 @@ export function SidebarContextMenu({
         };
         // Use mousedown to catch clicks before they trigger other things
         document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+        return function() { return document.removeEventListener('mousedown', handleClickOutside) };
     }, [onClose]);
 
     return (
@@ -38,7 +38,7 @@ export function SidebarContextMenu({
             ref={menuRef}
             className="fixed bg-white border border-gray-200 shadow-xl rounded-lg py-1 w-48 z-50 text-sm animate-in fade-in zoom-in-95 duration-100"
             style={{ top: y, left: x }}
-            onClick={(e) => e.stopPropagation()} // Prevent bubbling
+            onClick={function(e) { return e.stopPropagation() }} // Prevent bubbling
         >
             {/* Header: File Name */}
             <div className="px-3 py-2 text-xs font-semibold text-gray-400 border-b border-gray-100 mb-1 truncate">
@@ -47,7 +47,7 @@ export function SidebarContextMenu({
 
             {/* Rename */}
             <button
-                onClick={() => { onRename(); onClose(); }}
+                onClick={function() { onRename(); onClose(); }}
                 className="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2 text-gray-700"
             >
                 <Edit2 size={14} /> Rename
@@ -59,7 +59,7 @@ export function SidebarContextMenu({
             {/* Create Actions (Optional) */}
             {onNewNote && (
                 <button
-                    onClick={() => { onNewNote(); onClose(); }}
+                    onClick={function() { onNewNote(); onClose(); }}
                     className="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2 text-gray-700"
                 >
                     <FilePlus size={14} /> New Note
@@ -68,7 +68,7 @@ export function SidebarContextMenu({
 
             {onNewFolder && (
                 <button
-                    onClick={() => { onNewFolder(); onClose(); }}
+                    onClick={function() { onNewFolder(); onClose(); }}
                     className="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2 text-gray-700"
                 >
                     <FolderPlus size={14} /> New Folder

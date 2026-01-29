@@ -23,7 +23,7 @@ export function SlashMenu({ isOpen, x, y, selectedIndex, commands, onSelect }: S
             return;
         }
 
-        const selectedElement = scrollContainerRef.current.querySelector(`[data-selected="true"]`);
+        const selectedElement = scrollContainerRef.current.querySelector("[data-selected=\"true\"]");
         if (selectedElement) {
             selectedElement.scrollIntoView({ block: 'nearest' });
         }

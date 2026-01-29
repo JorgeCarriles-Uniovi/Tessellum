@@ -24,13 +24,13 @@ function getSlashContext(state: any, cursorPos: number) {
     const hasSpace = queryText.includes(' ');
     const cursorAfterSlash = lineOffset >= slashPos;
 
-    return hasSpace || !cursorAfterSlash ? null : {
-        queryText,
+    return (Boolean(hasSpace)) || !cursorAfterSlash ? null : {
+        queryText: queryText,
         absoluteSlashPos: line.from + slashPos
     };
 }
 
-function canTriggerSlash(state: any, cursorPos: number) {
+function canTriggerSlash(state: unknown, cursorPos: number) {
     if (cursorPos === 0) return true;
     const charBefore = state.doc.sliceString(cursorPos - 1, cursorPos);
     return charBefore === ' ' || charBefore === '\n';
@@ -39,7 +39,7 @@ function canTriggerSlash(state: any, cursorPos: number) {
 function useSlashTrigger(isOpenRef: RefObject<boolean>, openMenu: (coords: any) => void) {
     return useMemo(() => EditorView.domEventHandlers({
         keydown: (event, view) => {
-            if (event.key === '/' && !isOpenRef.current) {
+            if (event.key === '/' && !(isOpenRef.current ?? false)) {
                 const { state } = view;
                 const cursorPos = state.selection.main.from;
                 if (state.selection.main.empty && canTriggerSlash(state, cursorPos)) {

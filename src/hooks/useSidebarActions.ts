@@ -13,5 +13,5 @@ export function useSidebarActions() {
     // --- 3. Rename File/Folder ---
     const renameFile = useRenameFile();
 
-    return { createNote, deleteFile, renameFile };
+    return { createNote: createNote, deleteFile, renameFile };
 }

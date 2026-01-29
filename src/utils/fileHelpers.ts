@@ -53,7 +53,7 @@ export function buildFileTree(files: FileMetadata[]): TreeNode[] {
             if (a.isDir === b.isDir) return a.name.localeCompare(b.name);
             return a.isDir ? -1 : 1;
         });
-        nodes.forEach(node => sortNodes(node.children));
+        nodes.forEach(function(node) { return sortNodes(node.children) });
     };
 
     sortNodes(root);

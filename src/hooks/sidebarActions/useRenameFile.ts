@@ -11,18 +11,18 @@ export function useRenameFile() {
 
         const defaultName = target.is_dir ? target.filename : target.filename.replace(/\.md$/, '');
         const newName = window.prompt("Rename to:", defaultName);
-        if (!newName || newName === defaultName) return;
+        if ((newName == null) || newName === defaultName) return;
 
         try {
             const newPath = await invoke<string>('rename_file', {
-                vaultPath,
+                vaultPath: vaultPath,
                 oldPath: target.path,
                 newName: newName
             });
 
             const updatedNote = { ...target, path: newPath, filename: newName + (target.is_dir ? "" : ".md") };
 
-            const updatedFiles = files.map(f => f.path === target.path ? updatedNote : f);
+            const updatedFiles = files.map(function(f) { return f.path === target.path ? updatedNote : f });
 
             setFiles(updatedFiles);
 
@@ -32,5 +32,5 @@ export function useRenameFile() {
         } catch (e) {
             toast.error("Rename failed");
         }
-    }, [files, activeNote, setFiles, setActiveNote]);
+    }, [vaultPath, files, setFiles, activeNote?.path, setActiveNote]);
 }

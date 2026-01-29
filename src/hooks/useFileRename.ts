@@ -26,14 +26,14 @@ export function useFileRename() {
     }, [target]);
 
     const confirm = useCallback(async (newName: string) => {
-        if (!target || !vaultPath) return;
+        if (!target || !(Boolean(vaultPath))) return;
 
         try {
             // Backend rename
             const newPath = await invoke<string>('rename_file', {
-                vaultPath,
+                vaultPath: vaultPath,
                 oldPath: target.path,
-                newName
+                newName: newName
             });
 
             // Ensure proper filename with extension
@@ -45,14 +45,14 @@ export function useFileRename() {
             toast.success("Renamed successfully");
             close();
 
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error("Rename failed", e);
             toast.error(typeof e === 'string' ? e : "Failed to rename");
         }
     }, [target, vaultPath, renameFile, close]);
 
     return {
-        isOpen,
+        isOpen: isOpen,
         target,
         open,
         close,

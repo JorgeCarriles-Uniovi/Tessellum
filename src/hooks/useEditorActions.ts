@@ -1,13 +1,11 @@
-import {useCallback, useEffect, useState, useRef, RefObject} from 'react';
+import {useCallback, useEffect, useState, useRef} from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { FileMetadata } from "../types";
 import { useCreateFolder,
          useEditorExtensions,
          useNoteRenaming,
          useWikiLinkNavigation,
-         useEditorClick
 } from './editorActions';
-import {ReactCodeMirrorRef} from "@uiw/react-codemirror";
 
 // --- HOOK 1: Handles File I/O (Read, Write, Debounce) ---
 export function useFileSynchronization(activeNote: FileMetadata | null) {
@@ -59,11 +57,10 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
     return { content, isLoading, handleContentChange };
 }
 
-export function useEditorActions(editorRef: RefObject<ReactCodeMirrorRef>) {
+export function useEditorActions() {
     const createFolder = useCreateFolder();
     const noteRenaming = useNoteRenaming();
     const wikiLinkNavigation = useWikiLinkNavigation();
     const editorExtensions = useEditorExtensions(wikiLinkNavigation);
-    const editorClick = useEditorClick(editorRef);
-    return { createFolder, noteRenaming, editorExtensions, wikiLinkNavigation, editorClick };
+    return { createFolder: createFolder, noteRenaming: noteRenaming, editorExtensions, wikiLinkNavigation };
 }

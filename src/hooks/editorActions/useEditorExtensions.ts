@@ -1,7 +1,7 @@
 import {useMemo} from "react";
 import {EditorView} from "@codemirror/view";
 import {markdown, markdownLanguage} from "@codemirror/lang-markdown";
-import {wikiLinkPlugin} from "../../extensions/wikiLinkPlugin.ts";
+import {wikiLinkPlugin} from "../../extensions/wikiLink-plugin.ts";
 import {languages} from "@codemirror/language-data";
 
 export function useEditorExtensions(onWikiLinkClick: (text: string) => void) {
@@ -14,7 +14,7 @@ export function useEditorExtensions(onWikiLinkClick: (text: string) => void) {
                     : target.closest(".cm-wikilink");
                 const destination = linkElement?.getAttribute("data-destination");
 
-                if (destination) {
+                if (destination != null) {
                     event.preventDefault();
                     onWikiLinkClick(destination);
                 }

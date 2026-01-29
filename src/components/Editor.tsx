@@ -9,7 +9,8 @@ import { useRef } from "react";
 import { useSlashCommand } from "../hooks/editorActions";
 import { CommandItem } from "../types";
 import { SlashMenu } from "./SlashMenu";
-import {dividerPlugin} from "../extensions/divider";
+import { dividerPlugin } from "../extensions/divider-plugin";
+import {mathClickHandler, mathPlugin} from "../extensions/math-plugin.ts";
 
 export function Editor() {
     const { activeNote } = useEditorStore();
@@ -19,7 +20,7 @@ export function Editor() {
 
     const editorRef = useRef<ReactCodeMirrorRef>(null);
 
-    const { noteRenaming, editorExtensions, editorClick } = useEditorActions(editorRef);
+    const { noteRenaming, editorExtensions } = useEditorActions();
 
     const { slashExtension, slashProps } = useSlashCommand();
 
@@ -51,17 +52,21 @@ export function Editor() {
             </div>
 
             {/* EDITOR AREA (Fills remaining space) */}
-            <div className="flex-1 w-full relative min-h-0 cursor-text"
-                 onMouseDown={editorClick}>
+            <div className="flex-1 w-full relative min-h-0 cursor-text">
+                {/* REMOVED: onMouseDown={editorClick} */}
                 <CodeMirror
                     ref={editorRef}
                     key={activeNote.path}
                     value={content}
-                    extensions={[...editorExtensions, slashExtension, dividerPlugin]}
+                    extensions={[...editorExtensions,
+                        slashExtension,
+                        dividerPlugin,
+                        mathPlugin,
+                        mathClickHandler]}
                     onChange={handleContentChange}
 
                     height="100%"
-                    className="h-full w-full"
+                    className="h-full w-full cursor-text" // Move cursor-text here
 
                     basicSetup={{
                         lineNumbers: false,
@@ -71,6 +76,7 @@ export function Editor() {
                     }}
                     theme={lightTheme}
                 />
+                {/* Slash Command Menu that opens where the slash was placed */}
                 <SlashMenu
                     isOpen={slashProps.isOpen}
                     x={slashProps.position.x}
@@ -78,8 +84,6 @@ export function Editor() {
                     selectedIndex={slashProps.selectedIndex}
                     commands={slashProps.filteredCommands}
                     onSelect={(item: CommandItem) => {
-                        // We need the view instance here.
-                        // Access it via editorRef.current.view
                         if (editorRef.current?.view) {
                             slashProps.performCommand(editorRef.current.view, item);
                         }

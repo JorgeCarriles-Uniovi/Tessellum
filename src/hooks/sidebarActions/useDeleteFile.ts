@@ -9,7 +9,7 @@ export function useDeleteFile() {
     const { files, setFiles, activeNote, setActiveNote, vaultPath } = useEditorStore();
 
     return useCallback(async (target: FileMetadata) => {
-        const yes = await ask(`Are you sure you want to move "${target.filename}" to trash?`, {
+        const yes = await ask("Are you sure you want to move \""+target.filename+"\" to trash?", {
             title: 'Move to Trash',
             kind: 'warning',
             okLabel: 'Move to Trash',
@@ -19,7 +19,7 @@ export function useDeleteFile() {
         if (!yes) return;
 
         try {
-            await invoke('trash_item', { itemPath: target.path, vaultPath });
+            await invoke('trash_item', { itemPath: target.path, vaultPath: vaultPath });
 
             // Determine path separator based on the target path (supports Windows and POSIX)
             const separator = target.path.includes('\\') ? '\\' : '/';
@@ -29,7 +29,7 @@ export function useDeleteFile() {
                 // Always remove the target itself
                 f.path !== target.path &&
                 // If target is a directory, remove its descendants with a proper boundary
-                !(target.is_dir && f.path.startsWith(childPrefix))
+                !(target.is_dir && (Boolean(f.path.startsWith(childPrefix))))
             );
             setFiles(updatedFiles);
             if (activeNote) {
