@@ -59,6 +59,40 @@ const baseTheme = EditorView.theme({
         margin: "1.5rem 0",         // Vertical spacing
         width: "100%",
         display: "block"
+    },
+    ".cm-math-block .katex table": {
+        borderCollapse: "separate !important",
+        borderSpacing: "0",
+        lineHeight: "normal !important",
+        width: "auto !important",
+        marginBottom: "0 !important"
+    },
+
+    // Ensure the container centers the matrix
+    ".cm-math-block": {
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        width: "100%",
+        margin: "1.5rem 0",
+        cursor: "default",
+        userSelect: "none",
+        fontSize: "1.1em",       // Slight bump for readability
+    },
+    ".cm-math-block .katex tr": {
+        border: "none !important",
+    },
+    ".cm-math-block .katex td": {
+        padding: "0 !important",
+        border: "none !important",
+        lineHeight: "normal !important",
+    },
+    ".cm-math-inline": {
+        display: "inline",
+        padding: "0",
+        border: "none",
+        fontSize: "1.05em",
+        lineHeight: "normal",
     }
 });
 

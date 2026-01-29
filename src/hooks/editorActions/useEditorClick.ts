@@ -8,13 +8,94 @@ export function useEditorClick(editorRef: RefObject<ReactCodeMirrorRef>) {
         // 1. Ignore interactions with clickable UI elements
         if (target.tagName === 'A' || target.tagName === 'BUTTON') return;
 
-        // 2. Prevent default browser blur (Critical step)
+        // 2. Check if clicked on a rendered LaTeX element
+        const latexElement = target.closest('.latex, .latex-inline');
+        if (latexElement) {
+            e.preventDefault();
+            const view = editorRef.current?.view;
+            if (!view) return;
+
+            // Get the stored position from the data attribute
+            const posAttr = latexElement.getAttribute('data-pos');
+            if (!posAttr) {
+                // Fallback to regular click handling if no position stored
+                view.focus();
+                return;
+            }
+
+            const pos = parseInt(posAttr, 10);
+
+            // Find the line containing this position
+            const line = view.state.doc.lineAt(pos);
+            const lineText = line.text;
+
+            // Search for LaTeX delimiters from the position
+            // First, try to find block LaTeX ($$...$$)
+            const blockRegex = /\$\$([\s\S]*?)\$\$/g;
+            let match: RegExpExecArray | null;
+            let matchStart = -1;
+            let matchEnd = -1;
+            let foundMatch = false;
+
+            // Search in the current line and subsequent lines for block LaTeX
+            let searchText = view.state.doc.sliceString(line.from, Math.min(line.to + 1000, view.state.doc.length));
+
+            while ((match = blockRegex.exec(searchText)) !== null) {
+                const absoluteStart = line.from + match.index;
+                const absoluteEnd = absoluteStart + match[0].length;
+
+                // Check if our position is within this match
+                if (pos >= absoluteStart && pos < absoluteEnd) {
+                    matchStart = absoluteStart;
+                    matchEnd = absoluteEnd;
+                    foundMatch = true;
+                    break;
+                }
+            }
+
+            // If no block match, try inline LaTeX ($...$)
+            if (!foundMatch) {
+                const inlineRegex = /\$([^\$\n]+?)\$/g;
+
+                while ((match = inlineRegex.exec(lineText)) !== null) {
+                    const absoluteStart = line.from + match.index;
+                    const absoluteEnd = absoluteStart + match[0].length;
+
+                    // Check if our position is within this match
+                    if (pos >= absoluteStart && pos < absoluteEnd) {
+                        matchStart = absoluteStart;
+                        matchEnd = absoluteEnd;
+                        foundMatch = true;
+                        break;
+                    }
+                }
+            }
+
+            if (foundMatch && matchStart !== -1 && matchEnd !== -1) {
+                // Select the entire LaTeX block (including delimiters)
+                view.dispatch({
+                    selection: { anchor: matchStart, head: matchEnd },
+                    scrollIntoView: true
+                });
+            } else {
+                // Fallback: just position cursor at the stored position
+                view.dispatch({
+                    selection: { anchor: pos, head: pos },
+                    scrollIntoView: true
+                });
+            }
+
+            view.focus();
+            return;
+        }
+
+        // 3. Prevent default browser blur (Critical step)
         e.preventDefault();
 
         const view = editorRef.current?.view;
         if (!view) return;
 
-        // 3. Calculate Text Position
+        // 4. Calculate Text Position
         // posAtCoords returns the character index closest to the mouse (X, Y)
         const pos = view.posAtCoords({ x: e.clientX, y: e.clientY });
 
@@ -40,7 +121,7 @@ export function useEditorClick(editorRef: RefObject<ReactCodeMirrorRef>) {
             }
         }
 
-        // 4. Force Focus
+        // 5. Force Focus
         view.focus();
     }, [editorRef]);
 }

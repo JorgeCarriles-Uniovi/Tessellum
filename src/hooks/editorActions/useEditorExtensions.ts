@@ -1,7 +1,7 @@
 import {useMemo} from "react";
 import {EditorView} from "@codemirror/view";
 import {markdown, markdownLanguage} from "@codemirror/lang-markdown";
-import {wikiLinkPlugin} from "../../extensions/wikiLinkPlugin.ts";
+import {wikiLinkPlugin} from "../../extensions/wikiLink-plugin.ts";
 import {languages} from "@codemirror/language-data";
 
 export function useEditorExtensions(onWikiLinkClick: (text: string) => void) {

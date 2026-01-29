@@ -1,5 +1,6 @@
 import { FileMetadata, TreeNode } from '../types';
 import { FileNode } from './FileNode';
+import React from "react";
 
 interface FileTreeProps {
     data: TreeNode[];

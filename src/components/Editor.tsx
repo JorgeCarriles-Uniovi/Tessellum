@@ -9,7 +9,8 @@ import { useRef } from "react";
 import { useSlashCommand } from "../hooks/editorActions";
 import { CommandItem } from "../types";
 import { SlashMenu } from "./SlashMenu";
-import {dividerPlugin} from "../extensions/divider";
+import { dividerPlugin } from "../extensions/divider-plugin";
+import {mathPlugin} from "../extensions/math-plugin.ts";
 
 export function Editor() {
     const { activeNote } = useEditorStore();
@@ -57,7 +58,10 @@ export function Editor() {
                     ref={editorRef}
                     key={activeNote.path}
                     value={content}
-                    extensions={[...editorExtensions, slashExtension, dividerPlugin]}
+                    extensions={[...editorExtensions,
+                        slashExtension,
+                        dividerPlugin,
+                        mathPlugin]}
                     onChange={handleContentChange}
 
                     height="100%"
@@ -71,6 +75,7 @@ export function Editor() {
                     }}
                     theme={lightTheme}
                 />
+                {/* Slash Command Menu that opens where the slash was placed */}
                 <SlashMenu
                     isOpen={slashProps.isOpen}
                     x={slashProps.position.x}

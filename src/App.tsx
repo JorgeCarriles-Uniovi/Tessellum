@@ -5,18 +5,22 @@ import { useEditorStore } from "./stores/editorStore.ts";
 import { listen } from "@tauri-apps/api/event";
 import { open } from '@tauri-apps/plugin-dialog';
 import { Editor } from "./components/Editor.tsx";
-import { Sidebar } from "./components/Sidebar.tsx"; // 👈 New Import
+import { Sidebar } from "./components/Sidebar.tsx";
 import { Toaster } from "sonner";
+import 'katex/dist/katex.min.css';
 
 function App() {
     const {vaultPath, setVaultPath, setFiles} = useEditorStore();
 
+    /// Watch vault folder for changes
     useEffect(() =>{
         if (vaultPath) {
             invoke('watch_vault', {vaultPath}).catch(console.error);
             refreshFiles(vaultPath);
         }
     }, [vaultPath]);
+
+    /// Listen for file changes
 
     useEffect(() => {
         const unlistenPromise = listen('file-changed', () => {
@@ -25,6 +29,7 @@ function App() {
         return () => { unlistenPromise.then(unlisten => unlisten()); };
     }, [vaultPath]);
 
+    /// Refresh files list
     async function refreshFiles(vaultPath: string): Promise<void> {
         try {
             const result = await invoke<FileMetadata[]>('list_files', {vaultPath});
@@ -32,6 +37,7 @@ function App() {
         } catch (e) {console.error(e);}
     }
 
+    /// Open vault folder dialog
     async function handleOpenVault() {
         try {
             const selected = await open({
@@ -42,7 +48,7 @@ function App() {
             if (selected) setVaultPath(selected);
         } catch (e) {console.error(e);}
     }
-
+    
     if(!vaultPath) {
         return (
             <div className="h-screen w-screen flex flex-col items-center justify-center bg-gray-50 gap-6 select-none">
