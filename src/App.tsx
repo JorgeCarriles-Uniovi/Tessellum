@@ -8,20 +8,21 @@ import { Editor } from "./components/Editor/Editor.tsx";
 import { Sidebar } from "./components/Sidebar/Sidebar.tsx";
 import { Toaster } from "sonner";
 import { theme } from './styles/theme';
-import 'katex'
+import 'katex';
+import { cn } from "./lib/utils";
+import { TitleBar } from "./components/TitleBar/TitleBar";
 
 function App() {
-    const {vaultPath, setVaultPath, setFiles} = useEditorStore();
+    // Add isSidebarOpen to the destructuring
+    const { vaultPath, setVaultPath, setFiles, isSidebarOpen } = useEditorStore();
 
-    /// Watch vault folder for changes
-    useEffect(() =>{
+    useEffect(() => {
         if (vaultPath) {
-            invoke('watch_vault', {vaultPath}).catch(console.error);
+            invoke('watch_vault', { vaultPath }).catch(console.error);
             refreshFiles(vaultPath);
         }
     }, [vaultPath]);
 
-    /// Listen for file changes
     useEffect(() => {
         const unlistenPromise = listen('file-changed', () => {
             if (vaultPath) refreshFiles(vaultPath);
@@ -29,15 +30,13 @@ function App() {
         return () => { unlistenPromise.then(unlisten => unlisten()); };
     }, [vaultPath]);
 
-    /// Refresh files list
     async function refreshFiles(vaultPath: string): Promise<void> {
         try {
-            const result = await invoke<FileMetadata[]>('list_files', {vaultPath});
+            const result = await invoke<FileMetadata[]>('list_files', { vaultPath });
             setFiles(result);
-        } catch (e) {console.error(e);}
+        } catch (e) { console.error(e); }
     }
 
-    /// Open vault folder dialog
     async function handleOpenVault() {
         try {
             const selected = await open({
@@ -46,64 +45,56 @@ function App() {
                 title: "Select Vault Folder"
             });
             if (selected) setVaultPath(selected);
-        } catch (e) {console.error(e);}
-    }
-
-    if(!vaultPath) {
-        return (
-            <div
-                // We keep layout classes (flex, w-screen) but remove color classes
-                className="h-screen w-screen flex flex-col items-center justify-center gap-6 select-none"
-                style={{
-                    backgroundColor: theme.colors.gray[50],
-                    fontFamily: theme.typography.fontFamily.sans
-                }}
-            >
-                <div className="text-center space-y-2">
-                    <h1
-                        className="bg-clip-text text-transparent"
-                        style={{
-                            fontSize: theme.typography.fontSize['4xl'],
-                            fontWeight: theme.typography.fontWeight.bold,
-                            // Creating a gradient using your theme's Blue palette
-                            backgroundImage: `linear-gradient(to bottom right, ${theme.colors.blue[600]}, ${theme.colors.blue[800]})`
-                        }}
-                    >
-                        Tessellum
-                    </h1>
-                    <p style={{ color: theme.colors.text.muted }}>
-                        Local-first Knowledge Management
-                    </p>
-                </div>
-                <button
-                    onClick={handleOpenVault}
-                    className="px-6 py-2.5 text-white shadow-sm transition-all hover:scale-105 active:scale-95"
-                    style={{
-                        backgroundColor: theme.colors.blue[600],
-                        borderRadius: theme.borderRadius.lg,
-                        fontWeight: theme.typography.fontWeight.medium,
-                    }}
-                    // Optional: Add hover state logic here or use CSS modules for cleaner hover handling
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = theme.colors.blue[700]}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = theme.colors.blue[600]}
-                >
-                    Open Vault
-                </button>
-            </div>
-        );
+        } catch (e) { console.error(e); }
     }
 
     return (
         <div
-            className="flex h-screen w-screen overflow-hidden"
+            className="flex flex-col h-screen w-screen overflow-hidden"
             style={{
                 backgroundColor: theme.colors.background.primary,
                 fontFamily: theme.typography.fontFamily.sans
             }}
         >
-            <Sidebar />
-            <div className="flex-1 h-full">
-                <Editor />
+            {/* TitleBar controls the isSidebarOpen state */}
+            <TitleBar />
+
+            <div className="flex-1 flex overflow-hidden w-full relative">
+                {!vaultPath ? (
+                    <div
+                        className="w-full h-full flex flex-col items-center justify-center gap-6 select-none"
+                        style={{ backgroundColor: theme.colors.gray[50] }}
+                    >
+                        {/* ... Welcome Screen Content ... */}
+                        <div className="text-center space-y-2">
+                            <h1 className="bg-clip-text text-transparent text-4xl font-bold bg-gradient-to-br from-blue-600 to-blue-800">
+                                Tessellum
+                            </h1>
+                            <p className="text-gray-500">Local-first Knowledge Management</p>
+                        </div>
+                        <button
+                            onClick={handleOpenVault}
+                            className="px-6 py-2.5 text-white bg-blue-600 rounded-lg font-medium hover:bg-blue-700 transition-colors shadow-sm"
+                        >
+                            Open Vault
+                        </button>
+                    </div>
+                ) : (
+                    <div className="flex w-full h-full overflow-hidden">
+                        {/* Logic to hide/show sidebar */}
+                        {/* You can use conditional rendering or CSS hiding for animation support */}
+                        <div className={cn(
+                            "transition-all duration-300 ease-in-out border-r border-gray-200 dark:border-gray-800",
+                            isSidebarOpen ? "w-64 opacity-100" : "w-0 opacity-0 overflow-hidden border-none"
+                        )}>
+                            <Sidebar />
+                        </div>
+
+                        <div className="flex-1 h-full min-w-0 bg-white relative flex flex-col">
+                            <Editor />
+                        </div>
+                    </div>
+                )}
             </div>
 
             <Toaster position="bottom-right" richColors />

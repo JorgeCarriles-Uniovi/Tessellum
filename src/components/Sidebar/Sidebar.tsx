@@ -2,13 +2,10 @@
 
 import React, { useState } from "react";
 import {
-    FileText,
     Plus,
     FolderPlus,
     Settings,
     Trash2,
-    PanelLeftClose,
-    FilePlusCorner as FilePlus
 } from "lucide-react";
 import { FileTree } from '../FileTree/FileTree';
 import { SidebarContextMenu } from './SidebarContextMenu';
@@ -44,56 +41,22 @@ export function Sidebar() {
         getRenameInitialValue,
     } = useFileTree();
 
-    // Collapse state
-    const [isCollapsed, setIsCollapsed] = useState(false);
 
     // Hover states
     const [newFileBtnHovered, setNewFileBtnHovered] = useState(false);
     const [newFolderBtnHovered, setNewFolderBtnHovered] = useState(false);
-    const [collapseBtnHovered, setCollapseBtnHovered] = useState(false);
     const [settingsHovered, setSettingsHovered] = useState(false);
     const [trashHovered, setTrashHovered] = useState(false);
-    const [folderIconHovered, setFolderIconHovered] = useState(false);
 
     // Styles
     const sidebarStyle: React.CSSProperties = {
         display: "flex",
         flexDirection: "column",
         height: "100%",
-        width: isCollapsed ? "64px" : "256px",
+        width: "256px",
         backgroundColor: theme.colors.background.primary,
         borderRight: `1px solid ${theme.colors.border.light}`,
         transition: "width 200ms ease-in-out",
-    };
-
-    const headerStyle: React.CSSProperties = {
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: `${theme.spacing[3]} ${theme.spacing[4]}`,
-        borderBottom: `1px solid ${theme.colors.gray[100]}`,
-    };
-
-    const headerTitleStyle: React.CSSProperties = {
-        display: "flex",
-        alignItems: "center",
-        gap: theme.spacing[2],
-    };
-
-    const titleTextStyle: React.CSSProperties = {
-        fontWeight: theme.typography.fontWeight.semibold,
-        fontSize: theme.typography.fontSize.base,
-        color: theme.colors.text.primary,
-    };
-
-    const collapseButtonStyle: React.CSSProperties = {
-        padding: "4px",
-        background: "transparent",
-        border: "none",
-        cursor: "pointer",
-        borderRadius: theme.borderRadius.md,
-        color: collapseBtnHovered ? theme.colors.gray[600] : theme.colors.gray[400],
-        transition: theme.transitions.fast,
     };
 
     const buttonSectionStyle: React.CSSProperties = {
@@ -176,98 +139,13 @@ export function Sidebar() {
         fontSize: theme.typography.fontSize.sm,
     };
 
-    const collapsedIconButtonStyle = (isHovered: boolean): React.CSSProperties => ({
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        width: "100%",
-        padding: `${theme.spacing[2]} 0`,
-        background: isHovered ? theme.colors.gray[50] : "transparent",
-        border: "none",
-        cursor: "pointer",
-        color: theme.colors.gray[600],
-        transition: theme.transitions.fast,
-    });
-
     return (
         <>
             <aside style={sidebarStyle}>
-                {isCollapsed ? (
-                    // Collapsed View
-                    <>
-                        {/* Collapse Button */}
-                        <div style={headerStyle}>
-                            <button
-                                style={collapseButtonStyle}
-                                onClick={() => setIsCollapsed(!isCollapsed)}
-                                onMouseEnter={() => setCollapseBtnHovered(true)}
-                                onMouseLeave={() => setCollapseBtnHovered(false)}
-                            >
-                                <PanelLeftClose style={{ width: "20px", height: "20px" }} />
-                            </button>
-                        </div>
-
-                        {/* File and Folder Icons */}
-                        <div style={{ flex: 1, alignItems: 'flex-start', paddingTop: theme.spacing[4] }}>
-
-                            <button
-                                style={collapsedIconButtonStyle(newFileBtnHovered)}
-                                onClick={() => createNote()}
-                                onMouseEnter={() => setFolderIconHovered(true)}
-                                onMouseLeave={() => setFolderIconHovered(false)}
-                                title="New File"
-                            >
-                                <FilePlus style={{ width: "20px", height: "20px" }} />
-                            </button>
-                            <button
-                                style={collapsedIconButtonStyle(folderIconHovered)}
-                                onClick={handleHeaderNewFolder}
-                                onMouseEnter={() => setFolderIconHovered(true)}
-                                onMouseLeave={() => setFolderIconHovered(false)}
-                                title="New Folder"
-                            >
-                                <FolderPlus style={{ width: "20px", height: "20px" }} />
-                            </button>
-                        </div>
-
-                        {/* Footer Icons */}
-                        <div style={footerStyle}>
-                            <button
-                                style={collapsedIconButtonStyle(settingsHovered)}
-                                onMouseEnter={() => setSettingsHovered(true)}
-                                onMouseLeave={() => setSettingsHovered(false)}
-                                title="Settings"
-                            >
-                                <Settings style={{ width: "20px", height: "20px" }} />
-                            </button>
-                            <button
-                                style={collapsedIconButtonStyle(trashHovered)}
-                                onMouseEnter={() => setTrashHovered(true)}
-                                onMouseLeave={() => setTrashHovered(false)}
-                                title="Trash"
-                            >
-                                <Trash2 style={{ width: "20px", height: "20px" }} />
-                            </button>
-                        </div>
-                    </>
-                ) : (
+                {(
                     // Expanded View
                     <>
                         {/* Header */}
-                        <div style={headerStyle}>
-                            <div style={headerTitleStyle}>
-                                <FileText style={{ width: "20px", height: "20px", color: theme.colors.blue[500] }} />
-                                <span style={titleTextStyle}>Files</span>
-                            </div>
-                            <button
-                                style={collapseButtonStyle}
-                                onClick={() => setIsCollapsed(!isCollapsed)}
-                                onMouseEnter={() => setCollapseBtnHovered(true)}
-                                onMouseLeave={() => setCollapseBtnHovered(false)}
-                            >
-                                <PanelLeftClose style={{ width: "20px", height: "20px" }} />
-                            </button>
-                        </div>
 
                         {/* New File/Folder Buttons */}
                         <div style={buttonSectionStyle}>
