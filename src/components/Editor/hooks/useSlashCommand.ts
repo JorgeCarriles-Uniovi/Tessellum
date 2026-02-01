@@ -9,7 +9,7 @@ import {
 import { EditorView, keymap } from '@codemirror/view';
 import { CommandItem } from '../../../types.ts';
 import { Prec } from "@codemirror/state";
-import {COMMANDS} from "../../../constants/commands.tsx";
+import { COMMANDS } from "../../../constants/commands.tsx";
 
 // ===== PURE UTILITIES (no React dependencies) =====
 
@@ -43,9 +43,33 @@ function useSlashTrigger(isOpenRef: RefObject<boolean>, openMenu: (coords: any) 
                 const { state } = view;
                 const cursorPos = state.selection.main.from;
                 if (state.selection.main.empty && canTriggerSlash(state, cursorPos)) {
-                    const coords = view.coordsAtPos(cursorPos);
-                    if (coords) openMenu(coords);
-                    // Do NOT prevent default. We want the "/" to be typed.
+
+                    const cursorCoords = view.coordsAtPos(cursorPos);
+                    const editorRect = view.dom.getBoundingClientRect();
+
+                    if (cursorCoords && editorRect) {
+                        // --- LÓGICA DE COLISIÓN ---
+                        const MENU_HEIGHT = 320; // Altura máxima estimada del menú
+                        const spaceBelow = window.innerHeight - cursorCoords.bottom;
+
+                        // Si hay menos de 320px abajo, lo ponemos arriba
+                        const placement = spaceBelow < MENU_HEIGHT ? 'top' : 'bottom';
+
+                        // Cálculo de X (siempre igual)
+                        const x = cursorCoords.left - editorRect.left;
+
+                        // Cálculo de Y (Depende de si va arriba o abajo)
+                        let y;
+                        if (placement === 'bottom') {
+                            // Si va abajo: Usamos la parte inferior del cursor
+                            y = cursorCoords.bottom - editorRect.top;
+                        } else {
+                            // Si va arriba: Usamos la parte SUPERIOR del cursor (para que no tape el texto)
+                            y = cursorCoords.top - editorRect.top;
+                        }
+
+                        openMenu({ left: x, top: y, placement });
+                    }
                 }
             }
             return false;
@@ -57,7 +81,7 @@ function useSlashTrigger(isOpenRef: RefObject<boolean>, openMenu: (coords: any) 
 
 function useMenuState() {
     const [isOpen, setIsOpen] = useState(false);
-    const [position, setPosition] = useState({ x: 0, y: 0 });
+    const [position, setPosition] = useState({ x: 0, y: 0, placement: 'bottom' as 'bottom' | 'top' });
     const [query, setQuery] = useState("");
     const [selectedIndex, setSelectedIndex] = useState(0);
 
@@ -69,10 +93,10 @@ function useMenuState() {
         selectedIndexRef.current = selectedIndex;
     }, [selectedIndex]);
 
-    const openMenu = useCallback((coords: { left: number; top: number }) => {
+    const openMenu = useCallback((coords: { left: number; top: number; placement: 'bottom' | 'top' }) => {
         setIsOpen(true);
         isOpenRef.current = true;
-        setPosition({ x: coords.left, y: coords.top });
+        setPosition({ x: coords.left, y: coords.top, placement: coords.placement });
         setQuery("");
         setSelectedIndex(0);
     }, []);
@@ -134,7 +158,6 @@ function useKeyboardHandling(
     moveSelection: (dir: 'up' | 'down') => boolean,
     executeSelected: (view: EditorView) => boolean
 ) {
-    // We use Prec.highest to ensure this runs BEFORE the editor moves the cursor
     return useMemo(() => Prec.highest(keymap.of([
         {
             key: "ArrowUp",
@@ -195,12 +218,10 @@ function useCommandExecution(closeMenu: () => void) {
 
 // ===== MAIN HOOK =====
 
-export function useSlashCommand(
-) {
+export function useSlashCommand() {
     const menuState = useMenuState();
     const performCommandInternal = useCommandExecution(menuState.closeMenu);
 
-    // 1. Calculate filtered commands internally
     const filteredCommands = useMemo(() => {
         return COMMANDS.filter(cmd =>
             cmd.label.toLowerCase().includes(menuState.query.toLowerCase()) ||
@@ -208,13 +229,11 @@ export function useSlashCommand(
         );
     }, [menuState.query]);
 
-    // 1. Ref holding the latest filteredCommands for use in keyboard handlers without stale closures
     const latestCommandsRef = useRef(filteredCommands);
     useEffect(() => {
         latestCommandsRef.current = filteredCommands;
     }, [filteredCommands]);
 
-    // 2. Stable Callbacks
     const executeSelected = useCallback((view: EditorView) => {
         const cmds = latestCommandsRef.current;
         if (!cmds?.length) return false;
@@ -234,7 +253,6 @@ export function useSlashCommand(
         return true;
     }, [menuState.moveSelection]);
 
-    // 3. Assemble Extensions
     const keymapExtension = useKeyboardHandling(
         menuState.isOpenRef,
         menuState.closeMenu,
@@ -258,7 +276,6 @@ export function useSlashCommand(
         [updateListener, keymapExtension, slashTriggerExtension]
     );
 
-    // 4. Clamping Effect
     useEffect(() => {
         const maxIndex = Math.max(0, filteredCommands.length - 1);
         if (menuState.selectedIndex > maxIndex) {
@@ -275,7 +292,8 @@ export function useSlashCommand(
             query: menuState.query,
             filteredCommands,
             performCommand: performCommandInternal,
-            closeMenu: menuState.closeMenu
+            closeMenu: menuState.closeMenu,
+            setSelectedIndex: menuState.setSelectedIndex
         }
     };
 }

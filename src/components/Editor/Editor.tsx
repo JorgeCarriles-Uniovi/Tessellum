@@ -7,6 +7,7 @@ import { SlashMenu } from "./SlashMenu";
 import { dividerPlugin } from "./extensions/divider-plugin";
 import { mathClickHandler, mathPlugin } from "./extensions/math-plugin";
 import { useEditorActions, useFileSynchronization } from "./hooks/useEditorActions";
+import { cn } from '../../lib/utils';
 
 // 1. Import your CodeMirror extension (The file you just showed me)
 import { lightTheme } from "./themes/lightTheme";
@@ -66,7 +67,7 @@ export function Editor() {
                     ]}
                     onChange={handleContentChange}
                     height="100%"
-                    className="h-full w-full"
+                    className={cn("h-full w-full", slashProps.isOpen && "[&_.cm-scroller]:!overflow-hidden")}
 
                     theme={lightTheme}
 
@@ -82,14 +83,18 @@ export function Editor() {
                     isOpen={slashProps.isOpen}
                     x={slashProps.position.x}
                     y={slashProps.position.y}
+                    // Pasamos la nueva propiedad que viene del hook
+                    placement={slashProps.position.placement}
                     selectedIndex={slashProps.selectedIndex}
                     commands={slashProps.filteredCommands}
+                    setSelectedIndex={slashProps.setSelectedIndex}
                     onSelect={(item: CommandItem) => {
                         if (editorRef.current?.view) {
                             slashProps.performCommand(editorRef.current.view, item);
                         }
                     }}
-                />
+                    onClose={() => { slashProps.closeMenu();
+                }}                />
             </div>
         </div>
     );
