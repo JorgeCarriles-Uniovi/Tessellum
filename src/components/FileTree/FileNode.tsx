@@ -3,7 +3,6 @@ import { useEditorStore } from '../../stores/editorStore.ts';
 import { FileMetadata, TreeNode } from '../../types.ts';
 import {
     ChevronRight,
-    ChevronDown,
     File as FileIcon,
     Folder as FolderIcon,
     FolderOpenIcon,
@@ -21,11 +20,11 @@ export function FileNode({ node, level, onContextMenu }: FileNodeProps) {
     const isOpen = (expandedFolders[node.id]) || false;
     const hasChildren = node.children && node.children.length > 0;
 
-    // Styling - FIX: Proper calculation
+    // Styling
     const paddingLeft = `${level * 24 + 12}px`;
     const isActive = activeNote?.path === node.id;
 
-    // Left Click: Selection / Toggling
+    // Left Click
     const handleClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         if (node.isDir) {
@@ -35,7 +34,7 @@ export function FileNode({ node, level, onContextMenu }: FileNodeProps) {
         }
     };
 
-    // Right Click: Context Menu
+    // Right Click
     const handleContextMenu = (e: React.MouseEvent) => {
         onContextMenu(e, node.file);
     };
@@ -82,17 +81,19 @@ export function FileNode({ node, level, onContextMenu }: FileNodeProps) {
                     marginBottom: "2px",
                 }}
             >
-                {/* 1. Expand/Collapse Icon */}
+                {/* 1. Expand/Collapse Icon (Animated Rotation) */}
                 <span
                     className="mr-1 w-4 flex justify-center text-gray-400 hover:text-gray-600"
                     onClick={(e) => {
-                        // Allow clicking chevron separately to toggle folders
                         e.stopPropagation();
                         if (node.isDir) toggleFolder(node.id);
                     }}
                 >
                     {node.isDir && (
-                        isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />
+                        <ChevronRight
+                            size={14}
+                            className={`transform transition-transform duration-200 ease-in-out ${isOpen ? 'rotate-90' : 'rotate-0'}`}
+                        />
                     )}
                 </span>
 
@@ -109,26 +110,33 @@ export function FileNode({ node, level, onContextMenu }: FileNodeProps) {
                 <span className="truncate">{node.name}</span>
             </div>
 
-            {/* Recursion: Render Children if Open */}
-            {isOpen && node.isDir && (
-                <div role="group">
-                    {hasChildren ? (
-                        node.children.map(child => (
-                            <FileNode
-                                key={child.id}
-                                node={child}
-                                level={level + 1}
-                                onContextMenu={onContextMenu}
-                            />
-                        ))
-                    ) : (
-                        <div
-                            className="py-2 pr-2 text-xs italic text-gray-400"
-                            style={{ paddingLeft: `${(level + 1) * 24 + 12}px` }}
-                        >
-                            Empty folder
-                        </div>
-                    )}
+            {/* Recursion: Render Children with Animation */}
+            {node.isDir && (
+                <div
+                    className="grid transition-[grid-template-rows] duration-200 ease-in-out"
+                    style={{
+                        gridTemplateRows: isOpen ? "1fr" : "0fr"
+                    }}
+                >
+                    <div className="overflow-hidden" role="group">
+                        {hasChildren ? (
+                            node.children.map(child => (
+                                <FileNode
+                                    key={child.id}
+                                    node={child}
+                                    level={level + 1}
+                                    onContextMenu={onContextMenu}
+                                />
+                            ))
+                        ) : (
+                            <div
+                                className="py-2 pr-2 text-xs italic text-gray-400"
+                                style={{ paddingLeft: `${(level + 1) * 24 + 12}px` }}
+                            >
+                                Empty folder
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
         </div>
