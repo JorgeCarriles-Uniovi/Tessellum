@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import { FileMetadata } from "../types";
 
 // --- 1. Define Helper Logic (Pure Functions) ---
-// Moving this out keeps the store clean and reusable
 const sortFiles = (files: FileMetadata[]) => {
     return [...files].sort((a, b) => {
         // Folders first, then alphabetically
@@ -19,6 +18,7 @@ interface EditorState {
     activeNoteContent: string;
     isDirty: boolean;
     expandedFolders: Record<string, boolean>;
+    isSidebarOpen: boolean; // <--- NEW STATE
 
     // Actions
     setVaultPath: (path: string) => void;
@@ -26,6 +26,7 @@ interface EditorState {
     setActiveNote: (file: FileMetadata | null) => void;
     setActiveNoteContent: (content: string) => void;
     setIsDirty: (isDirty: boolean) => void;
+    toggleSidebar: () => void; // <--- NEW ACTION
 
     // Complex Actions
     renameFile: (oldPath: string, newPath: string, newName: string) => void;
@@ -41,16 +42,20 @@ export const useEditorStore = create<EditorState>((set) => ({
     activeNoteContent: '',
     isDirty: false,
     expandedFolders: {},
+    isSidebarOpen: true, // <--- DEFAULT OPEN
 
     // --- Simple Setters ---
     setVaultPath: (path) => {
         localStorage.setItem('vaultPath', path);
         set({ vaultPath: path });
     },
-    setFiles: function(files) { return set({ files: sortFiles(files) }) }, // Auto-sort on set
+    setFiles: function(files) { return set({ files: sortFiles(files) }) },
     setActiveNote: function(activeNote) { return set({ activeNote }) },
     setActiveNoteContent: function(activeNoteContent) { return set({ activeNoteContent }) },
     setIsDirty: (isDirty) => set({ isDirty }),
+
+    // <--- TOGGLE IMPLEMENTATION
+    toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
 
     // --- Complex Logic ---
 
@@ -68,17 +73,13 @@ export const useEditorStore = create<EditorState>((set) => ({
         files: sortFiles([...state.files, newFile])
     })),
 
-    // Refactored to be safer and simpler
     renameFile: (oldPath, newPath, newFilename) => set((state) => {
-        // 1. Find and update the file in the list
         const updatedFiles = state.files.map((f) =>
             f.path === oldPath
                 ? { ...f, path: newPath, filename: newFilename }
                 : f
         );
 
-        // 2. Determine if we need to update the activeNote
-        // (Only if the file being renamed is the one currently open)
         const shouldUpdateActive = state.activeNote?.path === oldPath;
         const updatedActiveNote = shouldUpdateActive
             ? { ...state.activeNote!, path: newPath, filename: newFilename }

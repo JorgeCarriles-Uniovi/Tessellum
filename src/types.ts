@@ -22,4 +22,5 @@ export type CommandItem = {
     icon: React.ReactNode;
     insertText: string; // Markdown text to be inserted
     cursorOffset: number; // Where to put cursor after insertion
+    shortcut?: string;
 }

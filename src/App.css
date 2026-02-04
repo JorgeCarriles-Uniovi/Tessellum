@@ -114,3 +114,21 @@ button {
     background-color: #0f0f0f69;
   }
 }
+
+@keyframes slide-in-fade {
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-stagger-item {
+  /* Start invisible so we don't see them before the delay kicks in */
+  opacity: 0;
+  /* Apply the keyframe */
+  animation: slide-in-fade 200ms ease-out forwards;
+}
