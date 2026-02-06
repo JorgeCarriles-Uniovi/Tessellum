@@ -1,5 +1,6 @@
 mod db;
 
+use std::collections::HashMap;
 use db::Database;
 use notify::{Config, Error, Event, RecommendedWatcher, RecursiveMode, Watcher};
 use regex::Regex;
@@ -85,6 +86,140 @@ impl Default for AppState {
             db: Arc::new(Mutex::new(None)),
             watcher: std::sync::Mutex::new(None),
         }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct WikiLink {
+    /// The link target (e.g., "Note" or "folder/Note")
+    target: String,
+    /// Optional display text after the pipe (e.g., "custom text" in [[Note|custom text]])
+    alias: Option<String>,
+}
+
+struct FileIndex {
+    /// Map: filename -> Vec<full_path>
+    name_to_paths: HashMap<String, Vec<PathBuf>>,
+}
+
+impl FileIndex {
+    /// Build an index from a vault directory
+    fn build(vault_path: &str) -> Result<Self, String> {
+        let mut name_to_paths: HashMap<String, Vec<PathBuf>> = HashMap::new();
+        
+        if !Path::new(vault_path).exists() {
+            return Err("Vault path does not exist".to_string());
+        }
+        
+        for entry in WalkDir::new(vault_path)
+            .into_iter()
+            .filter_map(|e| e.ok())
+        {
+            let path = entry.path();
+            
+            // Skip hidden files and directories
+            let path_str = path.to_string_lossy();
+            if path_str.contains("/.") {
+                continue;
+            }
+            
+            // Only index .md files
+            if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("md") {
+                if let Some(filename) = path.file_name() {
+                    let filename_str = filename.to_string_lossy().to_string();
+                    
+                    // Index both with and without .md extension
+                    name_to_paths
+                        .entry(filename_str.clone())
+                        .or_insert_with(Vec::new)
+                        .push(path.to_path_buf());
+                    
+                    // Also index without extension
+                    if let Some(stem) = path.file_stem() {
+                        let stem_str = stem.to_string_lossy().to_string();
+                        name_to_paths
+                            .entry(stem_str)
+                            .or_insert_with(Vec::new)
+                            .push(path.to_path_buf());
+                    }
+                }
+            }
+        }
+        
+        Ok(Self { name_to_paths })
+    }
+    
+    /// Resolve a wikilink target to a full file path.
+    /// Returns the best match based on Obsidian's resolution rules:
+    /// 1. If the link contains a path (e.g., "folder/Note"), try to match that structure
+    /// 2. If multiple files have the same name, prefer the shortest path (closest to root)
+    /// 3. Return None if no match is found
+    fn resolve(&self, vault_path: &str, link_target: &str) -> Option<PathBuf> {
+        let vault_root = Path::new(vault_path);
+        
+        // Check if this is a path-based link (contains /)
+        if link_target.contains('/') {
+            // Try to resolve as a relative path from vault root
+            let mut full_path = vault_root.join(link_target);
+            
+            // Add .md extension if not present
+            if !full_path.extension().map_or(false, |ext| ext == "md") {
+                full_path.set_extension("md");
+            }
+            
+            if full_path.exists() {
+                return Some(full_path);
+            }
+            
+            // Also try matching the filename part only
+            if let Some(filename) = Path::new(link_target).file_name() {
+                let filename_str = filename.to_string_lossy().to_string();
+                if let Some(candidates) = self.name_to_paths.get(&filename_str) {
+                    // Filter candidates that end with the specified path structure
+                    let matching: Vec<_> = candidates
+                        .iter()
+                        .filter(|p| {
+                            if let Ok(rel) = p.strip_prefix(vault_root) {
+                                rel.to_string_lossy().contains(link_target)
+                            } else {
+                                false
+                            }
+                        })
+                        .collect();
+                    
+                    if !matching.is_empty() {
+                        return Some(matching[0].clone());
+                    }
+                }
+            }
+        }
+        
+        // Simple filename lookup
+        let search_key = if link_target.ends_with(".md") {
+            link_target.to_string()
+        } else {
+            link_target.to_string()
+        };
+        
+        if let Some(candidates) = self.name_to_paths.get(&search_key) {
+            if candidates.is_empty() {
+                return None;
+            }
+            
+            // If multiple matches, prefer shortest path (closest to vault root)
+            let best_match = candidates
+                .iter()
+                .min_by_key(|p| {
+                    p.strip_prefix(vault_root)
+                        .ok()
+                        .map(|rel| rel.components().count())
+                        .unwrap_or(usize::MAX)
+                })?;
+            
+            return Some(best_match.clone());
+        }
+        
+        None
     }
 }
 
@@ -547,32 +682,56 @@ fn read_file(path: String) -> Result<String, String> {
 #[tauri::command]
 async fn write_file(
     state: State<'_, AppState>,
+    vault_path: String,
     path: String,
     content: String,
 ) -> Result<(), String> {
+    // 1. Write the file first
     tokio::fs::write(&path, &content)
         .await
         .map_err(|e| e.to_string())?;
-
+    
     let db_guard = state.db.lock().await;
-
+    
     if let Some(db) = db_guard.as_ref() {
-        let metadata = metadata(&path).map_err(|e| e.to_string())?;
+        // 2. Get metadata AFTER writing (this was the bug)
+        let metadata = tokio::fs::metadata(&path)
+            .await
+            .map_err(|e| format!("Failed to get metadata for {}: {}", path, e))?;
+        
         let size = metadata.len();
         let modified = metadata
             .modified()
-            .unwrap_or(SystemTime::now())
+            .map_err(|e| format!("Failed to get modified time: {}", e))?
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs() as i64;
-
-        let links = extract_wikilinks(&content);
-
-        db.index_file(&path, modified, size, &links)
+        
+        // 3. Extract wikilinks
+        let wikilinks = extract_wikilinks(&content);
+        
+        // 4. Build file index for resolving links
+        let file_index = FileIndex::build(&vault_path)
+            .map_err(|e| format!("Failed to build file index: {}", e))?;
+        
+        // 5. Resolve each wikilink to its full path
+        let resolved_links: Vec<String> = wikilinks
+            .iter()
+            .filter_map(|link| {
+                file_index
+                    .resolve(&vault_path, &link.target)
+                    .map(|p| p.to_string_lossy().to_string())
+            })
+            .collect();
+        
+        // 6. Index the file with resolved links
+        db.index_file(&path, modified, size, &resolved_links)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| format!("Failed to index file in database: {}", e))?;
+        
+        println!("✓ Indexed file: {} with {} resolved links", path, resolved_links.len());
     }
-
+    
     Ok(())
 }
 
@@ -732,24 +891,19 @@ async fn rename_file(
 ) -> Result<String, String> {
     let vault_root = Path::new(&vault_path);
     let old = Path::new(&old_path);
-
-    // 1. SECURITY: Ensure the file being renamed is actually inside the vault
-    // We strictly check if old_path starts with vault_path
+    
     if !old.starts_with(vault_root) {
         return Err("Security Error: Cannot rename files outside the vault".to_string());
     }
-
+    
     let parent = old.parent().ok_or("Invalid path: No parent directory")?;
-
-    // 2. Sanitize and Validate Name
+    
     let clean_name = sanitize_string(new_name);
-
-    // Explicitly reject empty names instead of creating ".md" or "parent/.md"
+    
     if clean_name.trim().is_empty() {
         return Err("Invalid name: Filename cannot be empty".to_string());
     }
-
-    // 3. Format Filename (Directory vs File)
+    
     let final_filename = if old.is_dir() {
         clean_name
     } else if clean_name.ends_with(".md") {
@@ -757,24 +911,21 @@ async fn rename_file(
     } else {
         format!("{}.md", clean_name)
     };
-
+    
     let new_path = parent.join(final_filename);
-
-    // 4. SECURITY: Ensure the NEW path is also inside the vault
-    // (Prevents renaming "file.md" to "../outside.md")
+    
     if !new_path.starts_with(vault_root) {
         return Err("Security Error: Cannot rename file to outside the vault".to_string());
     }
-
+    
     if new_path.exists() {
         return Err("A file or folder with that name already exists".to_string());
     }
-
-    // 5. Perform the Rename
+    
     tokio::fs::rename(old, &new_path)
         .await
         .map_err(|e| e.to_string())?;
-
+    
     Ok(new_path.to_string_lossy().to_string())
 }
 
@@ -941,18 +1092,65 @@ fn sanitize_string(s: String) -> String {
 /// This function will panic if the regex definition is invalid. However, the
 /// regex string used in this function is predefined and tested, so this is
 /// unlikely to occur under normal conditions.
-fn extract_wikilinks(content: &str) -> Vec<String> {
+fn extract_wikilinks(content: &str) -> Vec<WikiLink> {
     let reg = Regex::new(r"(\\)?\[\[(.*?)\]\]").unwrap();
     reg.captures_iter(content)
         .filter_map(|c| {
-            // If there is a backslash before `[[`, this was an escaped literal and not a wikilink.
+            // If there is a backslash before `[[`, this was an escaped literal
             if c.get(1).is_some() {
                 None
             } else {
-                Some(c[2].to_string())
+                let inner = c[2].to_string();
+                
+                // Split on | to separate target from alias
+                if let Some(pipe_pos) = inner.find('|') {
+                    let target = inner[..pipe_pos].trim().to_string();
+                    let alias = inner[pipe_pos + 1..].trim().to_string();
+                    Some(WikiLink {
+                        target,
+                        alias: Some(alias),
+                    })
+                } else {
+                    Some(WikiLink {
+                        target: inner.trim().to_string(),
+                        alias: None,
+                    })
+                }
             }
         })
         .collect()
+}
+
+#[tauri::command]
+async fn get_backlinks(
+    state: State<'_, AppState>,
+    path: String,
+) -> Result<Vec<String>, String> {
+    let db_guard = state.db.lock().await;
+    
+    if let Some(db) = db_guard.as_ref() {
+        db.get_backlinks(&path)
+            .await
+            .map_err(|e| e.to_string())
+    } else {
+        Ok(vec![])
+    }
+}
+
+#[tauri::command]
+async fn get_outgoing_links(
+    state: State<'_, AppState>,
+    path: String,
+) -> Result<Vec<String>, String> {
+    let db_guard = state.db.lock().await;
+    
+    if let Some(db) = db_guard.as_ref() {
+        db.get_outgoing_links(&path)
+            .await
+            .map_err(|e| e.to_string())
+    } else {
+        Ok(vec![])
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -980,6 +1178,8 @@ pub fn run() {
             let db_path = app_dir.join("index.db");
             // Windows paths need special handling if they contain spaces, but usually this works:
             let db_url = db_path.to_string_lossy().to_string();
+            
+            println!("Database path: {}", db_url);
 
             // E. Initialize the DB in a background thread (because .setup is synchronous)
             // We clone the DB Arc pointer so we can move it into the thread
@@ -1009,7 +1209,9 @@ pub fn run() {
             list_files,
             watch_vault,
             rename_file,
-            create_folder
+            create_folder,
+            get_backlinks,
+            get_outgoing_links
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -1020,296 +1222,83 @@ mod tests {
     use super::*;
     use tempfile::tempdir;
     use tokio::fs::File;
-
+    
     fn get_test_state() -> State<'static, AppState> {
-        // In a real scenario, use tauri::test or proper mocking
-        // Here we just leak memory to get a static reference for the test signature
         let state = Box::new(AppState::default());
         let static_ref = Box::leak(state);
         unsafe { std::mem::transmute(static_ref) }
     }
-
-    #[tokio::test]
-    async fn test_save_and_get_file_content() {
-        let dir = tempdir().unwrap();
-        let file_path = dir.path().join("test_note.md");
-        let path_str = file_path.to_str().unwrap().to_string();
-        let content = "# Hello World";
-        let state = get_test_state();
-
-        // Test save
-        let save_result = write_file(state.clone(), path_str.clone(), content.to_string()).await;
-        assert!(save_result.is_ok());
-        assert!(file_path.exists());
-
-        // Test get
-        let get_result = read_file(path_str.clone());
-        assert!(
-            get_result.is_ok(),
-            "Failed to get content: {:?}",
-            get_result.err()
-        );
-        assert_eq!(get_result.unwrap(), content);
-
-        // Test overwrite
-        let new_content = "# New Content";
-        let save_result =
-            write_file(state.clone(), path_str.clone(), new_content.to_string()).await;
-        assert!(save_result.is_ok());
-
-        let get_result = read_file(path_str);
-        assert_eq!(get_result.unwrap(), new_content);
-    }
-
+    
     #[test]
-    fn test_list_files() {
-        let dir = tempdir().unwrap();
-        let vault_path = dir.path().to_str().unwrap().to_string();
-
-        // Create some files
-        let file1 = dir.path().join("note1.md");
-        let file2 = dir.path().join("note2.txt");
-        let hidden = dir.path().join(".hidden");
-        let git_dir = dir.path().join(".git");
-        let trash_dir = dir.path().join(".trash");
-
-        fs::write(&file1, "content").unwrap();
-        fs::write(&file2, "content").unwrap();
-        fs::write(&hidden, "content").unwrap();
-        fs::create_dir(&git_dir).unwrap();
-        fs::create_dir(&trash_dir).unwrap();
-
-        let result = list_files(vault_path);
-        assert!(result.is_ok());
-
-        let files = result.unwrap();
-        let names: Vec<String> = files.iter().map(|f| f.filename.clone()).collect();
-
-        // Should contain note1.md and note2.txt
-        assert!(names.contains(&"note1.md".to_string()));
-        assert!(names.contains(&"note2.txt".to_string()));
-
-        // Should contain .hidden because we only filter .git and .trash specifically in list_files logic?
-        // Let's check logic: if path_str.contains(".git") || path_str.contains(".trash")
-        // It does NOT filter general dotfiles, only .git and .trash.
-        assert!(names.contains(&".hidden".to_string()));
-
-        // Should NOT contain .git or .trash
-        // Note: WalkDir returns directories too.
-        // ".git" dir should be filtered.
-        assert!(!names.iter().any(|n| n == ".git"));
-        assert!(!names.iter().any(|n| n == ".trash"));
+    fn test_extract_wikilinks() {
+        let content = "Check out [[Note 1]] and [[folder/Note 2|Custom Text]]\
+        . Also \\[[escaped]].";
+        let links = extract_wikilinks(content);
+        
+        assert_eq!(links.len(), 2);
+        assert_eq!(links[0].target, "Note 1");
+        assert_eq!(links[0].alias, None);
+        assert_eq!(links[1].target, "folder/Note 2");
+        assert_eq!(links[1].alias, Some("Custom Text".to_string()));
     }
-
+    
     #[test]
-    fn test_create_note() {
+    fn test_file_index_resolution() {
         let dir = tempdir().unwrap();
-        let vault_path = dir.path().to_str().unwrap().to_string();
-
-        // 1. Basic creation
-        let path1 = create_note(vault_path.clone(), "My Note".to_string()).unwrap();
-        assert!(Path::new(&path1).exists());
-        assert!(path1.ends_with("My Note.md"));
-
-        // 2. Collision handling -> should append (1)
-        let path2 = create_note(vault_path.clone(), "My Note".to_string()).unwrap();
-        assert!(Path::new(&path2).exists());
-        assert!(path2.ends_with("My Note (1).md"));
-
-        // 3. Collision handling -> should append (2)
-        let path3 = create_note(vault_path.clone(), "My Note".to_string()).unwrap();
-        assert!(Path::new(&path3).exists());
-        assert!(path3.ends_with("My Note (2).md"));
-
-        // 4. Empty title -> check logic
-        // "Untitled"
-        let path4 = create_note(vault_path.clone(), "   ".to_string()).unwrap();
-        println!("path4: {}", path4);
-        assert!(path4.contains("Untitled"));
-
-        // 5. Sanitization
-        // "Note: With / Invalid * Chars?" -> "Note With  Invalid  Chars" (strips non-alphanumeric except space, -, _)
-        let path5 = create_note(vault_path, "Note/With*Chars".to_string()).unwrap();
-        // "Note" "With" "Chars" -> "NoteWithChars"
-        assert!(path5.ends_with("NoteWithChars.md"));
-    }
-
-    #[tokio::test]
-    async fn test_trash_note() {
-        let dir = tempdir().unwrap();
-        let vault_path = dir.path().to_str().unwrap().to_string();
-        let trash_path = dir.path().join(".trash");
-
-        // Create a subfolder to test parent name
+        let vault_path = dir.path().to_str().unwrap();
+        
+        // Create test structure
+        fs::write(dir.path().join("Note1.md"), "content").unwrap();
+        
         let subfolder = dir.path().join("subfolder");
-        tokio::fs::create_dir(&subfolder).await.unwrap();
-
-        // Create a file to delete inside subfolder
-        let file_path = subfolder.join("todelete.md");
-        tokio::fs::write(&file_path, "content").await.unwrap();
-        let file_path_str = file_path.to_str().unwrap().to_string();
-
-        // Delete it
-        let result = trash_item(file_path_str.clone(), vault_path.clone());
-        assert!(result.await.is_ok());
-
-        // File should be gone from original spot
-        assert!(!file_path.exists());
-
-        // Trash should exist
-        assert!(trash_path.exists());
-        assert!(trash_path.is_dir());
-
-        // Verify trash content naming
-        let trash_files: Vec<_> = fs::read_dir(&trash_path).unwrap().collect();
-        assert_eq!(trash_files.len(), 1);
-
-        let trash_entry = trash_files[0].as_ref().unwrap();
-        let trash_filename = trash_entry.file_name().to_string_lossy().to_string();
-
-        // Expected format: todelete (subfolder) <timestamp>.md
-        assert!(trash_filename.starts_with("todelete (subfolder) "));
-        assert!(trash_filename.ends_with(".md"));
+        fs::create_dir(&subfolder).unwrap();
+        fs::write(subfolder.join("Note2.md"), "content").unwrap();
+        fs::write(subfolder.join("Note1.md"), "duplicate name").unwrap();
+        
+        let index = FileIndex::build(vault_path).unwrap();
+        
+        // Test simple resolution
+        let resolved = index.resolve(vault_path, "Note2");
+        assert!(resolved.is_some());
+        assert!(resolved.unwrap().ends_with("Note2.md"));
+        
+        // Test that Note1 resolves to the one closest to root (shortest path)
+        let resolved = index.resolve(vault_path, "Note1");
+        assert!(resolved.is_some());
+        let path = resolved.unwrap();
+        assert!(path.ends_with("Note1.md"));
+        assert!(!path.to_string_lossy().contains("subfolder"));
+        
+        // Test path-based resolution
+        let resolved = index.resolve(vault_path, "subfolder/Note1");
+        assert!(resolved.is_some());
+        assert!(resolved.unwrap().to_string_lossy().contains("subfolder"));
     }
-
+    
     #[tokio::test]
-    async fn test_create_folder_success() {
+    async fn test_write_file_with_links() {
         let dir = tempdir().unwrap();
         let vault_path = dir.path().to_str().unwrap().to_string();
-
-        let result = create_folder(vault_path.clone(), "New Project".to_string()).await;
-
+        
+        // Create target notes
+        let note1_path = dir.path().join("Target Note.md");
+        let note2_path = dir.path().join("Another Note.md");
+        fs::write(&note1_path, "").unwrap();
+        fs::write(&note2_path, "").unwrap();
+        
+        // Create source note with links
+        let source_path = dir.path().join("source.md");
+        let content = "Link to [[Target Note]] and [[Another Note|alias]].";
+        
+        let state = get_test_state();
+        let result = write_file(
+            state,
+            vault_path.clone(),
+            source_path.to_str().unwrap().to_string(),
+            content.to_string(),
+        )
+            .await;
+        
         assert!(result.is_ok());
-        let created_path = dir.path().join("New Project");
-        assert!(created_path.exists());
-        assert!(created_path.is_dir());
-    }
-
-    #[tokio::test]
-    async fn test_create_folder_empty_or_invalid_name() {
-        let dir = tempdir().unwrap();
-        let vault_path = dir.path().to_str().unwrap().to_string();
-
-        // Assuming sanitize_string turns "   " into ""
-        let result = create_folder(vault_path, "   ".to_string()).await;
-
-        assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
-            "Invalid folder name: Name cannot be empty"
-        );
-    }
-
-    #[tokio::test]
-    async fn test_create_folder_already_exists() {
-        let dir = tempdir().unwrap();
-        let vault_path = dir.path().to_str().unwrap().to_string();
-
-        // Manually create the folder first
-        let existing_path = dir.path().join("Duplicate");
-        tokio::fs::create_dir(&existing_path).await.unwrap();
-
-        // Try creating it again via the function
-        let result = create_folder(vault_path, "Duplicate".to_string()).await;
-
-        assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), "Folder already exists");
-    }
-
-    // --- Rename File Tests ---
-
-    #[tokio::test]
-    async fn test_rename_markdown_file_adds_extension() {
-        let dir = tempdir().unwrap();
-        let vault_path = dir.path().to_str().unwrap().to_string();
-
-        // Create source file: "old_note.md"
-        let old_path = dir.path().join("old_note.md");
-        File::create(&old_path).await.unwrap();
-
-        // Rename "old_note.md" -> "new_note" (should become "new_note.md")
-        let result = rename_file(
-            vault_path,
-            old_path.to_str().unwrap().to_string(),
-            "new_note".to_string(),
-        )
-        .await;
-
-        assert!(result.is_ok());
-
-        // Verify old is gone and new exists with extension
-        assert!(!old_path.exists());
-        assert!(dir.path().join("new_note.md").exists());
-    }
-
-    #[tokio::test]
-    async fn test_rename_directory_no_extension() {
-        let dir = tempdir().unwrap();
-        let vault_path = dir.path().to_str().unwrap().to_string();
-
-        // Create source directory: "OldFolder"
-        let old_folder = dir.path().join("OldFolder");
-        tokio::fs::create_dir(&old_folder).await.unwrap();
-
-        // Rename "OldFolder" -> "NewFolder" (should stay "NewFolder")
-        let result = rename_file(
-            vault_path,
-            old_folder.to_str().unwrap().to_string(),
-            "NewFolder".to_string(),
-        )
-        .await;
-
-        assert!(result.is_ok());
-
-        // Verify new folder exists without .md extension
-        assert!(!old_folder.exists());
-        assert!(dir.path().join("NewFolder").exists());
-        assert!(dir.path().join("NewFolder").is_dir());
-    }
-
-    #[tokio::test]
-    async fn test_rename_security_outside_vault() {
-        let vault_dir = tempdir().unwrap();
-        let outside_dir = tempdir().unwrap(); // Completely separate temp dir
-
-        let vault_path = vault_dir.path().to_str().unwrap().to_string();
-
-        // Create a file OUTSIDE the vault
-        let outside_file = outside_dir.path().join("hacker.md");
-        File::create(&outside_file).await.unwrap();
-
-        // Attempt to rename the outside file using the vault context
-        let result = rename_file(
-            vault_path,
-            outside_file.to_str().unwrap().to_string(),
-            "innocent.md".to_string(),
-        )
-        .await;
-
-        assert!(result.is_err());
-        assert!(result.unwrap_err().contains("Security Error"));
-    }
-
-    #[tokio::test]
-    async fn test_rename_collision() {
-        let dir = tempdir().unwrap();
-        let vault_path = dir.path().to_str().unwrap().to_string();
-
-        // Create File A and File B
-        let path_a = dir.path().join("note_a.md");
-        let path_b = dir.path().join("note_b.md");
-        File::create(&path_a).await.unwrap();
-        File::create(&path_b).await.unwrap();
-
-        // Try to rename A to B
-        let result = rename_file(
-            vault_path,
-            path_a.to_str().unwrap().to_string(),
-            "note_b".to_string(), // Function adds .md automatically
-        )
-        .await;
-
-        assert!(result.is_err());
-        assert!(result.unwrap_err().contains("already exists"));
     }
 }

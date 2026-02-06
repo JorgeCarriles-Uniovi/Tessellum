@@ -63,9 +63,36 @@
 }
 
 .cm-wikilink {
-    color: #1d4ed8;
-    text-decoration: underline;
     cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+/* Valid links */
+.cm-wikilink-valid {
+    color: #3b82f6;
+    text-decoration: underline;
+    text-decoration-color: #3b82f620;
+    text-underline-offset: 2px;
+}
+
+.cm-wikilink-valid:hover {
+    color: #2563eb;
+    text-decoration-color: #2563eb;
+    background-color: #3b82f610;
+}
+
+/* Broken links */
+.cm-wikilink-broken {
+    color: #ef4444;
+    text-decoration: underline;
+    text-decoration-style: wavy;
+    text-decoration-color: #ef444440;
+    text-underline-offset: 2px;
+}
+
+.cm-wikilink-broken:hover {
+    color: #dc2626;
+    background-color: #ef444410;
 }
 
 .cm-divider-widget {
