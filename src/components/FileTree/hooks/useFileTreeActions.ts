@@ -1,12 +1,12 @@
 import { useCallback } from 'react';
 import { getParentFromTarget } from '../../../utils/pathUtils.ts';
-import {useSidebarActions} from "../../Sidebar/hooks/useSidebarActions";
-import {useContextMenu} from "./useContextMenu";
-import {FileMetadata} from "../../../types.ts";
+import { useSidebarActions } from "../../Sidebar/hooks/useSidebarActions";
+import { useContextMenu } from "./useContextMenu";
+import { FileMetadata } from "../../../types.ts";
 
 export function useFileTreeActions(
-    onOpenFolderModal: (target: any) => void,
-    onOpenRenameModal: (target: any) => void
+    onOpenFolderModal: (target: FileMetadata) => void,
+    onOpenRenameModal: (target: FileMetadata) => void
 ) {
     const { createNote, deleteFile } = useSidebarActions();
     const { menuState, handleContextMenu, closeMenu } = useContextMenu();

@@ -24,6 +24,12 @@ function App() {
     }, [vaultPath]);
 
     useEffect(() => {
+        if(vaultPath) {
+            invoke('sync_vault', { vaultPath }).catch(console.error);
+        }
+    })
+
+    useEffect(() => {
         const unlistenPromise = listen('file-changed', () => {
             if (vaultPath) refreshFiles(vaultPath);
         });

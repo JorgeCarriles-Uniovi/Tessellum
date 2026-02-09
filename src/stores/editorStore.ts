@@ -18,7 +18,7 @@ interface EditorState {
     activeNoteContent: string;
     isDirty: boolean;
     expandedFolders: Record<string, boolean>;
-    isSidebarOpen: boolean; // <--- NEW STATE
+    isSidebarOpen: boolean;
 
     // Actions
     setVaultPath: (path: string) => void;
@@ -26,7 +26,7 @@ interface EditorState {
     setActiveNote: (file: FileMetadata | null) => void;
     setActiveNoteContent: (content: string) => void;
     setIsDirty: (isDirty: boolean) => void;
-    toggleSidebar: () => void; // <--- NEW ACTION
+    toggleSidebar: () => void;
 
     // Complex Actions
     renameFile: (oldPath: string, newPath: string, newName: string) => void;
@@ -42,7 +42,7 @@ export const useEditorStore = create<EditorState>((set) => ({
     activeNoteContent: '',
     isDirty: false,
     expandedFolders: {},
-    isSidebarOpen: true, // <--- DEFAULT OPEN
+    isSidebarOpen: true,
 
     // --- Simple Setters ---
     setVaultPath: (path) => {

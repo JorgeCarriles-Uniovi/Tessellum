@@ -42,9 +42,7 @@ impl Database {
             .await?;
         
         // Create index for faster backlink queries
-        sqlx::query(
-            "CREATE INDEX IF NOT EXISTS idx_links_target ON links(target_path);",
-        )
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_links_target ON links(target_path);")
             .execute(&pool)
             .await?;
         
@@ -88,18 +86,19 @@ impl Database {
             .execute(&mut *tx)
             .await?;
         
-        println!("Reached here");
+        // Deduplicate links - a note can have multiple wikilinks to the same target,
+        // but we only store one link relationship per source-target pair
+        let mut unique_links: Vec<&String> = resolved_links.iter().collect();
+        unique_links.sort();
+        unique_links.dedup();
         
-        // Insert new resolved links
-        for target_path in resolved_links {
-            // Validate that the target path is safe
-            
+        // Insert new resolved links (deduplicated)
+        for target_path in unique_links {
             sqlx::query("INSERT INTO links (source_path, target_path) VALUES (?, ?)")
                 .bind(path)
                 .bind(target_path)
                 .execute(&mut *tx)
                 .await?;
-            println!("Reached here 2");
         }
         
         tx.commit().await?;
@@ -110,12 +109,11 @@ impl Database {
     ///
     /// Returns a vector of full paths to files that this file links to.
     pub async fn get_outgoing_links(&self, source_path: &str) -> Result<Vec<String>, sqlx::Error> {
-        let rows = sqlx::query_as::<_, (String,)>(
-            "SELECT target_path FROM links WHERE source_path = ?"
-        )
-            .bind(source_path)
-            .fetch_all(&self.pool)
-            .await?;
+        let rows =
+            sqlx::query_as::<_, (String,)>("SELECT target_path FROM links WHERE source_path = ?")
+                .bind(source_path)
+                .fetch_all(&self.pool)
+                .await?;
         
         Ok(rows.into_iter().map(|(path,)| path).collect())
     }
@@ -124,12 +122,11 @@ impl Database {
     ///
     /// Returns a vector of full paths to files that link to this file.
     pub async fn get_backlinks(&self, target_path: &str) -> Result<Vec<String>, sqlx::Error> {
-        let rows = sqlx::query_as::<_, (String,)>(
-            "SELECT source_path FROM links WHERE target_path = ?"
-        )
-            .bind(target_path)
-            .fetch_all(&self.pool)
-            .await?;
+        let rows =
+            sqlx::query_as::<_, (String,)>("SELECT source_path FROM links WHERE target_path = ?")
+                .bind(target_path)
+                .fetch_all(&self.pool)
+                .await?;
         
         Ok(rows.into_iter().map(|(path,)| path).collect())
     }
@@ -151,7 +148,11 @@ impl Database {
     /// This updates both:
     /// 1. Links FROM this file (update source_path)
     /// 2. Links TO this file (update target_path)
-    pub async fn update_file_path(&self, old_path: &str, new_path: &str) -> Result<(), sqlx::Error> {
+    pub async fn update_file_path(
+        &self,
+        old_path: &str,
+        new_path: &str,
+    ) -> Result<(), sqlx::Error> {
         let mut tx = self.pool.begin().await?;
         
         // Update the note's primary key
@@ -196,7 +197,7 @@ impl Database {
         let rows = sqlx::query_as::<_, (String,)>(
             "SELECT path FROM notes
              WHERE path NOT IN (SELECT DISTINCT source_path FROM links)
-             AND path NOT IN (SELECT DISTINCT target_path FROM links)"
+             AND path NOT IN (SELECT DISTINCT target_path FROM links)",
         )
             .fetch_all(&self.pool)
             .await?;
@@ -210,12 +211,46 @@ impl Database {
     pub async fn get_broken_links(&self) -> Result<Vec<(String, String)>, sqlx::Error> {
         let rows = sqlx::query_as::<_, (String, String)>(
             "SELECT source_path, target_path FROM links
-             WHERE target_path NOT IN (SELECT path FROM notes)"
+             WHERE target_path NOT IN (SELECT path FROM notes)",
         )
             .fetch_all(&self.pool)
             .await?;
         
         Ok(rows)
+    }
+    
+    /// Get all indexed file paths with their modified times.
+    ///
+    /// Returns a vector of (path, modified_at) tuples for comparison with filesystem.
+    pub async fn get_all_indexed_files(&self) -> Result<Vec<(String, i64)>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, (String, i64)>("SELECT path, modified_at FROM notes")
+            .fetch_all(&self.pool)
+            .await?;
+        
+        Ok(rows)
+    }
+    
+    /// Delete multiple files from the index in a single transaction.
+    ///
+    /// More efficient than calling delete_file multiple times.
+    pub async fn batch_delete_files(&self, paths: &[String]) -> Result<usize, sqlx::Error> {
+        if paths.is_empty() {
+            return Ok(0);
+        }
+        
+        let mut tx = self.pool.begin().await?;
+        let mut deleted = 0;
+        
+        for path in paths {
+            let result = sqlx::query("DELETE FROM notes WHERE path = ?")
+                .bind(path)
+                .execute(&mut *tx)
+                .await?;
+            deleted += result.rows_affected() as usize;
+        }
+        
+        tx.commit().await?;
+        Ok(deleted)
     }
 }
 

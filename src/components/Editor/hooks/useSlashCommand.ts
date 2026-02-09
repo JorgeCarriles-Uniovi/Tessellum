@@ -7,13 +7,14 @@ import {
     RefObject
 } from 'react';
 import { EditorView, keymap } from '@codemirror/view';
+import { EditorState } from '@codemirror/state';
 import { CommandItem } from '../../../types.ts';
 import { Prec } from "@codemirror/state";
 import { COMMANDS } from "../../../constants/commands.tsx";
 
 // ===== PURE UTILITIES (no React dependencies) =====
 
-function getSlashContext(state: any, cursorPos: number) {
+function getSlashContext(state: EditorState, cursorPos: number) {
     const line = state.doc.lineAt(cursorPos);
     const lineOffset = cursorPos - line.from;
     const slashPos = line.text.lastIndexOf('/', lineOffset);
@@ -30,13 +31,19 @@ function getSlashContext(state: any, cursorPos: number) {
     };
 }
 
-function canTriggerSlash(state: any, cursorPos: number) {
+function canTriggerSlash(state: EditorState, cursorPos: number) {
     if (cursorPos === 0) return true;
     const charBefore = state.doc.sliceString(cursorPos - 1, cursorPos);
     return charBefore === ' ' || charBefore === '\n';
 }
 
-function useSlashTrigger(isOpenRef: RefObject<boolean>, openMenu: (coords: any) => void) {
+interface MenuCoords {
+    left: number;
+    top: number;
+    placement: 'bottom' | 'top';
+}
+
+function useSlashTrigger(isOpenRef: RefObject<boolean>, openMenu: (coords: MenuCoords) => void) {
     return useMemo(() => EditorView.domEventHandlers({
         keydown: (event, view) => {
             if (event.key === '/' && !(isOpenRef.current ?? false)) {

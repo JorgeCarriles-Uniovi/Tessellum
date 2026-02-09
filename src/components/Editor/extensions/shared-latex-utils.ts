@@ -1,4 +1,3 @@
-// shared-latex-utils.ts
 export interface LatexMatch {
     start: number;
     end: number;

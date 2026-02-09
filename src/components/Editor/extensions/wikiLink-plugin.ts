@@ -100,7 +100,7 @@ import { RangeSetBuilder } from "@codemirror/state";
 // Add this new function for click handling
 function wikiLinkClickHandler(config: WikiLinkPluginConfig) {
     return EditorView.domEventHandlers({
-        click: (event, view) => {
+        click: (event) => {
             const target = event.target as HTMLElement;
 
             // Check if click was on a wikilink
@@ -124,14 +124,14 @@ function wikiLinkClickHandler(config: WikiLinkPluginConfig) {
             return true;
         },
 
-        mouseover: (event, view) => {
+        mouseover: (event) => {
             const target = event.target as HTMLElement;
             const wikilinkEl = target.closest('.cm-wikilink');
 
             if (!wikilinkEl) return false;
 
             const linkTarget = wikilinkEl.getAttribute('data-target');
-            if (!linkTarget && config.onLinkHover) {
+            if (linkTarget && config.onLinkHover) {
                 const fileIndex = new WikiLinkFileIndex();
                 fileIndex.build(config.vaultPath).then(() => {
                     const fullPath = fileIndex.resolve(linkTarget);
@@ -327,7 +327,7 @@ export function createSimpleWikiLinkPlugin(config: WikiLinkPluginConfig) {
 // ============================================================================
 
 import { autocompletion, CompletionContext, CompletionResult } from "@codemirror/autocomplete";
-import {FileMetadata} from "../../../types.ts";
+import { FileMetadata } from "../../../types.ts";
 
 export function wikiLinkAutocomplete(vaultPath: string) {
     let cachedFiles: Array<{ label: string; path: string }> = [];
@@ -336,7 +336,7 @@ export function wikiLinkAutocomplete(vaultPath: string) {
     invoke<Array<FileMetadata>>(
         'list_files',
         { vaultPath: vaultPath } // Changed from vaultPath to vault_path
-    ).then((files: any[]) => {
+    ).then((files: FileMetadata[]) => {
         cachedFiles = files
             .filter(f => !f.is_dir && f.filename.endsWith('.md'))
             .map(f => ({

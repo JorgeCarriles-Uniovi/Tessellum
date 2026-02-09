@@ -3,3 +3,4 @@ export * from './useNoteRenaming.ts';
 export * from './useCreateFolder.ts';
 export * from './useEditorExtensions.ts';
 export * from './useSlashCommand.ts';
+export * from './useWikilinkSuggestions.ts';

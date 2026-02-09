@@ -1,15 +1,16 @@
 import CodeMirror, { ReactCodeMirrorRef } from '@uiw/react-codemirror';
 import { useEditorStore } from '../../stores/editorStore';
 import { useRef } from "react";
-import { useSlashCommand } from "./hooks";
+import { useSlashCommand, useWikiLinkSuggestions } from "./hooks";
 import { CommandItem } from "../../types";
 import { SlashMenu } from "./SlashMenu";
+import { WikiLinkSuggestionsMenu } from "./WikiLinkSuggestionsMenu";
 import { dividerPlugin } from "./extensions/divider-plugin";
 import { mathClickHandler, mathPlugin } from "./extensions/math-plugin";
 import { useEditorActions, useFileSynchronization } from "./hooks/useEditorActions";
 import { cn } from '../../lib/utils';
 import { lightTheme } from "./themes/lightTheme";
-import { useEditorExtensions } from "./hooks/useEditorExtensions"; // Add this import
+import { useEditorExtensions } from "./hooks/useEditorExtensions";
 
 export function Editor() {
     const { activeNote, vaultPath, setActiveNote, files } = useEditorStore();
@@ -17,6 +18,9 @@ export function Editor() {
     const editorRef = useRef<ReactCodeMirrorRef>(null);
     const { noteRenaming, editorExtensions } = useEditorActions();
     const { slashExtension, slashProps } = useSlashCommand();
+
+    // WikiLink suggestions hook
+    const { wikiLinkSuggestionsExtension, wikiLinkSuggestionsProps } = useWikiLinkSuggestions(vaultPath || "");
 
     // Wikilink extensions - only create if vaultPath exists
     const wikiLinkExtensions = useEditorExtensions((path: string) => {
@@ -65,9 +69,10 @@ export function Editor() {
                     key={activeNote.path}
                     value={content}
                     extensions={[
-                        ...wikiLinkExtensions, // Add wikilink extensions
+                        ...wikiLinkExtensions,
                         ...editorExtensions,
                         slashExtension,
+                        wikiLinkSuggestionsExtension,
                         dividerPlugin,
                         mathPlugin,
                         mathClickHandler,
@@ -75,7 +80,10 @@ export function Editor() {
                     ]}
                     onChange={handleContentChange}
                     height="100%"
-                    className={cn("h-full w-full", slashProps.isOpen && "[&_.cm-scroller]:!overflow-hidden")}
+                    className={cn(
+                        "h-full w-full",
+                        (slashProps.isOpen || wikiLinkSuggestionsProps.isOpen) && "[&_.cm-scroller]:!overflow-hidden"
+                    )}
                     theme={lightTheme}
                     basicSetup={{
                         lineNumbers: false,
@@ -99,6 +107,23 @@ export function Editor() {
                         }
                     }}
                     onClose={() => { slashProps.closeMenu(); }}
+                />
+
+                <WikiLinkSuggestionsMenu
+                    isOpen={wikiLinkSuggestionsProps.isOpen}
+                    x={wikiLinkSuggestionsProps.position.x}
+                    y={wikiLinkSuggestionsProps.position.y}
+                    placement={wikiLinkSuggestionsProps.position.placement}
+                    selectedIndex={wikiLinkSuggestionsProps.selectedIndex}
+                    suggestions={wikiLinkSuggestionsProps.filteredSuggestions}
+                    setSelectedIndex={wikiLinkSuggestionsProps.setSelectedIndex}
+                    query={wikiLinkSuggestionsProps.query}
+                    onSelect={(suggestion) => {
+                        if (editorRef.current?.view) {
+                            wikiLinkSuggestionsProps.insertWikiLink(editorRef.current.view, suggestion);
+                        }
+                    }}
+                    onClose={() => { wikiLinkSuggestionsProps.closeMenu(); }}
                 />
             </div>
         </div>
