@@ -97,6 +97,7 @@ export function Sidebar() {
 
     const fileTreeStyle: React.CSSProperties = {
         flex: 1,
+        minHeight: 0, // Critical for flexbox scrolling
         overflowY: "auto",
         padding: `${theme.spacing[2]} 0`,
     };
@@ -167,7 +168,12 @@ export function Sidebar() {
                         </div>
 
                         {/* File Tree */}
-                        <div style={fileTreeStyle}>
+                        <div
+                            style={fileTreeStyle}
+                            onWheel={(e) => {
+                                e.currentTarget.scrollTop += e.deltaY;
+                            }}
+                        >
                             {files.length === 0 ? (
                                 <div style={emptyStateStyle}>
                                     No files found

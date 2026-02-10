@@ -9,7 +9,7 @@ interface FileTreeProps {
 
 export function FileTree({ data, onContextMenu }: FileTreeProps) {
     return (
-        <div className="w-full h-full overflow-y-auto pb-4" role="tree">
+        <div className="w-full pb-4" role="tree">
             {data.map(node => (
                 <FileNode
                     key={node.id}
