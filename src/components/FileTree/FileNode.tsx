@@ -54,6 +54,31 @@ export function FileNode({ node, level, onContextMenu }: FileNodeProps) {
         } else if (e.key === 'ArrowLeft' && node.isDir && isOpen) {
             e.preventDefault();
             toggleFolder(node.id, false);
+        } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            const tree = (e.currentTarget as HTMLElement).closest('[role="tree"]');
+            if (!tree) return;
+
+            // Check if an element is inside a collapsed folder
+            const isVisible = (el: HTMLElement): boolean => {
+                let parent = el.parentElement;
+                while (parent && parent !== tree) {
+                    const style = window.getComputedStyle(parent);
+                    if (style.gridTemplateRows === '0px') return false;
+                    parent = parent.parentElement;
+                }
+                return true;
+            };
+
+            const items = Array.from(tree.querySelectorAll<HTMLElement>('[role="treeitem"]'))
+                .filter(isVisible);
+            const currentIndex = items.indexOf(e.currentTarget as HTMLElement);
+            if (currentIndex === -1) return;
+            const nextIndex = e.key === 'ArrowDown'
+                ? Math.min(currentIndex + 1, items.length - 1)
+                : Math.max(currentIndex - 1, 0);
+            items[nextIndex].focus();
+            items[nextIndex].scrollIntoView({ block: 'nearest' });
         }
     };
 

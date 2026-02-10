@@ -1,9 +1,9 @@
-import {useEditorStore} from "../../../stores/editorStore.ts";
-import {useCallback} from "react";
-import {dirname} from "@tauri-apps/api/path";
-import {invoke} from "@tauri-apps/api/core";
-import {FileMetadata} from "../../../types.ts";
-import {toast} from "sonner";
+import { useEditorStore } from "../../../stores/editorStore.ts";
+import { useCallback } from "react";
+import { dirname } from "@tauri-apps/api/path";
+import { invoke } from "@tauri-apps/api/core";
+import { FileMetadata } from "../../../types.ts";
+import { toast } from "sonner";
 
 export function useWikiLinkNavigation() {
     const { activeNote, files, setActiveNote, setFiles } = useEditorStore();
@@ -56,8 +56,9 @@ export function useWikiLinkNavigation() {
             setFiles([...files, newNote]);
             setActiveNote(newNote);
 
-        } catch (e: any) {
-            toast.error(e.message || "Failed to open link");
+        } catch (e: unknown) {
+            const message = e instanceof Error ? e.message : "Failed to open link";
+            toast.error(message);
         }
     }, [activeNote, files, setActiveNote, setFiles]);
 }

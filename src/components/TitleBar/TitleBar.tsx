@@ -51,15 +51,15 @@ export function TitleBar() {
                 <div className="w-2" />
 
                 {/* Obsidian-style Navigation (Visual placeholders for now) */}
-                <NavButton onClick={() => {}} tooltip="Go back">
+                <NavButton onClick={() => { }} tooltip="Go back">
                     <ArrowLeft size={16} />
                 </NavButton>
-                <NavButton onClick={() => {}} tooltip="Go forward">
+                <NavButton onClick={() => { }} tooltip="Go forward">
                     <ArrowRight size={16} />
                 </NavButton>
 
                 {/* Search Icon */}
-                <NavButton onClick={() => {}} tooltip="Search">
+                <NavButton onClick={() => { }} tooltip="Search">
                     <Search size={16} />
                 </NavButton>
             </div>
@@ -107,7 +107,14 @@ export function TitleBar() {
 }
 
 // Helper for Navigation Buttons (Left side)
-function NavButton({ onClick, children, active, tooltip }: any) {
+interface NavButtonProps {
+    onClick: () => void;
+    children: React.ReactNode;
+    active?: boolean;
+    tooltip?: string;
+}
+
+function NavButton({ onClick, children, active, tooltip }: NavButtonProps) {
     return (
         <button
             onClick={onClick}
@@ -124,7 +131,13 @@ function NavButton({ onClick, children, active, tooltip }: any) {
 }
 
 // Helper for Window Controls (Right side)
-function WindowButton({ onClick, children, isClose }: any) {
+interface WindowButtonProps {
+    onClick: () => void;
+    children: React.ReactNode;
+    isClose?: boolean;
+}
+
+function WindowButton({ onClick, children, isClose }: WindowButtonProps) {
     return (
         <button
             onClick={onClick}

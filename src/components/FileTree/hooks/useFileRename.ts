@@ -10,7 +10,7 @@ export function useFileRename() {
     const [isOpen, setIsOpen] = useState(false);
     const [target, setTarget] = useState<FileMetadata | null>(null);
 
-    const open = useCallback((fileTarget: any) => {
+    const open = useCallback((fileTarget: FileMetadata) => {
         setTarget(fileTarget);
         setIsOpen(true);
     }, []);

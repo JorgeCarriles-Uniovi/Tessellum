@@ -24,6 +24,12 @@ function App() {
     }, [vaultPath]);
 
     useEffect(() => {
+        if(vaultPath) {
+            invoke('sync_vault', { vaultPath }).catch(console.error);
+        }
+    })
+
+    useEffect(() => {
         const unlistenPromise = listen('file-changed', () => {
             if (vaultPath) refreshFiles(vaultPath);
         });
@@ -84,7 +90,7 @@ function App() {
                         {/* Logic to hide/show sidebar */}
                         {/* You can use conditional rendering or CSS hiding for animation support */}
                         <div className={cn(
-                            "transition-all duration-300 ease-in-out border-r border-gray-200 dark:border-gray-800",
+                            "h-full overflow-hidden transition-all duration-300 ease-in-out border-r border-gray-200 dark:border-gray-800",
                             isSidebarOpen ? "w-64 opacity-100" : "w-0 opacity-0 overflow-hidden border-none"
                         )}>
                             <Sidebar />

@@ -11,7 +11,7 @@ const toInputName = (filename: string, isDir: boolean) =>
 
 // Converts "My Note" -> "My Note.md" (Only for files)
 const toStorageName = (name: string, isDir: boolean) =>
-    isDir ? name : ""+name+".md";
+    isDir ? name : "" + name + ".md";
 
 
 export function useNoteRenaming() {
@@ -56,9 +56,10 @@ export function useNoteRenaming() {
 
             toast.success("Renamed successfully");
 
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error("Rename failed", e);
-            toast.error(typeof e === 'string' ? e : "Failed to rename");
+            const message = e instanceof Error ? e.message : (typeof e === 'string' ? e : "Failed to rename");
+            toast.error(message);
             // Revert on error
             setTitleInput(currentInputName);
         }

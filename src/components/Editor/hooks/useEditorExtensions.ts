@@ -1,32 +1,33 @@
 import {useMemo} from "react";
 import {EditorView} from "@codemirror/view";
 import {markdown, markdownLanguage} from "@codemirror/lang-markdown";
-import {wikiLinkPlugin} from "../extensions/wikiLink-plugin.ts";
+import {createWikiLinkPlugin} from "../extensions/wikiLink-plugin.ts";
 import {languages} from "@codemirror/language-data";
 
-export function useEditorExtensions(onWikiLinkClick: (text: string) => void) {
-    const clickHandler = useMemo(() => EditorView.domEventHandlers({
-        mousedown: (event) => {
-            const target = event.target as HTMLElement;
-            if (target.matches(".cm-wikilink") || target.closest(".cm-wikilink")) {
-                const linkElement = target.matches(".cm-wikilink")
-                    ? target
-                    : target.closest(".cm-wikilink");
-                const destination = linkElement?.getAttribute("data-destination");
+export function useEditorExtensions(onWikiLinkClick: (path: string) => void, vaultPath: string) {
 
-                if (destination != null) {
-                    event.preventDefault();
-                    onWikiLinkClick(destination);
-                }
+    const wikiLinkPlugin = useMemo(() => {
+        if (!vaultPath) return [];
+
+        return createWikiLinkPlugin({
+            vaultPath: vaultPath,
+            onLinkClick: (target, fullPath) => {
+                onWikiLinkClick(fullPath || target);
             }
-        }
-    }), [onWikiLinkClick]);
+        });
+    }, [vaultPath, onWikiLinkClick]);
 
-    // Return the full extension array
-    return useMemo(() => [
-        markdown({ base: markdownLanguage, codeLanguages: languages }),
-        EditorView.lineWrapping,
-        wikiLinkPlugin,
-        clickHandler
-    ], [clickHandler]);
+    return useMemo(() => {
+        const extensions = [
+            markdown({ base: markdownLanguage, codeLanguages: languages }),
+            EditorView.lineWrapping,
+        ];
+
+        // wikiLinkPlugin is now an array, so spread it
+        if (wikiLinkPlugin.length > 0) {
+            extensions.push(...wikiLinkPlugin);
+        }
+
+        return extensions;
+    }, [wikiLinkPlugin]);
 }

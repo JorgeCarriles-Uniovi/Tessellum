@@ -12,160 +12,334 @@ impl Database {
         let options = SqliteConnectOptions::new()
             .filename(db_path)
             .create_if_missing(true);
-
+        
         let pool = SqlitePoolOptions::new()
             .max_connections(5)
             .connect_with(options)
             .await?;
-
+        
+        // Create notes table
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS notes (
-				path TEXT PRIMARY KEY,
+                path TEXT PRIMARY KEY,
                 modified_at INTEGER,
                 size INTEGER
-			);",
+            );",
         )
-        .execute(&pool)
-        .await?;
-
+            .execute(&pool)
+            .await?;
+        
+        // Create links table with RESOLVED target paths
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS links (
                 source_path TEXT,
                 target_path TEXT,
                 PRIMARY KEY (source_path, target_path),
-                FOREIGN KEY(source_path) REFERENCES notes(path) ON DELETE
-                CASCADE
+                FOREIGN KEY(source_path) REFERENCES notes(path) ON DELETE CASCADE
             );",
         )
-        .execute(&pool)
-        .await?;
-
+            .execute(&pool)
+            .await?;
+        
+        // Create index for faster backlink queries
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_links_target ON links(target_path);")
+            .execute(&pool)
+            .await?;
+        
         Ok(Self { pool })
     }
-
+    
+    /// Index a file with its metadata and resolved wikilinks.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - The full path to the source file
+    /// * `modified` - Unix timestamp of last modification
+    /// * `size` - File size in bytes
+    /// * `resolved_links` - Vector of FULL PATHS to target files (already resolved from wikilinks)
     pub async fn index_file(
         &self,
         path: &str,
         modified: i64,
         size: u64,
-        links: &[String],
+        resolved_links: &[String],
     ) -> Result<(), sqlx::Error> {
+        // Insert or update the note metadata
         sqlx::query(
             "INSERT INTO notes (path, modified_at, size) VALUES (?, ?, ?)
-					ON CONFLICT(path) DO UPDATE SET modified_at = ?, size = ?",
+             ON CONFLICT(path) DO UPDATE SET modified_at = ?, size = ?",
         )
-        .bind(path)
-        .bind(modified)
-        .bind(size as i64)
-        .bind(modified)
-        .bind(size as i64)
-        .execute(&self.pool)
-        .await?;
-
+            .bind(path)
+            .bind(modified)
+            .bind(size as i64)
+            .bind(modified)
+            .bind(size as i64)
+            .execute(&self.pool)
+            .await?;
+        
+        // Update links in a transaction
         let mut tx = self.pool.begin().await?;
-
+        
+        // Delete old links from this source
         sqlx::query("DELETE FROM links WHERE source_path = ?")
             .bind(path)
             .execute(&mut *tx)
             .await?;
-
-        for target in links {
-            if !is_safe_filename(&target) {
-                continue;
-            }
-
-            let clean_target = if target.ends_with(".md") {
-                target
-            } else {
-                &format!("{}.md", target)
-            };
-
+        
+        // Deduplicate links - a note can have multiple wikilinks to the same target,
+        // but we only store one link relationship per source-target pair
+        let mut unique_links: Vec<&String> = resolved_links.iter().collect();
+        unique_links.sort();
+        unique_links.dedup();
+        
+        // Insert new resolved links (deduplicated)
+        for target_path in unique_links {
             sqlx::query("INSERT INTO links (source_path, target_path) VALUES (?, ?)")
                 .bind(path)
-                .bind(target)
+                .bind(target_path)
                 .execute(&mut *tx)
                 .await?;
         }
-
+        
         tx.commit().await?;
         Ok(())
     }
-
+    
+    /// Get all outgoing links from a specific file.
+    ///
+    /// Returns a vector of full paths to files that this file links to.
+    pub async fn get_outgoing_links(&self, source_path: &str) -> Result<Vec<String>, sqlx::Error> {
+        let rows =
+            sqlx::query_as::<_, (String,)>("SELECT target_path FROM links WHERE source_path = ?")
+                .bind(source_path)
+                .fetch_all(&self.pool)
+                .await?;
+        
+        Ok(rows.into_iter().map(|(path,)| path).collect())
+    }
+    
+    /// Get all backlinks to a specific file.
+    ///
+    /// Returns a vector of full paths to files that link to this file.
+    pub async fn get_backlinks(&self, target_path: &str) -> Result<Vec<String>, sqlx::Error> {
+        let rows =
+            sqlx::query_as::<_, (String,)>("SELECT source_path FROM links WHERE target_path = ?")
+                .bind(target_path)
+                .fetch_all(&self.pool)
+                .await?;
+        
+        Ok(rows.into_iter().map(|(path,)| path).collect())
+    }
+    
+    /// Get all links in the vault (for graph visualization).
+    ///
+    /// Returns a vector of (source_path, target_path) tuples.
     pub async fn get_all_links(&self) -> Result<Vec<(String, String)>, sqlx::Error> {
         let rows =
             sqlx::query_as::<_, (String, String)>("SELECT source_path, target_path FROM links")
                 .fetch_all(&self.pool)
                 .await?;
-
+        
         Ok(rows)
     }
+    
+    /// Update links when a file is renamed/moved.
+    ///
+    /// This updates both:
+    /// 1. Links FROM this file (update source_path)
+    /// 2. Links TO this file (update target_path)
+    pub async fn update_file_path(
+        &self,
+        old_path: &str,
+        new_path: &str,
+    ) -> Result<(), sqlx::Error> {
+        let mut tx = self.pool.begin().await?;
+        
+        // Update the note's primary key
+        sqlx::query("UPDATE notes SET path = ? WHERE path = ?")
+            .bind(new_path)
+            .bind(old_path)
+            .execute(&mut *tx)
+            .await?;
+        
+        // Update links where this file is the source
+        sqlx::query("UPDATE links SET source_path = ? WHERE source_path = ?")
+            .bind(new_path)
+            .bind(old_path)
+            .execute(&mut *tx)
+            .await?;
+        
+        // Update links where this file is the target (backlinks)
+        sqlx::query("UPDATE links SET target_path = ? WHERE target_path = ?")
+            .bind(new_path)
+            .bind(old_path)
+            .execute(&mut *tx)
+            .await?;
+        
+        tx.commit().await?;
+        Ok(())
+    }
+    
+    /// Delete a file from the index.
+    ///
+    /// This also removes all links from/to this file due to CASCADE constraints.
+    pub async fn delete_file(&self, path: &str) -> Result<(), sqlx::Error> {
+        sqlx::query("DELETE FROM notes WHERE path = ?")
+            .bind(path)
+            .execute(&self.pool)
+            .await?;
+        
+        Ok(())
+    }
+    
+    /// Get all orphaned files (files with no incoming or outgoing links).
+    pub async fn get_orphaned_files(&self) -> Result<Vec<String>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, (String,)>(
+            "SELECT path FROM notes
+             WHERE path NOT IN (SELECT DISTINCT source_path FROM links)
+             AND path NOT IN (SELECT DISTINCT target_path FROM links)",
+        )
+            .fetch_all(&self.pool)
+            .await?;
+        
+        Ok(rows.into_iter().map(|(path,)| path).collect())
+    }
+    
+    /// Get broken links (links pointing to non-existent files).
+    ///
+    /// Returns a vector of (source_path, broken_target_path) tuples.
+    pub async fn get_broken_links(&self) -> Result<Vec<(String, String)>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, (String, String)>(
+            "SELECT source_path, target_path FROM links
+             WHERE target_path NOT IN (SELECT path FROM notes)",
+        )
+            .fetch_all(&self.pool)
+            .await?;
+        
+        Ok(rows)
+    }
+    
+    /// Get all indexed file paths with their modified times.
+    ///
+    /// Returns a vector of (path, modified_at) tuples for comparison with filesystem.
+    pub async fn get_all_indexed_files(&self) -> Result<Vec<(String, i64)>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, (String, i64)>("SELECT path, modified_at FROM notes")
+            .fetch_all(&self.pool)
+            .await?;
+        
+        Ok(rows)
+    }
+    
+    /// Delete multiple files from the index in a single transaction.
+    ///
+    /// More efficient than calling delete_file multiple times.
+    pub async fn batch_delete_files(&self, paths: &[String]) -> Result<usize, sqlx::Error> {
+        if paths.is_empty() {
+            return Ok(0);
+        }
+        
+        let mut tx = self.pool.begin().await?;
+        let mut deleted = 0;
+        
+        for path in paths {
+            let result = sqlx::query("DELETE FROM notes WHERE path = ?")
+                .bind(path)
+                .execute(&mut *tx)
+                .await?;
+            deleted += result.rows_affected() as usize;
+        }
+        
+        tx.commit().await?;
+        Ok(deleted)
+    }
+}
+
+/// Validates if a given path is safe to use (prevents directory traversal attacks).
+///
+/// This function checks that the path:
+/// 1. Is not empty or whitespace-only
+/// 2. Does not contain ".." (parent directory) components
+/// 3. Does not contain root directory components
+///
+/// # Arguments
+///
+/// * `path_str` - A string slice representing the path to validate
+///
+/// # Returns
+///
+/// * `true` if the path is considered safe
+/// * `false` if the path is empty, contains invalid components, or is deemed unsafe
+fn is_safe_path(path_str: &str) -> bool {
+    let path = Path::new(path_str);
+    
+    println!("Path: {}", path_str);
+    
+    // Prevent empty strings
+    if path_str.trim().is_empty() {
+        return false;
+    }
+    
+    // Check for directory traversal attempts
+    for component in path.components() {
+        match component {
+            Component::Normal(_) => continue, // Regular path components are fine
+            _ => return false,                // Reject: ParentDir (..), RootDir (/), etc.
+        }
+    }
+    
+    true
 }
 
 /// Validates if a given string input is safe to use as a filename.
 ///
-/// This function performs checks to ensure the provided input does not pose
-/// security risks such as directory traversal attacks. Specifically:
-///
-/// 1. Rejects empty or whitespace-only strings.
-/// 2. Disallows any path components that are not considered "normal" (e.g., rejects `..`, `/`, or `.` components).
-///
-/// # Arguments
-///
-/// * `input` - A string slice that represents the filename or path to validate.
-///
-/// # Returns
-///
-/// * `true` if the filename is considered safe.
-/// * `false` if the filename is empty, contains invalid path components, or is deemed unsafe.
-///
-/// # Example
-///
-/// ```rust
-/// use std::path::Path;
-/// use std::path::Component;
-///
-/// fn is_safe_filename(input: &str) -> bool {
-///     let path = Path::new(input);
-///
-///     // Prevent empty strings
-///     if input.trim().is_empty() {
-///         return false;
-///     }
-///
-///     // Iterate over path components to check for ".." (ParentDir) or RootDir
-///     for component in path.components() {
-///         match component {
-///             Component::Normal(_) => continue, // Regular text is fine
-///             _ => return false,                // Rejects: ParentDir (..), RootDir (/), CurDir (.)
-///         }
-///     }
-///
-///     // Allow filenames free of traversal concerns
-///     true
-/// }
-///
-/// assert_eq!(is_safe_filename("valid_filename.txt"), true);
-/// assert_eq!(is_safe_filename("../unsafe_filename.txt"), false);
-/// assert_eq!(is_safe_filename(""), false);
-/// assert_eq!(is_safe_filename("/etc/passwd"), false);
-/// ```
+/// This is a stricter check than is_safe_path, specifically for filenames.
 fn is_safe_filename(input: &str) -> bool {
     let path = Path::new(input);
-
-    // 1. Prevent empty strings
+    
+    // Prevent empty strings
     if input.trim().is_empty() {
         return false;
     }
-
-    // 2. Iterate over path components to check for ".." (ParentDir) or RootDir
-    for component in path.components() {
-        match component {
-            Component::Normal(_) => continue, // Regular text is fine
-            _ => return false,                // Rejects: ParentDir (..), RootDir (/), CurDir (.)
-        }
+    
+    // Filename should not contain path separators
+    if input.contains('/') || input.contains('\\') {
+        return false;
     }
+    
+    // Check that it only contains one Normal component
+    let components: Vec<_> = path.components().collect();
+    if components.len() != 1 {
+        return false;
+    }
+    
+    matches!(components[0], Component::Normal(_))
+}
 
-    // 3. (Optional) Block special characters if you want strict filenames
-    // For now, we just care about traversal attacks.
-    true
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn test_is_safe_path() {
+        assert!(is_safe_path("valid/path/to/file.md"));
+        assert!(is_safe_path("file.md"));
+        assert!(is_safe_path("folder/subfolder/note.md"));
+        
+        assert!(!is_safe_path(""));
+        assert!(!is_safe_path("   "));
+        assert!(!is_safe_path("../etc/passwd"));
+        assert!(!is_safe_path("/etc/passwd"));
+        assert!(!is_safe_path("folder/../../../etc/passwd"));
+    }
+    
+    #[test]
+    fn test_is_safe_filename() {
+        assert!(is_safe_filename("note.md"));
+        assert!(is_safe_filename("my-note_123.md"));
+        
+        assert!(!is_safe_filename(""));
+        assert!(!is_safe_filename("folder/note.md"));
+        assert!(!is_safe_filename("../note.md"));
+        assert!(!is_safe_filename("note\\file.md"));
+    }
 }

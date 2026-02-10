@@ -6,13 +6,14 @@ import { useCreateFolder,
          useNoteRenaming,
          useWikiLinkNavigation,
 } from './index.ts';
+import {useEditorStore} from "../../../stores/editorStore.ts";
 
 // --- HOOK 1: Handles File I/O (Read, Write, Debounce) ---
 export function useFileSynchronization(activeNote: FileMetadata | null) {
     const [content, setContent] = useState<string>("");
     const [isLoading, setIsLoading] = useState(false);
     const saveTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
-
+    const {vaultPath} = useEditorStore();
     // Load File
     useEffect(() => {
         if (!activeNote) return;
@@ -43,7 +44,7 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
             if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
 
             saveTimeoutRef.current = window.setTimeout(() => {
-                invoke('write_file', { path: activeNote.path, content: val })
+                invoke('write_file', { path: activeNote.path,vaultPath: vaultPath, content: val })
                     .catch(console.error);
             }, 1000);
         }
@@ -58,9 +59,10 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
 }
 
 export function useEditorActions() {
+    const {vaultPath} = useEditorStore();
     const createFolder = useCreateFolder();
     const noteRenaming = useNoteRenaming();
     const wikiLinkNavigation = useWikiLinkNavigation();
-    const editorExtensions = useEditorExtensions(wikiLinkNavigation);
+    const editorExtensions = useEditorExtensions(wikiLinkNavigation, vaultPath);
     return { createFolder: createFolder, noteRenaming: noteRenaming, editorExtensions, wikiLinkNavigation };
 }

@@ -1,7 +1,7 @@
-import {useEditorStore} from "../../../stores/editorStore.ts";
-import {useCallback} from "react";
-import {invoke} from "@tauri-apps/api/core";
-import {toast} from "sonner";
+import { useEditorStore } from "../../../stores/editorStore.ts";
+import { useCallback } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { toast } from "sonner";
 export function useCreateFolder() {
     const { vaultPath, toggleFolder, addFile } = useEditorStore();
 
@@ -31,9 +31,10 @@ export function useCreateFolder() {
 
             toast.success("Folder created");
 
-        } catch (e: any) {
+        } catch (e: unknown) {
             console.error(e);
-            toast.error(typeof e === 'string' ? e : "Failed to create folder");
+            const message = e instanceof Error ? e.message : (typeof e === 'string' ? e : "Failed to create folder");
+            toast.error(message);
         }
     }, [vaultPath, toggleFolder, addFile]);
 }
