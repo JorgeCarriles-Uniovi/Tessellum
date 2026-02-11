@@ -6,6 +6,8 @@ import { listen } from "@tauri-apps/api/event";
 import { open } from '@tauri-apps/plugin-dialog';
 import { Editor } from "./components/Editor/Editor.tsx";
 import { Sidebar } from "./components/Sidebar/Sidebar.tsx";
+import { GraphView } from "./components/GraphView/GraphView.tsx";
+import { LocalGraphPanel } from "./components/GraphView/LocalGraphPanel.tsx";
 import { Toaster } from "sonner";
 import { theme } from './styles/theme';
 import 'katex';
@@ -14,7 +16,7 @@ import { TitleBar } from "./components/TitleBar/TitleBar";
 
 function App() {
     // Add isSidebarOpen to the destructuring
-    const { vaultPath, setVaultPath, setFiles, isSidebarOpen } = useEditorStore();
+    const { vaultPath, setVaultPath, setFiles, isSidebarOpen, viewMode, isLocalGraphOpen } = useEditorStore();
 
     useEffect(() => {
         if (vaultPath) {
@@ -22,12 +24,6 @@ function App() {
             refreshFiles(vaultPath);
         }
     }, [vaultPath]);
-
-    useEffect(() => {
-        if(vaultPath) {
-            invoke('sync_vault', { vaultPath }).catch(console.error);
-        }
-    })
 
     useEffect(() => {
         const unlistenPromise = listen('file-changed', () => {
@@ -87,8 +83,7 @@ function App() {
                     </div>
                 ) : (
                     <div className="flex w-full h-full overflow-hidden">
-                        {/* Logic to hide/show sidebar */}
-                        {/* You can use conditional rendering or CSS hiding for animation support */}
+                        {/* Sidebar */}
                         <div className={cn(
                             "h-full overflow-hidden transition-all duration-300 ease-in-out border-r border-gray-200 dark:border-gray-800",
                             isSidebarOpen ? "w-64 opacity-100" : "w-0 opacity-0 overflow-hidden border-none"
@@ -96,9 +91,23 @@ function App() {
                             <Sidebar />
                         </div>
 
-                        <div className="flex-1 h-full min-w-0 bg-white relative flex flex-col">
-                            <Editor />
-                        </div>
+                        {/* Main content area */}
+                        {viewMode === 'graph' ? (
+                            /* Global Graph View — replaces the editor */
+                            <div className="flex-1 h-full min-w-0 relative flex flex-col">
+                                <GraphView />
+                            </div>
+                        ) : (
+                            /* Editor + optional Local Graph Panel */
+                            <>
+                                <div className="flex-1 h-full min-w-0 bg-white relative flex flex-col">
+                                    <Editor />
+                                </div>
+                                {/*<>{isLocalGraphOpen && (*/}
+                                {/*    <LocalGraphPanel />*/}
+                                {/*)}</>*/}
+                            </>
+                        )}
                     </div>
                 )}
             </div>

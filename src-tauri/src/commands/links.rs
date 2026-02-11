@@ -68,3 +68,20 @@ pub async fn get_outgoing_links(
         Ok(vec![])
     }
 }
+
+// Gets all the links for the vault
+#[tauri::command]
+pub async fn get_all_links(
+    state: State<'_, AppState>,
+) -> Result<Vec<(String, String)>, String> {
+    let db_guard = state.db.lock().await;
+    
+    if let Some(db) = db_guard.as_ref() {
+        db.get_all_links()
+            .await
+            .map_err(|e| e.to_string())
+    } else {
+        Ok(vec![])
+    }
+    
+}

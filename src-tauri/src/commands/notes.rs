@@ -203,3 +203,18 @@ fn rename_recursively(dir: &Path, timestamp: u128) -> std::io::Result<()> {
     }
     Ok(())
 }
+
+#[tauri::command]
+pub async fn get_all_notes(
+    state: State<'_, AppState>,
+) -> Result<Vec<(String, i64)>, String> {
+    let db_guard = state.db.lock().await;
+    
+    if let Some(db) = db_guard.as_ref() {
+        db.get_all_indexed_files()
+            .await
+            .map_err(|e| e.to_string())
+    } else {
+        Ok(vec![])
+    }
+}

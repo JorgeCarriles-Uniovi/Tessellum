@@ -65,6 +65,8 @@ pub fn run() {
             commands::links::get_backlinks,
             commands::links::get_outgoing_links,
             commands::indexer::sync_vault,
+            commands::links::get_all_links,
+            commands::notes::get_all_notes
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

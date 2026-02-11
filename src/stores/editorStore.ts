@@ -18,7 +18,12 @@ interface EditorState {
     activeNoteContent: string;
     isDirty: boolean;
     expandedFolders: Record<string, boolean>;
-    isSidebarOpen: boolean;
+    isSidebarOpen: boolean; // <--- NEW STATE
+
+    // Graph state
+    viewMode: 'editor' | 'graph';
+    isLocalGraphOpen: boolean;
+    selectedGraphNode: string | null;
 
     // Actions
     setVaultPath: (path: string) => void;
@@ -26,7 +31,12 @@ interface EditorState {
     setActiveNote: (file: FileMetadata | null) => void;
     setActiveNoteContent: (content: string) => void;
     setIsDirty: (isDirty: boolean) => void;
-    toggleSidebar: () => void;
+    toggleSidebar: () => void; // <--- NEW ACTION
+
+    // Graph actions
+    setViewMode: (mode: 'editor' | 'graph') => void;
+    toggleLocalGraph: () => void;
+    setSelectedGraphNode: (path: string | null) => void;
 
     // Complex Actions
     renameFile: (oldPath: string, newPath: string, newName: string) => void;
@@ -42,20 +52,30 @@ export const useEditorStore = create<EditorState>((set) => ({
     activeNoteContent: '',
     isDirty: false,
     expandedFolders: {},
-    isSidebarOpen: true,
+    isSidebarOpen: true, // <--- DEFAULT OPEN
+
+    // Graph initial state
+    viewMode: 'editor',
+    isLocalGraphOpen: false,
+    selectedGraphNode: null,
 
     // --- Simple Setters ---
     setVaultPath: (path) => {
         localStorage.setItem('vaultPath', path);
         set({ vaultPath: path });
     },
-    setFiles: function(files) { return set({ files: sortFiles(files) }) },
-    setActiveNote: function(activeNote) { return set({ activeNote }) },
-    setActiveNoteContent: function(activeNoteContent) { return set({ activeNoteContent }) },
+    setFiles: function (files) { return set({ files: sortFiles(files) }) },
+    setActiveNote: function (activeNote) { return set({ activeNote }) },
+    setActiveNoteContent: function (activeNoteContent) { return set({ activeNoteContent }) },
     setIsDirty: (isDirty) => set({ isDirty }),
 
     // <--- TOGGLE IMPLEMENTATION
     toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
+
+    // Graph actions
+    setViewMode: (mode) => set({ viewMode: mode, selectedGraphNode: null }),
+    toggleLocalGraph: () => set((state) => ({ isLocalGraphOpen: !state.isLocalGraphOpen, selectedGraphNode: null })),
+    setSelectedGraphNode: (path) => set({ selectedGraphNode: path }),
 
     // --- Complex Logic ---
 

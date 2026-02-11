@@ -10,7 +10,7 @@ import { mathClickHandler, mathPlugin } from "./extensions/math-plugin";
 import { useEditorActions, useFileSynchronization } from "./hooks/useEditorActions";
 import { cn } from '../../lib/utils';
 import { lightTheme } from "./themes/lightTheme";
-import { useEditorExtensions } from "./hooks/useEditorExtensions";
+import { useEditorExtensions } from "./hooks";
 
 export function Editor() {
     const { activeNote, vaultPath, setActiveNote, files } = useEditorStore();

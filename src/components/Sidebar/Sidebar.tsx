@@ -4,7 +4,9 @@ import {
     FolderPlus,
     Settings,
     Trash2,
+    Network,
 } from "lucide-react";
+import { useEditorStore } from '../../stores/editorStore';
 import { FileTree } from '../FileTree/FileTree';
 import { SidebarContextMenu } from './SidebarContextMenu';
 import { InputModal } from '../InputModal';
@@ -40,9 +42,12 @@ export function Sidebar() {
     } = useFileTree();
 
 
+    const { setViewMode } = useEditorStore();
+
     // Hover states
     const [newFileBtnHovered, setNewFileBtnHovered] = useState(false);
     const [newFolderBtnHovered, setNewFolderBtnHovered] = useState(false);
+    const [graphHovered, setGraphHovered] = useState(false);
     const [settingsHovered, setSettingsHovered] = useState(false);
     const [trashHovered, setTrashHovered] = useState(false);
 
@@ -185,6 +190,15 @@ export function Sidebar() {
 
                         {/* Footer */}
                         <div style={footerStyle}>
+                            <button
+                                style={footerButtonStyle(graphHovered)}
+                                onClick={() => setViewMode('graph')}
+                                onMouseEnter={() => setGraphHovered(true)}
+                                onMouseLeave={() => setGraphHovered(false)}
+                            >
+                                <Network style={footerIconStyle} />
+                                <span style={footerTextStyle}>Graph View</span>
+                            </button>
                             <button
                                 style={footerButtonStyle(settingsHovered)}
                                 onMouseEnter={() => setSettingsHovered(true)}
