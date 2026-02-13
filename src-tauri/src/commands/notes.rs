@@ -15,7 +15,11 @@ use crate::utils::sanitize_string;
 /// If a file with the same name already exists, the function appends a numeric suffix
 /// to the filename to ensure its uniqueness.
 #[tauri::command]
-pub fn create_note(vault_path: String, title: String) -> Result<String, String> {
+pub async fn create_note(
+    state: State<'_, AppState>,
+    vault_path: String,
+    title: String,
+) -> Result<String, String> {
     // Sanitize title for avoiding invalid characters
     let sanitized_title = sanitize_string(title);
     let sanitized_title = {
@@ -25,23 +29,46 @@ pub fn create_note(vault_path: String, title: String) -> Result<String, String> 
             sanitized_title
         }
     };
-
+    
     // Create a file path
     let mut filename = format!("{}.md", sanitized_title);
     let mut file_path = Path::new(&vault_path).join(&filename);
     let mut collision_index = 1;
-
+    
     // Check for collisions in the filenames
     while file_path.exists() {
         filename = format!("{} ({}).md", sanitized_title, collision_index);
         file_path = Path::new(&vault_path).join(&filename);
         collision_index += 1;
     }
-
+    
     // Create an empty file
-    fs::write(&file_path, String::new()).map_err(|e| e.to_string())?;
-
-    Ok(file_path.to_string_lossy().to_string())
+    tokio::fs::write(&file_path, String::new())
+        .await
+        .map_err(|e| e.to_string())?;
+    
+    let path_str = file_path.to_string_lossy().to_string();
+    
+    // Index the new file in the database
+    let db_guard = state.db.lock().await;
+    if let Some(db) = db_guard.as_ref() {
+        let metadata = tokio::fs::metadata(&file_path)
+            .await
+            .map_err(|e| format!("Failed to get metadata: {}", e))?;
+        
+        let modified = metadata
+            .modified()
+            .map_err(|e| format!("Failed to get modified time: {}", e))?
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64;
+        
+        db.index_file(&path_str, modified, metadata.len(), &[])
+            .await
+            .map_err(|e| format!("Failed to index file: {}", e))?;
+    }
+    
+    Ok(path_str)
 }
 
 /// Moves a note or folder to a trash directory within the specified vault directory.
@@ -50,42 +77,65 @@ pub fn create_note(vault_path: String, title: String) -> Result<String, String> 
 /// subdirectory within a vault, while ensuring that the filenames are unique
 /// using a timestamp.
 #[tauri::command]
-pub async fn trash_item(item_path: String, vault_path: String) -> Result<(), String> {
+pub async fn trash_item(
+    state: State<'_, AppState>,
+    item_path: String,
+    vault_path: String,
+) -> Result<(), String> {
     let source_path = Path::new(&item_path);
     let vault_root = Path::new(&vault_path);
-
+    let is_directory = source_path.is_dir();
+    
     let trash_dir = vault_root.join(".trash");
     if !trash_dir.exists() {
         tokio::fs::create_dir(&trash_dir)
             .await
             .map_err(|e| format!("Failed to create .trash: {}", e))?;
     }
-
+    
     if !source_path.exists() {
         return Err("Item does not exist".to_string());
     }
-
+    
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis();
-
+    
     // --- Step A: Rename the Main Item ---
     let trash_filename =
         generate_trash_name(source_path, timestamp).ok_or("Failed to generate name")?;
-
+    
     let dest_path = trash_dir.join(&trash_filename);
-
+    
     // Move the folder (and all contents) to .trash
     tokio::fs::rename(source_path, &dest_path)
         .await
         .map_err(|e| e.to_string())?;
-
+    
     // --- Step B: Recursively Rename Contents ---
     if dest_path.is_dir() {
         rename_recursively(&dest_path, timestamp).map_err(|e| e.to_string())?;
     }
-
+    
+    // --- Step C: Remove from database index ---
+    let db_guard = state.db.lock().await;
+    if let Some(db) = db_guard.as_ref() {
+        if is_directory {
+            // Delete all notes under this directory path
+            let separator = std::path::MAIN_SEPARATOR;
+            let prefix = format!("{}{}", item_path, separator);
+            db.delete_files_by_prefix(&prefix)
+                .await
+                .map_err(|e| format!("Failed to remove directory from index: {}", e))?;
+        } else {
+            // Delete the single file
+            db.delete_file(&item_path)
+                .await
+                .map_err(|e| format!("Failed to remove from index: {}", e))?;
+        }
+    }
+    
     Ok(())
 }
 
@@ -108,15 +158,15 @@ pub async fn write_file(
     tokio::fs::write(&path, &content)
         .await
         .map_err(|e| e.to_string())?;
-
+    
     let db_guard = state.db.lock().await;
-
+    
     if let Some(db) = db_guard.as_ref() {
         // 2. Get metadata AFTER writing
         let metadata = tokio::fs::metadata(&path)
             .await
             .map_err(|e| format!("Failed to get metadata for {}: {}", path, e))?;
-
+        
         let size = metadata.len();
         let modified = metadata
             .modified()
@@ -124,21 +174,22 @@ pub async fn write_file(
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs() as i64;
-
+        
         // 3. Extract wikilinks
         let wikilinks = extract_wikilinks(&content);
-
+        
         // 4. Build file index for resolving links
         let file_index = FileIndex::build(&vault_path)
             .map_err(|e| format!("Failed to build file index: {}", e))?;
-
-        // 5. Resolve each wikilink to its full path
+        
+        // 5. Resolve each wikilink to its full path (non-existent targets get a fallback path)
         let resolved_links: Vec<String> = wikilinks
             .iter()
-            .filter_map(|link| {
+            .map(|link| {
                 file_index
-                    .resolve(&vault_path, &link.target)
-                    .map(|p| p.to_string_lossy().to_string())
+                    .resolve_or_default(&vault_path, &link.target)
+                    .to_string_lossy()
+                    .to_string()
             })
             .collect();
         
@@ -146,8 +197,14 @@ pub async fn write_file(
         db.index_file(&path, modified, size, &resolved_links)
             .await
             .map_err(|e| format!("Failed to index file in database: {}", e))?;
+        
+        println!(
+            "✓ Indexed file: {} with {} resolved links",
+            path,
+            resolved_links.len()
+        );
     }
-
+    
     Ok(())
 }
 
@@ -155,17 +212,17 @@ pub async fn write_file(
 /// and a timestamp for unique identification.
 fn generate_trash_name(path: &Path, timestamp: u128) -> Option<String> {
     let filename = path.file_name()?.to_string_lossy();
-
+    
     // Get parent name, but clean it up
     let raw_parent = path
         .parent()
         .and_then(|p| p.file_name())
         .map(|n| n.to_string_lossy())
         .unwrap_or_else(|| "root".into());
-
+    
     // Simple parser: Stop at the first " (" to strip previous timestamps
     let clean_parent = raw_parent.split(" (").next().unwrap_or(&raw_parent);
-
+    
     if path.is_dir() {
         Some(format!("{} ({}) {}", filename, clean_parent, timestamp))
     } else {
@@ -178,23 +235,23 @@ fn generate_trash_name(path: &Path, timestamp: u128) -> Option<String> {
 /// identifier to their names.
 fn rename_recursively(dir: &Path, timestamp: u128) -> std::io::Result<()> {
     use std::path::PathBuf;
-
+    
     if !dir.is_dir() {
         return Ok(());
     }
-
+    
     // Collect paths first to avoid issues while modifying the directory
     let entries: Vec<PathBuf> = fs::read_dir(dir)?
         .filter_map(|e| e.ok().map(|entry| entry.path()))
         .collect();
-
+    
     for path in entries {
         if let Some(new_name) = generate_trash_name(&path, timestamp) {
             let new_path = path.parent().unwrap().join(new_name);
-
+            
             // Rename the current item
             fs::rename(&path, &new_path)?;
-
+            
             // If it is a directory, we must recurse into the NEW path
             if new_path.is_dir() {
                 rename_recursively(&new_path, timestamp)?;
@@ -203,6 +260,7 @@ fn rename_recursively(dir: &Path, timestamp: u128) -> std::io::Result<()> {
     }
     Ok(())
 }
+
 
 #[tauri::command]
 pub async fn get_all_notes(

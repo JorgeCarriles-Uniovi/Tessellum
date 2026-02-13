@@ -103,9 +103,9 @@ function App() {
                                 <div className="flex-1 h-full min-w-0 bg-white relative flex flex-col">
                                     <Editor />
                                 </div>
-                                {/*<>{isLocalGraphOpen && (*/}
-                                {/*    <LocalGraphPanel />*/}
-                                {/*)}</>*/}
+                                <>{isLocalGraphOpen && (
+                                    <LocalGraphPanel />
+                                )}</>
                             </>
                         )}
                     </div>

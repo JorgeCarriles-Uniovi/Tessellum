@@ -36,11 +36,13 @@ export function GraphCanvas({
                 animate: true,
                 animationDuration: 500,
                 randomize: true,
-                nodeRepulsion: () => mode === 'global' ? 8000 : 4000,
-                idealEdgeLength: () => mode === 'global' ? 100 : 60,
-                gravity: mode === 'global' ? 0.25 : 0.8,
+                nodeRepulsion: () => mode === 'global' ? 6000 : 4000,
+                idealEdgeLength: () => mode === 'global' ? 70 : 60,
+                gravity: mode === 'global' ? 1.0 : 0.8,
                 numIter: mode === 'global' ? 1000 : 500,
                 nodeDimensionsIncludeLabels: true,
+                componentSpacing: mode === 'global' ? 80 : 50,
+                padding: 40,
             } as any,
             minZoom: 0.1,
             maxZoom: 5,
@@ -51,6 +53,41 @@ export function GraphCanvas({
 
         // Mark orphans
         markOrphanNodes(cy);
+
+        // After layout finishes, reposition orphan nodes in a circle around the main cluster
+        cy.one('layoutstop', () => {
+            const orphans = cy.nodes('.orphan');
+            if (orphans.length === 0) return;
+
+            // Get bounding box of connected (non-orphan) nodes
+            const connected = cy.nodes().not('.orphan');
+            let cx: number, cy2: number, radius: number;
+
+            if (connected.length > 0) {
+                const bb = connected.boundingBox({});
+                cx = (bb.x1 + bb.x2) / 2;
+                cy2 = (bb.y1 + bb.y2) / 2;
+                radius = Math.max(bb.w, bb.h) / 2 + 80;
+            } else {
+                // All nodes are orphans — place them in a circle at center
+                cx = cy.width() / 2;
+                cy2 = cy.height() / 2;
+                radius = Math.min(cy.width(), cy.height()) / 3;
+            }
+
+            // Distribute orphans evenly around the circle
+            orphans.forEach((node: cytoscape.NodeSingular, i: number) => {
+                const angle = (2 * Math.PI * i) / orphans.length - Math.PI / 2;
+                node.animate({
+                    position: {
+                        x: cx + radius * Math.cos(angle),
+                        y: cy2 + radius * Math.sin(angle),
+                    },
+                    duration: 400,
+                    easing: 'ease-out-cubic' as any,
+                });
+            });
+        });
 
         // Event: single click
         cy.on('tap', 'node', (evt) => {

@@ -182,7 +182,7 @@ impl Database {
     
     /// Delete a file from the index.
     ///
-    /// This also removes all links from/to this file due to CASCADE constraints.
+    /// This also removes all outgoing links from this file due to CASCADE constraints.
     pub async fn delete_file(&self, path: &str) -> Result<(), sqlx::Error> {
         sqlx::query("DELETE FROM notes WHERE path = ?")
             .bind(path)
@@ -190,6 +190,18 @@ impl Database {
             .await?;
         
         Ok(())
+    }
+    
+    /// Delete all files from the index whose path starts with the given prefix.
+    ///
+    /// Useful for removing all notes inside a directory that was trashed.
+    pub async fn delete_files_by_prefix(&self, prefix: &str) -> Result<usize, sqlx::Error> {
+        let result = sqlx::query("DELETE FROM notes WHERE path LIKE ?")
+            .bind(format!("{}%", prefix))
+            .execute(&self.pool)
+            .await?;
+        
+        Ok(result.rows_affected() as usize)
     }
     
     /// Get all orphaned files (files with no incoming or outgoing links).
@@ -271,6 +283,8 @@ impl Database {
 /// * `false` if the path is empty, contains invalid components, or is deemed unsafe
 fn is_safe_path(path_str: &str) -> bool {
     let path = Path::new(path_str);
+    
+    println!("Path: {}", path_str);
     
     // Prevent empty strings
     if path_str.trim().is_empty() {

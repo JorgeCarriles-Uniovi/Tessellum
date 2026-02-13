@@ -11,6 +11,7 @@ import { useEditorActions, useFileSynchronization } from "./hooks/useEditorActio
 import { cn } from '../../lib/utils';
 import { lightTheme } from "./themes/lightTheme";
 import { useEditorExtensions } from "./hooks";
+import {invoke} from "@tauri-apps/api/core";
 
 export function Editor() {
     const { activeNote, vaultPath, setActiveNote, files } = useEditorStore();
@@ -32,8 +33,7 @@ export function Editor() {
             setActiveNote(file);
         } else {
             // File doesn't exist - you could create it or show an error
-            console.log('Note not found, would create:', path);
-            // TODO: Optionally implement note creation logic here
+            invoke<string>('create_note', { vaultPath, title: path.replace(/\\/g, '/') });
         }
     }, vaultPath || "");
 
