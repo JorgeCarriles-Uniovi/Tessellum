@@ -1,7 +1,7 @@
 import CodeMirror, { ReactCodeMirrorRef } from '@uiw/react-codemirror';
 import { useEditorStore } from '../../stores/editorStore';
 import { useRef } from "react";
-import { useSlashCommand, useWikiLinkSuggestions } from "./hooks";
+import { useSlashCommand, useWikiLinkSuggestions, useWikiLinkNavigation } from "./hooks";
 import { CommandItem } from "../../types";
 import { SlashMenu } from "./SlashMenu";
 import { WikiLinkSuggestionsMenu } from "./WikiLinkSuggestionsMenu";
@@ -10,11 +10,10 @@ import { mathClickHandler, mathPlugin } from "./extensions/math-plugin";
 import { useEditorActions, useFileSynchronization } from "./hooks/useEditorActions";
 import { cn } from '../../lib/utils';
 import { lightTheme } from "./themes/lightTheme";
-import { useEditorExtensions } from "./hooks";
-import {invoke} from "@tauri-apps/api/core";
+import { useEditorExtensions } from "./hooks/useEditorExtensions";
 
 export function Editor() {
-    const { activeNote, vaultPath, setActiveNote, files } = useEditorStore();
+    const { activeNote, vaultPath } = useEditorStore();
     const { content, isLoading, handleContentChange } = useFileSynchronization(activeNote);
     const editorRef = useRef<ReactCodeMirrorRef>(null);
     const { noteRenaming, editorExtensions } = useEditorActions();
@@ -23,19 +22,11 @@ export function Editor() {
     // WikiLink suggestions hook
     const { wikiLinkSuggestionsExtension, wikiLinkSuggestionsProps } = useWikiLinkSuggestions(vaultPath || "");
 
-    // Wikilink extensions - only create if vaultPath exists
-    const wikiLinkExtensions = useEditorExtensions((path: string) => {
-        // Find the file in the store by path
-        const file = files.find(f => f.path === path);
+    // Navigation hook
+    const handleWikiLinkNavigation = useWikiLinkNavigation();
 
-        if (file) {
-            // File exists - open it
-            setActiveNote(file);
-        } else {
-            // File doesn't exist - you could create it or show an error
-            invoke<string>('create_note', { vaultPath, title: path.replace(/\\/g, '/') });
-        }
-    }, vaultPath || "");
+    // Wikilink extensions - passes the path/text to the navigation hook
+    const wikiLinkExtensions = useEditorExtensions(handleWikiLinkNavigation, vaultPath || "");
 
     if (!activeNote) {
         return (
