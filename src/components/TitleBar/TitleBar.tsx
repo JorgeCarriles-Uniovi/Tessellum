@@ -2,14 +2,14 @@ import { useState, useEffect } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import {
     Minus, Square, X, Copy,
-    PanelLeft, ArrowLeft, ArrowRight, Search, FileText
+    PanelLeft, ArrowLeft, ArrowRight, Search, FileText, GitFork
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useEditorStore } from '../../stores/editorStore';
 
 export function TitleBar() {
     const [isMaximized, setIsMaximized] = useState(false);
-    const { toggleSidebar, isSidebarOpen, activeNote } = useEditorStore();
+    const { toggleSidebar, isSidebarOpen, activeNote, toggleLocalGraph, isLocalGraphOpen } = useEditorStore();
     const appWindow = getCurrentWindow();
 
     useEffect(() => {
@@ -80,8 +80,15 @@ export function TitleBar() {
                 )}
             </div>
 
-            {/* --- RIGHT SECTION: Status & Window Controls --- */}
+            {/* --- RIGHT SECTION: Local Graph, Status & Window Controls --- */}
             <div className="flex items-center h-full">
+                {/* Local Graph Toggle */}
+                <NavButton onClick={toggleLocalGraph} active={isLocalGraphOpen} tooltip="Toggle Local Graph">
+                    <GitFork size={16} />
+                </NavButton>
+
+                <div className="w-2" />
+
                 {/* "EDITING" Status Badge from image */}
                 <div className="hidden sm:flex items-center gap-1.5 px-3 mr-2 text-[10px] font-bold text-gray-400 tracking-wider"
                      style={{ paddingLeft: "1rem", paddingRight: "1rem", paddingTop: "1px", paddingBottom: "1px" }}>

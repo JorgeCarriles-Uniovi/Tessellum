@@ -8,16 +8,36 @@ import { toast } from "sonner";
 export function useWikiLinkNavigation() {
     const { activeNote, files, setActiveNote, setFiles } = useEditorStore();
 
-    return useCallback(async (linkText: string) => {
+    return useCallback(async (linkTarget: string) => {
         if (!activeNote) return;
 
         try {
-            // 1. Sanitize Input
-            const rawName = linkText.trim();
-            if (!rawName) return;
+            const rawTarget = linkTarget.trim();
+            if (!rawTarget) return;
 
+            // 1. Check if it's an absolute path and exists in store
+            // This happens when the wikilink plugin resolves the link to a full path
+            const fileByPath = files.find(f => f.path === rawTarget);
+            if (fileByPath) {
+                setActiveNote(fileByPath);
+                return;
+            }
+
+            // 2. Sanitize Input for filename matching / creation
             // This throws an error if malicious, or returns a clean string if messy
-            const targetName = sanitizeFilename(rawName);
+            let targetName: string;
+            try {
+                targetName = sanitizeFilename(rawTarget);
+            } catch (e) {
+                // If sanitization fails (e.g. because it's a path with slashes that wasn't found above),
+                // we might want to try to extract just the filename
+                if (rawTarget.includes('/') || rawTarget.includes('\\')) {
+                    const parts = rawTarget.replace(/\\/g, '/').split('/');
+                    targetName = sanitizeFilename(parts[parts.length - 1]);
+                } else {
+                    throw e;
+                }
+            }
 
             // If the name became empty after sanitization (e.g. "[[???]]"), stop.
             if (!targetName) {
@@ -26,7 +46,7 @@ export function useWikiLinkNavigation() {
 
             const targetFilename = `${targetName}.md`;
 
-            // 2. Check if exists (Using the CLEAN name)
+            // 3. Check if exists by filename (Using the CLEAN name)
             const existingFile = files.find(f =>
                 f.filename.toLowerCase() === targetFilename.toLowerCase()
             );
@@ -36,7 +56,7 @@ export function useWikiLinkNavigation() {
                 return;
             }
 
-            // 3. Create New Note
+            // 4. Create New Note
 
             const vaultPath = await dirname(activeNote.path);
 

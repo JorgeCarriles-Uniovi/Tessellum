@@ -274,105 +274,11 @@ export function createWikiLinkPlugin(config: WikiLinkPluginConfig) {
 // ============================================================================
 // SIMPLE MARK-BASED ALTERNATIVE (if you prefer highlighting over widgets)
 // ============================================================================
-
-export function createSimpleWikiLinkPlugin(config: WikiLinkPluginConfig) {
-    const fileIndex = new WikiLinkFileIndex();
-
-    fileIndex.build(config.vaultPath);
-
-    return ViewPlugin.fromClass(
-        class {
-            decorations: DecorationSet;
-
-            constructor(view: EditorView) {
-                this.decorations = this.buildDecorations(view);
-            }
-
-            update(update: ViewUpdate) {
-                if (update.docChanged || update.viewportChanged) {
-                    this.decorations = this.buildDecorations(update.view);
-                }
-            }
-
-            buildDecorations(view: EditorView): DecorationSet {
-                const builder = new RangeSetBuilder<Decoration>();
-                const matches = findWikiLinks(view);
-
-                for (const match of matches) {
-                    const exists = fileIndex.exists(match.target);
-                    const className = exists ? "cm-wikilink cm-wikilink-valid" : "cm-wikilink cm-wikilink-broken";
-
-                    const mark = Decoration.mark({
-                        class: className,
-                        attributes: {
-                            "data-target": match.target,
-                            "data-alias": match.alias || "",
-                        },
-                    });
-
-                    builder.add(match.from, match.to, mark);
-                }
-
-                return builder.finish();
-            }
-        },
-        {
-            decorations: (v) => v.decorations,
-        }
-    );
-}
-
 // ============================================================================
 // AUTOCOMPLETE EXTENSION
 // ============================================================================
 
-import { autocompletion, CompletionContext, CompletionResult } from "@codemirror/autocomplete";
 import { FileMetadata } from "../../../types.ts";
-
-export function wikiLinkAutocomplete(vaultPath: string) {
-    let cachedFiles: Array<{ label: string; path: string }> = [];
-
-    // Build initial cache
-    invoke<Array<FileMetadata>>(
-        'list_files',
-        { vaultPath: vaultPath } // Changed from vaultPath to vault_path
-    ).then((files: FileMetadata[]) => {
-        cachedFiles = files
-            .filter(f => !f.is_dir && f.filename.endsWith('.md'))
-            .map(f => ({
-                label: f.filename.replace('.md', ''),
-                path: f.path,
-            }));
-    });
-
-    return autocompletion({
-        override: [
-            async (context: CompletionContext): Promise<CompletionResult | null> => {
-                const before = context.matchBefore(/\[\[([^\]]*)/);
-
-                if (!before) return null;
-
-                const query = before.text.slice(2);
-
-                const options = cachedFiles
-                    .filter(f => f.label.toLowerCase().includes(query.toLowerCase()))
-                    .map(f => ({
-                        label: f.label,
-                        type: "text",
-                        apply: f.label + "]]",
-                        info: f.path,
-                    }))
-                    .slice(0, 20);
-
-                return {
-                    from: before.from + 2,
-                    options,
-                };
-            },
-        ],
-    });
-}
-
 // ============================================================================
 // HELPER: Refresh file index manually
 // ============================================================================
