@@ -19,6 +19,12 @@ function App() {
     const { vaultPath, setVaultPath, setFiles, isSidebarOpen, viewMode, isLocalGraphOpen } = useEditorStore();
 
     useEffect(() => {
+        if(vaultPath) {
+            invoke('sync_vault', { vaultPath }).catch(console.error);
+        }
+    });
+
+    useEffect(() => {
         if (vaultPath) {
             invoke('watch_vault', { vaultPath }).catch(console.error);
             refreshFiles(vaultPath);

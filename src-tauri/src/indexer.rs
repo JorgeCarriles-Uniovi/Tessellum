@@ -35,11 +35,9 @@ impl VaultIndexer {
         let mut files_deleted = 0;
         let mut files_skipped = 0;
         
-        println!("🔍 Starting vault sync for: {}", vault_path);
         
         // 1. Get all .md files from filesystem with their modified times
         let fs_files = Self::collect_filesystem_files(vault_path)?;
-        println!("   Found {} files in filesystem", fs_files.len());
         
         // 2. Get all indexed files from database
         let db_files: HashMap<String, i64> = db
@@ -48,7 +46,6 @@ impl VaultIndexer {
             .map_err(|e| format!("Failed to get indexed files: {}", e))?
             .into_iter()
             .collect();
-        println!("   Found {} files in database", db_files.len());
         
         // 3. Build file index for link resolution
         let file_index = FileIndex::build(vault_path)
@@ -82,10 +79,6 @@ impl VaultIndexer {
             .collect();
         
         if !deleted_paths.is_empty() {
-            println!(
-                "   Removing {} deleted files from index",
-                deleted_paths.len()
-            );
             files_deleted = db
                 .batch_delete_files(&deleted_paths)
                 .await
@@ -93,11 +86,6 @@ impl VaultIndexer {
         }
         
         let duration_ms = start.elapsed().as_millis();
-        
-        println!(
-            "✅ Vault sync complete in {}ms: {} indexed, {} skipped, {} deleted",
-            duration_ms, files_indexed, files_skipped, files_deleted
-        );
         
         Ok(IndexStats {
             files_indexed,

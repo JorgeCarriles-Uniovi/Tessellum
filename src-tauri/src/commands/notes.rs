@@ -197,12 +197,6 @@ pub async fn write_file(
         db.index_file(&path, modified, size, &resolved_links)
             .await
             .map_err(|e| format!("Failed to index file in database: {}", e))?;
-        
-        println!(
-            "✓ Indexed file: {} with {} resolved links",
-            path,
-            resolved_links.len()
-        );
     }
     
     Ok(())

@@ -284,8 +284,6 @@ impl Database {
 fn is_safe_path(path_str: &str) -> bool {
     let path = Path::new(path_str);
     
-    println!("Path: {}", path_str);
-    
     // Prevent empty strings
     if path_str.trim().is_empty() {
         return false;

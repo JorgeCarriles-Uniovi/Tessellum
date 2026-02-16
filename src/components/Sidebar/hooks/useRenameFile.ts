@@ -9,7 +9,6 @@ export function useRenameFile() {
 
     // CHANGED: Now accepts 'newName' directly from your Modal
     return useCallback(async (target: FileMetadata, newName: string) => {
-        console.log("Renaming:", target.filename, "->", newName);
 
         // Safety check
         if (!newName || newName === target.filename) return;
