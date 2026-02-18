@@ -100,7 +100,7 @@ import { RangeSetBuilder } from "@codemirror/state";
 // Add this new function for click handling
 function wikiLinkClickHandler(config: WikiLinkPluginConfig) {
     return EditorView.domEventHandlers({
-        click: (event) => {
+        click: (event, view) => {
             const target = event.target as HTMLElement;
 
             // Check if click was on a wikilink
@@ -124,7 +124,7 @@ function wikiLinkClickHandler(config: WikiLinkPluginConfig) {
             return true;
         },
 
-        mouseover: (event) => {
+        mouseover: (event, view) => {
             const target = event.target as HTMLElement;
             const wikilinkEl = target.closest('.cm-wikilink');
 
@@ -227,7 +227,7 @@ export function createWikiLinkPlugin(config: WikiLinkPluginConfig) {
             }
 
             update(update: ViewUpdate) {
-                if (update.docChanged || update.viewportChanged) {
+                if (update.docChanged || update.viewportChanged || update.selectionSet) {
                     this.decorations = this.buildDecorations(update.view);
                 }
             }
@@ -241,9 +241,13 @@ export function createWikiLinkPlugin(config: WikiLinkPluginConfig) {
             buildDecorations(view: EditorView): DecorationSet {
                 const builder = new RangeSetBuilder<Decoration>();
                 const matches = findWikiLinks(view);
+                const selection = view.state.selection.main;
 
                 for (const match of matches) {
                     const exists = isIndexBuilt ? fileIndex.exists(match.target) : true;
+                    const cursorOverlaps = (selection.from <= match.to && selection.to >= match.from);
+
+                    console.log(match.fullText, exists, cursorOverlaps);
 
                     const mark = Decoration.mark({
                         class: exists ? "cm-wikilink cm-wikilink-valid" : "cm-wikilink cm-wikilink-broken",
@@ -253,7 +257,17 @@ export function createWikiLinkPlugin(config: WikiLinkPluginConfig) {
                         },
                     });
 
-                    builder.add(match.from, match.to, mark);
+                    if (!cursorOverlaps) {
+                        // Hide opening [[ (2 chars)
+                        builder.add(match.from, match.from + 2, Decoration.replace({}));
+                        // Apply the mark to the visible content (between [[ and ]])
+                        builder.add(match.from + 2, match.to - 2, mark);
+                        // Hide closing ]] (2 chars)
+                        builder.add(match.to - 2, match.to, Decoration.replace({}));
+                    } else {
+                        // Cursor is on the link — show full raw syntax with mark
+                        builder.add(match.from, match.to, mark);
+                    }
                 }
 
                 return builder.finish();
@@ -271,14 +285,4 @@ export function createWikiLinkPlugin(config: WikiLinkPluginConfig) {
     ];
 }
 
-// ============================================================================
-// SIMPLE MARK-BASED ALTERNATIVE (if you prefer highlighting over widgets)
-// ============================================================================
-// ============================================================================
-// AUTOCOMPLETE EXTENSION
-// ============================================================================
-
 import { FileMetadata } from "../../../types.ts";
-// ============================================================================
-// HELPER: Refresh file index manually
-// ============================================================================

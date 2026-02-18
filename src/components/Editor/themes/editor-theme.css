@@ -46,7 +46,6 @@
 .cm-scroller {
     height: 100%;
     overflow: auto;
-    display: flex;
     flex-direction: column;
 }
 
@@ -83,7 +82,7 @@
 
 /* Broken links */
 .cm-wikilink-broken {
-    color: #ef4444;
+    color: #ef4444 !important;
     text-decoration: underline;
     text-decoration-style: wavy;
     text-decoration-color: #ef444440;
@@ -91,7 +90,7 @@
 }
 
 .cm-wikilink-broken:hover {
-    color: #dc2626;
+    color: #dc2626 !important;
     background-color: #ef444410;
 }
 
@@ -190,4 +189,3 @@
 .cm-strikethrough { text-decoration: line-through; color: #6b7280; }
 .cm-quote-text { color: #4b5563; font-style: italic; } /* Renamed to avoid conflict with block */
 .cm-proc-inst { color: #adadb1; }
-.cm-link { color: #2563eb; text-decoration: underline; }
