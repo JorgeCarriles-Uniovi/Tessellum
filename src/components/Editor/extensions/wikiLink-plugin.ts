@@ -100,7 +100,7 @@ import { RangeSetBuilder } from "@codemirror/state";
 // Add this new function for click handling
 function wikiLinkClickHandler(config: WikiLinkPluginConfig) {
     return EditorView.domEventHandlers({
-        click: (event, view) => {
+        click: (event) => {
             const target = event.target as HTMLElement;
 
             // Check if click was on a wikilink
@@ -124,7 +124,7 @@ function wikiLinkClickHandler(config: WikiLinkPluginConfig) {
             return true;
         },
 
-        mouseover: (event, view) => {
+        mouseover: (event) => {
             const target = event.target as HTMLElement;
             const wikilinkEl = target.closest('.cm-wikilink');
 
