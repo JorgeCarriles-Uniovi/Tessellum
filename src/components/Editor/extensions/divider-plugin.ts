@@ -10,18 +10,32 @@ import { RangeSetBuilder } from "@codemirror/state";
 
 // 1. The Visual Widget
 class DividerWidget extends WidgetType {
-    toDOM() {
+    constructor(readonly start: number, readonly end: number) {
+        super();
+    }
+
+    eq(other: DividerWidget) {
+        return this.start === other.start && this.end === other.end;
+    }
+
+    toDOM(view: EditorView) {
         const div = document.createElement("div");
         div.className = "cm-divider-widget";
+
+        // Add click listener to select the divider line
+        div.addEventListener("mousedown", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            view.dispatch({
+                selection: { anchor: this.start, head: this.end }
+            });
+            view.focus();
+        });
+
         return div;
     }
 }
-
-// 2. The Decoration Definition
-// We create this once to reuse it
-const dividerDecoration = Decoration.replace({
-    widget: new DividerWidget(),
-});
 
 // 3. The Optimized Plugin
 export const dividerPlugin = ViewPlugin.fromClass(
@@ -34,7 +48,7 @@ export const dividerPlugin = ViewPlugin.fromClass(
 
         update(update: ViewUpdate) {
             // Only rebuild if the document changed OR the user scrolled (viewport changed)
-            if (update.docChanged || update.viewportChanged) {
+            if (update.docChanged || update.viewportChanged || update.selectionSet) {
                 this.decorations = this.buildDecorations(update.view);
             }
         }
@@ -42,6 +56,7 @@ export const dividerPlugin = ViewPlugin.fromClass(
         buildDecorations(view: EditorView) {
             const builder = new RangeSetBuilder<Decoration>();
             const { state } = view;
+            const selection = state.selection.main;
 
             // Optimization: Only loop through the visible lines (Viewport)
             // This makes performance independent of total file size.
@@ -57,7 +72,15 @@ export const dividerPlugin = ViewPlugin.fromClass(
 
                     // Super fast check: No Regex needed
                     if (line.text === '---') {
-                        builder.add(line.from, line.to, dividerDecoration);
+                        // Check if cursor overlaps with this line
+                        const cursorOverlaps = selection.from >= line.from && selection.to <= line.to;
+
+                        // Only replace with widget if cursor is NOT on the line
+                        if (!cursorOverlaps) {
+                            builder.add(line.from, line.to, Decoration.replace({
+                                widget: new DividerWidget(line.from, line.to),
+                            }));
+                        }
                     }
 
                     // Move to next line

@@ -2,6 +2,7 @@ import {useMemo} from "react";
 import {EditorView} from "@codemirror/view";
 import {markdown, markdownLanguage} from "@codemirror/lang-markdown";
 import {createWikiLinkPlugin} from "../extensions/wikiLink-plugin.ts";
+import {markdownLivePreview} from "../extensions/markdown-preview-plugin";
 import {languages} from "@codemirror/language-data";
 
 export function useEditorExtensions(onWikiLinkClick: (path: string) => void, vaultPath: string) {
@@ -21,6 +22,7 @@ export function useEditorExtensions(onWikiLinkClick: (path: string) => void, vau
         const extensions = [
             markdown({ base: markdownLanguage, codeLanguages: languages }),
             EditorView.lineWrapping,
+            markdownLivePreview
         ];
 
         // wikiLinkPlugin is now an array, so spread it
