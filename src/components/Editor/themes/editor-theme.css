@@ -192,16 +192,15 @@
 /* --- 5. Callouts (Obsidian-style) --- */
 
 /*
- * Obsidian callout design system:
- * - 3px left accent border at full callout color
- * - Subtle tinted background (header slightly stronger, body lighter)
+ * Callout design:
+ * - No left border -- blocks rely on background tinting for distinction
+ * - Stronger tinted backgrounds (header ~18%, body ~10%)
  * - 4px border-radius for the overall block
  * - Icon + title + chevron in a flex row
  * - Content text inherits editor color (not tinted by callout color)
  * - SVG chevron rotates on collapse/expand with smooth transition
  *
  * All colors are driven by --callout-color (hex) set per callout instance.
- * We convert to rgba using color-mix for background tinting.
  */
 
 /* ── Header line (.cm-line that wraps the header widget) ── */
@@ -209,15 +208,12 @@
 .cm-line.cm-callout-header-line {
     padding: 0 !important;
     margin: 0 !important;
-    border-left: 3px solid var(--callout-color, #448aff) !important;
-    border-right: none !important;
-    border-top: none !important;
-    border-bottom: none !important;
+    border: none !important;
     border-radius: 4px 4px 0 0;
     line-height: 0;
     vertical-align: top;
     display: flex !important;
-    background-color: color-mix(in srgb, var(--callout-color, #448aff) 8%, transparent);
+    background-color: color-mix(in srgb, var(--callout-color, #448aff) 18%, transparent);
 }
 
 /* ── Header widget container ── */
@@ -317,8 +313,8 @@
 /* ── Content lines (expanded) ── */
 
 .cm-callout-line {
-    border-left: 3px solid var(--callout-color, #448aff) !important;
-    background-color: color-mix(in srgb, var(--callout-color, #448aff) 4%, transparent) !important;
+    border: none !important;
+    background-color: color-mix(in srgb, var(--callout-color, #448aff) 10%, transparent) !important;
     padding-left: 12px !important;
     padding-top: 0;
     padding-bottom: 0;
@@ -339,7 +335,7 @@
 
 /* Last content line: bottom padding + rounding to close the block */
 .cm-callout-last-line {
-    border-radius: 0 0 0 4px;
+    border-radius: 0 0 4px 4px;
     padding-bottom: 8px !important;
 }
 
