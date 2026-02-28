@@ -4523,6 +4523,7 @@ dependencies = [
 name = "tessellum"
 version = "0.1.0"
 dependencies = [
+ "log",
  "notify",
  "regex",
  "serde",

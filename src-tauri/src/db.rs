@@ -1,6 +1,5 @@
 use sqlx::sqlite::{Sqlite, SqliteConnectOptions, SqlitePoolOptions};
 use sqlx::Pool;
-use std::path::{Component, Path};
 
 pub struct Database {
     pool: Pool<Sqlite>,
@@ -43,6 +42,11 @@ impl Database {
         
         // Create index for faster backlink queries
         sqlx::query("CREATE INDEX IF NOT EXISTS idx_links_target ON links(target_path);")
+            .execute(&pool)
+            .await?;
+        
+        // Enable foreign key enforcement (SQLite has it OFF by default)
+        sqlx::query("PRAGMA foreign_keys = ON;")
             .execute(&pool)
             .await?;
         
@@ -263,93 +267,5 @@ impl Database {
         
         tx.commit().await?;
         Ok(deleted)
-    }
-}
-
-/// Validates if a given path is safe to use (prevents directory traversal attacks).
-///
-/// This function checks that the path:
-/// 1. Is not empty or whitespace-only
-/// 2. Does not contain ".." (parent directory) components
-/// 3. Does not contain root directory components
-///
-/// # Arguments
-///
-/// * `path_str` - A string slice representing the path to validate
-///
-/// # Returns
-///
-/// * `true` if the path is considered safe
-/// * `false` if the path is empty, contains invalid components, or is deemed unsafe
-fn is_safe_path(path_str: &str) -> bool {
-    let path = Path::new(path_str);
-    
-    // Prevent empty strings
-    if path_str.trim().is_empty() {
-        return false;
-    }
-    
-    // Check for directory traversal attempts
-    for component in path.components() {
-        match component {
-            Component::Normal(_) => continue, // Regular path components are fine
-            _ => return false,                // Reject: ParentDir (..), RootDir (/), etc.
-        }
-    }
-    
-    true
-}
-
-/// Validates if a given string input is safe to use as a filename.
-///
-/// This is a stricter check than is_safe_path, specifically for filenames.
-fn is_safe_filename(input: &str) -> bool {
-    let path = Path::new(input);
-    
-    // Prevent empty strings
-    if input.trim().is_empty() {
-        return false;
-    }
-    
-    // Filename should not contain path separators
-    if input.contains('/') || input.contains('\\') {
-        return false;
-    }
-    
-    // Check that it only contains one Normal component
-    let components: Vec<_> = path.components().collect();
-    if components.len() != 1 {
-        return false;
-    }
-    
-    matches!(components[0], Component::Normal(_))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    #[test]
-    fn test_is_safe_path() {
-        assert!(is_safe_path("valid/path/to/file.md"));
-        assert!(is_safe_path("file.md"));
-        assert!(is_safe_path("folder/subfolder/note.md"));
-        
-        assert!(!is_safe_path(""));
-        assert!(!is_safe_path("   "));
-        assert!(!is_safe_path("../etc/passwd"));
-        assert!(!is_safe_path("/etc/passwd"));
-        assert!(!is_safe_path("folder/../../../etc/passwd"));
-    }
-    
-    #[test]
-    fn test_is_safe_filename() {
-        assert!(is_safe_filename("note.md"));
-        assert!(is_safe_filename("my-note_123.md"));
-        
-        assert!(!is_safe_filename(""));
-        assert!(!is_safe_filename("folder/note.md"));
-        assert!(!is_safe_filename("../note.md"));
-        assert!(!is_safe_filename("note\\file.md"));
     }
 }

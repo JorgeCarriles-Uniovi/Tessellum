@@ -7,6 +7,7 @@ use walkdir::WalkDir;
 use crate::commands::extract_wikilinks;
 use crate::db::Database;
 use crate::models::FileIndex;
+use crate::utils::is_hidden_or_special;
 
 /// Statistics about the indexing operation.
 #[derive(Debug, Clone)]
@@ -35,9 +36,11 @@ impl VaultIndexer {
         let mut files_deleted = 0;
         let mut files_skipped = 0;
         
+        log::info!("Starting vault sync for: {}", vault_path);
         
         // 1. Get all .md files from filesystem with their modified times
         let fs_files = Self::collect_filesystem_files(vault_path)?;
+        log::debug!("Found {} files in filesystem", fs_files.len());
         
         // 2. Get all indexed files from database
         let db_files: HashMap<String, i64> = db
@@ -46,6 +49,7 @@ impl VaultIndexer {
             .map_err(|e| format!("Failed to get indexed files: {}", e))?
             .into_iter()
             .collect();
+        log::debug!("Found {} files in database", db_files.len());
         
         // 3. Build file index for link resolution
         let file_index = FileIndex::build(vault_path)
@@ -62,7 +66,7 @@ impl VaultIndexer {
                 match Self::index_single_file(db, vault_path, path, &file_index).await {
                     Ok(_) => files_indexed += 1,
                     Err(e) => {
-                        eprintln!("   ⚠ Failed to index {}: {}", path, e);
+                        log::warn!("Failed to index {}: {}", path, e);
                     }
                 }
             } else {
@@ -79,6 +83,7 @@ impl VaultIndexer {
             .collect();
         
         if !deleted_paths.is_empty() {
+            log::debug!("Removing {} deleted files from index", deleted_paths.len());
             files_deleted = db
                 .batch_delete_files(&deleted_paths)
                 .await
@@ -86,6 +91,14 @@ impl VaultIndexer {
         }
         
         let duration_ms = start.elapsed().as_millis();
+        
+        log::info!(
+            "Vault sync complete in {}ms: {} indexed, {} skipped, {} deleted",
+            duration_ms,
+            files_indexed,
+            files_skipped,
+            files_deleted
+        );
         
         Ok(IndexStats {
             files_indexed,
@@ -107,8 +120,8 @@ impl VaultIndexer {
             let path = entry.path();
             let path_str = path.to_string_lossy().to_string();
             
-            // Skip hidden files/dirs and trash
-            if path_str.contains(".git") || path_str.contains(".trash") {
+            // Skip hidden files/dirs (.git, .trash, etc.)
+            if is_hidden_or_special(path) {
                 continue;
             }
             

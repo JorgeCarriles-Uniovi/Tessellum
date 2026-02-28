@@ -12,24 +12,33 @@ use crate::utils::sanitize_string;
 #[tauri::command]
 pub async fn create_folder(vault_path: String, folder_name: String) -> Result<String, String> {
     let sanitized_folder_name = sanitize_string(folder_name);
-
+    
     // SECURITY & VALIDATION:
     // Ensure the name isn't empty after sanitization.
     if sanitized_folder_name.trim().is_empty() {
         return Err("Invalid folder name: Name cannot be empty".to_string());
     }
-
+    
     let folder_path = Path::new(&vault_path).join(&sanitized_folder_name);
-
+    
+    // Validate the resulting path stays inside the vault
+    let vault_canonical = Path::new(&vault_path)
+        .canonicalize()
+        .map_err(|e| format!("Invalid vault path: {}", e))?;
+    let candidate = vault_canonical.join(&sanitized_folder_name);
+    if !candidate.starts_with(&vault_canonical) {
+        return Err("Security Error: Cannot create folder outside the vault".to_string());
+    }
+    
     // Check for existence
     if folder_path.exists() {
         return Err(String::from("Folder already exists"));
     }
-
+    
     // Create the directory
     tokio::fs::create_dir(&folder_path)
         .await
         .map_err(|e| e.to_string())?;
-
+    
     Ok(folder_path.to_string_lossy().to_string())
 }
