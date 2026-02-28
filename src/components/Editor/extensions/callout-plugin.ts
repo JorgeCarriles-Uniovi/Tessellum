@@ -68,12 +68,30 @@ const CALLOUT_ICON_MAP: Record<string, string> = {
     cite: "Quote",
 };
 
+/** Lucide chevron-down SVG path (used for the collapse/expand toggle). */
+const CHEVRON_DOWN_PATH = '<path d="m6 9 6 6 6-6"/>';
+
 /** Create an inline SVG element for a callout icon, without React. */
 function createIconSVG(typeId: string): SVGSVGElement | null {
     const iconName = CALLOUT_ICON_MAP[typeId.toLowerCase()];
     const pathData = iconName ? LUCIDE_SVG_PATHS[iconName] : null;
     if (!pathData) return null;
 
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("width", "18");
+    svg.setAttribute("height", "18");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("fill", "none");
+    svg.setAttribute("stroke", "currentColor");
+    svg.setAttribute("stroke-width", "2");
+    svg.setAttribute("stroke-linecap", "round");
+    svg.setAttribute("stroke-linejoin", "round");
+    svg.innerHTML = pathData;
+    return svg;
+}
+
+/** Create the chevron SVG for the collapse toggle. */
+function createChevronSVG(): SVGSVGElement {
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("width", "16");
     svg.setAttribute("height", "16");
@@ -83,7 +101,7 @@ function createIconSVG(typeId: string): SVGSVGElement | null {
     svg.setAttribute("stroke-width", "2");
     svg.setAttribute("stroke-linecap", "round");
     svg.setAttribute("stroke-linejoin", "round");
-    svg.innerHTML = pathData;
+    svg.innerHTML = CHEVRON_DOWN_PATH;
     return svg;
 }
 
@@ -191,8 +209,13 @@ class CalloutHeaderWidget extends WidgetType {
         // Collapse toggle (only if there are content lines)
         if (this.block.hasContent) {
             const toggle = document.createElement("span");
-            toggle.className = "cm-callout-toggle";
-            toggle.textContent = this.collapsed ? "\u25B8" : "\u25BE";
+            toggle.className = this.collapsed
+                ? "cm-callout-toggle cm-callout-toggle-collapsed"
+                : "cm-callout-toggle";
+
+            // SVG chevron-down (CSS rotates it -90deg when collapsed)
+            const chevron = createChevronSVG();
+            toggle.appendChild(chevron);
 
             // Accessibility
             toggle.setAttribute("role", "button");
