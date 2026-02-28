@@ -8,6 +8,8 @@ import {
 import { syntaxTree, syntaxTreeAvailable } from "@codemirror/language";
 import { RangeSetBuilder } from "@codemirror/state";
 
+import { getCalloutLinePositions } from "./callout-plugin";
+
 // Set of mark types we want to hide
 const HIDDEN_MARKS = new Set([
     "HeaderMark",
@@ -26,6 +28,12 @@ function buildDecorations(view: EditorView): DecorationSet {
     const builder = new RangeSetBuilder<Decoration>();
     const selection = view.state.selection.main;
 
+    // Gather callout line positions so we can skip QuoteMark inside callouts.
+    // The callout-plugin already handles hiding the ">" prefix for those lines;
+    // if we also hide them here, the two Decoration.replace ranges would conflict
+    // and cause rendering errors.
+    const calloutPositions = getCalloutLinePositions(view);
+
     syntaxTree(view.state).iterate({
         enter: (node) => {
             const { from, to, name } = node;
@@ -34,6 +42,14 @@ function buildDecorations(view: EditorView): DecorationSet {
                 const parent = node.node.parent;
 
                 if (parent) {
+                    // Skip QuoteMark nodes on lines owned by the callout plugin
+                    if (name === "QuoteMark") {
+                        const line = view.state.doc.lineAt(from);
+                        if (calloutPositions.has(line.from)) {
+                            return;
+                        }
+                    }
+
                     // Skip LinkMark/URL nodes that aren't inside a standard Link or Image
                     // This avoids conflicting with the wikilink plugin on [[...]] syntax
                     if ((name === "LinkMark" || name === "URL") &&
