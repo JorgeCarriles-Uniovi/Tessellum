@@ -193,8 +193,8 @@
 
 /*
  * Callout design:
- * - No left border -- blocks rely on background tinting for distinction
- * - Stronger tinted backgrounds (header ~18%, body ~10%)
+ * - No border -- blocks rely on uniform background tinting for distinction
+ * - Consistent background across header and body (callout color at 14%)
  * - 4px border-radius for the overall block
  * - Icon + title + chevron in a flex row
  * - Content text inherits editor color (not tinted by callout color)
@@ -213,7 +213,7 @@
     line-height: 0;
     vertical-align: top;
     display: flex !important;
-    background-color: color-mix(in srgb, var(--callout-color, #448aff) 18%, transparent);
+    background-color: color-mix(in srgb, var(--callout-color, #448aff) 14%, transparent);
 }
 
 /* ── Header widget container ── */
@@ -222,8 +222,8 @@
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
+    gap: 8px;
+    padding: 10px 14px;
     margin: 0;
     border-radius: 4px 4px 0 0;
     background-color: transparent;
@@ -234,7 +234,7 @@
     line-height: normal;
     vertical-align: top;
     flex-grow: 1;
-    min-height: 32px;
+    min-height: 36px;
     box-sizing: border-box;
 }
 
@@ -314,8 +314,8 @@
 
 .cm-callout-line {
     border: none !important;
-    background-color: color-mix(in srgb, var(--callout-color, #448aff) 10%, transparent) !important;
-    padding-left: 12px !important;
+    background-color: color-mix(in srgb, var(--callout-color, #448aff) 14%, transparent) !important;
+    padding-left: 14px !important;
     padding-top: 0;
     padding-bottom: 0;
     color: inherit;
@@ -378,10 +378,10 @@
 
 @media (max-width: 640px) {
     .cm-callout-header {
-        padding: 5px 10px;
-        gap: 5px;
+        padding: 8px 12px;
+        gap: 6px;
         font-size: 0.85em;
-        min-height: 28px;
+        min-height: 32px;
     }
 
     .cm-callout-icon,
@@ -391,7 +391,7 @@
     }
 
     .cm-callout-line {
-        padding-left: 10px !important;
+        padding-left: 12px !important;
     }
 }
 
