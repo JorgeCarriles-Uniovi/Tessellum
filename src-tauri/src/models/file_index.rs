@@ -2,6 +2,8 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
+use crate::utils::is_hidden_or_special;
+
 /// In-memory index of files in the vault for fast wikilink resolution.
 pub struct FileIndex {
     /// Map: filename -> Vec<full_path>
@@ -20,9 +22,8 @@ impl FileIndex {
         for entry in WalkDir::new(vault_path).into_iter().filter_map(|e| e.ok()) {
             let path = entry.path();
             
-            // Skip hidden files and directories
-            let path_str = path.to_string_lossy();
-            if path_str.contains("/.") {
+            // Skip hidden files and directories (.git, .trash, etc.)
+            if is_hidden_or_special(path) {
                 continue;
             }
             

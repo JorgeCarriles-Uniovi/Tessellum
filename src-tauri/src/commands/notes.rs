@@ -5,7 +5,7 @@ use tauri::State;
 
 use crate::commands::extract_wikilinks;
 use crate::models::{AppState, FileIndex};
-use crate::utils::sanitize_string;
+use crate::utils::{sanitize_string, validate_path_in_vault};
 
 /// Creates a new note file in the specified vault directory with a unique name.
 ///
@@ -82,6 +82,9 @@ pub async fn trash_item(
     item_path: String,
     vault_path: String,
 ) -> Result<(), String> {
+    // Validate item_path is inside the vault
+    validate_path_in_vault(&item_path, &vault_path)?;
+    
     let source_path = Path::new(&item_path);
     let vault_root = Path::new(&vault_path);
     let is_directory = source_path.is_dir();
@@ -140,9 +143,11 @@ pub async fn trash_item(
 }
 
 /// Reads the contents of a file at the given path and returns it as a `String`.
+/// The path is validated to be inside the vault directory.
 #[tauri::command]
-pub fn read_file(path: String) -> Result<String, String> {
-    fs::read_to_string(&path).map_err(|e| e.to_string())
+pub fn read_file(vault_path: String, path: String) -> Result<String, String> {
+    let safe_path = validate_path_in_vault(&path, &vault_path)?;
+    fs::read_to_string(&safe_path).map_err(|e| e.to_string())
 }
 
 /// Writes the specified content to a file at the given path.
@@ -154,8 +159,11 @@ pub async fn write_file(
     path: String,
     content: String,
 ) -> Result<(), String> {
+    // 0. Validate path is inside the vault
+    let safe_path = validate_path_in_vault(&path, &vault_path)?;
+    
     // 1. Write the file first
-    tokio::fs::write(&path, &content)
+    tokio::fs::write(&safe_path, &content)
         .await
         .map_err(|e| e.to_string())?;
     
@@ -197,6 +205,12 @@ pub async fn write_file(
         db.index_file(&path, modified, size, &resolved_links)
             .await
             .map_err(|e| format!("Failed to index file in database: {}", e))?;
+        
+        log::debug!(
+            "Indexed file: {} with {} resolved links",
+            path,
+            resolved_links.len()
+        );
     }
     
     Ok(())
@@ -254,6 +268,7 @@ fn rename_recursively(dir: &Path, timestamp: u128) -> std::io::Result<()> {
     }
     Ok(())
 }
+
 
 
 #[tauri::command]

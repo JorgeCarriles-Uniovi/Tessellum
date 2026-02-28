@@ -46,7 +46,6 @@
 .cm-scroller {
     height: 100%;
     overflow: auto;
-    flex-direction: column;
 }
 
 .cm-cursor {
@@ -189,3 +188,107 @@
 .cm-strikethrough { text-decoration: line-through; color: #6b7280; }
 .cm-quote-text { color: #4b5563; font-style: italic; } /* Renamed to avoid conflict with block */
 .cm-proc-inst { color: #adadb1; }
+
+/* --- 5. Callouts --- */
+
+/* The .cm-line wrapping the header widget — paint it to match so line-height gap is invisible */
+.cm-line.cm-callout-header-line {
+    padding: 0 !important;
+    margin: 0 !important;
+    border-left: 4px solid var(--callout-color, #448aff) !important;
+    border-radius: 6px 6px 0 0;
+    line-height: 0;
+    vertical-align: top;
+    display: flex !important;
+}
+
+/* Header widget (replaces the > [!type] line) */
+.cm-callout-header {
+    align-items: center;
+    padding: 8px 14px;
+    margin: 0;
+    border-radius: 6px 6px 0 0;
+    background-color: color-mix(in srgb, var(--callout-color, #448aff) 10%, transparent);
+    font-weight: 600;
+    font-size: 0.95em;
+    color: var(--callout-color, #448aff);
+    user-select: none;
+    line-height: normal;
+    vertical-align: top;
+    flex-grow: 1;
+}
+
+.cm-callout-icon {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    color: var(--callout-color, #448aff);
+}
+
+.cm-callout-icon svg {
+    width: 16px;
+    height: 16px;
+}
+
+.cm-callout-title {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cm-callout-toggle {
+    cursor: pointer;
+    font-size: 14px;
+    opacity: 0.6;
+    transition: opacity 0.15s ease;
+    padding: 0 2px;
+    color: var(--callout-color, #448aff);
+}
+
+.cm-callout-toggle:hover {
+    opacity: 1;
+}
+
+/* Content lines */
+.cm-callout-line {
+    border-left: 4px solid var(--callout-color, #448aff) !important;
+    background-color: color-mix(in srgb, var(--callout-color, #448aff) 5%, transparent) !important;
+    padding-left: 14px !important;
+    padding-top: 0px;
+}
+
+/* Override .cm-quote styling inside callout content lines */
+.cm-callout-line .cm-quote {
+    border-left: none !important;
+    padding-left: 0 !important;
+    margin-left: 0 !important;
+}
+
+/* Last line gets bottom rounding */
+.cm-callout-last-line {
+    border-radius: 0 0 0 6px;
+    padding-bottom: 8px !important;
+}
+
+/* Collapsed content lines */
+.cm-callout-collapsed-line {
+    height: 0 !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    line-height: 0 !important;
+    overflow: hidden !important;
+    border-left: 4px solid var(--callout-color, #448aff) !important;
+    display: none;
+}
+
+/* When collapsed, header gets full rounding (no content lines below) */
+.cm-callout-header-line-collapsed {
+    border-radius: 6px !important;
+}
+
+.cm-callout-header-line-collapsed .cm-callout-header {
+    border-radius: 6px;
+}
+
