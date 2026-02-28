@@ -191,7 +191,7 @@
 
 /* --- 5. Callouts --- */
 
-/* The .cm-line wrapping the header widget — paint it to match so line-height gap is invisible */
+/* The .cm-line wrapping the header widget */
 .cm-line.cm-callout-header-line {
     padding: 0 !important;
     margin: 0 !important;
@@ -204,7 +204,10 @@
 
 /* Header widget (replaces the > [!type] line) */
 .cm-callout-header {
+    display: flex;
+    flex-direction: row;
     align-items: center;
+    gap: 8px;
     padding: 8px 14px;
     margin: 0;
     border-radius: 6px 6px 0 0;
@@ -216,18 +219,24 @@
     line-height: normal;
     vertical-align: top;
     flex-grow: 1;
+    min-height: 36px;
+    box-sizing: border-box;
 }
 
 .cm-callout-icon {
     display: flex;
     align-items: center;
+    justify-content: center;
     flex-shrink: 0;
+    width: 16px;
+    height: 16px;
     color: var(--callout-color, #448aff);
 }
 
 .cm-callout-icon svg {
     width: 16px;
     height: 16px;
+    display: block;
 }
 
 .cm-callout-title {
@@ -235,6 +244,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    line-height: 1.4;
 }
 
 .cm-callout-toggle {
@@ -242,15 +252,26 @@
     font-size: 14px;
     opacity: 0.6;
     transition: opacity 0.15s ease;
-    padding: 0 2px;
+    padding: 2px 4px;
     color: var(--callout-color, #448aff);
+    border-radius: 4px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .cm-callout-toggle:hover {
     opacity: 1;
 }
 
-/* Content lines */
+.cm-callout-toggle:focus-visible {
+    opacity: 1;
+    outline: 2px solid var(--callout-color, #448aff);
+    outline-offset: 1px;
+}
+
+/* Content lines (expanded) */
 .cm-callout-line {
     border-left: 4px solid var(--callout-color, #448aff) !important;
     background-color: color-mix(in srgb, var(--callout-color, #448aff) 5%, transparent) !important;
@@ -265,30 +286,41 @@
     margin-left: 0 !important;
 }
 
-/* Last line gets bottom rounding */
+/* Last content line gets bottom rounding */
 .cm-callout-last-line {
     border-radius: 0 0 0 6px;
     padding-bottom: 8px !important;
 }
 
-/* Collapsed content lines */
+/* Collapsed content lines — completely hidden */
 .cm-callout-collapsed-line {
+    display: none !important;
     height: 0 !important;
+    max-height: 0 !important;
     min-height: 0 !important;
     padding: 0 !important;
     margin: 0 !important;
     line-height: 0 !important;
     overflow: hidden !important;
-    border-left: 4px solid var(--callout-color, #448aff) !important;
-    display: none;
+    visibility: hidden !important;
+    border: none !important;
 }
 
-/* When collapsed, header gets full rounding (no content lines below) */
+/* When collapsed, header gets full rounding */
 .cm-callout-header-line-collapsed {
     border-radius: 6px !important;
 }
 
 .cm-callout-header-line-collapsed .cm-callout-header {
+    border-radius: 6px;
+}
+
+/* Header-only callouts (no content lines) also get full rounding */
+.cm-callout-header-line-solo {
+    border-radius: 6px !important;
+}
+
+.cm-callout-header-line-solo .cm-callout-header {
     border-radius: 6px;
 }
 
