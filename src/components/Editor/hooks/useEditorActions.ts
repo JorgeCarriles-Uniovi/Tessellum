@@ -3,9 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { FileMetadata } from "../../../types.ts";
 import {
     useCreateFolder,
-    useEditorExtensions,
     useNoteRenaming,
-    useWikiLinkNavigation,
 } from './index.ts';
 import { useEditorStore } from "../../../stores/editorStore.ts";
 
@@ -71,10 +69,7 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
 }
 
 export function useEditorActions() {
-    const { vaultPath } = useEditorStore();
     const createFolder = useCreateFolder();
     const noteRenaming = useNoteRenaming();
-    const wikiLinkNavigation = useWikiLinkNavigation();
-    const editorExtensions = useEditorExtensions(wikiLinkNavigation, vaultPath || "");
-    return { createFolder, noteRenaming, editorExtensions, wikiLinkNavigation };
+    return { createFolder, noteRenaming };
 }

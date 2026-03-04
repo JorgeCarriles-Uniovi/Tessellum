@@ -404,3 +404,79 @@
     }
 }
 
+/* --- 6. Tables --- */
+
+.cm-table-widget {
+    margin: 1rem 0;
+    width: 100%;
+    cursor: default;
+    user-select: none;
+    overflow-x: auto;
+}
+
+.cm-table-widget table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    font-size: 15px;
+    line-height: 1.6;
+}
+
+.cm-table-widget th {
+    background-color: #f9fafb;
+    font-weight: 600;
+    font-size: 0.9em;
+    padding: 8px 14px;
+    border: 1px solid #e5e7eb;
+    color: #374151;
+}
+
+.cm-table-widget td {
+    padding: 8px 14px;
+    border: 1px solid #e5e7eb;
+    color: #1f2937;
+}
+
+.cm-table-widget tbody tr:nth-child(even) {
+    background-color: #f9fafb;
+}
+
+.cm-table-widget tbody tr:hover {
+    background-color: #f3f4f6;
+}
+
+.cm-table-hidden-line {
+    font-size: 0 !important;
+    line-height: 0 !important;
+    min-height: 0 !important;
+    height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    opacity: 0 !important;
+    color: transparent !important;
+    border: none !important;
+}
+
+/* ── Responsive adjustments ── */
+
+@media (max-width: 640px) {
+    .cm-callout-header {
+        padding: 8px 12px;
+        gap: 6px;
+        font-size: 0.85em;
+        min-height: 32px;
+    }
+
+    .cm-callout-icon,
+    .cm-callout-icon svg {
+        width: 16px;
+        height: 16px;
+    }
+
+    .cm-callout-line {
+        padding-left: 12px !important;
+    }
+}
+

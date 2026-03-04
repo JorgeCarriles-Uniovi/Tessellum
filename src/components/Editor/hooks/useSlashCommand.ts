@@ -10,7 +10,20 @@ import { EditorView, keymap } from '@codemirror/view';
 import { EditorState } from '@codemirror/state';
 import { CommandItem } from '../../../types.ts';
 import { Prec } from "@codemirror/state";
-import { COMMANDS } from "../../../constants/commands.tsx";
+import { TessellumApp } from "../../../plugins/TessellumApp";
+import type { Command } from "../../../plugins/types";
+
+/** Bridge: convert plugin Command → legacy CommandItem for the SlashMenu UI. */
+function getSlashCommands(): CommandItem[] {
+    return TessellumApp.instance.commands.getAll().map((cmd: Command) => ({
+        label: cmd.name,
+        value: cmd.id,
+        icon: cmd.icon,
+        insertText: cmd.insertText ?? "",
+        cursorOffset: cmd.cursorOffset ?? 0,
+        shortcut: cmd.hotkey,
+    }));
+}
 
 // ===== PURE UTILITIES (no React dependencies) =====
 
@@ -230,7 +243,7 @@ export function useSlashCommand() {
     const performCommandInternal = useCommandExecution(menuState.closeMenu);
 
     const filteredCommands = useMemo(() => {
-        return COMMANDS.filter(cmd =>
+        return getSlashCommands().filter(cmd =>
             cmd.label.toLowerCase().includes(menuState.query.toLowerCase()) ||
             cmd.value.includes(menuState.query.toLowerCase())
         );

@@ -1,46 +1,59 @@
 import CodeMirror, { ReactCodeMirrorRef } from '@uiw/react-codemirror';
 import { useEditorStore } from '../../stores/editorStore';
-import { useRef, useState, useCallback } from "react";
-import { useSlashCommand, useWikiLinkSuggestions, useWikiLinkNavigation } from "./hooks";
+import { useRef, useState, useCallback, useEffect } from "react";
+import { useSlashCommand, useWikiLinkSuggestions } from "./hooks";
 import { CommandItem } from "../../types";
 import { SlashMenu } from "./SlashMenu";
 import { WikiLinkSuggestionsMenu } from "./WikiLinkSuggestionsMenu";
 import { CalloutPicker } from "./CalloutPicker";
-import { dividerPlugin } from "./extensions/divider-plugin";
-import { mathClickHandler, mathPlugin } from "./extensions/math-plugin";
+import { TableSizePicker } from "./TableSizePicker";
 import { useEditorActions, useFileSynchronization } from "./hooks/useEditorActions";
 import { cn } from '../../lib/utils';
 import { lightTheme } from "./themes/lightTheme";
 import { useEditorExtensions } from "./hooks/useEditorExtensions";
 import { CalloutType } from "../../constants/callout-types";
+import { TessellumApp } from "../../plugins/TessellumApp";
 
 export function Editor() {
     const { activeNote, vaultPath } = useEditorStore();
     const { content, isLoading, handleContentChange } = useFileSynchronization(activeNote);
     const editorRef = useRef<ReactCodeMirrorRef>(null);
-    const { noteRenaming, editorExtensions } = useEditorActions();
+    const { noteRenaming } = useEditorActions();
     const { slashExtension, slashProps } = useSlashCommand();
+
+    // Plugin-provided extensions (via Compartments from EditorAPI)
+    const pluginExtensions = useEditorExtensions();
 
     // Callout picker state
     const [calloutPickerOpen, setCalloutPickerOpen] = useState(false);
     const [calloutPickerPos, setCalloutPickerPos] = useState({ x: 0, y: 0, placement: 'bottom' as 'top' | 'bottom' });
     const [calloutPickerIndex, setCalloutPickerIndex] = useState(0);
+
+    // Table picker state
+    const [tablePickerOpen, setTablePickerOpen] = useState(false);
+    const [tablePickerPos, setTablePickerPos] = useState({ x: 0, y: 0, placement: 'bottom' as 'top' | 'bottom' });
+
     // Store the slash position so we can insert text at the right place
     const slashPosRef = useRef<number | null>(null);
 
     // WikiLink suggestions hook
     const { wikiLinkSuggestionsExtension, wikiLinkSuggestionsProps } = useWikiLinkSuggestions(vaultPath || "");
 
-    // Navigation hook
-    const handleWikiLinkNavigation = useWikiLinkNavigation();
+    // Set the EditorView on the EditorAPI when it mounts/unmounts
+    useEffect(() => {
+        const view = editorRef.current?.view;
+        if (view) {
+            TessellumApp.instance.editor.setView(view);
+        }
+        return () => {
+            TessellumApp.instance.editor.setView(null);
+        };
+    });
 
-    // Wikilink extensions - passes the path/text to the navigation hook
-    const wikiLinkExtensions = useEditorExtensions(handleWikiLinkNavigation, vaultPath || "", activeNote?.path);
-
-    // Handle slash command selection — intercept "callout" to open picker
+    // Handle slash command selection — intercept "callout" and "table" to open pickers
     const handleSlashSelect = useCallback((item: CommandItem) => {
-        if (item.value === 'callout') {
-            // Save the current slash position for later insertion
+        // Helper: save current slash position for deferred insertion
+        const saveSlashPos = () => {
             const view = editorRef.current?.view;
             if (view) {
                 const cursorPos = view.state.selection.main.from;
@@ -51,6 +64,10 @@ export function Editor() {
                     slashPosRef.current = line.from + slashPos;
                 }
             }
+        };
+
+        if (item.value === 'core:callout') {
+            saveSlashPos();
 
             // Close slash menu and open callout picker at same position
             setCalloutPickerPos({
@@ -61,6 +78,17 @@ export function Editor() {
             setCalloutPickerIndex(0);
             slashProps.closeMenu();
             setCalloutPickerOpen(true);
+        } else if (item.value === 'table:insert') {
+            saveSlashPos();
+
+            // Close slash menu and open table size picker at same position
+            setTablePickerPos({
+                x: slashProps.position.x,
+                y: slashProps.position.y,
+                placement: slashProps.position.placement
+            });
+            slashProps.closeMenu();
+            setTablePickerOpen(true);
         } else {
             // Normal command execution
             if (editorRef.current?.view) {
@@ -100,6 +128,49 @@ export function Editor() {
         editorRef.current?.view?.focus();
     }, []);
 
+    // Handle table size selection
+    const handleTableSelect = useCallback((rows: number, cols: number) => {
+        const view = editorRef.current?.view;
+        if (!view) return;
+
+        const insertFrom = slashPosRef.current ?? view.state.selection.main.from;
+        const cursorPos = view.state.selection.main.from;
+
+        // Generate GFM table markdown
+        const headerCells = Array.from({ length: cols }, (_, i) => `Header ${i + 1}`);
+        const separatorCells = Array.from({ length: cols }, () => "---");
+        const emptyRow = Array.from({ length: cols }, () => "   ");
+
+        const lines = [
+            `| ${headerCells.join(" | ")} |`,
+            `| ${separatorCells.join(" | ")} |`,
+            ...Array.from({ length: rows }, () => `| ${emptyRow.join(" | ")} |`),
+        ];
+        const insertText = lines.join("\n") + "\n";
+
+        view.dispatch({
+            changes: {
+                from: insertFrom,
+                to: cursorPos,
+                insert: insertText,
+            },
+            selection: {
+                // Place cursor in the first data cell (first row after separator)
+                anchor: insertFrom + lines[0].length + 1 + lines[1].length + 1 + 2,
+            },
+        });
+
+        setTablePickerOpen(false);
+        slashPosRef.current = null;
+        view.focus();
+    }, []);
+
+    const closeTablePicker = useCallback(() => {
+        setTablePickerOpen(false);
+        slashPosRef.current = null;
+        editorRef.current?.view?.focus();
+    }, []);
+
     if (!activeNote) {
         return (
             <div className="h-full flex items-center justify-center select-none">
@@ -132,20 +203,16 @@ export function Editor() {
                     key={activeNote.path}
                     value={content}
                     extensions={[
-                        ...wikiLinkExtensions,
-                        ...editorExtensions,
+                        ...pluginExtensions,
                         slashExtension,
                         wikiLinkSuggestionsExtension,
-                        dividerPlugin,
-                        mathPlugin,
-                        mathClickHandler,
                         lightTheme
                     ]}
                     onChange={handleContentChange}
                     height="100%"
                     className={cn(
                         "h-full w-full",
-                        (slashProps.isOpen || wikiLinkSuggestionsProps.isOpen || calloutPickerOpen) && "[&_.cm-scroller]:!overflow-hidden"
+                        (slashProps.isOpen || wikiLinkSuggestionsProps.isOpen || calloutPickerOpen || tablePickerOpen) && "[&_.cm-scroller]:!overflow-hidden"
                     )}
                     theme={lightTheme}
                     basicSetup={{
@@ -179,6 +246,15 @@ export function Editor() {
                     onClose={closeCalloutPicker}
                 />
 
+                <TableSizePicker
+                    isOpen={tablePickerOpen}
+                    x={tablePickerPos.x}
+                    y={tablePickerPos.y}
+                    placement={tablePickerPos.placement}
+                    onSelect={handleTableSelect}
+                    onClose={closeTablePicker}
+                />
+
                 <WikiLinkSuggestionsMenu
                     isOpen={wikiLinkSuggestionsProps.isOpen}
                     x={wikiLinkSuggestionsProps.position.x}
@@ -199,3 +275,4 @@ export function Editor() {
         </div>
     );
 }
+

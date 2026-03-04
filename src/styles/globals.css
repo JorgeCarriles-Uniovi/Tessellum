@@ -133,6 +133,16 @@ body {
     --sidebar-accent-foreground: var(--color-text-primary);
     --sidebar-border: var(--color-border-light);
     --sidebar-ring: var(--color-blue-600);
+
+    /* Graph */
+    --graph-bg: var(--color-bg-secondary);
+    --graph-node: var(--color-blue-500);
+    --graph-node-orphan: var(--color-gray-400);
+    --graph-node-missing: var(--color-gray-300);
+    --graph-node-label: var(--color-text-primary);
+    --graph-edge: var(--color-border-medium);
+    --graph-edge-broken: var(--color-gray-400);
+    --graph-node-active: var(--color-blue-600);
 }
 
 .dark {
@@ -177,6 +187,16 @@ body {
     --sidebar-accent-foreground: var(--color-text-primary);
     --sidebar-border: var(--color-border-light);
     --sidebar-ring: var(--color-blue-500);
+
+    /* Graph */
+    --graph-bg: var(--color-bg-secondary);
+    --graph-node: var(--color-blue-400);
+    --graph-node-orphan: var(--color-gray-500);
+    --graph-node-missing: var(--color-gray-600);
+    --graph-node-label: var(--color-text-primary);
+    --graph-edge: var(--color-border-medium);
+    --graph-edge-broken: var(--color-gray-600);
+    --graph-node-active: var(--color-blue-500);
 }
 
 @theme inline {
@@ -328,6 +348,7 @@ body {
         padding: 0.125rem 0.25rem;
         border-radius: var(--radius-sm);
     }
+
 
 }
 
