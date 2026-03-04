@@ -44,12 +44,6 @@ function App() {
 
     useEffect(() => {
         if (vaultPath) {
-            invoke('sync_vault', { vaultPath }).catch(console.error);
-        }
-    });
-
-    useEffect(() => {
-        if (vaultPath) {
             invoke('watch_vault', { vaultPath }).catch(console.error);
             refreshFiles(vaultPath);
         }
