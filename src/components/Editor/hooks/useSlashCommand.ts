@@ -8,22 +8,9 @@ import {
 } from 'react';
 import { EditorView, keymap } from '@codemirror/view';
 import { EditorState } from '@codemirror/state';
-import { CommandItem } from '../../../types.ts';
+import { Command } from '../../../plugins/types';
 import { Prec } from "@codemirror/state";
 import { TessellumApp } from "../../../plugins/TessellumApp";
-import type { Command } from "../../../plugins/types";
-
-/** Bridge: convert plugin Command → legacy CommandItem for the SlashMenu UI. */
-function getSlashCommands(): CommandItem[] {
-    return TessellumApp.instance.commands.getAll().map((cmd: Command) => ({
-        label: cmd.name,
-        value: cmd.id,
-        icon: cmd.icon,
-        insertText: cmd.insertText ?? "",
-        cursorOffset: cmd.cursorOffset ?? 0,
-        shortcut: cmd.hotkey,
-    }));
-}
 
 // ===== PURE UTILITIES (no React dependencies) =====
 
@@ -214,7 +201,7 @@ function useKeyboardHandling(
 // ===== COMMAND EXECUTION =====
 
 function useCommandExecution(closeMenu: () => void) {
-    return useCallback((view: EditorView, item: CommandItem) => {
+    return useCallback((view: EditorView, item: Command) => {
         const { state } = view;
         const context = getSlashContext(state, state.selection.main.from);
 
@@ -224,10 +211,10 @@ function useCommandExecution(closeMenu: () => void) {
             changes: {
                 from: context.absoluteSlashPos,
                 to: state.selection.main.from,
-                insert: item.insertText
+                insert: item.insertText ?? ""
             },
             selection: {
-                anchor: context.absoluteSlashPos + item.cursorOffset
+                anchor: context.absoluteSlashPos + (item.cursorOffset ?? 0)
             }
         });
 
@@ -243,9 +230,9 @@ export function useSlashCommand() {
     const performCommandInternal = useCommandExecution(menuState.closeMenu);
 
     const filteredCommands = useMemo(() => {
-        return getSlashCommands().filter(cmd =>
-            cmd.label.toLowerCase().includes(menuState.query.toLowerCase()) ||
-            cmd.value.includes(menuState.query.toLowerCase())
+        return TessellumApp.instance.commands.getAll().filter(cmd =>
+            cmd.name.toLowerCase().includes(menuState.query.toLowerCase()) ||
+            cmd.id.includes(menuState.query.toLowerCase())
         );
     }, [menuState.query]);
 

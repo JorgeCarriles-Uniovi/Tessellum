@@ -51,9 +51,10 @@ export abstract class Plugin {
      * Uses Symbol key so subclasses don't accidentally override or call it.
      */
     [PLUGIN_CLEANUP](): void{
-        this.onload();
+        this.onunload();
         this.app.editor.unregisterExtensions(this.manifest.id);
         this.app.commands.unregister(this.manifest.id);
+        this.app.ui.unregisterCalloutTypes(this.manifest.id);
         this.app.events.removeAll(this._eventRefs);
         this._eventRefs = [];
     }

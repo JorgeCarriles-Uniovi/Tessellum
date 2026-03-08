@@ -2,7 +2,7 @@ import CodeMirror, { ReactCodeMirrorRef } from '@uiw/react-codemirror';
 import { useEditorStore } from '../../stores/editorStore';
 import { useRef, useState, useCallback, useEffect } from "react";
 import { useSlashCommand, useWikiLinkSuggestions } from "./hooks";
-import { CommandItem } from "../../types";
+import { Command } from "../../plugins/types";
 import { SlashMenu } from "./SlashMenu";
 import { WikiLinkSuggestionsMenu } from "./WikiLinkSuggestionsMenu";
 import { CalloutPicker } from "./CalloutPicker";
@@ -48,10 +48,10 @@ export function Editor() {
         return () => {
             TessellumApp.instance.editor.setView(null);
         };
-    });
+    }, [editorRef.current?.view]);
 
     // Handle slash command selection — intercept "callout" and "table" to open pickers
-    const handleSlashSelect = useCallback((item: CommandItem) => {
+    const handleSlashSelect = useCallback((item: Command) => {
         // Helper: save current slash position for deferred insertion
         const saveSlashPos = () => {
             const view = editorRef.current?.view;
@@ -66,7 +66,7 @@ export function Editor() {
             }
         };
 
-        if (item.value === 'core:callout') {
+        if (item.id === 'core:callout') {
             saveSlashPos();
 
             // Close slash menu and open callout picker at same position
@@ -78,7 +78,7 @@ export function Editor() {
             setCalloutPickerIndex(0);
             slashProps.closeMenu();
             setCalloutPickerOpen(true);
-        } else if (item.value === 'table:insert') {
+        } else if (item.id === 'table:insert') {
             saveSlashPos();
 
             // Close slash menu and open table size picker at same position

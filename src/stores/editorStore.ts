@@ -26,7 +26,7 @@ interface EditorState {
     selectedGraphNode: string | null;
 
     // Actions
-    setVaultPath: (path: string) => void;
+    setVaultPath: (path: string | null) => void;
     setFiles: (files: FileMetadata[]) => void;
     setActiveNote: (file: FileMetadata | null) => void;
     setActiveNoteContent: (content: string) => void;
@@ -61,12 +61,16 @@ export const useEditorStore = create<EditorState>((set) => ({
 
     // --- Simple Setters ---
     setVaultPath: (path) => {
-        localStorage.setItem('vaultPath', path);
+        if (path) {
+            localStorage.setItem('vaultPath', path);
+        } else {
+            localStorage.removeItem('vaultPath');
+        }
         set({ vaultPath: path });
     },
-    setFiles: function (files) { return set({ files: sortFiles(files) }) },
-    setActiveNote: function (activeNote) { return set({ activeNote }) },
-    setActiveNoteContent: function (activeNoteContent) { return set({ activeNoteContent }) },
+    setFiles: (files) => set({ files: sortFiles(files) }),
+    setActiveNote: (activeNote) => set({ activeNote }),
+    setActiveNoteContent: (activeNoteContent) => set({ activeNoteContent }),
     setIsDirty: (isDirty) => set({ isDirty }),
 
     // <--- TOGGLE IMPLEMENTATION

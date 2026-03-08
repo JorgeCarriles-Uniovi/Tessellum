@@ -90,7 +90,7 @@ export function GraphCanvas({
         });
 
         // Event: single click
-        cy.on('tap', 'node', (evt) => {
+        cy.on('tap', 'node', (evt: cytoscape.EventObject) => {
             const nodeId = evt.target.id();
             // Remove previous highlights
             cy.nodes().removeClass('highlighted');
@@ -102,7 +102,7 @@ export function GraphCanvas({
         let tapTimeout: ReturnType<typeof setTimeout> | null = null;
         let lastTapTime = 0;
 
-        cy.on('tap', 'node', (evt) => {
+        cy.on('tap', 'node', (evt: cytoscape.EventObject) => {
             const now = Date.now();
             if (now - lastTapTime < 300) {
                 // Double tap detected
@@ -113,7 +113,7 @@ export function GraphCanvas({
         });
 
         // Event: tap on background clears selection
-        cy.on('tap', (evt) => {
+        cy.on('tap', (evt: cytoscape.EventObject) => {
             if (evt.target === cy) {
                 cy.nodes().removeClass('highlighted');
                 onNodeClick('');
@@ -121,12 +121,12 @@ export function GraphCanvas({
         });
 
         // Hover effects
-        cy.on('mouseover', 'node', (evt) => {
+        cy.on('mouseover', 'node', (evt: cytoscape.EventObject) => {
             evt.target.addClass('hover');
             containerRef.current!.style.cursor = 'pointer';
         });
 
-        cy.on('mouseout', 'node', (evt) => {
+        cy.on('mouseout', 'node', (evt: cytoscape.EventObject) => {
             evt.target.removeClass('hover');
             containerRef.current!.style.cursor = 'default';
         });

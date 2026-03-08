@@ -6,11 +6,10 @@ import type { CalloutType } from "../../constants/callout-types";
  */
 export class UIAPI {
     private calloutTypes = new Map<string, CalloutType[]>(); // pluginId -> types
-    // @ts-expect-error Reserved for future use
-    private app: TessellumApp;
+    private _app: TessellumApp;
 
     constructor(app: TessellumApp) {
-        this.app = app;
+        this._app = app;
     }
 
     // --- Callout types (editor-specific) ---

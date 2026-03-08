@@ -11,11 +11,10 @@ import type { Command } from "../types";
  */
 export class CommandAPI {
     private commands = new Map<string, Command[]>(); // pluginId -> commands
-    // @ts-expect-error Reserved for future use
-    private app: TessellumApp;
+    private _app: TessellumApp;
 
     constructor(app: TessellumApp) {
-        this.app = app;
+        this._app = app;
     }
 
     /** Register a command for a plugin. */

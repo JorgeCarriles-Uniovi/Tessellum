@@ -4,6 +4,7 @@ import { FileMetadata } from "./types.ts";
 import { useEditorStore } from "./stores/editorStore.ts";
 import { listen } from "@tauri-apps/api/event";
 import { open } from '@tauri-apps/plugin-dialog';
+import { exists } from '@tauri-apps/plugin-fs';
 import { Editor } from "./components/Editor/Editor.tsx";
 import { Sidebar } from "./components/Sidebar/Sidebar.tsx";
 import { GraphView } from "./components/GraphView/GraphView.tsx";
@@ -41,6 +42,18 @@ function App() {
             app.plugins.unloadAll();
         };
     }, [app]);
+
+    // Validate vaultPath existence on startup
+    useEffect(() => {
+        if (vaultPath) {
+            exists(vaultPath).then((doesExist: boolean) => {
+                if (!doesExist) {
+                    console.warn(`Vault path ${vaultPath} no longer exists. Clearing.`);
+                    setVaultPath(null);
+                }
+            }).catch(console.error);
+        }
+    }, [vaultPath, setVaultPath]);
 
     useEffect(() => {
         if (vaultPath) {

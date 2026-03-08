@@ -5,6 +5,7 @@ use walkdir::WalkDir;
 use crate::utils::is_hidden_or_special;
 
 /// In-memory index of files in the vault for fast wikilink resolution.
+#[derive(Debug, Clone)]
 pub struct FileIndex {
     /// Map: filename -> Vec<full_path>
     name_to_paths: HashMap<String, Vec<PathBuf>>,
@@ -23,7 +24,8 @@ impl FileIndex {
             let path = entry.path();
             
             // Skip hidden files and directories (.git, .trash, etc.)
-            if is_hidden_or_special(path) {
+            let rel_path = path.strip_prefix(vault_path).unwrap_or(path);
+            if is_hidden_or_special(rel_path) {
                 continue;
             }
             

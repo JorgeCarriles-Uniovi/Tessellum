@@ -22,8 +22,8 @@ export class CalloutPlugin extends Plugin {
         // Re-register when active note changes so collapse keys update
         const ref = this.app.events.on("workspace:active-note-change", () => {
             const newPath = TessellumApp.instance.workspace.getActiveNote()?.path || "untitled";
-            this.app.editor.registerExtension(this.manifest.id, [
-                createCalloutPlugin(newPath),
+            this.app.editor.registerExtensions(this.manifest.id, [
+                createCalloutPlugin(newPath)
             ]);
         });
         this.registerEvent(ref);

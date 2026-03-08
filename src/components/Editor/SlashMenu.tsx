@@ -1,5 +1,5 @@
 import { useRef, useEffect } from "react";
-import { CommandItem } from "../../types";
+import { Command } from "../../plugins/types";
 import { cn } from "../../lib/utils";
 
 interface SlashMenuProps {
@@ -9,8 +9,8 @@ interface SlashMenuProps {
     placement?: 'top' | 'bottom';
     selectedIndex: number;
     setSelectedIndex: (index: number) => void;
-    commands: CommandItem[];
-    onSelect: (command: CommandItem) => void;
+    commands: Command[];
+    onSelect: (command: Command) => void;
     onClose: () => void;
 }
 
@@ -77,7 +77,7 @@ export function SlashMenu({
                     const isSelected = index === selectedIndex;
                     return (
                         <button
-                            key={item.value}
+                            key={item.id}
                             onClick={() => onSelect(item)}
 
                             // Usamos onMouseMove en lugar de onMouseEnter para una respuesta más rápida
@@ -111,16 +111,16 @@ export function SlashMenu({
                                         "font-medium truncate",
                                         isSelected ? "text-gray-900 dark:text-gray-100" : "text-gray-700 dark:text-gray-300"
                                     )}>
-                                        {item.label}
+                                        {item.name}
                                     </span>
                                 </div>
                             </div>
-                            {item.shortcut && (
+                            {item.hotkey && (
                                 <span className={cn(
                                     "text-[10px] font-mono tracking-wider opacity-60 shrink-0 mr-2",
                                     isSelected ? "text-gray-600 dark:text-gray-300" : "text-gray-400"
                                 )}>
-                                    {item.shortcut}
+                                    {item.hotkey}
                                 </span>
                             )}
                         </button>

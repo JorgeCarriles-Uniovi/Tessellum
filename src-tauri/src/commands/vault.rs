@@ -1,8 +1,9 @@
 use std::fs::metadata;
 use std::path::Path;
 use std::time::UNIX_EPOCH;
+use tauri::State;
 use walkdir::WalkDir;
-
+use crate::AppState;
 use crate::models::FileMetadata;
 use crate::utils::{is_hidden_or_special, sanitize_string, validate_path_in_vault};
 
@@ -80,6 +81,7 @@ pub fn list_files(vault_path: String) -> Result<Vec<FileMetadata>, String> {
 /// - `Err(String)`: An error message if the operation fails.
 #[tauri::command]
 pub async fn rename_file(
+    state: State<'_, AppState>,
     vault_path: String,
     old_path: String,
     new_name: String,
@@ -129,6 +131,18 @@ pub async fn rename_file(
     tokio::fs::rename(old, &new_path)
         .await
         .map_err(|e| e.to_string())?;
+    
+    // Update the DB index so backlinks and graph stay correct
+    let db_guard = state.db.lock().await;
+    if let Some(db) = db_guard.as_ref() {
+        db.update_file_path(&old_path, &new_path.to_string_lossy())
+            .await
+            .map_err(|e| format!("Failed to update index: {}", e))?;
+    }
+    
+    // Invalidate the cache since path has changed
+    let mut idx_guard = state.file_index.lock().await;
+    *idx_guard = None;
     
     Ok(new_path.to_string_lossy().to_string())
 }
