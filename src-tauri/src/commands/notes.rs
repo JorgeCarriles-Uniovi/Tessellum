@@ -49,6 +49,10 @@ pub async fn create_note(
     
     let path_str = file_path.to_string_lossy().to_string();
     
+    // Invalidate the cache since a new file exists
+    let mut idx_guard = state.file_index.lock().await;
+    *idx_guard = None;
+    
     // Index the new file in the database
     let db_guard = state.db.lock().await;
     if let Some(db) = db_guard.as_ref() {
@@ -139,16 +143,21 @@ pub async fn trash_item(
         }
     }
     
+    // --- Step D: Invalidate the cache ---
+    let mut idx_guard = state.file_index.lock().await;
+    *idx_guard = None;
+    
     Ok(())
 }
 
 /// Reads the contents of a file at the given path and returns it as a `String`.
 /// The path is validated to be inside the vault directory.
 #[tauri::command]
-pub fn read_file(vault_path: String, path: String) -> Result<String, String> {
+pub async fn read_file(vault_path: String, path: String) -> Result<String, String> {
     let safe_path = validate_path_in_vault(&path, &vault_path)?;
-    fs::read_to_string(&safe_path).map_err(|e| e.to_string())
-}
+    tokio::fs::read_to_string(&safe_path)
+        .await
+        .map_err(|e| e.to_string())}
 
 /// Writes the specified content to a file at the given path.
 /// Also updates the database index with resolved wikilinks.
@@ -186,9 +195,19 @@ pub async fn write_file(
         // 3. Extract wikilinks
         let wikilinks = extract_wikilinks(&content);
         
-        // 4. Build file index for resolving links
-        let file_index = FileIndex::build(&vault_path)
-            .map_err(|e| format!("Failed to build file index: {}", e))?;
+        // 4. Build or use cached file index for resolving links
+        let index_guard = state.file_index.lock().await;
+        let file_index = match index_guard.as_ref() {
+            Some(idx) => idx.clone(),
+            None => {
+                drop(index_guard);
+                let idx = FileIndex::build(&vault_path)
+                    .map_err(|e| format!("Failed to build file index: {}", e))?;
+                let mut guard = state.file_index.lock().await;
+                *guard = Some(idx.clone());
+                idx
+            }
+        };
         
         // 5. Resolve each wikilink to its full path (non-existent targets get a fallback path)
         let resolved_links: Vec<String> = wikilinks
@@ -272,15 +291,11 @@ fn rename_recursively(dir: &Path, timestamp: u128) -> std::io::Result<()> {
 
 
 #[tauri::command]
-pub async fn get_all_notes(
-    state: State<'_, AppState>,
-) -> Result<Vec<(String, i64)>, String> {
+pub async fn get_all_notes(state: State<'_, AppState>) -> Result<Vec<(String, i64)>, String> {
     let db_guard = state.db.lock().await;
     
     if let Some(db) = db_guard.as_ref() {
-        db.get_all_indexed_files()
-            .await
-            .map_err(|e| e.to_string())
+        db.get_all_indexed_files().await.map_err(|e| e.to_string())
     } else {
         Ok(vec![])
     }

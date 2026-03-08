@@ -38,10 +38,10 @@ pub fn run() {
             
             log::info!("Database path: {}", db_url);
             
-            // E. Initialize the DB in a background thread (because .setup is synchronous)
+            // E. Initialize the DB synchronously so it's ready before any commands
             let db_state_clone = app_state.db.clone();
             
-            tauri::async_runtime::spawn(async move {
+            tauri::async_runtime::block_on(async move {
                 match Database::init(&db_url).await {
                     Ok(db_instance) => {
                         let mut db_guard = db_state_clone.lock().await;

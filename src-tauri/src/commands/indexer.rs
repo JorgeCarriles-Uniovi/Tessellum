@@ -42,7 +42,11 @@ pub async fn sync_vault(
     let db = db_guard.as_ref().ok_or("Database not initialized")?;
 
     match VaultIndexer::full_sync(db, &vault_path).await {
-        Ok(stats) => Ok(SyncResult::from(stats)),
+        Ok(stats) => {
+            let mut idx_guard = state.file_index.lock().await;
+            *idx_guard = None;
+            Ok(SyncResult::from(stats))
+        }
         Err(e) => Ok(SyncResult {
             success: false,
             files_indexed: 0,

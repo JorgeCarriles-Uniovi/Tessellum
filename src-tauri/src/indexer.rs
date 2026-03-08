@@ -121,7 +121,8 @@ impl VaultIndexer {
             let path_str = path.to_string_lossy().to_string();
             
             // Skip hidden files/dirs (.git, .trash, etc.)
-            if is_hidden_or_special(path) {
+            let rel_path = path.strip_prefix(vault_path).unwrap_or(path);
+            if is_hidden_or_special(rel_path) {
                 continue;
             }
             

@@ -1,42 +1,24 @@
-import {useMemo} from "react";
-import {EditorView} from "@codemirror/view";
-import {markdown, markdownLanguage} from "@codemirror/lang-markdown";
-import {createWikiLinkPlugin} from "../extensions/wikiLink-plugin.ts";
-import {markdownLivePreview} from "../extensions/markdown-preview-plugin";
-import {languages} from "@codemirror/language-data";
-import {createCalloutPlugin} from "../extensions/callout-plugin.ts";
+import { useMemo } from "react";
+import { EditorView } from "@codemirror/view";
+import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
+import { languages } from "@codemirror/language-data";
+import { TessellumApp } from "../../../plugins/TessellumApp";
 
-export function useEditorExtensions(onWikiLinkClick: (path: string) => void, vaultPath: string,
-                                    activeNotePath?: string) {
-
-    const wikiLinkPlugin = useMemo(() => {
-        if (!vaultPath) return [];
-
-        return createWikiLinkPlugin({
-            vaultPath: vaultPath,
-            onLinkClick: (target, fullPath) => {
-                onWikiLinkClick(fullPath || target);
-            }
-        });
-    }, [vaultPath, onWikiLinkClick]);
-
-    const calloutPlugin = useMemo(() => {
-        return createCalloutPlugin(activeNotePath || "untitled");
-    }, [activeNotePath]);
-
+/**
+ * Assembles the full CodeMirror extension array by combining:
+ * 1. Base markdown language support
+ * 2. Plugin-registered extensions (via EditorAPI Compartments)
+ *
+ * The plugin extensions are wrapped in Compartments by EditorAPI,
+ * allowing individual plugins to be reconfigured at runtime.
+ */
+export function useEditorExtensions() {
     return useMemo(() => {
-        const extensions = [
+        const app = TessellumApp.instance;
+        return [
             markdown({ base: markdownLanguage, codeLanguages: languages }),
             EditorView.lineWrapping,
-            markdownLivePreview,
-            calloutPlugin
+            ...app.editor.getInitialExtensions(),
         ];
-
-        // wikiLinkPlugin is now an array, so spread it
-        if (wikiLinkPlugin.length > 0) {
-            extensions.push(...wikiLinkPlugin);
-        }
-
-        return extensions;
-    }, [wikiLinkPlugin, calloutPlugin]);
+    }, []);
 }
