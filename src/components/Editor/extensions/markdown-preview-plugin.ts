@@ -7,8 +7,8 @@ import {
 } from "@codemirror/view";
 import { syntaxTree, syntaxTreeAvailable } from "@codemirror/language";
 import { Extension, RangeSetBuilder } from "@codemirror/state";
-import { getCalloutLinePositions } from "./callout-plugin";
-import { getTableLinePositions } from "./table-plugin";
+import { getCalloutLinePositions } from "./callout/callout-plugin.ts";
+import { getTableLinePositions } from "./table/table-plugin.ts";
 
 // Set of mark types we want to hide
 const HIDDEN_MARKS = new Set([

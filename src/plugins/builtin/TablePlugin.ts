@@ -2,7 +2,7 @@ import React from "react";
 import { Table2 } from "lucide-react";
 import { Plugin } from "../Plugin";
 import type { PluginManifest } from "../types";
-import { createTablePlugin } from "../../components/Editor/extensions/table-plugin";
+import { createTablePlugin } from "../../components/Editor/extensions/table/table-plugin.ts";
 
 export class TablePlugin extends Plugin {
     static manifest: PluginManifest = {

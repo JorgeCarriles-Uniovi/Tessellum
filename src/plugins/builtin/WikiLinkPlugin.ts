@@ -1,7 +1,7 @@
 import { Plugin } from "../Plugin";
 import type { PluginManifest } from "../types";
 import { TessellumApp } from "../TessellumApp";
-import { createWikiLinkPlugin } from "../../components/Editor/extensions/wikiLink-plugin";
+import { createWikiLinkPlugin } from "../../components/Editor/extensions/wikilink/wikiLink-plugin.ts";
 
 /**
  * WikiLink Plugin — wraps the existing createWikiLinkPlugin factory.

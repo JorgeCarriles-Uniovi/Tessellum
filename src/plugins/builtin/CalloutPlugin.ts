@@ -1,7 +1,7 @@
 import { Plugin } from "../Plugin";
 import type { PluginManifest } from "../types";
 import { TessellumApp } from "../TessellumApp";
-import { createCalloutPlugin } from "../../components/Editor/extensions/callout-plugin";
+import { createCalloutPlugin } from "../../components/Editor/extensions/callout/callout-plugin.ts";
 
 /**
  * Callout Plugin — wraps the existing createCalloutPlugin factory.
