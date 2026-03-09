@@ -23,12 +23,12 @@ export class WikiLinkPlugin extends Plugin {
 
         const extensions = createWikiLinkPlugin({
             vaultPath,
-            onLinkClick: (_target, fullPath) => {
-                if (fullPath) {
-                    TessellumApp.instance.workspace.openNote(fullPath);
-                }
+            onLinkClick: (target, fullPath) => {
+                // If resolved, open by full path; otherwise pass target for creation
+                TessellumApp.instance.workspace.openNote(fullPath ?? target);
             },
         });
+
 
         this.registerEditorExtension(extensions);
     }

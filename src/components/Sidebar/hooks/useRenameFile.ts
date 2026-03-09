@@ -3,6 +3,9 @@ import { useEditorStore } from '../../../stores/editorStore.ts';
 import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
 import { FileMetadata } from "../../../types.ts";
+import {
+    wikiLinkIndexHandle
+} from "../../Editor/extensions/wikilink/wikiLink-plugin.ts";
 
 export function useRenameFile() {
     const { files, setFiles, activeNote, setActiveNote, vaultPath } = useEditorStore();
@@ -42,6 +45,9 @@ export function useRenameFile() {
             if (activeNote?.path === target.path) {
                 setActiveNote(updatedNote);
             }
+
+            wikiLinkIndexHandle.refresh();
+            wikiLinkIndexHandle.redecorate();
 
             toast.success("Renamed successfully");
 

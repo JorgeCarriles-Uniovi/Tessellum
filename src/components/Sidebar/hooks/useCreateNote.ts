@@ -3,6 +3,9 @@ import { useEditorStore } from '../../../stores/editorStore.ts';
 import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
 import { FileMetadata } from "../../../types.ts";
+import {
+    wikiLinkIndexHandle
+} from "../../Editor/extensions/wikilink/wikiLink-plugin.ts";
 
 export function useCreateNote() {
     // 1. Get files from store
@@ -47,6 +50,8 @@ export function useCreateNote() {
             setFiles(updatedFiles);
 
             setActiveNote(newNote);
+            wikiLinkIndexHandle.refresh();
+            wikiLinkIndexHandle.redecorate();
             toast.success("New note created");
         } catch (e) {
             console.error(e);

@@ -2,10 +2,12 @@ use std::fs::metadata;
 use std::path::Path;
 use std::time::UNIX_EPOCH;
 use tauri::State;
+use tauri_plugin_fs::FsExt;
 use walkdir::WalkDir;
 use crate::AppState;
 use crate::models::FileMetadata;
 use crate::utils::{is_hidden_or_special, sanitize_string, validate_path_in_vault};
+
 
 /// Lists all files and directories within the specified vault path and retrieves their metadata.
 ///
@@ -145,4 +147,16 @@ pub async fn rename_file(
     *idx_guard = None;
     
     Ok(new_path.to_string_lossy().to_string())
+}
+
+
+#[tauri::command]
+pub fn set_vault_path(app: tauri::AppHandle, path: String) -> Result<(), String> {
+    let path = std::path::PathBuf::from(&path);
+    
+    app.fs_scope()
+        .allow_directory(&path, true)
+        .map_err(|e| e.to_string())?;
+    
+    Ok(())
 }

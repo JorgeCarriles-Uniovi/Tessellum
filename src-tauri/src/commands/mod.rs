@@ -8,5 +8,5 @@ pub mod indexer;
 pub use folders::create_folder;
 pub use links::{extract_wikilinks, get_backlinks, get_outgoing_links, get_all_links};
 pub use notes::{create_note, read_file, trash_item, write_file, get_all_notes};
-pub use vault::{list_files, rename_file};
+pub use vault::{list_files, rename_file, set_vault_path};
 pub use watcher::watch_vault;
