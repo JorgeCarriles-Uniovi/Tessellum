@@ -20,6 +20,7 @@ const HIDDEN_MARKS = new Set([
     "LinkMark",
     "URL",
     "ImageMark",
+    "StrikethroughMark"
 ]);
 
 /**
