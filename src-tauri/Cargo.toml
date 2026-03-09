@@ -32,3 +32,5 @@ tokio = { version = "1", features = ["full"] }
 regex = "1.12.2"
 state = "0.6.0"
 log = "0.4.29"
+tauri-plugin-fs = "2.4.5"
+tauri-plugin-persisted-scope = "2"

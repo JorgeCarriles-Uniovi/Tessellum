@@ -6,6 +6,7 @@ export interface WikiLinkPluginConfig {
     onLinkClick?: (target: string, fullPath: string | undefined) => void;
     onLinkHover?: (target: string, fullPath: string | undefined, element: HTMLElement) => void;
     refreshInterval?: number; // Auto-refresh index every N ms (default: 30000)
+    onRequestRefresh?: () => void;
 }
 
 export function wikiLinkClickHandler(config: WikiLinkPluginConfig) {

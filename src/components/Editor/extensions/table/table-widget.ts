@@ -22,6 +22,7 @@ export class TableWidget extends WidgetType {
         wrapper.className = "cm-table-widget";
 
         const table = document.createElement("table");
+        table.className = "cm-table";
 
         // Header
         const thead = document.createElement("thead");

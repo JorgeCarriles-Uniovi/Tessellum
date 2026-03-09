@@ -146,6 +146,7 @@
     letter-spacing: -0.02em;
     line-height: 1.25;
 }
+
 .cm-heading2 {
     font-size: 1.75em;
     font-weight: 700;
@@ -153,6 +154,7 @@
     letter-spacing: -0.02em;
     line-height: 1.25;
 }
+
 .cm-heading3 {
     font-size: 1.5em;
     font-weight: 600;
@@ -160,6 +162,7 @@
     letter-spacing: -0.02em;
     line-height: 1.25;
 }
+
 .cm-heading4 {
     font-size: 1.25em;
     font-weight: 600;
@@ -167,6 +170,7 @@
     letter-spacing: -0.01em;
     line-height: 1.3;
 }
+
 .cm-heading5 {
     font-size: 1.125em;
     font-weight: 600;
@@ -174,6 +178,7 @@
     letter-spacing: -0.01em;
     line-height: 1.3;
 }
+
 .cm-heading6 {
     font-size: 1em;
     font-weight: 600;
@@ -182,11 +187,160 @@
     line-height: 1.3;
 }
 
-.cm-emphasis { font-style: italic; }
-.cm-strong { font-weight: 700; }
-.cm-strikethrough { text-decoration: line-through; color: #6b7280; }
-.cm-quote-text { color: #4b5563; font-style: italic; } /* Renamed to avoid conflict with block */
-.cm-proc-inst { color: #adadb1; }
+.cm-emphasis {
+    font-style: italic;
+}
+
+.cm-strong {
+    font-weight: 700;
+}
+
+.cm-strikethrough {
+    text-decoration: line-through;
+    color: #6b7280;
+}
+
+.cm-quote-text {
+    color: #4b5563;
+    font-style: italic;
+}
+
+/* Renamed to avoid conflict with block */
+.cm-proc-inst {
+    color: #adadb1;
+}
+
+.cm-comment {
+    color: #a0a1a7;
+    font-style: italic;
+}
+
+.cm-keyword {
+    color: #a626a4;
+    font-weight: 600;
+}
+
+.cm-operator {
+    color: #0184bc;
+}
+
+.cm-string {
+    color: #50a14f;
+}
+
+.cm-number {
+    color: #986801;
+}
+
+.cm-variable {
+    color: #e45649;
+}
+
+.cm-variable2 {
+    color: #986801;
+    /* Property/Field in Atom */
+}
+
+.cm-typeName {
+    color: #c18401;
+    font-weight: 600;
+    /* Bolder for custom types */
+}
+
+.cm-typePrimitive {
+    color: #c18401;
+    font-weight: 600;
+}
+
+.cm-propertyName {
+    color: #4078f2;
+    /* Member variable */
+}
+
+.cm-functionName {
+    color: #4078f2;
+    /* Method/Function */
+}
+
+.cm-className {
+    color: #c18401;
+    font-weight: 600;
+}
+
+.cm-labelName {
+    color: #0184bc;
+}
+
+.cm-meta {
+    color: #4078f2;
+    /* Annotation/Attribute */
+}
+
+.cm-bracket {
+    color: #383a42;
+}
+
+.cm-tagName {
+    color: #e45649;
+}
+
+.cm-attributeName {
+    color: #986801;
+}
+
+.cm-attributeValue {
+    color: #50a14f;
+}
+
+.cm-bool {
+    color: #986801;
+    font-weight: 700;
+}
+
+.cm-null {
+    color: #986801;
+    font-weight: 700;
+}
+
+.cm-deleted {
+    color: #e45649;
+    background-color: #fee2e2;
+}
+
+.cm-inserted {
+    color: #10b981;
+    background-color: #d1fae5;
+}
+
+.cm-regex {
+    color: #264eff;
+}
+
+.cm-macro {
+    color: #b33d00;
+    font-weight: 600;
+}
+
+/* ── Fenced Code Blocks ── */
+.cm-line.cm-codeblock {
+    position: relative !important;
+}
+
+.cm-line.cm-codeblock::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 1rem;
+    /* Aligns with the 1rem codeblock padding */
+    width: var(--indent-width, 0);
+    background-image: linear-gradient(90deg, rgba(160, 161, 167, 0.4) 1px, transparent 1px);
+    background-size: 2ch 100%;
+    background-repeat: repeat-x;
+    pointer-events: none;
+    z-index: 1;
+    /* Ensure visibility */
+}
 
 /* --- 5. Callouts (Obsidian-style) --- */
 
@@ -403,47 +557,27 @@
     }
 }
 
-/* --- 6. Tables --- */
-
-.cm-table-widget {
-    margin: 1rem 0;
-    width: 100%;
-    cursor: default;
+/* --- 6. Lists and Markers --- */
+.cm-list-marker-widget {
+    display: inline-block;
+    color: #9ca3af;
+    font-weight: 500;
     user-select: none;
-    overflow-x: auto;
 }
 
-.cm-table-widget table {
-    width: 100%;
-    border-collapse: collapse;
-    border: 1px solid #e5e7eb;
-    border-radius: 4px;
-    font-size: 15px;
-    line-height: 1.6;
+.cm-unordered-list-marker {
+    font-size: 1.2em;
+    line-height: 1;
+    margin-right: 0.5ch;
+    vertical-align: middle;
 }
 
-.cm-table-widget th {
-    background-color: #f9fafb;
-    font-weight: 600;
+.cm-ordered-list-marker {
     font-size: 0.9em;
-    padding: 8px 14px;
-    border: 1px solid #e5e7eb;
-    color: #374151;
+    margin-right: 0.5ch;
 }
 
-.cm-table-widget td {
-    padding: 8px 14px;
-    border: 1px solid #e5e7eb;
-    color: #1f2937;
-}
-
-.cm-table-widget tbody tr:nth-child(even) {
-    background-color: #f9fafb;
-}
-
-.cm-table-widget tbody tr:hover {
-    background-color: #f3f4f6;
-}
+/* --- 7. Tables --- */
 
 .cm-table-hidden-line {
     font-size: 0 !important;

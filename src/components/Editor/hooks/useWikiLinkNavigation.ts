@@ -1,12 +1,12 @@
 import { useEditorStore } from "../../../stores/editorStore.ts";
 import { useCallback } from "react";
-import { dirname } from "@tauri-apps/api/path";
 import { invoke } from "@tauri-apps/api/core";
 import { FileMetadata } from "../../../types.ts";
 import { toast } from "sonner";
+import {wikiLinkIndexHandle} from "../extensions/wikilink/wikiLink-plugin.ts";
 
 export function useWikiLinkNavigation() {
-    const { activeNote, files, setActiveNote, setFiles } = useEditorStore();
+    const { activeNote, vaultPath, files, setActiveNote, setFiles } = useEditorStore();
 
     return useCallback(async (linkTarget: string) => {
         if (!activeNote) return;
@@ -58,8 +58,6 @@ export function useWikiLinkNavigation() {
 
             // 4. Create New Note
 
-            const vaultPath = await dirname(activeNote.path);
-
             const newPath = await invoke<string>('create_note', {
                 vaultPath,
                 title: targetName // Pass the sanitized name
@@ -75,6 +73,7 @@ export function useWikiLinkNavigation() {
 
             setFiles([...files, newNote]);
             setActiveNote(newNote);
+            wikiLinkIndexHandle.refresh();
 
         } catch (e: unknown) {
             const message = e instanceof Error ? e.message : "Failed to open link";

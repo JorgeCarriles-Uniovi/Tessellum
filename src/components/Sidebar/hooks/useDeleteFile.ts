@@ -4,6 +4,9 @@ import { invoke } from "@tauri-apps/api/core";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
 import { FileMetadata } from "../../../types.ts";
+import {
+    wikiLinkIndexHandle
+} from "../../Editor/extensions/wikilink/wikiLink-plugin.ts";
 
 export function useDeleteFile() {
     const { files, setFiles, activeNote, setActiveNote, vaultPath } = useEditorStore();
@@ -32,6 +35,8 @@ export function useDeleteFile() {
                 !(target.is_dir && (f.path.startsWith(childPrefix)))
             );
             setFiles(updatedFiles);
+            wikiLinkIndexHandle.refresh();
+            wikiLinkIndexHandle.redecorate();
             if (activeNote) {
                 const activeIsTarget = activeNote.path === target.path;
                 const activeIsDescendant =

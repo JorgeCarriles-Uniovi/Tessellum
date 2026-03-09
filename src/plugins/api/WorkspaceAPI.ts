@@ -31,7 +31,10 @@ export class WorkspaceAPI {
         if (file) {
             state.setActiveNote(file);
         }
+        this.onLinkClick?.(path);
     }
+
+    onLinkClick: ((path: string) => void) | null = null;
 
     /** Subscribe to active note changes. Returns EventRef for auto-cleanup. */
     onActiveNoteChange(cb: (note: FileMetadata | null) => void): EventRef {

@@ -98,6 +98,9 @@ export class WikiLinkFileIndex {
                     this.index[withoutExt] = f.path;
                     this.index[f.filename] = f.path;
 
+                    this.index[f.path] = f.path;
+                    this.index[f.path.replace(/\.md$/, '')] = f.path;
+
                     // Also index with relative path from vault
                     const relativePath = f.path.replace(vaultPath, '').replace(/^\//, '');
                     if (relativePath.includes('/')) {
