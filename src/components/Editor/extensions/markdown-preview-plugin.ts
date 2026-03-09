@@ -4,11 +4,12 @@ import {
     EditorView,
     ViewPlugin,
     ViewUpdate,
+    WidgetType,
 } from "@codemirror/view";
 import { syntaxTree, syntaxTreeAvailable } from "@codemirror/language";
 import { Extension, RangeSetBuilder } from "@codemirror/state";
-import { getCalloutLinePositions } from "./callout/callout-plugin.ts";
-import { getTableLinePositions } from "./table/table-plugin.ts";
+import { getCalloutLinePositions } from "./callout/callout-plugin";
+import { getTableLinePositions } from "./table/table-plugin";
 
 // Set of mark types we want to hide
 const HIDDEN_MARKS = new Set([
@@ -20,6 +21,31 @@ const HIDDEN_MARKS = new Set([
     "URL",
     "ImageMark",
 ]);
+
+/**
+ * Widget to render a list marker (dot or number) in preview mode.
+ */
+class ListMarkWidget extends WidgetType {
+    constructor(readonly content: string, readonly isOrdered: boolean) {
+        super();
+    }
+
+    toDOM() {
+        const span = document.createElement("span");
+        span.className = "cm-list-marker-widget";
+        if (this.isOrdered) {
+            span.classList.add("cm-ordered-list-marker");
+        } else {
+            span.classList.add("cm-unordered-list-marker");
+        }
+        span.textContent = this.content;
+        return span;
+    }
+
+    eq(other: ListMarkWidget) {
+        return this.content === other.content && this.isOrdered === other.isOrdered;
+    }
+}
 
 /**
  * Builds decorations to hide markdown syntax markers when not focused.
@@ -67,7 +93,20 @@ function buildDecorations(view: EditorView): DecorationSet {
                         selection.from <= parent.to && selection.to >= parent.from;
 
                     if (!cursorOverlaps) {
-                        builder.add(from, to, Decoration.replace({}));
+                        if (name === "ListMark") {
+                            const markerText = view.state.doc.sliceString(from, to);
+                            const isOrdered = /[0-9]/.test(markerText);
+                            const displayContent = isOrdered ? markerText : "•";
+                            builder.add(
+                                from,
+                                to,
+                                Decoration.replace({
+                                    widget: new ListMarkWidget(displayContent, isOrdered),
+                                })
+                            );
+                        } else {
+                            builder.add(from, to, Decoration.replace({}));
+                        }
                     }
                 }
             }

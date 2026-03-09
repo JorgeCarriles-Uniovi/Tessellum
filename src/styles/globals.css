@@ -352,6 +352,57 @@ body {
 
 }
 
+@layer components {
+    .cm-table-widget {
+        @apply my-8 w-full overflow-x-auto select-none cursor-default;
+        margin-top: 2rem !important;
+        margin-bottom: 2rem !important;
+    }
+
+    .cm-table {
+        @apply w-full border-collapse border border-solid border-border;
+        font-size: 15px !important;
+    }
+
+    .cm-table th {
+        @apply bg-secondary/80 font-bold text-foreground py-5 px-10 border border-solid border-border tracking-tight;
+        font-size: 14px !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+        padding-top: 0.5rem !important;
+        padding-bottom: 0.5rem !important;
+    }
+
+    .cm-table td {
+        @apply py-5 px-10 border border-solid border-border text-foreground transition-colors leading-loose;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+        padding-top: 0.5rem !important;
+        padding-bottom: 0.5rem !important;
+    }
+
+    .cm-table tbody tr {
+        @apply transition-colors duration-150;
+    }
+
+    .cm-table tbody tr:nth-child(even) {
+        @apply bg-muted/40;
+    }
+
+    /* Enhanced visibility hover effect */
+    .cm-table tbody tr:hover {
+        @apply bg-gray-500/10 ring-1 ring-gray-500/20 ring-inset;
+    }
+
+    .cm-table tbody td:hover {
+        @apply bg-gray-500/10 ring-1 ring-gray-500/20 ring-inset;
+    }
+
+    .cm-table tbody th:hover {
+        @apply bg-gray-500/10 ring-1 ring-gray-500/20 ring-inset;
+    }
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
     width: 6px;

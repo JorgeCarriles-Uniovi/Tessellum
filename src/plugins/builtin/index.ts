@@ -6,6 +6,7 @@ import { CalloutPlugin } from "./CalloutPlugin";
 import { TablePlugin } from "./TablePlugin";
 import { WikiLinkPlugin } from "./WikiLinkPlugin";
 import { CoreCommandsPlugin } from "./CoreCommandsPlugin";
+import { CodePlugin } from "./CodePlugin.ts";
 
 /**
  * Registers all built-in plugins with the PluginRegistry.
@@ -30,4 +31,5 @@ export function registerBuiltinPlugins(app: TessellumApp): void {
     app.plugins.register(TablePlugin.manifest, TablePlugin);
     app.plugins.register(WikiLinkPlugin.manifest, WikiLinkPlugin);
     app.plugins.register(CoreCommandsPlugin.manifest, CoreCommandsPlugin);
+    app.plugins.register(CodePlugin.manifest, CodePlugin);
 }
