@@ -322,56 +322,6 @@
 }
 
 /* ── Fenced Code Blocks ── */
-.cm-codeblock {
-    position: relative;
-    background-color: #fafafa;
-    border-left: 1px solid #dbdbdc;
-    border-right: 1px solid #dbdbdc;
-    padding-left: 1rem !important;
-    padding-right: 1rem;
-    font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
-    font-size: 0.9em;
-    line-height: 1.5;
-    color: #383a42;
-}
-
-/* Language Indicator */
-.cm-codeblock-first::after {
-    content: attr(data-lang);
-    position: absolute;
-    top: 0.5rem;
-    right: 1rem;
-    font-size: 0.7rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    color: #94a3b8;
-    pointer-events: none;
-    user-select: none;
-}
-
-.cm-codeblock-first {
-    border-top: 1px solid #dbdbdc;
-    border-top-left-radius: 6px;
-    border-top-right-radius: 6px;
-    padding-top: 0.75rem;
-    padding-bottom: 0px;
-}
-
-.cm-codeblock-last {
-    border-bottom: 1px solid #dbdbdc;
-    border-bottom-left-radius: 6px;
-    border-bottom-right-radius: 6px;
-    padding-bottom: 0.75rem;
-    padding-top: 0px;
-}
-
-.cm-codeblock-solo {
-    border-radius: 6px;
-    padding-top: 0.75rem;
-    padding-bottom: 0.75rem;
-    border: 1px solid #dbdbdc;
-}
-
 .cm-line.cm-codeblock {
     position: relative !important;
 }
