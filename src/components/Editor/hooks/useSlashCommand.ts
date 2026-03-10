@@ -8,9 +8,9 @@ import {
 } from 'react';
 import { EditorView, keymap } from '@codemirror/view';
 import { EditorState } from '@codemirror/state';
-import { Command } from '../../../plugins/types';
 import { Prec } from "@codemirror/state";
 import { TessellumApp } from "../../../plugins/TessellumApp";
+import type { Command } from "../../../plugins/types";
 
 // ===== PURE UTILITIES (no React dependencies) =====
 
@@ -225,7 +225,7 @@ function useCommandExecution(closeMenu: () => void) {
 
 // ===== MAIN HOOK =====
 
-export function useSlashCommand() {
+export function useSlashCommand(onSelect?: (command: Command, view: EditorView) => void) {
     const menuState = useMenuState();
     const performCommandInternal = useCommandExecution(menuState.closeMenu);
 
@@ -247,7 +247,11 @@ export function useSlashCommand() {
 
         const selectedCommand = cmds[menuState.selectedIndexRef.current];
         if (selectedCommand) {
-            performCommandInternal(view, selectedCommand);
+            if (onSelect) {
+                onSelect(selectedCommand, view);
+            } else {
+                performCommandInternal(view, selectedCommand);
+            }
             return true;
         }
         return false;

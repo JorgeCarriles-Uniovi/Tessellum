@@ -12,73 +12,47 @@ export interface GraphEdge {
     broken: boolean; // Does the target exist?
 }
 
-/**
- * Extracts a display name from a file path.
- * Strips the vault path prefix and the .md extension.
- */
-export function pathToLabel(filePath: string, vaultPath: string): string {
-    // Normalize separators
-    const normalized = filePath.replace(/\\/g, '/');
-    const normalizedVault = vaultPath.replace(/\\/g, '/');
-
-    // Remove vault prefix
-    let relative = normalized;
-    if (normalized.startsWith(normalizedVault)) {
-        relative = normalized.slice(normalizedVault.length);
-        if (relative.startsWith('/')) relative = relative.slice(1);
-    }
-
-    // Remove .md extension
-    if (relative.endsWith('.md')) {
-        relative = relative.slice(0, -3);
-    }
-
-    // Return just the filename (last segment)
-    const parts = relative.split('/');
-    return parts[parts.length - 1];
+interface BackendGraphNode {
+    id: string;
+    label: string;
+    exists: boolean;
+    orphan: boolean;
 }
 
-export function buildGraphElements(
-    notes: [string, number][],
-    links: [string, string][],
-    vaultPath: string
-): cytoscape.ElementDefinition[] {
+interface BackendGraphEdge {
+    source: string;
+    target: string;
+    broken: boolean;
+}
+
+export interface GraphData {
+    nodes: BackendGraphNode[];
+    edges: BackendGraphEdge[];
+}
+
+export function mapGraphDataToElements(data: GraphData): cytoscape.ElementDefinition[] {
     const elements: cytoscape.ElementDefinition[] = [];
 
-    const existingPaths = new Set(notes.map(([path]) => path));
-
-    // Add nodes for all existing notes
-    for (const [path] of notes) {
+    // Add nodes
+    for (const node of data.nodes) {
         elements.push({
             data: {
-                id: path,
-                label: pathToLabel(path, vaultPath),
-                exists: true,
+                id: node.id,
+                label: node.label,
+                exists: node.exists,
             },
+            classes: node.orphan ? 'orphan' : ''
         });
     }
 
-    // Process edges and add missing target nodes
-    for (const [source, target] of links) {
-        const targetExists = existingPaths.has(target);
-
-        // If the target doesn't exist, add a ghost node
-        if (!targetExists && !elements.some(el => el.data.id === target)) {
-            elements.push({
-                data: {
-                    id: target,
-                    label: pathToLabel(target, vaultPath),
-                    exists: false,
-                },
-            });
-        }
-
+    // Add edges
+    for (const edge of data.edges) {
         elements.push({
             data: {
-                id: `${source}->${target}`,
-                source,
-                target,
-                broken: !targetExists,
+                id: `${edge.source}->${edge.target}`,
+                source: edge.source,
+                target: edge.target,
+                broken: edge.broken,
             },
         });
     }

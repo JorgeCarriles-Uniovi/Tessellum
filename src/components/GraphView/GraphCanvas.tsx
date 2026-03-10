@@ -57,7 +57,14 @@ export function GraphCanvas({
         // After layout finishes, reposition orphan nodes in a circle around the main cluster
         cy.one('layoutstop', () => {
             const orphans = cy.nodes('.orphan');
-            if (orphans.length === 0) return;
+
+            if (orphans.length === 0) {
+                // No orphans — just fit if in local mode
+                if (focusNodeId) {
+                    cy.animate({ fit: { eles: cy.elements(), padding: 60 }, duration: 300 } as any);
+                }
+                return;
+            }
 
             // Get bounding box of connected (non-orphan) nodes
             const connected = cy.nodes().not('.orphan');
@@ -69,10 +76,11 @@ export function GraphCanvas({
                 cy2 = (bb.y1 + bb.y2) / 2;
                 radius = Math.max(bb.w, bb.h) / 2 + 80;
             } else {
-                // All nodes are orphans — place them in a circle at center
-                cx = cy.width() / 2;
-                cy2 = cy.height() / 2;
-                radius = Math.min(cy.width(), cy.height()) / 3;
+                // All nodes are orphans — use graph-space center via cy.extent()
+                const ext = cy.extent();
+                cx = (ext.x1 + ext.x2) / 2;
+                cy2 = (ext.y1 + ext.y2) / 2;
+                radius = 0; // single orphan stays at center
             }
 
             // Distribute orphans evenly around the circle
@@ -87,6 +95,11 @@ export function GraphCanvas({
                     easing: 'ease-out-cubic' as any,
                 });
             });
+
+            // Always fit the view after orphan animation so the node is visible
+            setTimeout(() => {
+                cy.animate({ fit: { eles: cy.elements(), padding: 60 }, duration: 300 } as any);
+            }, 420);
         });
 
         // Event: single click
@@ -131,20 +144,14 @@ export function GraphCanvas({
             containerRef.current!.style.cursor = 'default';
         });
 
-        // Focus on specific node for local graph
+        // Highlight the focus node for local graph
         if (focusNodeId) {
             cy.ready(() => {
                 const focusNode = cy.getElementById(focusNodeId);
                 if (focusNode.length > 0) {
                     focusNode.addClass('highlighted');
-                    // Center on the focus node after layout
-                    cy.one('layoutstop', () => {
-                        cy.animate({
-                            center: { eles: focusNode },
-                            zoom: mode === 'local' ? 1.5 : undefined,
-                        } as any);
-                    });
                 }
+                // Fit is handled by the orphan layoutstop handler above
             });
         }
 

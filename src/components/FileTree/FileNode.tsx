@@ -15,7 +15,7 @@ export interface FileNodeProps {
 }
 
 export function FileNode({ node, level, onContextMenu }: FileNodeProps) {
-    const { activeNote, setActiveNote, expandedFolders, toggleFolder } = useEditorStore();
+    const { activeNote, setActiveNote, setViewMode, expandedFolders, toggleFolder } = useEditorStore();
 
     const isOpen = (expandedFolders[node.id]) || false;
     const hasChildren = node.children && node.children.length > 0;
@@ -27,10 +27,11 @@ export function FileNode({ node, level, onContextMenu }: FileNodeProps) {
     // Left Click
     const handleClick = (e: React.MouseEvent) => {
         e.stopPropagation();
-        if (node.isDir) {
+        if (node.is_dir) {
             toggleFolder(node.id);
         } else {
             setActiveNote(node.file);
+            setViewMode('editor');
         }
     };
 
@@ -43,15 +44,16 @@ export function FileNode({ node, level, onContextMenu }: FileNodeProps) {
     const handleKeyDown = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            if (node.isDir) {
+            if (node.is_dir) {
                 toggleFolder(node.id);
             } else {
                 setActiveNote(node.file);
+                setViewMode('editor');
             }
-        } else if (e.key === 'ArrowRight' && node.isDir && !isOpen) {
+        } else if (e.key === 'ArrowRight' && node.is_dir && !isOpen) {
             e.preventDefault();
             toggleFolder(node.id, true);
-        } else if (e.key === 'ArrowLeft' && node.isDir && isOpen) {
+        } else if (e.key === 'ArrowLeft' && node.is_dir && isOpen) {
             e.preventDefault();
             toggleFolder(node.id, false);
         } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
@@ -88,22 +90,22 @@ export function FileNode({ node, level, onContextMenu }: FileNodeProps) {
             <div
                 role="treeitem"
                 tabIndex={0}
-                aria-expanded={node.isDir ? isOpen : undefined}
+                aria-expanded={node.is_dir ? isOpen : undefined}
                 aria-selected={isActive}
                 onClick={handleClick}
                 onContextMenu={handleContextMenu}
                 onKeyDown={handleKeyDown}
                 className={`
-                    group flex items-center py-2 pr-2 cursor-pointer select-none
+                    group flex items-center py-[7px] pr-2 cursor-pointer select-none
                     text-sm transition-colors duration-100 ease-in-out
                     focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-inset
                     ${isActive ? 'bg-blue-100 text-blue-700' : 'hover:bg-gray-100 text-gray-700'}
                 `}
                 style={{
                     paddingLeft,
-                    paddingTop: "4px",
-                    paddingBottom: "4px",
-                    marginBottom: "2px",
+                    paddingTop: "6px",
+                    paddingBottom: "6px",
+                    marginBottom: "3px",
                 }}
             >
                 {/* 1. Expand/Collapse Icon (Animated Rotation) */}
@@ -111,10 +113,10 @@ export function FileNode({ node, level, onContextMenu }: FileNodeProps) {
                     className="mr-1 w-4 flex justify-center text-gray-400 hover:text-gray-600"
                     onClick={(e) => {
                         e.stopPropagation();
-                        if (node.isDir) toggleFolder(node.id);
+                        if (node.is_dir) toggleFolder(node.id);
                     }}
                 >
-                    {node.isDir && (
+                    {node.is_dir && (
                         <ChevronRight
                             size={14}
                             className={`transform transition-transform duration-200 ease-in-out ${isOpen ? 'rotate-90' : 'rotate-0'}`}
@@ -123,8 +125,8 @@ export function FileNode({ node, level, onContextMenu }: FileNodeProps) {
                 </span>
 
                 {/* 2. File Type Icon */}
-                <span className={`mr-2 ${node.isDir ? "text-yellow-500" : "text-gray-400"}`}>
-                    {node.isDir ? (
+                <span className={`mr-2.5 ${node.is_dir ? "text-yellow-500" : "text-gray-400"}`}>
+                    {node.is_dir ? (
                         isOpen ? <FolderOpenIcon size={16} /> : <FolderIcon size={16} />
                     ) : (
                         <FileIcon size={16} />
@@ -136,7 +138,7 @@ export function FileNode({ node, level, onContextMenu }: FileNodeProps) {
             </div>
 
             {/* Recursion: Render Children with Animation */}
-            {node.isDir && (
+            {node.is_dir && (
                 <div
                     className="grid transition-[grid-template-rows] duration-200 ease-in-out"
                     style={{

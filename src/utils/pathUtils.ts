@@ -23,15 +23,15 @@ export function getParentFromTarget(target: FileMetadata): string {
 /**
  * Get filename without .md extension
  */
-export function getNameWithoutExtension(filename: string, isDir: boolean): string {
-    if (isDir) return filename;
+export function getNameWithoutExtension(filename: string, is_dir: boolean): string {
+    if (is_dir) return filename;
     return filename.replace(/\.md$/, '');
 }
 
 /**
  * Ensure .md extension for files
  */
-export function ensureMarkdownExtension(name: string, isDir: boolean): string {
-    if (isDir) return name;
-    return name.toLowerCase().endsWith('.md') ? name : ""+name+".md";
+export function ensureMarkdownExtension(name: string, is_dir: boolean): string {
+    if (is_dir) return name;
+    return name.toLowerCase().endsWith('.md') ? name : "" + name + ".md";
 }

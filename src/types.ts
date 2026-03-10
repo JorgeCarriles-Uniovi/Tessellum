@@ -9,7 +9,8 @@ export interface FileMetadata {
 export interface TreeNode {
     id: string; // The full path
     name: string;
-    isDir: boolean;
+    is_dir: boolean;
     children: TreeNode[];
     file: FileMetadata;
 }
+

@@ -1,6 +1,7 @@
 use serde::Serialize;
 use tauri::State;
 
+use crate::error::TessellumError;
 use crate::indexer::{IndexStats, VaultIndexer};
 use crate::models::AppState;
 
@@ -36,12 +37,10 @@ impl From<IndexStats> for SyncResult {
 pub async fn sync_vault(
     state: State<'_, AppState>,
     vault_path: String,
-) -> Result<SyncResult, String> {
+) -> Result<SyncResult, TessellumError> {
     let db_guard = state.db.lock().await;
-
-    let db = db_guard.as_ref().ok_or("Database not initialized")?;
-
-    match VaultIndexer::full_sync(db, &vault_path).await {
+    
+    match VaultIndexer::full_sync(&*db_guard, &vault_path).await {
         Ok(stats) => {
             let mut idx_guard = state.file_index.lock().await;
             *idx_guard = None;

@@ -6,7 +6,7 @@ import { GraphCanvas } from './GraphCanvas';
 import { NodeInfoPanel } from './NodeInfoPanel';
 import { ArrowLeft } from 'lucide-react';
 import cytoscape from 'cytoscape';
-import {buildGraphElements} from "../../utils/graphUtils.ts";
+import { mapGraphDataToElements, GraphData } from "../../utils/graphUtils.ts";
 
 export function GraphView() {
     const {
@@ -24,11 +24,8 @@ export function GraphView() {
     const fetchGraphData = useCallback(async () => {
         if (!vaultPath) return;
         try {
-            const [notes, links] = await Promise.all([
-                invoke<[string, number][]>('get_all_notes'),
-                invoke<[string, string][]>('get_all_links'),
-            ]);
-            setElements(buildGraphElements(notes, links, vaultPath));
+            const data = await invoke<GraphData>('get_graph_data', { vaultPath });
+            setElements(mapGraphDataToElements(data));
         } catch (e) {
             console.error('Failed to fetch graph data:', e);
         } finally {
@@ -98,78 +95,25 @@ export function GraphView() {
     );
 
     return (
-        <div
-            style={{
-                width: '100%',
-                height: '100%',
-                position: 'relative',
-                display: 'flex',
-                flexDirection: 'column',
-            }}
-        >
+        <div className="w-full h-full relative flex flex-col">
             {/* Header bar */}
-            <div
-                style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    padding: '8px 16px',
-                    borderBottom: '1px solid var(--color-border-light)',
-                    backgroundColor: 'var(--color-bg-primary)',
-                    flexShrink: 0,
-                }}
-            >
+            <div className="flex items-center gap-2 px-4 py-2 border-b border-[var(--color-border-light)] bg-[var(--color-bg-primary)] shrink-0">
                 <button
                     onClick={() => setViewMode('editor')}
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        background: 'none',
-                        border: 'none',
-                        cursor: 'pointer',
-                        color: 'var(--color-text-muted)',
-                        fontSize: '13px',
-                        padding: '4px 8px',
-                        borderRadius: 'var(--radius-md)',
-                        transition: 'var(--transition-fast)',
-                    }}
-                    onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = 'var(--color-bg-tertiary)';
-                        e.currentTarget.style.color = 'var(--color-text-primary)';
-                    }}
-                    onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'transparent';
-                        e.currentTarget.style.color = 'var(--color-text-muted)';
-                    }}
+                    className="flex items-center gap-1.5 bg-transparent border-none cursor-pointer text-[var(--color-text-muted)] text-[13px] px-2 py-1 rounded-[var(--radius-md)] transition-colors duration-200 hover:bg-[var(--color-bg-tertiary)] hover:text-[var(--color-text-primary)]"
                 >
                     <ArrowLeft size={14} />
                     Back to Editor
                 </button>
-                <span
-                    style={{
-                        fontSize: '13px',
-                        fontWeight: 600,
-                        color: 'var(--color-text-primary)',
-                    }}
-                >
+                <span className="text-[13px] font-semibold text-[var(--color-text-primary)]">
                     Graph View
                 </span>
             </div>
 
             {/* Graph canvas */}
-            <div style={{ flex: 1, position: 'relative' }}>
+            <div className="flex-1 relative">
                 {loading ? (
-                    <div
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            height: '100%',
-                            color: 'var(--color-text-muted)',
-                            fontSize: '14px',
-                        }}
-                    >
+                    <div className="flex items-center justify-center h-full text-[var(--color-text-muted)] text-sm">
                         Loading graph...
                     </div>
                 ) : (

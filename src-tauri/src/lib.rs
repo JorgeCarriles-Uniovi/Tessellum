@@ -1,10 +1,9 @@
 pub mod commands;
 mod db;
+pub mod error;
 mod indexer;
 pub mod models;
 mod utils;
-
-use std::fs;
 
 use db::Database;
 use tauri::Manager;
@@ -18,43 +17,26 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_persisted_scope::init())
-        .manage(models::AppState::default())
         .setup(|app| {
-            // A. Access the state we just registered
-            let app_state = app.state::<models::AppState>();
-            
-            // B. Resolve the path
-            let app_dir = app
+            let app_handle = app.handle();
+            let db_url = app_handle
                 .path()
                 .app_data_dir()
-                .expect("Failed to resolve app data directory");
+                .expect("failed to get app data directory")
+                .join("vault.db")
+                .to_str()
+                .expect("failed to convert path to string")
+                .to_string();
             
-            // C. Ensure the directory actually exists on disk
-            if !app_dir.exists() {
-                fs::create_dir_all(&app_dir).expect("Failed to create app data directory");
-            }
-            
-            // D. Construct the full path and URL for SQLite
-            let db_path = app_dir.join("index.db");
-            let db_url = db_path.to_string_lossy().to_string();
-            
-            log::info!("Database path: {}", db_url);
-            
-            // E. Initialize the DB synchronously so it's ready before any commands
-            let db_state_clone = app_state.db.clone();
-            
-            tauri::async_runtime::block_on(async move {
-                match Database::init(&db_url).await {
-                    Ok(db_instance) => {
-                        let mut db_guard = db_state_clone.lock().await;
-                        *db_guard = Some(db_instance);
-                        log::info!("Database initialized successfully");
-                    }
-                    Err(e) => {
-                        log::error!("Failed to initialize database: {}", e);
-                    }
-                }
+            let db_instance = tauri::async_runtime::block_on(async move {
+                Database::init(&db_url).await.unwrap_or_else(|e| {
+                    log::error!("Failed to initialize database: {}", e);
+                    panic!("Failed to initialize database: {}", e);
+                })
             });
+            
+            app.manage(models::AppState::new(db_instance));
+            log::info!("Database initialized successfully");
             
             Ok(())
         })
@@ -63,15 +45,19 @@ pub fn run() {
             commands::notes::trash_item,
             commands::notes::read_file,
             commands::notes::write_file,
+            commands::notes::search_notes,
             commands::vault::list_files,
+            commands::vault::list_files_tree,
             commands::watcher::watch_vault,
             commands::vault::rename_file,
             commands::folders::create_folder,
             commands::links::get_backlinks,
             commands::links::get_outgoing_links,
             commands::links::get_all_links,
+            commands::links::resolve_wikilink,
             commands::notes::get_all_notes,
             commands::indexer::sync_vault,
+            commands::graph::get_graph_data,
             commands::vault::set_vault_path,
         ])
         .run(tauri::generate_context!())

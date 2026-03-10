@@ -6,12 +6,12 @@ import { toast } from "sonner";
 // --- Helpers: Pure logic separated from the hook ---
 
 // Converts "My Note.md" -> "My Note" (Only for files)
-const toInputName = (filename: string, isDir: boolean) =>
-    isDir ? filename : filename.replace(/\.md$/i, '');
+const toInputName = (filename: string, is_dir: boolean) =>
+    is_dir ? filename : filename.replace(/\.md$/i, '');
 
 // Converts "My Note" -> "My Note.md" (Only for files)
-const toStorageName = (name: string, isDir: boolean) =>
-    isDir ? name : "" + name + ".md";
+const toStorageName = (name: string, is_dir: boolean) =>
+    is_dir ? name : "" + name + ".md";
 
 
 export function useNoteRenaming() {
