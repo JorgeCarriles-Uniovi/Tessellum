@@ -6,6 +6,7 @@ import {
 } from "@codemirror/view";
 import { StateField, Extension, RangeSetBuilder, EditorState } from "@codemirror/state";
 import mermaid from "mermaid";
+import panzoom from "panzoom";
 import { parseCodeBlocks } from "./code-parser";
 
 let mermaidIdCounter = 0;
@@ -28,12 +29,8 @@ class MermaidWidget extends WidgetType {
 
     toDOM(view: EditorView) {
         const wrapper = document.createElement("div");
-        wrapper.className = "cm-mermaid-block";
-        wrapper.style.display = "flex";
-        wrapper.style.justifyContent = "center";
-        wrapper.style.position = "relative";
-        wrapper.style.margin = "1rem 0";
-        wrapper.style.cursor = "pointer";
+        wrapper.className = "cm-mermaid-block group relative flex justify-center my-4 border border-transparent hover:border-gray-200 dark:hover:border-gray-700 rounded-md overflow-visible bg-gray-50 dark:bg-gray-800/50";
+        wrapper.style.minHeight = "150px";
 
         // Determine theme based on html class (Tailwind dark mode typically uses .dark)
         const isDark = document.documentElement.classList.contains("dark");
@@ -42,14 +39,26 @@ class MermaidWidget extends WidgetType {
             theme: isDark ? "dark" : "default",
         });
 
-        // Click overlay to allow editing
-        const clickOverlay = document.createElement("div");
-        clickOverlay.style.position = "absolute";
-        clickOverlay.style.inset = "0";
-        clickOverlay.style.pointerEvents = "auto";
-        clickOverlay.style.zIndex = "1";
+        const container = document.createElement("div");
+        container.style.width = "100%";
+        container.style.height = "100%";
+        container.style.display = "flex";
+        container.style.justifyContent = "center";
+        container.style.alignItems = "center";
+        container.style.overflow = "hidden"; // To restrict panzoom to container bounds
+        container.style.borderRadius = "inherit"; // Respect wrapper's rounded corners
 
-        clickOverlay.addEventListener("mousedown", (e: Event) => {
+        // Edit button
+        const editButton = document.createElement("div");
+        editButton.className = "cm-codeblock-badge opacity-0 group-hover:opacity-100 z-10";
+        editButton.textContent = "mermaid";
+
+        const tooltip = document.createElement("div");
+        tooltip.className = "cm-codeblock-tooltip";
+        tooltip.textContent = "Edit Source";
+        editButton.appendChild(tooltip);
+
+        editButton.addEventListener("mousedown", (e: Event) => {
             e.preventDefault();
             e.stopPropagation();
             view.dispatch({
@@ -58,17 +67,35 @@ class MermaidWidget extends WidgetType {
             view.focus();
         });
 
-        const container = document.createElement("div");
+        // Fallback double click to edit
+        wrapper.addEventListener("dblclick", (e: Event) => {
+            e.preventDefault();
+            e.stopPropagation();
+            view.dispatch({
+                selection: { anchor: this.startPos, head: this.endPos },
+            });
+            view.focus();
+        });
+
+        wrapper.appendChild(editButton);
+        wrapper.appendChild(container);
 
         // Render mermaid
         mermaid.render(this.id, this.code).then(({ svg }) => {
             container.innerHTML = svg;
+            const svgElement = container.querySelector("svg");
+            if (svgElement) {
+                // Initialize panzoom
+                panzoom(svgElement, {
+                    maxZoom: 15,
+                    minZoom: 0.1,
+                    bounds: true,
+                    boundsPadding: 0.1,
+                });
+            }
         }).catch((err) => {
             container.innerHTML = `<div style="color: red; border: 1px solid red; padding: 10px; border-radius: 4px; background: rgba(255,0,0,0.1);">Mermaid Error: ${err.message || err}</div>`;
         });
-
-        wrapper.appendChild(container);
-        wrapper.appendChild(clickOverlay);
 
         return wrapper;
     }
