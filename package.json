@@ -25,6 +25,8 @@
     "geist": "^1.5.1",
     "katex": "^0.16.28",
     "lucide-react": "^0.562.0",
+    "mermaid": "^11.13.0",
+    "panzoom": "^9.4.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-markdown": "^10.1.0",
