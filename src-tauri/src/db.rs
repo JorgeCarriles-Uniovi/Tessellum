@@ -129,26 +129,38 @@ impl Database {
     ///
     /// Returns a vector of full paths to files that this file links to.
     pub async fn get_outgoing_links(&self, source_path: &str) -> Result<Vec<String>, sqlx::Error> {
-        let rows =
-            sqlx::query_as::<_, (String,)>("SELECT target_path FROM links WHERE source_path = ?")
-                .bind(source_path)
-                .fetch_all(&self.pool)
-                .await?;
+        let denormalized = source_path.replace('/', "\\");
+        let rows = sqlx::query_as::<_, (String,)>(
+            "SELECT target_path FROM links WHERE source_path = ? OR source_path = ?",
+        )
+            .bind(source_path)
+            .bind(&denormalized)
+            .fetch_all(&self.pool)
+            .await?;
         
-        Ok(rows.into_iter().map(|(path,)| path).collect())
+        Ok(rows
+            .into_iter()
+            .map(|(path,)| crate::utils::normalize_path(&path))
+            .collect())
     }
     
     /// Get all backlinks to a specific file.
     ///
     /// Returns a vector of full paths to files that link to this file.
     pub async fn get_backlinks(&self, target_path: &str) -> Result<Vec<String>, sqlx::Error> {
-        let rows =
-            sqlx::query_as::<_, (String,)>("SELECT source_path FROM links WHERE target_path = ?")
-                .bind(target_path)
-                .fetch_all(&self.pool)
-                .await?;
+        let denormalized = target_path.replace('/', "\\");
+        let rows = sqlx::query_as::<_, (String,)>(
+            "SELECT source_path FROM links WHERE target_path = ? OR target_path = ?",
+        )
+            .bind(target_path)
+            .bind(&denormalized)
+            .fetch_all(&self.pool)
+            .await?;
         
-        Ok(rows.into_iter().map(|(path,)| path).collect())
+        Ok(rows
+            .into_iter()
+            .map(|(path,)| crate::utils::normalize_path(&path))
+            .collect())
     }
     
     /// Get all links in the vault (for graph visualization).
@@ -287,7 +299,8 @@ impl Database {
         let rows = sqlx::query_as::<_, (String,)>(
             "SELECT path FROM notes
              WHERE path NOT IN (SELECT DISTINCT source_path FROM links)
-             AND path NOT IN (SELECT DISTINCT target_path FROM links)",
+             AND path NOT IN (SELECT DISTINCT target_path FROM links)
+             AND replace(path, '/', '\\') NOT IN (SELECT DISTINCT target_path FROM links)",
         )
             .fetch_all(&self.pool)
             .await?;
@@ -398,6 +411,55 @@ impl Database {
         let mut sorted_tags: Vec<String> = all_tags.into_iter().collect();
         sorted_tags.sort();
         Ok(sorted_tags)
+    }
+    
+    /// Get all tags for each indexed file
+    pub async fn get_files_tags(
+        &self,
+    ) -> Result<std::collections::HashMap<String, Vec<String>>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, (String, Option<String>, Option<String>)>(
+            "SELECT path, frontmatter, inline_tags FROM notes",
+        )
+            .fetch_all(&self.pool)
+            .await?;
+        
+        let mut result = std::collections::HashMap::new();
+        
+        for (path, frontmatter_opt, inline_tags_opt) in rows {
+            let mut file_tags = Vec::new();
+            
+            if let Some(frontmatter_json) = frontmatter_opt {
+                if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&frontmatter_json) {
+                    if let Some(tags) = parsed.get("tags") {
+                        if let Some(tags_array) = tags.as_array() {
+                            for tag in tags_array {
+                                if let Some(tag_str) = tag.as_str() {
+                                    file_tags.push(tag_str.to_string());
+                                }
+                            }
+                        } else if let Some(tag_str) = tags.as_str() {
+                            for t in tag_str.split(',') {
+                                file_tags.push(t.trim().to_string());
+                            }
+                        }
+                    }
+                }
+            }
+            
+            if let Some(inline_tags_json) = inline_tags_opt {
+                if let Ok(parsed) = serde_json::from_str::<Vec<String>>(&inline_tags_json) {
+                    for tag in parsed {
+                        if !file_tags.contains(&tag) {
+                            file_tags.push(tag);
+                        }
+                    }
+                }
+            }
+            
+            result.insert(path, file_tags);
+        }
+        
+        Ok(result)
     }
     
     /// Get all unique property keys from frontmatter metadata across all notes.

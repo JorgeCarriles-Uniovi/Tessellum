@@ -196,15 +196,15 @@ impl VaultIndexer {
             serde_json::to_string(&inline_tags).ok()
         };
         
-        // Extract and resolve wikilinks (non-existent targets get a fallback path)
         let wikilinks = extract_wikilinks(body_content);
         let resolved_links: Vec<String> = wikilinks
             .iter()
             .map(|link| {
-                file_index
-                    .resolve_or_default(vault_path, &link.target)
-                    .to_string_lossy()
-                    .to_string()
+                crate::utils::normalize_path(
+                    &file_index
+                        .resolve_or_default(vault_path, &link.target)
+                        .to_string_lossy(),
+                )
             })
             .collect();
         

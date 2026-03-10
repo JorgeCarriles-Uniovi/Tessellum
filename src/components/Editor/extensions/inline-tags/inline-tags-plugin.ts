@@ -1,7 +1,6 @@
 import { ViewPlugin, Decoration, DecorationSet, EditorView, ViewUpdate } from "@codemirror/view";
 import { RangeSetBuilder } from "@codemirror/state";
-
-const tagDecoration = Decoration.mark({ class: "cm-hashtag" });
+import { stringToColor } from "../../../../utils/graphUtils";
 
 export const inlineTagsPlugin = () => {
     return ViewPlugin.fromClass(class {
@@ -30,7 +29,17 @@ export const inlineTagsPlugin = () => {
                     const offset = match[0].indexOf(match[1]);
                     const matchStart = from + match.index + offset;
                     const matchEnd = matchStart + match[1].length;
-                    builder.add(matchStart, matchEnd, tagDecoration);
+
+                    const tagName = match[1].substring(1); // remove '#'
+                    const { h } = stringToColor(tagName);
+                    const deco = Decoration.mark({
+                        class: "cm-hashtag",
+                        attributes: {
+                            style: `background-color: hsla(${h}, 70%, 60%, 0.15) !important; color: hsl(${h}, 70%, 50%) !important; border: 1px solid hsla(${h}, 70%, 60%, 0.3) !important;`
+                        }
+                    });
+
+                    builder.add(matchStart, matchEnd, deco);
                 }
             }
 

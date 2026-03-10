@@ -17,6 +17,7 @@ interface BackendGraphNode {
     label: string;
     exists: boolean;
     orphan: boolean;
+    tags: string[];
 }
 
 interface BackendGraphEdge {
@@ -30,16 +31,42 @@ export interface GraphData {
     edges: BackendGraphEdge[];
 }
 
+export function stringToColor(str: string): { base: string; dark: string; h: number } {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const h = Math.abs(hash) % 360;
+    // Base color: fairly saturated and bright
+    const base = `hsl(${h}, 70%, 60%)`;
+    // Faded out color for orphans
+    const dark = `hsla(${h}, 70%, 60%, 0.3)`;
+    return { base, dark, h };
+}
+
 export function mapGraphDataToElements(data: GraphData): cytoscape.ElementDefinition[] {
     const elements: cytoscape.ElementDefinition[] = [];
 
     // Add nodes
     for (const node of data.nodes) {
+        let baseColor = undefined;
+        let darkColor = undefined;
+
+        if (node.tags && node.tags.length > 0) {
+            const firstTag = node.tags[0];
+            const colors = stringToColor(firstTag);
+            baseColor = colors.base;
+            darkColor = colors.dark;
+        }
+
         elements.push({
             data: {
                 id: node.id,
                 label: node.label,
                 exists: node.exists,
+                baseColor: baseColor,
+                darkColor: darkColor,
+                tags: node.tags,
             },
             classes: node.orphan ? 'orphan' : ''
         });
@@ -79,7 +106,7 @@ export function getCytoscapeStylesheet(): any[] {
         {
             selector: 'node',
             style: {
-                'background-color': graphBg,
+                'background-color': (ele: any) => ele.data('baseColor') || graphBg,
                 'label': 'data(label)',
                 'font-size': '10px',
                 'color': graphLabel,
@@ -89,7 +116,7 @@ export function getCytoscapeStylesheet(): any[] {
                 'width': 20,
                 'height': 20,
                 'border-width': 2,
-                'border-color': graphBg,
+                'border-color': (ele: any) => ele.data('baseColor') || graphBg,
                 'text-max-width': '80px',
                 'text-wrap': 'ellipsis',
             },
@@ -97,8 +124,8 @@ export function getCytoscapeStylesheet(): any[] {
         {
             selector: 'node[?exists]',
             style: {
-                'background-color': graphBg,
-                'border-color': graphBg,
+                'background-color': (ele: any) => ele.data('baseColor') || graphBg,
+                'border-color': (ele: any) => ele.data('baseColor') || graphBg,
             },
         },
         {
@@ -112,15 +139,29 @@ export function getCytoscapeStylesheet(): any[] {
         {
             selector: 'node.orphan',
             style: {
-                'background-color': graphOrphan,
-                'border-color': graphOrphan,
+                'background-color': (ele: any) => ele.data('baseColor') || graphOrphan,
+                'border-color': (ele: any) => ele.data('baseColor') || graphOrphan,
+                'background-opacity': 0.3,
+                'border-opacity': 0.3,
             },
         },
         {
             selector: 'node:selected, node.highlighted',
             style: {
-                'background-color': graphNodeActive,
-                'border-color': graphNodeActive,
+                'background-color': (ele: any) => ele.data('baseColor') || graphNodeActive,
+                'border-color': (ele: any) => ele.data('baseColor') || graphNodeActive,
+                'border-width': 3,
+                'width': 26,
+                'height': 26,
+            },
+        },
+        {
+            selector: 'node.orphan:selected, node.orphan.highlighted',
+            style: {
+                'background-color': (ele: any) => ele.data('baseColor') || graphOrphan,
+                'border-color': (ele: any) => ele.data('baseColor') || graphOrphan,
+                'background-opacity': 0.3,
+                'border-opacity': 0.3,
                 'border-width': 3,
                 'width': 26,
                 'height': 26,
@@ -163,7 +204,9 @@ export function getCytoscapeStylesheet(): any[] {
  */
 export function markOrphanNodes(cy: cytoscape.Core): void {
     cy.nodes().forEach((node: cytoscape.NodeSingular) => {
-        if (node.degree(false) === 0) {
+        // Only mark as orphan if it has literally no connected edges
+        // (incoming or outgoing)
+        if (node.connectedEdges().length === 0) {
             node.addClass('orphan');
         } else {
             node.removeClass('orphan');

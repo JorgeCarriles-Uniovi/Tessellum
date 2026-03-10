@@ -225,10 +225,11 @@ pub async fn write_file(
     let resolved_links: Vec<String> = wikilinks
         .iter()
         .map(|link| {
-            file_index
-                .resolve_or_default(&vault_path, &link.target)
-                .to_string_lossy()
-                .to_string()
+            crate::utils::normalize_path(
+                &file_index
+                    .resolve_or_default(&vault_path, &link.target)
+                    .to_string_lossy(),
+            )
         })
         .collect();
     

@@ -980,7 +980,10 @@ body {
 
     /* --- Inline Tags --- */
     .cm-hashtag {
-        @apply text-accent-foreground opacity-90 bg-accent/40 rounded-[4px] px-1 py-[1px] font-medium mx-[1px];
+        @apply inline-flex items-center rounded-full text-[13px] font-medium mx-[1px];
+        background-color: #a371f71a;
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
         color: #a371f7;
     }
 }
