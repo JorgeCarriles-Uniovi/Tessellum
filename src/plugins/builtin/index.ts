@@ -23,6 +23,11 @@ import { MermaidPlugin } from "./MermaidPlugin";
  *  5. table — table rendering with cell navigation
  *  6. wikilink — link resolution and navigation
  *  7. core-commands — headings, lists, code blocks (no CM extensions, just commands)
+ *  8. code — code block rendering with syntax highlighting
+ *  9. mermaid — renders mermaid diagrams in markdown code blocks
+ *
+ * Note: The markdown-preview plugin is intentionally registered first to ensure
+ * it can hide syntax markers for all subsequent plugins that add markdown syntax.
  */
 export function registerBuiltinPlugins(app: TessellumApp): void {
     app.plugins.register(MarkdownPreviewPlugin.manifest, MarkdownPreviewPlugin);

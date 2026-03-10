@@ -13,6 +13,7 @@ let mermaidIdCounter = 0;
 
 class MermaidWidget extends WidgetType {
     private id: string;
+    private panzoomInstance?: any;
 
     constructor(
         readonly code: string,
@@ -32,21 +33,14 @@ class MermaidWidget extends WidgetType {
         wrapper.className = "cm-mermaid-block group relative flex justify-center my-4 border border-transparent hover:border-gray-200 dark:hover:border-gray-700 rounded-md overflow-visible bg-gray-50 dark:bg-gray-800/50";
         wrapper.style.minHeight = "150px";
 
-        // Determine theme based on html class (Tailwind dark mode typically uses .dark)
-        const isDark = document.documentElement.classList.contains("dark");
-        mermaid.initialize({
-            startOnLoad: false,
-            theme: isDark ? "dark" : "default",
-        });
-
         const container = document.createElement("div");
         container.style.width = "100%";
         container.style.height = "100%";
         container.style.display = "flex";
         container.style.justifyContent = "center";
         container.style.alignItems = "center";
-        container.style.overflow = "hidden"; // To restrict panzoom to container bounds
-        container.style.borderRadius = "inherit"; // Respect wrapper's rounded corners
+        container.style.overflow = "hidden";
+        container.style.borderRadius = "inherit";
 
         // Edit button
         const editButton = document.createElement("div");
@@ -86,7 +80,7 @@ class MermaidWidget extends WidgetType {
             const svgElement = container.querySelector("svg");
             if (svgElement) {
                 // Initialize panzoom
-                panzoom(svgElement, {
+                this.panzoomInstance = panzoom(svgElement, {
                     maxZoom: 15,
                     minZoom: 0.1,
                     bounds: true,
@@ -94,10 +88,31 @@ class MermaidWidget extends WidgetType {
                 });
             }
         }).catch((err) => {
-            container.innerHTML = `<div style="color: red; border: 1px solid red; padding: 10px; border-radius: 4px; background: rgba(255,0,0,0.1);">Mermaid Error: ${err.message || err}</div>`;
+            container.innerHTML = "";
+            const errorDiv = document.createElement("div");
+            errorDiv.style.color = "red";
+            errorDiv.style.border = "1px solid red";
+            errorDiv.style.padding = "10px";
+            errorDiv.style.borderRadius = "4px";
+            errorDiv.style.background = "rgba(255,0,0,0.1)";
+            errorDiv.textContent = `Mermaid Error: ${err.message || err}`;
+            container.appendChild(errorDiv);
         });
 
         return wrapper;
+    }
+
+    destroy(_dom: HTMLElement) {
+        if (this.panzoomInstance) {
+            this.panzoomInstance.dispose();
+            this.panzoomInstance = undefined;
+        }
+
+        // Mermaid injects a style block with id `<mermaidId>`
+        const styleElement = document.getElementById(this.id);
+        if (styleElement && styleElement.tagName.toLowerCase() === 'style') {
+            styleElement.remove();
+        }
     }
 
     ignoreEvent(): boolean {
@@ -152,6 +167,32 @@ const mermaidStateField = StateField.define<DecorationSet>({
     provide: (field) => EditorView.decorations.from(field),
 });
 
+let mermaidInitialized = false;
+
 export function createMermaidPlugin(): Extension {
+    if (!mermaidInitialized && typeof document !== "undefined") {
+        mermaidInitialized = true;
+
+        const updateMermaidTheme = () => {
+            const isDark = document.documentElement.classList.contains("dark");
+            mermaid.initialize({
+                startOnLoad: false,
+                theme: isDark ? "dark" : "default",
+            });
+        };
+
+        updateMermaidTheme();
+
+        const observer = new MutationObserver((mutations) => {
+            for (const mutation of mutations) {
+                if (mutation.attributeName === "class") {
+                    updateMermaidTheme();
+                }
+            }
+        });
+
+        observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    }
+
     return [mermaidStateField];
 }
