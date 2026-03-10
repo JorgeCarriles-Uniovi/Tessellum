@@ -7,6 +7,7 @@ import { TablePlugin } from "./TablePlugin";
 import { WikiLinkPlugin } from "./WikiLinkPlugin";
 import { CoreCommandsPlugin } from "./CoreCommandsPlugin";
 import { CodePlugin } from "./CodePlugin.ts";
+import { MermaidPlugin } from "./MermaidPlugin";
 
 /**
  * Registers all built-in plugins with the PluginRegistry.
@@ -32,4 +33,5 @@ export function registerBuiltinPlugins(app: TessellumApp): void {
     app.plugins.register(WikiLinkPlugin.manifest, WikiLinkPlugin);
     app.plugins.register(CoreCommandsPlugin.manifest, CoreCommandsPlugin);
     app.plugins.register(CodePlugin.manifest, CodePlugin);
+    app.plugins.register(MermaidPlugin.manifest, MermaidPlugin);
 }
