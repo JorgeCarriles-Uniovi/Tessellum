@@ -8,6 +8,53 @@ use crate::error::TessellumError;
 use crate::models::FileMetadata;
 use crate::utils::{is_hidden_or_special, sanitize_string, validate_path_in_vault};
 
+/// Rewrite `[[OldStem]]` and `[[OldStem|alias]]` to `[[NewStem]]` / `[[NewStem|alias]]`
+/// in all files whose paths are listed in `backlinks`.
+/// Escaped links (`\[[OldStem]]`) are left unchanged.
+async fn rewrite_backlinks(
+    backlinks: &[String],
+    old_stem: &str,
+    new_stem: &str,
+) -> Result<(), TessellumError> {
+    if backlinks.is_empty() {
+        return Ok(());
+    }
+    
+    // Build a regex that matches [[OldStem]] and [[OldStem|alias]],
+    // with an optional leading backslash to detect escaped links.
+    let escaped = regex::escape(old_stem);
+    let pattern = format!(r"(\\?)\[\[{escaped}(\|[^\]]+)?\]\]");
+    let re = regex::Regex::new(&pattern)
+        .map_err(|e| TessellumError::Internal(format!("Link-rewrite regex error: {e}")))?;
+    
+    for source_path in backlinks {
+        let content = match tokio::fs::read_to_string(source_path).await {
+            Ok(c) => c,
+            Err(e) => {
+                log::warn!("rewrite_backlinks: could not read '{source_path}': {e}");
+                continue;
+            }
+        };
+        
+        let new_content = re.replace_all(&content, |caps: &regex::Captures<'_>| {
+            // If preceded by a backslash, the link is escaped — leave it verbatim.
+            if caps.get(1).map_or(false, |m| m.as_str() == "\\") {
+                return caps[0].to_string();
+            }
+            let alias = caps.get(2).map_or("", |m| m.as_str());
+            format!("[[{new_stem}{alias}]]")
+        });
+        
+        if new_content != content {
+            if let Err(e) = tokio::fs::write(source_path, new_content.as_bytes()).await {
+                log::warn!("rewrite_backlinks: could not write '{source_path}': {e}");
+            }
+        }
+    }
+    
+    Ok(())
+}
+
 /// Lists all files and directories within the specified vault path and retrieves their metadata.
 ///
 /// # Arguments
@@ -56,7 +103,7 @@ pub fn list_files(vault_path: String) -> Result<Vec<FileMetadata>, TessellumErro
             
             // Push the file metadata to the list
             files.push(FileMetadata {
-                path: path_str,
+                path: crate::utils::normalize_path(&path_str),
                 filename: path
                     .file_name()
                     .unwrap_or_default()
@@ -107,6 +154,9 @@ pub async fn rename_file(
         ));
     }
     
+    // Check before the rename while the path still exists on disk
+    let is_file = old.is_file();
+    
     let final_filename = if old.is_dir() {
         clean_name
     } else if clean_name.ends_with(".md") {
@@ -139,12 +189,35 @@ pub async fn rename_file(
         ));
     }
     
+    // Capture stems before the rename (path no longer exists on disk after)
+    let old_stem = old.file_stem().and_then(|s| s.to_str()).map(str::to_string);
+    let new_stem = new_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .map(str::to_string);
+    
+    // Rename on the filesystem
     tokio::fs::rename(old, &new_path)
         .await
         .map_err(TessellumError::from)?;
     
-    // Update the DB index so backlinks and graph stay correct
     let db_guard = state.db.lock().await;
+    
+    // Rewrite [[OldStem]] -> [[NewStem]] in all files that link to this note
+    if is_file {
+        if let (Some(os), Some(ns)) = (&old_stem, &new_stem) {
+            if os != ns {
+                let backlinks = db_guard
+                    .get_backlinks(&old_path)
+                    .await
+                    .map_err(TessellumError::from)?;
+                
+                rewrite_backlinks(&backlinks, os, ns).await?;
+            }
+        }
+    }
+    
+    // Update the DB index so backlinks and graph stay correct
     db_guard
         .update_file_path(&old_path, &new_path.to_string_lossy())
         .await

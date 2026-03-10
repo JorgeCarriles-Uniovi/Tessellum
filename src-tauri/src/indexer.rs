@@ -136,7 +136,7 @@ impl VaultIndexer {
                         .unwrap_or_default()
                         .as_secs() as i64;
                     
-                    files.insert(path_str, modified_time);
+                    files.insert(crate::utils::normalize_path(&path_str), modified_time);
                 }
             }
         }
@@ -179,8 +179,9 @@ impl VaultIndexer {
             })
             .collect();
         
+        let normalized_path = crate::utils::normalize_path(file_path);
         // Index the file
-        db.index_file(file_path, modified, size, &resolved_links)
+        db.index_file(&normalized_path, modified, size, &resolved_links)
             .await
             .map_err(|e| format!("Failed to index file: {}", e))?;
         

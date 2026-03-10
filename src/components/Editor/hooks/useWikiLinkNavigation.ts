@@ -1,12 +1,14 @@
 import { useEditorStore } from "../../../stores/editorStore.ts";
 import { useCallback } from "react";
+import { dirname } from "@tauri-apps/api/path";
 import { invoke } from "@tauri-apps/api/core";
 import { FileMetadata } from "../../../types.ts";
 import { toast } from "sonner";
-import {wikiLinkIndexHandle} from "../extensions/wikilink/wikiLink-plugin.ts";
+import { clearWikiLinkCacheEffect } from "../extensions/wikilink/wikiLink-plugin";
+import { TessellumApp } from "../../../plugins/TessellumApp";
 
 export function useWikiLinkNavigation() {
-    const { activeNote, vaultPath, files, setActiveNote, setFiles } = useEditorStore();
+    const { activeNote, files, setActiveNote, addFile } = useEditorStore();
 
     return useCallback(async (linkTarget: string) => {
         if (!activeNote) return;
@@ -15,38 +17,38 @@ export function useWikiLinkNavigation() {
             const rawTarget = linkTarget.trim();
             if (!rawTarget) return;
 
+            // Normalize path separators if it's an absolute path or has them
+            const normalizedLinkTarget = rawTarget.replace(/\\/g, '/');
+
             // 1. Check if it's an absolute path and exists in store
-            // This happens when the wikilink plugin resolves the link to a full path
-            const fileByPath = files.find(f => f.path === rawTarget);
+            const fileByPath = files.find(f => f.path === normalizedLinkTarget);
             if (fileByPath) {
                 setActiveNote(fileByPath);
                 return;
             }
 
             // 2. Sanitize Input for filename matching / creation
-            // This throws an error if malicious, or returns a clean string if messy
             let targetName: string;
             try {
-                targetName = sanitizeFilename(rawTarget);
+                targetName = sanitizeFilename(normalizedLinkTarget);
             } catch (e) {
-                // If sanitization fails (e.g. because it's a path with slashes that wasn't found above),
-                // we might want to try to extract just the filename
-                if (rawTarget.includes('/') || rawTarget.includes('\\')) {
-                    const parts = rawTarget.replace(/\\/g, '/').split('/');
+                if (normalizedLinkTarget.includes('/')) {
+                    const parts = normalizedLinkTarget.split('/');
                     targetName = sanitizeFilename(parts[parts.length - 1]);
                 } else {
                     throw e;
                 }
             }
 
-            // If the name became empty after sanitization (e.g. "[[???]]"), stop.
             if (!targetName) {
                 return;
             }
 
-            const targetFilename = `${targetName}.md`;
+            // Remove existing .md if present to avoid doubling
+            const cleanStem = targetName.replace(/\.md$/i, '');
+            const targetFilename = `${cleanStem}.md`;
 
-            // 3. Check if exists by filename (Using the CLEAN name)
+            // 3. Check if exists by filename
             const existingFile = files.find(f =>
                 f.filename.toLowerCase() === targetFilename.toLowerCase()
             );
@@ -57,29 +59,39 @@ export function useWikiLinkNavigation() {
             }
 
             // 4. Create New Note
+            const vaultPath = await dirname(activeNote.path);
 
             const newPath = await invoke<string>('create_note', {
                 vaultPath,
-                title: targetName // Pass the sanitized name
+                title: cleanStem
             });
+
+            const filename = newPath.split(/[\\/]/).pop() || targetFilename;
 
             const newNote: FileMetadata = {
                 path: newPath,
-                filename: targetFilename,
+                filename,
                 is_dir: false,
                 size: 0,
                 last_modified: Math.floor(Date.now() / 1000)
             };
 
-            setFiles([...files, newNote]);
+            addFile(newNote);
             setActiveNote(newNote);
-            wikiLinkIndexHandle.refresh();
+
+            // 5. Clear wikilink cache in the editor so it re-resolves immediately
+            const view = TessellumApp.instance.editor.getActiveView();
+            if (view) {
+                view.dispatch({
+                    effects: clearWikiLinkCacheEffect.of(undefined)
+                });
+            }
 
         } catch (e: unknown) {
             const message = e instanceof Error ? e.message : "Failed to open link";
             toast.error(message);
         }
-    }, [activeNote, files, setActiveNote, setFiles]);
+    }, [activeNote, files, setActiveNote, addFile]);
 }
 
 function sanitizeFilename(name: string): string {

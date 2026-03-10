@@ -32,13 +32,18 @@ pub async fn create_note(
     }
     
     // Create a file path
-    let mut filename = format!("{}.md", clean_title);
+    let mut filename = if clean_title.to_lowercase().ends_with(".md") {
+        clean_title.clone()
+    } else {
+        format!("{}.md", clean_title)
+    };
     let mut file_path = Path::new(&vault_path).join(&filename);
     let mut collision_index = 1;
     
     // Check for collisions in the filenames
     while file_path.exists() {
-        filename = format!("{} ({}).md", clean_title, collision_index);
+        let stem = clean_title.strip_suffix(".md").unwrap_or(&clean_title);
+        filename = format!("{} ({}).md", stem, collision_index);
         file_path = Path::new(&vault_path).join(&filename);
         collision_index += 1;
     }
@@ -48,12 +53,12 @@ pub async fn create_note(
         .await
         .map_err(TessellumError::from)?;
     
-    let path_str = file_path.to_string_lossy().to_string();
+    let path_str = crate::utils::normalize_path(&file_path.to_string_lossy());
     
     // Update the index immediately if DB is ready
     let db_guard = state.db.lock().await;
     db_guard
-        .index_file(&file_path.to_string_lossy(), 0, 0, &[])
+        .index_file(&path_str, 0, 0, &[])
         .await
         .unwrap_or_else(|e| log::warn!("Failed to index new file: {}", e));
     
