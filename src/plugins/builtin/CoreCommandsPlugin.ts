@@ -10,8 +10,6 @@ import type { PluginManifest, Command } from "../types";
 
 /**
  * Core Commands Plugin — registers all basic markdown slash commands.
- *
- * Replaces the hardcoded COMMANDS array in constants/commands.tsx.
  */
 export class CoreCommandsPlugin extends Plugin {
     static manifest: PluginManifest = {

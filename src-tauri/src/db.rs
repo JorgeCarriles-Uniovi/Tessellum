@@ -1,5 +1,5 @@
-use sqlx::sqlite::{Sqlite, SqliteConnectOptions, SqlitePoolOptions};
 use sqlx::Pool;
+use sqlx::sqlite::{Sqlite, SqliteConnectOptions, SqlitePoolOptions};
 
 pub struct Database {
     pool: Pool<Sqlite>,

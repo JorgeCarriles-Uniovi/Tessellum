@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { pathToLabel } from '../../utils/graphUtils';
 import { useEditorStore } from '../../stores/editorStore';
 
 interface NodeInfoPanelProps {
@@ -33,6 +32,13 @@ export function NodeInfoPanel({ nodePath, onClose }: NodeInfoPanelProps) {
     const relativePath = vaultPath
         ? nodePath.replace(/\\/g, '/').replace(vaultPath.replace(/\\/g, '/'), '').replace(/^\//, '')
         : nodePath;
+
+    const getLabel = (p: string) => {
+        const parts = p.replace(/\\/g, '/').split('/');
+        let name = parts[parts.length - 1];
+        if (name.endsWith('.md')) name = name.slice(0, -3);
+        return name;
+    }
 
     return (
         <div
@@ -73,7 +79,7 @@ export function NodeInfoPanel({ nodePath, onClose }: NodeInfoPanelProps) {
                         whiteSpace: 'nowrap',
                     }}
                 >
-                    {pathToLabel(nodePath, vaultPath || '')}
+                    {getLabel(nodePath)}
                 </span>
                 <button
                     onClick={onClose}
@@ -122,7 +128,7 @@ export function NodeInfoPanel({ nodePath, onClose }: NodeInfoPanelProps) {
                             ) : (
                                 outgoing.map((path) => (
                                     <div key={path} style={linkItemStyle}>
-                                        {pathToLabel(path, vaultPath || '')}
+                                        {getLabel(path)}
                                     </div>
                                 ))
                             )}
@@ -138,7 +144,7 @@ export function NodeInfoPanel({ nodePath, onClose }: NodeInfoPanelProps) {
                             ) : (
                                 incoming.map((path) => (
                                     <div key={path} style={linkItemStyle}>
-                                        {pathToLabel(path, vaultPath || '')}
+                                        {getLabel(path)}
                                     </div>
                                 ))
                             )}

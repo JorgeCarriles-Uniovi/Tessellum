@@ -463,6 +463,467 @@ body {
         background-size: 2ch 100%;
         background-repeat: repeat-x;
     }
+
+    /* --- Editor Markdown Syntax --- */
+    .cm-heading1 {
+        @apply !text-[2.0em] !font-extrabold !text-[#111827] !tracking-tight !leading-tight;
+    }
+
+    .cm-heading2 {
+        @apply !text-[1.75em] !font-bold !text-[#1f2937] !tracking-tight !leading-tight;
+    }
+
+    .cm-heading3 {
+        @apply !text-[1.5em] !font-semibold !text-[#374151] !tracking-tight !leading-tight;
+    }
+
+    .cm-heading4 {
+        @apply !text-[1.25em] !font-semibold !text-[#4b5563] !tracking-tight !leading-snug;
+    }
+
+    .cm-heading5 {
+        @apply !text-[1.125em] !font-semibold !text-[#6b7280] !tracking-tight !leading-snug;
+    }
+
+    .cm-heading6 {
+        @apply !text-[1em] !font-semibold !text-[#6b7280] !tracking-tight !leading-snug;
+    }
+
+    .cm-emphasis {
+        @apply !italic;
+    }
+
+    .cm-strong {
+        @apply !font-bold;
+    }
+
+    .cm-strikethrough {
+        @apply !line-through !text-muted-foreground/60;
+    }
+
+    .cm-quote-text {
+        @apply !text-[#4b5563] !italic;
+    }
+
+    .cm-proc-inst {
+        @apply !text-[#adadb1];
+    }
+
+    /* --- General Syntax Palette (Global Component Layer) --- */
+    .cm-comment {
+        @apply !text-[#a0a1a7] !italic;
+    }
+
+    .cm-keyword {
+        @apply !text-[#a626a4] !font-semibold;
+    }
+
+    .cm-operator {
+        @apply !text-[#0184bc];
+    }
+
+    .cm-string {
+        @apply !text-[#50a14f];
+    }
+
+    .cm-number {
+        @apply !text-[#986801];
+    }
+
+    .cm-variable {
+        @apply !text-[#e45649];
+    }
+
+    .cm-variable2 {
+        @apply !text-[#986801];
+    }
+
+    .cm-typeName {
+        @apply !text-[#c18401] !font-semibold;
+    }
+
+    .cm-typePrimitive {
+        @apply !text-[#c18401] !font-semibold;
+    }
+
+    .cm-propertyName {
+        @apply !text-[#4078f2];
+    }
+
+    .cm-functionName {
+        @apply !text-[#4078f2];
+    }
+
+    .cm-className {
+        @apply !text-[#c18401] !font-semibold;
+    }
+
+    .cm-labelName {
+        @apply !text-[#0184bc];
+    }
+
+    .cm-meta {
+        @apply !text-[#4078f2];
+    }
+
+    .cm-bracket {
+        @apply !text-[#383a42];
+    }
+
+    .cm-tagName {
+        @apply !text-[#e45649];
+    }
+
+    .cm-attributeName {
+        @apply !text-[#986801];
+    }
+
+    .cm-attributeValue {
+        @apply !text-[#50a14f];
+    }
+
+    .cm-bool {
+        @apply !text-[#986801] !font-bold;
+    }
+
+    .cm-null {
+        @apply !text-[#986801] !font-bold;
+    }
+
+    .cm-deleted {
+        @apply !text-[#e45649] !bg-[#fee2e2];
+    }
+
+    .cm-inserted {
+        @apply !text-[#10b981] !bg-[#d1fae5];
+    }
+
+    .cm-regex {
+        @apply !text-[#264eff];
+    }
+
+    .cm-macro {
+        @apply !text-[#b33d00] !font-semibold;
+    }
+
+    /* --- Callouts (Obsidian-style) --- */
+    .cm-line.cm-callout-header-line {
+        @apply !flex !border-none !rounded-t-lg !items-center !p-0 !m-0 !relative !z-20 !overflow-visible;
+        line-height: 0;
+        vertical-align: top;
+        background-color: color-mix(in srgb, var(--callout-color, #448aff) 14%, transparent);
+    }
+
+    .cm-callout-header {
+        @apply !flex !flex-row !items-center !gap-2 !px-3.5 !py-2.5 !rounded-t-lg !font-semibold !text-[0.9em] !select-none !grow !min-h-[36px] !overflow-visible;
+        color: var(--callout-color, #448aff);
+        line-height: normal;
+        vertical-align: top;
+        box-sizing: border-box;
+    }
+
+    .cm-callout-icon {
+        @apply flex items-center justify-center shrink-0 w-[18px] h-[18px];
+        color: var(--callout-color, #448aff);
+    }
+
+    .cm-callout-icon svg {
+        @apply block w-[18px] h-[18px];
+    }
+
+    .cm-callout-title {
+        @apply flex-1 overflow-hidden text-ellipsis whitespace-nowrap leading-6 tracking-tight;
+    }
+
+    .cm-callout-toggle {
+        @apply cursor-pointer opacity-50 transition-all duration-150 p-0.5 rounded shrink-0 flex items-center justify-center w-5 h-5 border-none bg-transparent outline-none;
+        color: var(--callout-color, #448aff);
+    }
+
+    .cm-callout-toggle svg {
+        @apply block w-4 h-4 transition-transform duration-200;
+    }
+
+    .cm-callout-toggle:hover {
+        @apply opacity-100;
+        background-color: color-mix(in srgb, var(--callout-color, #448aff) 12%, transparent);
+    }
+
+    .cm-callout-toggle-collapsed svg {
+        @apply -rotate-90;
+    }
+
+    .cm-callout-line {
+        @apply border-none px-8 py-0 overflow-hidden transition-all duration-300 ease-in-out;
+        background-color: color-mix(in srgb, var(--callout-color, #448aff) 14%, transparent) !important;
+        color: inherit;
+        font-size: 16px;
+        line-height: 1.7;
+        min-height: 1.7em;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+
+    .cm-callout-line .cm-quote {
+        @apply border-none !p-0 !m-0;
+    }
+
+    .cm-callout-first-line {
+        @apply !pt-3;
+    }
+
+    .cm-callout-last-line {
+        @apply rounded-b-lg !pb-4;
+    }
+
+    .cm-callout-collapsed-line {
+        @apply !text-[0] !leading-none !min-h-0 !h-0 !p-0 !m-0 !opacity-0 !overflow-hidden !border-none !pointer-events-none !transition-all !duration-300 !ease-in-out;
+        color: transparent !important;
+    }
+
+    .cm-callout-header-line-collapsed,
+    .cm-callout-header-line-collapsed .cm-callout-header,
+    .cm-callout-header-line-solo,
+    .cm-callout-header-line-solo .cm-callout-header {
+        @apply rounded-lg;
+    }
+
+    /* --- Terminal Callout --- */
+    .cm-terminal-header {
+        @apply !bg-[#0d1117] !text-[#e1e4e8] !border-b !border-[#30363d] !flex !justify-start !items-center !relative !px-3.5 !py-2 !overflow-visible;
+    }
+
+    .cm-terminal-dots {
+        @apply flex gap-1.5 z-10;
+    }
+
+    .cm-terminal-dot {
+        @apply w-3 h-3 rounded-full;
+    }
+
+    .cm-terminal-dot-red {
+        @apply bg-[#ff5f56];
+    }
+
+    .cm-terminal-dot-yellow {
+        @apply bg-[#ffbd2e];
+    }
+
+    .cm-terminal-dot-green {
+        @apply bg-[#27c93f];
+    }
+
+    .cm-terminal-header .cm-callout-title {
+        @apply absolute left-1/2 -translate-x-1/2 h-full px-3 text-center font-mono text-[0.9em] font-medium text-[#959da5] flex items-center justify-center gap-1.5 rounded transition-colors duration-200 select-none !overflow-visible;
+    }
+
+    .cm-terminal-header .cm-callout-title:hover {
+        @apply text-[#c9d1d9] bg-white/5;
+    }
+
+    /* Tooltip styling for the copy button */
+    .cm-terminal-tooltip {
+        @apply absolute -top-10 left-1/2 -translate-x-1/2 pointer-events-none bg-foreground text-background text-[11px] whitespace-nowrap rounded-lg font-bold opacity-0 translate-y-1 transition-all duration-300 z-50 shadow-xl;
+        padding: 0.625rem 1rem !important;
+    }
+
+    .cm-terminal-header .cm-callout-title:hover .cm-terminal-tooltip {
+        @apply opacity-100 translate-y-0 text-white;
+        /* text-white prevents the hover color of the parent from bleeding */
+    }
+
+    /* Tooltip Arrow */
+    .cm-terminal-tooltip::after {
+        content: "";
+        @apply absolute top-full left-1/2 -translate-x-1/2 border-[4px] border-transparent border-t-foreground/90;
+    }
+
+    .cm-terminal-header .cm-callout-title .cm-callout-icon {
+        @apply w-3.5 h-3.5 text-[#959da5];
+    }
+
+    .cm-terminal-line {
+        @apply !bg-[#24292e] !text-[#c9d1d9] !font-mono !text-[13.5px] !leading-[1.7] !pl-12 !pr-8 !py-0.5;
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
+    }
+
+    .cm-terminal-first-line {
+        @apply !pt-3;
+    }
+
+    .cm-terminal-last-line {
+        @apply !rounded-b-lg !pb-3;
+    }
+
+    /* Global reset for non-syntax tokens in terminal */
+    .cm-terminal-line :not([class*="cm-"]) {
+        @apply !font-normal !not-italic !no-underline;
+        font-style: normal !important;
+    }
+
+    /* Reset Markdown bleed-through inside terminal blocks */
+    .cm-terminal-line.cm-heading1,
+    .cm-terminal-line .cm-heading1,
+    .cm-terminal-line.cm-heading2,
+    .cm-terminal-line .cm-heading2,
+    .cm-terminal-line.cm-heading3,
+    .cm-terminal-line .cm-heading3,
+    .cm-terminal-line.cm-heading4,
+    .cm-terminal-line .cm-heading4,
+    .cm-terminal-line.cm-heading5,
+    .cm-terminal-line .cm-heading5,
+    .cm-terminal-line.cm-heading6,
+    .cm-terminal-line .cm-heading6,
+    .cm-terminal-editing.cm-heading1,
+    .cm-terminal-editing .cm-heading1,
+    .cm-terminal-editing.cm-heading2,
+    .cm-terminal-editing .cm-heading2,
+    .cm-terminal-editing.cm-heading3,
+    .cm-terminal-editing .cm-heading3,
+    .cm-terminal-editing.cm-heading4,
+    .cm-terminal-editing .cm-heading4,
+    .cm-terminal-editing.cm-heading5,
+    .cm-terminal-editing .cm-heading5,
+    .cm-terminal-editing.cm-heading6,
+    .cm-terminal-editing .cm-heading6 {
+        @apply !text-[13.5px] !font-normal !tracking-normal !leading-[1.7];
+    }
+
+    .cm-terminal-line.cm-heading1,
+    .cm-terminal-line .cm-heading1,
+    .cm-terminal-line.cm-heading2,
+    .cm-terminal-line .cm-heading2,
+    .cm-terminal-line.cm-heading3,
+    .cm-terminal-line .cm-heading3,
+    .cm-terminal-line.cm-heading4,
+    .cm-terminal-line .cm-heading4,
+    .cm-terminal-line.cm-heading5,
+    .cm-terminal-line .cm-heading5,
+    .cm-terminal-line.cm-heading6,
+    .cm-terminal-line .cm-heading6 {
+        @apply !text-[#c9d1d9];
+    }
+
+    .cm-terminal-editing.cm-heading1,
+    .cm-terminal-editing .cm-heading1,
+    .cm-terminal-editing.cm-heading2,
+    .cm-terminal-editing .cm-heading2,
+    .cm-terminal-editing.cm-heading3,
+    .cm-terminal-editing .cm-heading3,
+    .cm-terminal-editing.cm-heading4,
+    .cm-terminal-editing .cm-heading4,
+    .cm-terminal-editing.cm-heading5,
+    .cm-terminal-editing .cm-heading5,
+    .cm-terminal-editing.cm-heading6,
+    .cm-terminal-editing .cm-heading6 {
+        @apply !text-[16px];
+        color: inherit !important;
+    }
+
+    .cm-terminal-line.cm-strong,
+    .cm-terminal-line .cm-strong,
+    .cm-terminal-line.cm-header-mark,
+    .cm-terminal-line .cm-heading-mark {
+        @apply !font-normal !text-[#c9d1d9];
+    }
+
+    .cm-terminal-editing.cm-strong,
+    .cm-terminal-editing .cm-strong,
+    .cm-terminal-editing.cm-header-mark,
+    .cm-terminal-editing .cm-heading-mark {
+        @apply !font-normal;
+        color: inherit !important;
+    }
+
+    .cm-terminal-line .cm-quote-text {
+        @apply !font-normal !text-inherit;
+    }
+
+    .cm-terminal-line .cm-heading-mark {
+        @apply !font-normal !text-[#c9d1d9];
+    }
+
+    .cm-terminal-line.cm-emphasis,
+    .cm-terminal-line .cm-emphasis {
+        @apply !not-italic;
+    }
+
+    /* Tailwind-based Syntax Palette for Terminal */
+    .cm-terminal-line .cm-comment {
+        @apply !text-[#8b949e] !italic;
+    }
+
+    .cm-terminal-line .cm-keyword {
+        @apply !text-[#ff7b72] !font-bold;
+    }
+
+    .cm-terminal-line .cm-string {
+        @apply !text-[#79c0ff];
+    }
+
+    .cm-terminal-line .cm-number {
+        @apply !text-[#d2a8ff];
+    }
+
+    .cm-terminal-line .cm-operator {
+        @apply !text-[#ff7b72];
+    }
+
+    .cm-terminal-line .cm-variable {
+        @apply !text-[#ffa657];
+    }
+
+    .cm-terminal-line .cm-functionName {
+        @apply !text-[#d2a8ff] !font-semibold;
+    }
+
+    .cm-terminal-line .cm-className {
+        @apply !text-[#ffa657] !font-semibold;
+    }
+
+    .cm-terminal-line .cm-typeName {
+        @apply !text-[#ff7b72] !font-semibold;
+    }
+
+    .cm-terminal-line .cm-bool {
+        @apply !text-[#ff7b72] !font-bold;
+    }
+
+    .cm-terminal-line .cm-propertyName {
+        @apply !text-[#79c0ff];
+    }
+
+    .cm-terminal-line .cm-meta {
+        @apply !text-[#abb2bf];
+    }
+
+    .cm-terminal-line .cm-bracket,
+    .cm-terminal-line .cm-punctuation {
+        @apply !text-[#c9d1d9];
+    }
+
+    .cm-terminal-line .cm-typePrimitive {
+        @apply !text-[#ff7b72] !font-semibold;
+    }
+
+    /* --- List Markers --- */
+    .cm-list-marker-widget {
+        @apply !inline-block !text-muted-foreground !font-medium !select-none;
+    }
+
+    .cm-unordered-list-marker {
+        @apply !text-[1.2em] !leading-none !mr-[0.5ch] !align-middle;
+    }
+
+    .cm-ordered-list-marker {
+        @apply !text-[0.9em] !mr-[0.5ch];
+    }
+
+    /* --- Table Utilities --- */
+    .cm-table-hidden-line {
+        @apply !text-[0] !leading-none !min-h-0 !h-0 !p-0 !m-0 !opacity-0 !overflow-hidden !text-transparent !border-none !pointer-events-none;
+    }
 }
 
 /* Scrollbar styling */

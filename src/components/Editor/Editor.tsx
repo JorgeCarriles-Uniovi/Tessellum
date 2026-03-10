@@ -13,13 +13,19 @@ import { lightTheme } from "./themes/lightTheme";
 import { useEditorExtensions } from "./hooks/useEditorExtensions";
 import { CalloutType } from "../../constants/callout-types";
 import { TessellumApp } from "../../plugins/TessellumApp";
+import {EditorView} from "@codemirror/view";
 
 export function Editor() {
     const { activeNote, vaultPath } = useEditorStore();
     const { content, isLoading, handleContentChange } = useFileSynchronization(activeNote);
     const editorRef = useRef<ReactCodeMirrorRef>(null);
     const { noteRenaming } = useEditorActions();
-    const { slashExtension, slashProps } = useSlashCommand();
+
+    // Workaround for callback dependency cycle
+    const handleSlashSelectRef = useRef<(cmd: Command, view?: EditorView) => void>();
+    const { slashExtension, slashProps } = useSlashCommand((cmd, view) => {
+        handleSlashSelectRef.current?.(cmd, view);
+    });
 
     // Plugin-provided extensions (via Compartments from EditorAPI)
     const pluginExtensions = useEditorExtensions();
@@ -51,13 +57,14 @@ export function Editor() {
     }, [editorRef.current?.view]);
 
     // Handle slash command selection — intercept "callout" and "table" to open pickers
-    const handleSlashSelect = useCallback((item: Command) => {
+    const handleSlashSelect = useCallback((item: Command, explicitView?: EditorView) => {
+        const activeView = explicitView || editorRef.current?.view;
+
         // Helper: save current slash position for deferred insertion
         const saveSlashPos = () => {
-            const view = editorRef.current?.view;
-            if (view) {
-                const cursorPos = view.state.selection.main.from;
-                const line = view.state.doc.lineAt(cursorPos);
+            if (activeView) {
+                const cursorPos = activeView.state.selection.main.from;
+                const line = activeView.state.doc.lineAt(cursorPos);
                 const lineOffset = cursorPos - line.from;
                 const slashPos = line.text.lastIndexOf('/', lineOffset);
                 if (slashPos !== -1) {
@@ -91,11 +98,15 @@ export function Editor() {
             setTablePickerOpen(true);
         } else {
             // Normal command execution
-            if (editorRef.current?.view) {
-                slashProps.performCommand(editorRef.current.view, item);
+            if (activeView) {
+                slashProps.performCommand(activeView, item);
             }
         }
     }, [slashProps]);
+
+    useEffect(() => {
+        handleSlashSelectRef.current = handleSlashSelect;
+    }, [handleSlashSelect]);
 
     // Handle callout type selection
     const handleCalloutSelect = useCallback((calloutType: CalloutType) => {

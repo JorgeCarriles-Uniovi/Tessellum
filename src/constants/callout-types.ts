@@ -1,7 +1,7 @@
 import {
     Info, AlertTriangle, ShieldAlert, AlertCircle, BookOpen,
     ClipboardList, CheckCircle2, HelpCircle, XCircle, Skull, Bug,
-    FlaskConical, Quote, Flame, FileText
+    FlaskConical, Quote, Flame, FileText, Terminal
 } from "lucide-react";
 
 // ─── Callout Type Definition ──────────────────────────────────────────────────
@@ -42,6 +42,7 @@ export const CALLOUT_TYPES: CalloutType[] = [
     { id: "example", label: "Example", icon: FlaskConical, color: "#7c4dff", category: "Other" },
     { id: "quote", label: "Quote", icon: Quote, color: "#9e9e9e", category: "Other" },
     { id: "cite", label: "Cite", icon: Quote, color: "#9e9e9e", category: "Other" },
+    { id: "terminal", label: "Terminal", icon: Terminal, color: "#24292e", category: "Other" },
 ];
 
 // ─── Lookup Helpers ───────────────────────────────────────────────────────────

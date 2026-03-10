@@ -1,12 +1,10 @@
-import { useMemo } from 'react';
 import { useEditorStore } from '../../../stores/editorStore.ts';
-import { buildFileTree } from '../../../utils/fileHelpers.ts';
 import { useFolderCreation } from './useFolderCreation.ts';
 import { useFileRename } from './useFileRename.ts';
 import { useFileTreeActions } from './useFileTreeActions.ts';
 
 export function useFileTree() {
-    const { files } = useEditorStore();
+    const { files, fileTree } = useEditorStore();
 
     const folderCreation = useFolderCreation();
     const fileRename = useFileRename();
@@ -15,11 +13,9 @@ export function useFileTree() {
         fileRename.open
     );
 
-    const treeData = useMemo(() => buildFileTree(files), [files]);
-
     return {
         files,
-        treeData,
+        treeData: fileTree,
         // Context menu state from actions
         menuState: actions.menuState,
         handleContextMenu: actions.handleContextMenu,

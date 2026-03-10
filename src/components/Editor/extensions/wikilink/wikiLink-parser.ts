@@ -1,14 +1,14 @@
 import { EditorView } from "@codemirror/view";
-import { invoke } from "@tauri-apps/api/core";
-import { FileMetadata } from "../../../../types.ts";
 
 export interface WikiLinkMatch {
     from: number;
     to: number;
     target: string;      // The link target (before |)
     alias?: string;      // Display text (after |)
+    aliasOffset?: number; // Offset of the alias text from start of full text [[...]]
     fullText: string;    // Complete [[...]] text
 }
+
 
 export interface FileIndex {
     [filename: string]: string; // filename -> full path
@@ -22,7 +22,16 @@ export interface FileIndex {
  * - [[folder/Note]] -> { target: "folder/Note", alias: undefined }
  * - \[[Not a link]] -> ignored (escaped)
  */
-export function parseWikiLink(text: string): { target: string; alias?: string } | null {
+export interface ParsedWikiLink {
+    target: string;
+    alias?: string;
+    aliasOffset?: number; // Offset of the alias text from the start of the full string [[...]]
+}
+
+/**
+ * Parse wikilink syntax and extract target and optional alias
+ */
+export function parseWikiLink(text: string): ParsedWikiLink | null {
     // Remove [[ and ]]
     const inner = text.slice(2, -2);
 
@@ -30,16 +39,23 @@ export function parseWikiLink(text: string): { target: string; alias?: string } 
     const pipeIndex = inner.indexOf('|');
 
     if (pipeIndex !== -1) {
+        const aliasPart = inner.slice(pipeIndex + 1);
+        const trimmedAlias = aliasPart.trim();
+        const aliasOffsetInPart = aliasPart.indexOf(trimmedAlias);
+
         return {
             target: inner.slice(0, pipeIndex).trim(),
-            alias: inner.slice(pipeIndex + 1).trim(),
+            alias: trimmedAlias,
+            // Offset: 2 (for [[) + pipeIndex + 1 (for |) + offset within the alias part
+            aliasOffset: 2 + pipeIndex + 1 + aliasOffsetInPart
         };
     }
 
     return {
-        target: inner.trim(),
+        target: inner.trim()
     };
 }
+
 
 /**
  * Find all wikilinks in the document
@@ -69,56 +85,14 @@ export function findWikiLinks(view: EditorView): WikiLinkMatch[] {
                     to,
                     target: parsed.target,
                     alias: parsed.alias,
+                    aliasOffset: parsed.aliasOffset,
                     fullText: match[0],
                 });
             }
+
         }
     }
 
     return matches;
 }
 
-export class WikiLinkFileIndex {
-    private index: FileIndex = {};
-
-    async build(vaultPath: string) {
-        try {
-            const files = await invoke<Array<FileMetadata>>(
-                'list_files',
-                { vaultPath: vaultPath } // Changed from vaultPath to vault_path
-            );
-
-            this.index = {};
-
-            files
-                .filter((f: { is_dir: boolean; filename: string; }) => !f.is_dir && f.filename.endsWith('.md'))
-                .forEach((f: { filename: string; path: string; }) => {
-                    // Index both with and without .md extension
-                    const withoutExt = f.filename.replace('.md', '');
-                    this.index[withoutExt] = f.path;
-                    this.index[f.filename] = f.path;
-
-                    this.index[f.path] = f.path;
-                    this.index[f.path.replace(/\.md$/, '')] = f.path;
-
-                    // Also index with relative path from vault
-                    const relativePath = f.path.replace(vaultPath, '').replace(/^\//, '');
-                    if (relativePath.includes('/')) {
-                        const relWithoutExt = relativePath.replace('.md', '');
-                        this.index[relWithoutExt] = f.path;
-                    }
-                });
-        } catch (error) {
-            console.error('Failed to build file index:', error);
-        }
-    }
-
-    exists(target: string): boolean {
-        // Check both with and without .md extension
-        return target in this.index || `${target}.md` in this.index;
-    }
-
-    resolve(target: string): string | undefined {
-        return this.index[target] || this.index[`${target}.md`];
-    }
-}

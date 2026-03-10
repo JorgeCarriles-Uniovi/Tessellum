@@ -1,19 +1,13 @@
 import { create } from 'zustand';
 import { FileMetadata } from "../types";
 
-// --- 1. Define Helper Logic (Pure Functions) ---
-const sortFiles = (files: FileMetadata[]) => {
-    return [...files].sort((a, b) => {
-        // Folders first, then alphabetically
-        if (a.is_dir === b.is_dir) return a.filename.localeCompare(b.filename);
-        return a.is_dir ? -1 : 1;
-    });
-};
+// Sort logic moved to backend list_files_tree command
 
 interface EditorState {
     // State
     vaultPath: string | null;
-    files: FileMetadata[];
+    files: FileMetadata[]; // Flat list used for fast lookups
+    fileTree: import('../types').TreeNode[]; // Hierarchical tree from backend
     activeNote: FileMetadata | null;
     activeNoteContent: string;
     isDirty: boolean;
@@ -28,6 +22,7 @@ interface EditorState {
     // Actions
     setVaultPath: (path: string | null) => void;
     setFiles: (files: FileMetadata[]) => void;
+    setFileTree: (tree: import('../types').TreeNode[]) => void;
     setActiveNote: (file: FileMetadata | null) => void;
     setActiveNoteContent: (content: string) => void;
     setIsDirty: (isDirty: boolean) => void;
@@ -48,6 +43,7 @@ export const useEditorStore = create<EditorState>((set) => ({
     // --- Initial State ---
     vaultPath: localStorage.getItem('vaultPath'),
     files: [],
+    fileTree: [],
     activeNote: null,
     activeNoteContent: '',
     isDirty: false,
@@ -68,7 +64,8 @@ export const useEditorStore = create<EditorState>((set) => ({
         }
         set({ vaultPath: path });
     },
-    setFiles: (files) => set({ files: sortFiles(files) }),
+    setFiles: (files) => set({ files }),
+    setFileTree: (fileTree) => set({ fileTree }),
     setActiveNote: (activeNote) => set({ activeNote }),
     setActiveNoteContent: (activeNoteContent) => set({ activeNoteContent }),
     setIsDirty: (isDirty) => set({ isDirty }),
@@ -94,7 +91,8 @@ export const useEditorStore = create<EditorState>((set) => ({
     }),
 
     addFile: (newFile) => set((state) => ({
-        files: sortFiles([...state.files, newFile])
+        files: [...state.files, newFile]
+        // Note: The tree refresh happens via backend file-changed event
     })),
 
     renameFile: (oldPath, newPath, newFilename) => set((state) => {
@@ -110,7 +108,7 @@ export const useEditorStore = create<EditorState>((set) => ({
             : state.activeNote;
 
         return {
-            files: sortFiles(updatedFiles),
+            files: updatedFiles,
             activeNote: updatedActiveNote
         };
     }),

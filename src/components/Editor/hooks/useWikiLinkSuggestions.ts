@@ -9,7 +9,6 @@ import {
 import { EditorView, keymap } from '@codemirror/view';
 import { Prec } from "@codemirror/state";
 import { invoke } from "@tauri-apps/api/core";
-import { FileMetadata } from '../../../types.ts';
 import { WikiLinkSuggestion } from '../WikiLinkSuggestionsMenu.tsx';
 
 // ============================================================================
@@ -138,49 +137,42 @@ function useMenuState() {
 }
 
 // ============================================================================
-// FILE CACHE HOOK
+// FILE CACHE HOOK (Replaced with backend search)
 // ============================================================================
 
-function useFileCache(vaultPath: string) {
-    const [files, setFiles] = useState<WikiLinkSuggestion[]>([]);
-    const cacheRef = useRef<WikiLinkSuggestion[]>([]);
+function useNoteSearch(vaultPath: string, query: string, isOpen: boolean) {
+    const [suggestions, setSuggestions] = useState<WikiLinkSuggestion[]>([]);
 
     useEffect(() => {
-        if (!vaultPath) return;
+        if (!vaultPath || !isOpen) return;
 
-        const loadFiles = async () => {
+        const performSearch = async () => {
             try {
-                const result = await invoke<FileMetadata[]>('list_files', { vaultPath });
-                const suggestions = result
-                    .filter(f => !f.is_dir && f.filename.endsWith('.md'))
-                    .map(f => {
-                        // Calculate relative path from vault
-                        let relativePath = f.path.replace(vaultPath, '');
-                        // Normalize slashes and remove leading slash
-                        relativePath = relativePath.replace(/\\/g, '/').replace(/^\//, '');
+                interface NoteSuggestion {
+                    name: string;
+                    relative_path: string;
+                    full_path: string;
+                }
+                const result = await invoke<NoteSuggestion[]>('search_notes', { vaultPath, query });
 
-                        return {
-                            name: f.filename.replace('.md', ''),
-                            relativePath: relativePath,
-                            fullPath: f.path
-                        };
-                    });
+                const formattedSuggestions = result.map(f => ({
+                    name: f.name,
+                    relativePath: f.relative_path,
+                    fullPath: f.full_path
+                }));
 
-                setFiles(suggestions);
-                cacheRef.current = suggestions;
+                setSuggestions(formattedSuggestions);
             } catch (error) {
-                console.error('Failed to load files for wikilink suggestions:', error);
+                console.error('Failed to search notes:', error);
             }
         };
 
-        loadFiles();
+        // Debounce search slightly
+        const timeoutId = setTimeout(performSearch, 150);
+        return () => clearTimeout(timeoutId);
+    }, [vaultPath, query, isOpen]);
 
-        // Refresh periodically
-        const interval = setInterval(loadFiles, 30000);
-        return () => clearInterval(interval);
-    }, [vaultPath]);
-
-    return { files, cacheRef };
+    return suggestions;
 }
 
 // ============================================================================
@@ -349,28 +341,19 @@ function useInsertWikiLink(closeMenu: () => void, hasAlias: boolean, aliasText: 
 
 export function useWikiLinkSuggestions(vaultPath: string) {
     const menuState = useMenuState();
-    const { files } = useFileCache(vaultPath);
+
     const insertWikiLink = useInsertWikiLink(
         menuState.closeMenu,
         menuState.hasAlias,
         menuState.aliasText
     );
 
-    // Filter suggestions based on query
-    const filteredSuggestions = useMemo(() => {
-        if (!menuState.query) return files;
+    const suggestions = useNoteSearch(vaultPath, menuState.query, menuState.isOpen);
 
-        const lowerQuery = menuState.query.toLowerCase();
-        return files.filter(f =>
-            f.name.toLowerCase().includes(lowerQuery) ||
-            f.relativePath.toLowerCase().includes(lowerQuery)
-        );
-    }, [files, menuState.query]);
-
-    const latestSuggestionsRef = useRef(filteredSuggestions);
+    const latestSuggestionsRef = useRef(suggestions);
     useEffect(() => {
-        latestSuggestionsRef.current = filteredSuggestions;
-    }, [filteredSuggestions]);
+        latestSuggestionsRef.current = suggestions;
+    }, [suggestions]);
 
     // Execute selected suggestion
     const executeSelected = useCallback((view: EditorView) => {
@@ -419,11 +402,11 @@ export function useWikiLinkSuggestions(vaultPath: string) {
 
     // Reset selection when filtered list changes
     useEffect(() => {
-        const maxIndex = Math.max(0, filteredSuggestions.length - 1);
+        const maxIndex = Math.max(0, suggestions.length - 1);
         if (menuState.selectedIndex > maxIndex) {
             menuState.setSelectedIndex(maxIndex);
         }
-    }, [filteredSuggestions.length, menuState.selectedIndex, menuState.setSelectedIndex]);
+    }, [suggestions.length, menuState.selectedIndex, menuState.setSelectedIndex]);
 
     return {
         wikiLinkSuggestionsExtension,
@@ -432,7 +415,7 @@ export function useWikiLinkSuggestions(vaultPath: string) {
             position: menuState.position,
             selectedIndex: menuState.selectedIndex,
             query: menuState.query,
-            filteredSuggestions,
+            filteredSuggestions: suggestions,
             insertWikiLink,
             closeMenu: menuState.closeMenu,
             setSelectedIndex: menuState.setSelectedIndex

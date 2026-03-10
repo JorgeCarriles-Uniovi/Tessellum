@@ -1,10 +1,10 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { useEditorStore } from '../../stores/editorStore';
 import { GraphCanvas } from './GraphCanvas';
 import { NodeInfoPanel } from './NodeInfoPanel';
-import { buildGraphElements, pathToLabel } from '../../utils/graphUtils';
+import { mapGraphDataToElements, GraphData } from '../../utils/graphUtils';
 import { X } from 'lucide-react';
 import cytoscape from 'cytoscape';
 
@@ -21,6 +21,33 @@ export function LocalGraphPanel() {
 
     const [elements, setElements] = useState<cytoscape.ElementDefinition[]>([]);
     const [loading, setLoading] = useState(true);
+    const [panelWidth, setPanelWidth] = useState(320);
+    const isDragging = useRef(false);
+    const dragStartX = useRef(0);
+    const dragStartWidth = useRef(320);
+
+    const handleResizeMouseDown = useCallback((e: React.MouseEvent) => {
+        e.preventDefault();
+        isDragging.current = true;
+        dragStartX.current = e.clientX;
+        dragStartWidth.current = panelWidth;
+
+        const onMouseMove = (ev: MouseEvent) => {
+            if (!isDragging.current) return;
+            const delta = dragStartX.current - ev.clientX;
+            const newWidth = Math.min(600, Math.max(200, dragStartWidth.current + delta));
+            setPanelWidth(newWidth);
+        };
+
+        const onMouseUp = () => {
+            isDragging.current = false;
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mouseup', onMouseUp);
+        };
+
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('mouseup', onMouseUp);
+    }, [panelWidth]);
 
     const fetchLocalGraph = useCallback(async () => {
         if (!vaultPath || !activeNote) {
@@ -30,32 +57,25 @@ export function LocalGraphPanel() {
         }
 
         try {
-            const [outgoing, incoming] = await Promise.all([
-                invoke<string[]>('get_outgoing_links', { path: activeNote.path }),
-                invoke<string[]>('get_backlinks', { path: activeNote.path }),
-            ]);
+            const data = await invoke<GraphData>('get_graph_data', { vaultPath });
 
-            // Build a mini-graph: active note + its direct neighbors
-            const neighborPaths = new Set([...outgoing, ...incoming]);
-            const allPaths = new Set([activeNote.path, ...neighborPaths]);
+            // To emulate a local graph, we can only show nodes linked to the active note
+            // Ideally we'd have a backend command `get_local_graph_data`, but we can filter here for now.
+            const targetId = activeNote.path.replace(/\\/g, '/');
 
-            // Build nodes
-            const notes: [string, number][] = [];
+            const connectedNodeIds = new Set<string>([targetId]);
+            const localEdges = data.edges.filter(edge => {
+                if (edge.source === targetId || edge.target === targetId) {
+                    connectedNodeIds.add(edge.source);
+                    connectedNodeIds.add(edge.target);
+                    return true;
+                }
+                return false;
+            });
 
-            for (const path of allPaths) {
-                notes.push([path, 0]);
-            }
+            const localNodes = data.nodes.filter(node => connectedNodeIds.has(node.id));
 
-            // Build edges: only links involving the active note
-            const links: [string, string][] = [];
-            for (const target of outgoing) {
-                links.push([activeNote.path, target]);
-            }
-            for (const source of incoming) {
-                links.push([source, activeNote.path]);
-            }
-
-            setElements(buildGraphElements(notes, links, vaultPath));
+            setElements(mapGraphDataToElements({ nodes: localNodes, edges: localEdges }));
         } catch (e) {
             console.error('Failed to fetch local graph data:', e);
         } finally {
@@ -88,7 +108,8 @@ export function LocalGraphPanel() {
 
     const handleNodeDoubleClick = useCallback(
         async (nodeId: string) => {
-            const existingFile = files.find((f) => f.path === nodeId);
+            const normalizedNodeId = nodeId.replace(/\\/g, '/');
+            const existingFile = files.find((f) => f.path.replace(/\\/g, '/') === normalizedNodeId);
             if (existingFile) {
                 setActiveNote(existingFile);
             } else {
@@ -118,21 +139,37 @@ export function LocalGraphPanel() {
     );
 
     const noteLabel = activeNote
-        ? pathToLabel(activeNote.path, vaultPath || '')
+        ? activeNote.filename.replace(/\.md$/, '')
         : 'No note selected';
 
     return (
         <div
             style={{
-                width: 320,
+                width: panelWidth,
                 height: '100%',
                 display: 'flex',
                 flexDirection: 'column',
                 borderLeft: '1px solid var(--color-border-light)',
                 backgroundColor: 'var(--color-bg-primary)',
                 flexShrink: 0,
+                position: 'relative',
             }}
         >
+            {/* Resize handle */}
+            <div
+                onMouseDown={handleResizeMouseDown}
+                style={{
+                    position: 'absolute',
+                    left: 0,
+                    top: 0,
+                    width: 4,
+                    height: '100%',
+                    cursor: 'col-resize',
+                    zIndex: 10,
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--color-accent)'; e.currentTarget.style.opacity = '0.5'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.opacity = '1'; }}
+            />
             {/* Header */}
             <div
                 style={{
@@ -215,7 +252,7 @@ export function LocalGraphPanel() {
                     <GraphCanvas
                         elements={elements}
                         mode="local"
-                        focusNodeId={activeNote.path}
+                        focusNodeId={activeNote.path.replace(/\\/g, '/')}
                         onNodeClick={handleNodeClick}
                         onNodeDoubleClick={handleNodeDoubleClick}
                     />

@@ -2,6 +2,7 @@ use regex::Regex;
 use std::sync::LazyLock;
 use tauri::State;
 
+use crate::error::TessellumError;
 use crate::models::{AppState, WikiLink};
 
 static WIKILINK_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(\\)?\[\[(.*?)\]\]").unwrap());
@@ -45,14 +46,12 @@ pub fn extract_wikilinks(content: &str) -> Vec<WikiLink> {
 pub async fn get_backlinks(
     state: State<'_, AppState>,
     path: String,
-) -> Result<Vec<String>, String> {
+) -> Result<Vec<String>, TessellumError> {
     let db_guard = state.db.lock().await;
-    
-    if let Some(db) = db_guard.as_ref() {
-        db.get_backlinks(&path).await.map_err(|e| e.to_string())
-    } else {
-        Err("Database not initialized".to_string())
-    }
+    db_guard
+        .get_backlinks(&path)
+        .await
+        .map_err(TessellumError::from)
 }
 
 /// Get all files that the specified file links to (outgoing links).
@@ -60,27 +59,45 @@ pub async fn get_backlinks(
 pub async fn get_outgoing_links(
     state: State<'_, AppState>,
     path: String,
-) -> Result<Vec<String>, String> {
+) -> Result<Vec<String>, TessellumError> {
     let db_guard = state.db.lock().await;
-    
-    if let Some(db) = db_guard.as_ref() {
-        db.get_outgoing_links(&path)
-            .await
-            .map_err(|e| e.to_string())
-    } else {
-        Err("Database not initialized".to_string())
-    }
+    db_guard
+        .get_outgoing_links(&path)
+        .await
+        .map_err(TessellumError::from)
 }
 
 /// Get all links in the vault (for graph visualization).
 /// Returns a vector of [source_path, target_path] pairs.
 #[tauri::command]
-pub async fn get_all_links(state: State<'_, AppState>) -> Result<Vec<(String, String)>, String> {
+pub async fn get_all_links(
+    state: State<'_, AppState>,
+) -> Result<Vec<(String, String)>, TessellumError> {
     let db_guard = state.db.lock().await;
+    db_guard.get_all_links().await.map_err(TessellumError::from)
+}
+
+/// Resolves a wikilink target to its full path.
+/// Uses the cached in-memory FileIndex for fast lookup without traversing the filesystem.
+#[tauri::command]
+pub async fn resolve_wikilink(
+    state: State<'_, AppState>,
+    vault_path: String,
+    target: String,
+) -> Result<Option<String>, TessellumError> {
+    let mut index_guard = state.file_index.lock().await;
     
-    if let Some(db) = db_guard.as_ref() {
-        db.get_all_links().await.map_err(|e| e.to_string())
-    } else {
-        Err("Database not initialized".to_string())
+    // Build index if not cached yet
+    if index_guard.is_none() {
+        let idx = crate::models::FileIndex::build(&vault_path)
+            .map_err(|e| TessellumError::Internal(format!("Failed to build file index: {}", e)))?;
+        *index_guard = Some(idx);
     }
+    
+    let file_index = index_guard.as_ref().unwrap();
+    
+    // Resolve and return normalized path if found
+    Ok(file_index
+        .resolve(&vault_path, &target)
+        .map(|p| crate::utils::normalize_path(&p.to_string_lossy())))
 }

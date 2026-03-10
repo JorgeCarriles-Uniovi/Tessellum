@@ -1,13 +1,59 @@
 use std::fs::metadata;
 use std::path::Path;
 use std::time::UNIX_EPOCH;
-use tauri::State;
 use tauri_plugin_fs::FsExt;
 use walkdir::WalkDir;
-use crate::AppState;
+
+use crate::error::TessellumError;
 use crate::models::FileMetadata;
 use crate::utils::{is_hidden_or_special, sanitize_string, validate_path_in_vault};
 
+/// Rewrite `[[OldStem]]` and `[[OldStem|alias]]` to `[[NewStem]]` / `[[NewStem|alias]]`
+/// in all files whose paths are listed in `backlinks`.
+/// Escaped links (`\[[OldStem]]`) are left unchanged.
+async fn rewrite_backlinks(
+    backlinks: &[String],
+    old_stem: &str,
+    new_stem: &str,
+) -> Result<(), TessellumError> {
+    if backlinks.is_empty() {
+        return Ok(());
+    }
+    
+    // Build a regex that matches [[OldStem]] and [[OldStem|alias]],
+    // with an optional leading backslash to detect escaped links.
+    let escaped = regex::escape(old_stem);
+    let pattern = format!(r"(\\?)\[\[{escaped}(\|[^\]]+)?\]\]");
+    let re = regex::Regex::new(&pattern)
+        .map_err(|e| TessellumError::Internal(format!("Link-rewrite regex error: {e}")))?;
+    
+    for source_path in backlinks {
+        let content = match tokio::fs::read_to_string(source_path).await {
+            Ok(c) => c,
+            Err(e) => {
+                log::warn!("rewrite_backlinks: could not read '{source_path}': {e}");
+                continue;
+            }
+        };
+        
+        let new_content = re.replace_all(&content, |caps: &regex::Captures<'_>| {
+            // If preceded by a backslash, the link is escaped — leave it verbatim.
+            if caps.get(1).map_or(false, |m| m.as_str() == "\\") {
+                return caps[0].to_string();
+            }
+            let alias = caps.get(2).map_or("", |m| m.as_str());
+            format!("[[{new_stem}{alias}]]")
+        });
+        
+        if new_content != content {
+            if let Err(e) = tokio::fs::write(source_path, new_content.as_bytes()).await {
+                log::warn!("rewrite_backlinks: could not write '{source_path}': {e}");
+            }
+        }
+    }
+    
+    Ok(())
+}
 
 /// Lists all files and directories within the specified vault path and retrieves their metadata.
 ///
@@ -20,12 +66,14 @@ use crate::utils::{is_hidden_or_special, sanitize_string, validate_path_in_vault
 /// * `Ok(Vec<FileMetadata>)` containing a vector of `FileMetadata` structs.
 /// * `Err(String)` containing an error message if the vault path does not exist.
 #[tauri::command]
-pub fn list_files(vault_path: String) -> Result<Vec<FileMetadata>, String> {
+pub fn list_files(vault_path: String) -> Result<Vec<FileMetadata>, TessellumError> {
     let mut files = Vec::new();
     
     // Check if path exists
     if !Path::new(&vault_path).exists() {
-        return Err(String::from("Vault path does not exist"));
+        return Err(TessellumError::NotFound(
+            "Vault path does not exist".to_string(),
+        ));
     }
     
     // For each entry in the vault directory that does not give an error, add it to the list
@@ -55,7 +103,7 @@ pub fn list_files(vault_path: String) -> Result<Vec<FileMetadata>, String> {
             
             // Push the file metadata to the list
             files.push(FileMetadata {
-                path: path_str,
+                path: crate::utils::normalize_path(&path_str),
                 filename: path
                     .file_name()
                     .unwrap_or_default()
@@ -83,24 +131,31 @@ pub fn list_files(vault_path: String) -> Result<Vec<FileMetadata>, String> {
 /// - `Err(String)`: An error message if the operation fails.
 #[tauri::command]
 pub async fn rename_file(
-    state: State<'_, AppState>,
+    state: tauri::State<'_, crate::models::AppState>,
     vault_path: String,
     old_path: String,
     new_name: String,
-) -> Result<String, String> {
+) -> Result<String, TessellumError> {
     // Validate old_path is inside the vault (using canonicalize to prevent traversal)
-    validate_path_in_vault(&old_path, &vault_path)?;
+    validate_path_in_vault(&old_path, &vault_path).map_err(|e| TessellumError::Validation(e))?;
     
     let vault_root = Path::new(&vault_path);
     let old = Path::new(&old_path);
     
-    let parent = old.parent().ok_or("Invalid path: No parent directory")?;
+    let parent = old.parent().ok_or_else(|| {
+        TessellumError::Validation("Invalid path: No parent directory".to_string())
+    })?;
     
     let clean_name = sanitize_string(new_name);
     
     if clean_name.trim().is_empty() {
-        return Err("Invalid name: Filename cannot be empty".to_string());
+        return Err(TessellumError::Validation(
+            "Invalid name: Filename cannot be empty".to_string(),
+        ));
     }
+    
+    // Check before the rename while the path still exists on disk
+    let is_file = old.is_file();
     
     let final_filename = if old.is_dir() {
         clean_name
@@ -115,32 +170,58 @@ pub async fn rename_file(
     // Validate destination is also inside the vault
     let vault_canonical = vault_root
         .canonicalize()
-        .map_err(|e| format!("Invalid vault path: {}", e))?;
+        .map_err(|_| TessellumError::Validation("Invalid vault path".to_string()))?;
     let new_canonical = new_path
         .parent()
-        .ok_or("Invalid path: No parent directory")?
+        .ok_or_else(|| TessellumError::Validation("Invalid path: No parent directory".to_string()))?
         .canonicalize()
-        .map_err(|e| format!("Invalid destination path: {}", e))?
+        .map_err(|_| TessellumError::Validation("Invalid destination path".to_string()))?
         .join(&final_filename);
     if !new_canonical.starts_with(&vault_canonical) {
-        return Err("Security Error: Cannot rename file to outside the vault".to_string());
+        return Err(TessellumError::Validation(
+            "Security Error: Cannot rename file to outside the vault".to_string(),
+        ));
     }
     
     if new_path.exists() {
-        return Err("A file or folder with that name already exists".to_string());
+        return Err(TessellumError::Validation(
+            "A file or folder with that name already exists".to_string(),
+        ));
     }
     
+    // Capture stems before the rename (path no longer exists on disk after)
+    let old_stem = old.file_stem().and_then(|s| s.to_str()).map(str::to_string);
+    let new_stem = new_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .map(str::to_string);
+    
+    // Rename on the filesystem
     tokio::fs::rename(old, &new_path)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(TessellumError::from)?;
+    
+    let db_guard = state.db.lock().await;
+    
+    // Rewrite [[OldStem]] -> [[NewStem]] in all files that link to this note
+    if is_file {
+        if let (Some(os), Some(ns)) = (&old_stem, &new_stem) {
+            if os != ns {
+                let backlinks = db_guard
+                    .get_backlinks(&old_path)
+                    .await
+                    .map_err(TessellumError::from)?;
+                
+                rewrite_backlinks(&backlinks, os, ns).await?;
+            }
+        }
+    }
     
     // Update the DB index so backlinks and graph stay correct
-    let db_guard = state.db.lock().await;
-    if let Some(db) = db_guard.as_ref() {
-        db.update_file_path(&old_path, &new_path.to_string_lossy())
-            .await
-            .map_err(|e| format!("Failed to update index: {}", e))?;
-    }
+    db_guard
+        .update_file_path(&old_path, &new_path.to_string_lossy())
+        .await
+        .map_err(TessellumError::from)?;
     
     // Invalidate the cache since path has changed
     let mut idx_guard = state.file_index.lock().await;
@@ -149,6 +230,83 @@ pub async fn rename_file(
     Ok(new_path.to_string_lossy().to_string())
 }
 
+use serde::Serialize;
+use std::collections::HashMap;
+
+#[derive(Serialize, Clone)]
+pub struct TreeNode {
+    pub id: String,
+    pub name: String,
+    pub is_dir: bool,
+    pub children: Vec<TreeNode>,
+    pub file: Option<FileMetadata>,
+}
+
+#[tauri::command]
+pub fn list_files_tree(vault_path: String) -> Result<Vec<TreeNode>, TessellumError> {
+    let files = list_files(vault_path.clone())?;
+    
+    let mut tree_nodes: HashMap<String, TreeNode> = HashMap::new();
+    
+    // First, map all items
+    for file in files {
+        let normalized = crate::utils::normalize_path(&file.path);
+        tree_nodes.insert(
+            normalized.clone(),
+            TreeNode {
+                id: normalized,
+                name: file.filename.clone(),
+                is_dir: file.is_dir,
+                children: Vec::new(),
+                file: Some(file),
+            },
+        );
+    }
+    
+    let mut paths: Vec<String> = tree_nodes.keys().cloned().collect();
+    // Sort paths by length descending so that deep children are processed before their parents.
+    paths.sort_by_key(|a| std::cmp::Reverse(a.len()));
+    
+    let mut root_nodes = Vec::new();
+    
+    for path in paths {
+        let node = tree_nodes.remove(&path).unwrap();
+        
+        let parent_path = crate::utils::normalize_path(
+            &Path::new(&path)
+                .parent()
+                .unwrap_or(Path::new(""))
+                .to_string_lossy(),
+        );
+        
+        if let Some(parent) = tree_nodes.get_mut(&parent_path) {
+            parent.children.push(node);
+        } else {
+            root_nodes.push(node);
+        }
+    }
+    
+    // Recursive sort lambda-like equivalent function
+    fn sort_nodes(nodes: &mut Vec<TreeNode>) {
+        nodes.sort_by(|a, b| {
+            if a.is_dir == b.is_dir {
+                a.name.cmp(&b.name)
+            } else if a.is_dir {
+                std::cmp::Ordering::Less
+            } else {
+                std::cmp::Ordering::Greater
+            }
+        });
+        
+        for child in nodes.iter_mut() {
+            sort_nodes(&mut child.children);
+        }
+    }
+    
+    sort_nodes(&mut root_nodes);
+    
+    Ok(root_nodes)
+}
 
 #[tauri::command]
 pub fn set_vault_path(app: tauri::AppHandle, path: String) -> Result<(), String> {

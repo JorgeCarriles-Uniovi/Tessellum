@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, State};
 
+use crate::error::TessellumError;
 use crate::models::AppState;
 
 /// Debounce window: ignore events within this duration of the last emit.
@@ -16,13 +17,13 @@ const DEBOUNCE_MS: u64 = 200;
 /// such as file creation, modification, or deletion. Upon detecting a change, the function emits a `file-changed`
 /// event to the frontend, debounced to prevent event flooding.
 #[tauri::command]
-pub fn watch_vault(
+pub async fn watch_vault(
     vault_path: String,
     handle: AppHandle,
     state: State<'_, AppState>,
-) -> Result<(), String> {
+) -> Result<(), TessellumError> {
     // Initialize the watcher
-    let mut watcher_guard = state.watcher.lock().map_err(|e| e.to_string())?;
+    let mut watcher_guard = state.watcher.lock().await;
     
     if watcher_guard.is_some() {
         return Ok(());
@@ -59,11 +60,11 @@ pub fn watch_vault(
         },
         notify_config,
     )
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| TessellumError::Internal(e.to_string()))?;
     
     watcher
         .watch(Path::new(&vault_path), RecursiveMode::Recursive)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| TessellumError::Internal(e.to_string()))?;
     
     *watcher_guard = Some(watcher);
     

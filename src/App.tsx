@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { FileMetadata } from "./types.ts";
+import { FileMetadata, TreeNode } from "./types.ts";
 import { useEditorStore } from "./stores/editorStore.ts";
 import { listen } from "@tauri-apps/api/event";
 import { open } from '@tauri-apps/plugin-dialog';
@@ -16,24 +16,19 @@ import { cn } from "./lib/utils";
 import { TitleBar } from "./components/TitleBar/TitleBar";
 import { TessellumApp, TessellumAppContext } from "./plugins/TessellumApp";
 import { registerBuiltinPlugins } from "./plugins/builtin";
-import {useWikiLinkNavigation} from "./components/Editor/hooks";
+import { useWikiLinkNavigation } from "./components/Editor/hooks";
 
 function App() {
-    const {
-        vaultPath,
-        setVaultPath,
-        setFiles,
-        isSidebarOpen,
-        viewMode,
-        isLocalGraphOpen
-    } = useEditorStore();
-
+    // Add isSidebarOpen to the destructuring
+    const { vaultPath, setVaultPath, setFiles, setFileTree, isSidebarOpen, viewMode, isLocalGraphOpen } = useEditorStore();
     const [isLoaded, setIsLoaded] = useState(false);
 
     const navigateToWikiLink = useWikiLinkNavigation();
 
+
     // Create TessellumApp singleton and register plugins.
     const app = useMemo(() => {
+        // Handle React StrictMode double-invocation gracefully
         const isNew = !(TessellumApp as any)._instance;
         const instance = TessellumApp.create();
         if (isNew) {
@@ -42,7 +37,7 @@ function App() {
         return instance;
     }, []);
 
-    // Manage plugin lifecycle
+    // Manage plugin lifecycle safely outside of useMemo
     useEffect(() => {
         app.plugins.loadAll();
         setIsLoaded(true);
@@ -52,40 +47,18 @@ function App() {
         };
     }, [app]);
 
-    /**
-     * 1. VALIDATION & PERSISTENCE
-     * Validates vaultPath existence on startup.
-     * Because 'tauri-plugin-persisted-scope' is active in Rust,
-     * previously authorized paths will pass this check automatically.
-     */
+    // Validate vaultPath existence on startup
     useEffect(() => {
-        let isMounted = true;
-
-        const validateVault = async () => {
-            if (!vaultPath) return;
-
-            try {
-                await invoke('set_vault_path', { path: vaultPath }); // re-grant scope on startup
-                const doesExist = await exists(vaultPath);
-                if (!doesExist && isMounted) {
+        if (vaultPath) {
+            exists(vaultPath).then((doesExist: boolean) => {
+                if (!doesExist) {
                     console.warn(`Vault path ${vaultPath} no longer exists. Clearing.`);
                     setVaultPath(null);
                 }
-            } catch (error) {
-                // This usually triggers if the path is forbidden.
-                // If persisted-scope is working, this shouldn't happen for known vaults.
-                console.error("Scope validation error:", error);
-                if (isMounted) setVaultPath(null);
-            }
-        };
-
-        validateVault();
-        return () => { isMounted = false; };
+            }).catch(console.error);
+        }
     }, [vaultPath, setVaultPath]);
 
-    /**
-     * 2. VAULT WATCHER & SYNC
-     */
     useEffect(() => {
         if (vaultPath) {
             invoke('watch_vault', { vaultPath }).catch(console.error);
@@ -100,39 +73,36 @@ function App() {
         return () => { unlistenPromise.then(unlisten => unlisten()); };
     }, [vaultPath]);
 
+    // Periodic vault sync to pick up external filesystem changes
     useEffect(() => {
         if (!vaultPath) return;
 
+        // Initial sync on vault load
         invoke('sync_vault', { vaultPath }).catch(console.error);
 
+        // Re-sync every 5 minutes
         const interval = setInterval(() => {
             invoke('sync_vault', { vaultPath }).catch(console.error);
-        }, 30_000);
+        }, 300_000);
 
         return () => clearInterval(interval);
     }, [vaultPath]);
 
-    /**
-     * 3. HELPERS
-     */
-    async function refreshFiles(path: string): Promise<void> {
+    async function refreshFiles(vaultPath: string): Promise<void> {
         try {
-            const result = await invoke<FileMetadata[]>('list_files', { vaultPath: path });
-            setFiles(result);
-        } catch (e) {
-            console.error("Error listing files:", e);
-        }
+            const [flatFiles, treeFiles] = await Promise.all([
+                invoke<FileMetadata[]>('list_files', { vaultPath }),
+                invoke<TreeNode[]>('list_files_tree', { vaultPath })
+            ]);
+            setFiles(flatFiles);
+            setFileTree(treeFiles);
+        } catch (e) { console.error(e); }
     }
 
     useEffect(() => {
         TessellumApp.instance.workspace.onLinkClick = navigateToWikiLink;
     }, [navigateToWikiLink]);
 
-    /**
-     * 4. VAULT SELECTION
-     * Using the 'open' dialog from @tauri-apps/plugin-dialog
-     * grants the app permission to the selected folder.
-     */
     async function handleOpenVault() {
         try {
             const selected = await open({
@@ -140,14 +110,8 @@ function App() {
                 multiple: false,
                 title: "Select Vault Folder"
             });
-
-            if (selected) {
-                await invoke('set_vault_path', { path: selected });
-                setVaultPath(selected);
-            }
-        } catch (e) {
-            console.error("Failed to select vault:", e);
-        }
+            if (selected) setVaultPath(selected);
+        } catch (e) { console.error(e); }
     }
 
     return (
@@ -160,6 +124,7 @@ function App() {
                         fontFamily: theme.typography.fontFamily.sans
                     }}
                 >
+                    {/* TitleBar controls the isSidebarOpen state */}
                     <TitleBar />
 
                     <div className="flex-1 flex overflow-hidden w-full relative">
@@ -168,6 +133,7 @@ function App() {
                                 className="w-full h-full flex flex-col items-center justify-center gap-6 select-none"
                                 style={{ backgroundColor: theme.colors.gray[50] }}
                             >
+                                {/* ... Welcome Screen Content ... */}
                                 <div className="text-center space-y-2">
                                     <h1 className="bg-clip-text text-transparent text-4xl font-bold bg-gradient-to-br from-blue-600 to-blue-800">
                                         Tessellum
@@ -183,6 +149,7 @@ function App() {
                             </div>
                         ) : (
                             <div className="flex w-full h-full overflow-hidden">
+                                {/* Sidebar */}
                                 <div className={cn(
                                     "h-full overflow-hidden transition-all duration-300 ease-in-out border-r border-gray-200 dark:border-gray-800",
                                     isSidebarOpen ? "w-64 opacity-100" : "w-0 opacity-0 overflow-hidden border-none"
@@ -190,11 +157,14 @@ function App() {
                                     <Sidebar />
                                 </div>
 
+                                {/* Main content area */}
                                 {viewMode === 'graph' ? (
+                                    /* Global Graph View — replaces the editor */
                                     <div className="flex-1 h-full min-w-0 relative flex flex-col">
                                         <GraphView />
                                     </div>
                                 ) : (
+                                    /* Editor + optional Local Graph Panel */
                                     <>
                                         <div className="flex-1 h-full min-w-0 bg-white relative flex flex-col">
                                             <Editor />

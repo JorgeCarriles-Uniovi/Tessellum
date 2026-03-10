@@ -21,6 +21,7 @@ const LUCIDE_SVG_PATHS: Record<string, string> = {
     HelpCircle: '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
     FlaskConical: '<path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/><path d="M7 16.5h10"/>',
     Quote: '<path d="M16 3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2 1 1 0 0 1 1 1v1a2 2 0 0 1-2 2 1 1 0 0 0-1 1v2a1 1 0 0 0 1 1 4 4 0 0 0 4-4V5a2 2 0 0 0-2-2z"/><path d="M5 3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2 1 1 0 0 1 1 1v1a2 2 0 0 1-2 2 1 1 0 0 0-1 1v2a1 1 0 0 0 1 1 4 4 0 0 0 4-4V5a2 2 0 0 0-2-2z"/>',
+    Terminal: '<polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/>',
 };
 
 const CALLOUT_ICON_MAP: Record<string, string> = {
@@ -29,6 +30,7 @@ const CALLOUT_ICON_MAP: Record<string, string> = {
     danger: "Skull", success: "CheckCircle2", failure: "XCircle",
     todo: "ClipboardList", bug: "Bug", question: "HelpCircle",
     example: "FlaskConical", quote: "Quote", cite: "Quote",
+    terminal: "Terminal",
 };
 
 const CHEVRON_DOWN_PATH = '<path d="m6 9 6 6 6-6"/>';
