@@ -1,3 +1,4 @@
+use regex::Regex;
 use std::fs;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -58,7 +59,7 @@ pub async fn create_note(
     // Update the index immediately if DB is ready
     let db_guard = state.db.lock().await;
     db_guard
-        .index_file(&path_str, 0, 0, &[])
+        .index_file(&path_str, 0, 0, None, None, &[])
         .await
         .unwrap_or_else(|e| log::warn!("Failed to index new file: {}", e));
     
@@ -176,10 +177,36 @@ pub async fn write_file(
         .unwrap_or_default()
         .as_secs() as i64;
     
-    // 3. Extract wikilinks
-    let wikilinks = extract_wikilinks(&content);
+    // Parse frontmatter
+    let mut frontmatter_json_str = None;
+    let mut body_content = content.as_str();
     
-    // 4. Build or use cached file index for resolving links
+    if let Some((yaml, _)) = crate::utils::frontmatter::parse_frontmatter(&content) {
+        body_content = crate::utils::frontmatter::strip_frontmatter(&content);
+        if let Ok(json) = crate::utils::frontmatter::frontmatter_to_json(&yaml) {
+            frontmatter_json_str = Some(json);
+        }
+    }
+    
+    // 3. Extract inline tags
+    let tag_regex = Regex::new(r"(?:^|\s)#([a-zA-Z0-9_\-]+)").unwrap();
+    let mut inline_tags = Vec::new();
+    for cap in tag_regex.captures_iter(body_content) {
+        if let Some(tag_match) = cap.get(1) {
+            inline_tags.push(tag_match.as_str().to_string());
+        }
+    }
+    
+    let inline_tags_json_str = if inline_tags.is_empty() {
+        None
+    } else {
+        serde_json::to_string(&inline_tags).ok()
+    };
+    
+    // 4. Extract wikilinks
+    let wikilinks = extract_wikilinks(body_content);
+    
+    // 5. Build or use cached file index for resolving links
     let index_guard = state.file_index.lock().await;
     let file_index = match index_guard.as_ref() {
         Some(idx) => idx.clone(),
@@ -194,7 +221,7 @@ pub async fn write_file(
         }
     };
     
-    // 5. Resolve each wikilink to its full path (non-existent targets get a fallback path)
+    // 6. Resolve each wikilink to its full path (non-existent targets get a fallback path)
     let resolved_links: Vec<String> = wikilinks
         .iter()
         .map(|link| {
@@ -205,9 +232,16 @@ pub async fn write_file(
         })
         .collect();
     
-    // 6. Index the file with resolved links
+    // 7. Index the file with resolved links
     db_guard
-        .index_file(&path, modified, size, &resolved_links)
+        .index_file(
+            &path,
+            modified,
+            size,
+            frontmatter_json_str.as_deref(),
+            inline_tags_json_str.as_deref(),
+            &resolved_links,
+        )
         .await
         .map_err(TessellumError::from)?;
     
@@ -345,4 +379,21 @@ pub async fn search_notes(
     }
     
     Ok(suggestions)
+}
+
+#[tauri::command]
+pub async fn get_all_tags(state: State<'_, AppState>) -> Result<Vec<String>, TessellumError> {
+    let db_guard = state.db.lock().await;
+    db_guard.get_all_tags().await.map_err(TessellumError::from)
+}
+
+#[tauri::command]
+pub async fn get_all_property_keys(
+    state: State<'_, AppState>,
+) -> Result<Vec<String>, TessellumError> {
+    let db_guard = state.db.lock().await;
+    db_guard
+        .get_all_property_keys()
+        .await
+        .map_err(TessellumError::from)
 }

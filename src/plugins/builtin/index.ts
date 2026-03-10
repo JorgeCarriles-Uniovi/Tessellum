@@ -8,6 +8,8 @@ import { WikiLinkPlugin } from "./WikiLinkPlugin";
 import { CoreCommandsPlugin } from "./CoreCommandsPlugin";
 import { CodePlugin } from "./CodePlugin.ts";
 import { MermaidPlugin } from "./MermaidPlugin";
+import { InlineTagsPlugin } from "./InlineTagsPlugin";
+import { FrontmatterPlugin } from "./FrontmatterPlugin";
 
 /**
  * Registers all built-in plugins with the PluginRegistry.
@@ -25,6 +27,8 @@ import { MermaidPlugin } from "./MermaidPlugin";
  *  7. core-commands — headings, lists, code blocks (no CM extensions, just commands)
  *  8. code — code block rendering with syntax highlighting
  *  9. mermaid — renders mermaid diagrams in markdown code blocks
+ *  10. frontmatter — renders YAML frontmatter as a widget and hides syntax
+ *  11. inline-tags — renders #tags and @mentions as widgets and hides syntax
  *
  * Note: The markdown-preview plugin is intentionally registered first to ensure
  * it can hide syntax markers for all subsequent plugins that add markdown syntax.
@@ -39,4 +43,6 @@ export function registerBuiltinPlugins(app: TessellumApp): void {
     app.plugins.register(CoreCommandsPlugin.manifest, CoreCommandsPlugin);
     app.plugins.register(CodePlugin.manifest, CodePlugin);
     app.plugins.register(MermaidPlugin.manifest, MermaidPlugin);
+    app.plugins.register(FrontmatterPlugin.manifest, FrontmatterPlugin);
+    app.plugins.register(InlineTagsPlugin.manifest, InlineTagsPlugin);
 }

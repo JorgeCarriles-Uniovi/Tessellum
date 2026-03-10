@@ -56,6 +56,8 @@ pub fn run() {
             commands::links::get_all_links,
             commands::links::resolve_wikilink,
             commands::notes::get_all_notes,
+            commands::notes::get_all_tags,
+            commands::notes::get_all_property_keys,
             commands::indexer::sync_vault,
             commands::graph::get_graph_data,
             commands::vault::set_vault_path,
