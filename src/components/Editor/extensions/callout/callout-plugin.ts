@@ -1,9 +1,14 @@
 import { Decoration, DecorationSet, EditorView, ViewPlugin, ViewUpdate } from "@codemirror/view";
-import { RangeSetBuilder } from "@codemirror/state";
+import { RangeSetBuilder, StateEffect } from "@codemirror/state";
 import { getCalloutType } from "../../../../constants/callout-types";
 import { parseCalloutBlocks, CALLOUT_HEADER_RE, CALLOUT_CONTINUATION_RE } from "./callout-parser";
 import { CalloutHeaderWidget, toggleCollapseEffect } from "./callout-widget";
+import { TerminalHeaderWidget } from "./terminal-widget";
 import { isCollapsed, calloutKey } from "./callout-state";
+import { languages } from "@codemirror/language-data";
+import { terminalHighlighter } from "../code/code-plugin";
+import { LanguageDescription } from "@codemirror/language";
+import { highlightTree } from "@lezer/highlight";
 
 // ─── Line Decoration Factories ────────────────────────────────────────────────
 
@@ -13,6 +18,25 @@ function calloutLineDeco(color: string, extraClasses: string = ""): Decoration {
         class: cls,
         attributes: { style: `--callout-color: ${color}` },
     });
+}
+
+const forceUpdateEffect = StateEffect.define<null>();
+const loadingLanguages = new Set<string>();
+
+function getLanguageForTitle(title: string) {
+    const cleanTitle = title.trim();
+    // Use CodeMirror's built-in matching for filenames and language names/aliases
+    let match = LanguageDescription.matchFilename(languages, cleanTitle) ||
+        LanguageDescription.matchLanguageName(languages, cleanTitle);
+
+    // Fallback for common extensions if not caught (e.g. .java, .py)
+    if (!match && cleanTitle.includes(".")) {
+        const ext = cleanTitle.split(".").pop()?.toLowerCase();
+        if (ext === "java") match = languages.find(l => l.name === "Java") || null;
+        if (ext === "py" || ext === "python") match = languages.find(l => l.name === "Python") || null;
+    }
+
+    return match;
 }
 
 // ─── Build Decorations ───────────────────────────────────────────────────────
@@ -43,7 +67,23 @@ function buildDecorations(view: EditorView, filePath: string): DecorationSet {
         // toggle button stays visible and the content stays hidden.
         if (!collapsed) {
             const cursorOverlaps = selection.from <= blockTo && selection.to >= blockFrom;
-            if (cursorOverlaps) continue;
+            if (cursorOverlaps) {
+                if (block.type === "terminal") {
+                    let linePos = block.headerFrom;
+                    const blockEnd = block.hasContent ? block.contentTo : block.headerTo;
+                    while (linePos <= blockEnd) {
+                        if (linePos > state.doc.length) break;
+                        const line = state.doc.lineAt(linePos);
+                        builder.add(
+                            line.from,
+                            line.from,
+                            Decoration.line({ class: "cm-terminal-editing" })
+                        );
+                        linePos = line.to + 1;
+                    }
+                }
+                continue;
+            }
         }
 
         // Determine header-line CSS class
@@ -66,7 +106,9 @@ function buildDecorations(view: EditorView, filePath: string): DecorationSet {
         );
 
         // 2. Replace header line content with widget
-        const headerWidget = new CalloutHeaderWidget(block, collapsed, key);
+        const headerWidget = block.type === "terminal"
+            ? new TerminalHeaderWidget(block, collapsed, key)
+            : new CalloutHeaderWidget(block, collapsed, key);
         builder.add(
             block.headerFrom,
             block.headerTo,
@@ -75,6 +117,9 @@ function buildDecorations(view: EditorView, filePath: string): DecorationSet {
 
         // 3. Style content lines (only if there are any)
         if (block.hasContent && block.contentFrom !== -1) {
+            // Scoped data for terminal highlighting
+            const terminalMarks: Map<number, { from: number, to: number, style: string }[]> = new Map();
+
             if (collapsed) {
                 // Mark every content line so CSS can fully hide it
                 let linePos = block.contentFrom;
@@ -92,7 +137,67 @@ function buildDecorations(view: EditorView, filePath: string): DecorationSet {
                     linePos = line.to + 1;
                 }
             } else {
-                // Expanded: style each content line with the callout tint
+                // Pre-calculate highlighting marks for expanded terminal blocks
+                if (block.type === "terminal" && block.title) {
+                    const langDesc = getLanguageForTitle(block.title);
+                    if (langDesc) {
+                        if (langDesc.support) {
+                            const fullCode = block.contentLines.join("\n");
+                            const tree = langDesc.support.language.parser.parse(fullCode);
+                            const lines = fullCode.split("\n");
+
+                            highlightTree(tree, terminalHighlighter, (f: number, t: number, s: string) => {
+                                let currentPos = f;
+                                let lineIdx = 0;
+                                let lineStart = 0;
+
+                                // Find starting line for this token
+                                for (let i = 0; i < lines.length; i++) {
+                                    const len = lines[i].length;
+                                    if (currentPos >= lineStart && currentPos < lineStart + len + 1) {
+                                        lineIdx = i;
+                                        break;
+                                    }
+                                    lineStart += len + 1;
+                                }
+
+                                // Add marks to each line the token covers
+                                while (currentPos < t && lineIdx < lines.length) {
+                                    const lineText = lines[lineIdx];
+                                    const lineEnd = lineStart + lineText.length;
+                                    const chunkEnd = Math.min(t, lineEnd);
+
+                                    if (chunkEnd > currentPos) {
+                                        if (!terminalMarks.has(lineIdx)) terminalMarks.set(lineIdx, []);
+                                        terminalMarks.get(lineIdx)!.push({
+                                            from: currentPos - lineStart,
+                                            to: chunkEnd - lineStart,
+                                            style: s
+                                        });
+                                    }
+
+                                    if (t > lineEnd) {
+                                        lineIdx++;
+                                        lineStart = lineEnd + 1;
+                                        currentPos = lineStart;
+                                    } else {
+                                        break;
+                                    }
+                                }
+                            });
+                        } else {
+                            // Language found but not loaded
+                            if (!loadingLanguages.has(langDesc.name)) {
+                                loadingLanguages.add(langDesc.name);
+                                langDesc.load().then(() => {
+                                    view.dispatch({ effects: forceUpdateEffect.of(null) });
+                                });
+                            }
+                        }
+                    }
+                }
+
+                // Apply decorations to each content line
                 let linePos = block.contentFrom;
                 const numLines = block.contentLines.length;
 
@@ -100,28 +205,56 @@ function buildDecorations(view: EditorView, filePath: string): DecorationSet {
                     if (linePos > state.doc.length) break;
                     const line = state.doc.lineAt(linePos);
 
-                    // Determine positional class
-                    let posClass = "";
-                    if (numLines === 1) {
-                        posClass = "cm-callout-first-line cm-callout-last-line";
-                    } else if (i === 0) {
-                        posClass = "cm-callout-first-line";
-                    } else if (i === numLines - 1) {
-                        posClass = "cm-callout-last-line";
+                    if (block.type === "terminal") {
+                        // Terminal specific decorations
+                        let termClass = "cm-terminal-line";
+                        if (i === 0) {
+                            termClass += " cm-terminal-first-line";
+                        }
+                        if (i === numLines - 1) {
+                            termClass += " cm-terminal-last-line";
+                        }
+
+                        builder.add(line.from, line.from, Decoration.line({
+                            class: termClass
+                        }));
+
+                        const prefixMatch = line.text.match(/^\s*> ?/);
+                        const prefixLen = prefixMatch ? prefixMatch[0].length : 0;
+                        if (prefixLen > 0) {
+                            builder.add(line.from, line.from + prefixLen, Decoration.replace({}));
+                        }
+
+                        const marks = terminalMarks.get(i);
+                        if (marks) {
+                            marks.sort((a, b) => a.from - b.from);
+                            for (const mark of marks) {
+                                const absFrom = line.from + prefixLen + mark.from;
+                                const absTo = line.from + prefixLen + mark.to;
+
+                                if (absFrom < absTo && absTo <= line.to) {
+                                    builder.add(absFrom, absTo, Decoration.mark({
+                                        class: mark.style,
+                                        priority: 100
+                                    }));
+                                }
+                            }
+                        }
+                    } else {
+                        // Original logic for non-terminal blocks
+                        let posClass = "";
+                        if (numLines === 1) posClass = "cm-callout-first-line cm-callout-last-line";
+                        else if (i === 0) posClass = "cm-callout-first-line";
+                        else if (i === numLines - 1) posClass = "cm-callout-last-line";
+
+                        builder.add(line.from, line.from, calloutLineDeco(color, posClass));
+
+                        const prefixMatch = line.text.match(/^>\s?/);
+                        const prefixLen = prefixMatch ? prefixMatch[0].length : 0;
+                        if (prefixMatch) {
+                            builder.add(line.from, line.from + prefixLen, Decoration.replace({}));
+                        }
                     }
-
-                    builder.add(line.from, line.from, calloutLineDeco(color, posClass));
-
-                    // Hide the "> " prefix
-                    const prefixMatch = line.text.match(/^>\s?/);
-                    if (prefixMatch) {
-                        builder.add(
-                            line.from,
-                            line.from + prefixMatch[0].length,
-                            Decoration.replace({})
-                        );
-                    }
-
                     linePos = line.to + 1;
                 }
             }
@@ -136,8 +269,8 @@ function buildDecorations(view: EditorView, filePath: string): DecorationSet {
  * Other plugins (e.g. markdown-preview-plugin) can use this to avoid applying
  * conflicting decorations on callout lines.
  */
-export function getCalloutLinePositions(view: EditorView): Set<number> {
-    const positions = new Set<number>();
+export function getCalloutLinePositions(view: EditorView): Map<number, string> {
+    const positions = new Map<number, string>();
     const { state } = view;
 
     for (const { from, to } of view.visibleRanges) {
@@ -147,13 +280,14 @@ export function getCalloutLinePositions(view: EditorView): Set<number> {
             const headerMatch = line.text.match(CALLOUT_HEADER_RE);
 
             if (headerMatch) {
-                positions.add(line.from);
+                const type = headerMatch[1].toLowerCase();
+                positions.set(line.from, type);
                 // Scan continuation lines
                 let nextPos = line.to + 1;
                 while (nextPos <= state.doc.length) {
                     const nextLine = state.doc.lineAt(nextPos);
                     if (nextLine.text.match(CALLOUT_CONTINUATION_RE)) {
-                        positions.add(nextLine.from);
+                        positions.set(nextLine.from, type);
                         nextPos = nextLine.to + 1;
                     } else {
                         break;
@@ -169,32 +303,83 @@ export function getCalloutLinePositions(view: EditorView): Set<number> {
     return positions;
 }
 
+/**
+ * Handles pasting inside callouts so that multiline pastes automatically carry the > prefix
+ */
+const calloutPasteHandler = EditorView.domEventHandlers({
+    paste(event, view) {
+        if (!event.clipboardData) return false;
+
+        const selection = view.state.selection.main;
+        const line = view.state.doc.lineAt(selection.from);
+
+        // Are we currently inside a callout line?
+        const isCalloutLine = line.text.match(CALLOUT_HEADER_RE) || line.text.match(CALLOUT_CONTINUATION_RE);
+
+        if (isCalloutLine) {
+            const pastedText = event.clipboardData.getData("text/plain");
+            if (!pastedText || !pastedText.includes("\n")) return false; // Let default handler deal with single lines
+
+            event.preventDefault();
+
+            // Get the prefix style of the current line (e.g. "> " or ">")
+            let prefix = "> ";
+            const prefixMatch = line.text.match(/^>\s?/);
+            if (prefixMatch) {
+                prefix = prefixMatch[0];
+            }
+
+            // Format the pasted text
+            const lines = pastedText.split(/\r?\n/);
+            const formattedText = lines.map((l, i) => {
+                if (i === 0) return l; // First line doesn't need prefix because it's inserted at cursor
+                return `${prefix}${l}`;
+            }).join("\n");
+
+            view.dispatch({
+                changes: { from: selection.from, to: selection.to, insert: formattedText },
+                selection: { anchor: selection.from + formattedText.length },
+                userEvent: "input.paste"
+            });
+            return true;
+        }
+        return false;
+    }
+});
+
 /** Create the callout plugin. Pass filePath for collapse state persistence. */
 export function createCalloutPlugin(filePath: string) {
-    return ViewPlugin.fromClass(
-        class {
-            decorations: DecorationSet;
+    return [
+        ViewPlugin.fromClass(
+            class {
+                decorations: DecorationSet;
 
-            constructor(view: EditorView) {
-                this.decorations = buildDecorations(view, filePath);
-            }
-
-            update(update: ViewUpdate) {
-                const hasCollapseToggle = update.transactions.some(
-                    (tr) => tr.effects.some((e) => e.is(toggleCollapseEffect))
-                );
-                if (
-                    update.docChanged ||
-                    update.viewportChanged ||
-                    update.selectionSet ||
-                    hasCollapseToggle
-                ) {
-                    this.decorations = buildDecorations(update.view, filePath);
+                constructor(view: EditorView) {
+                    this.decorations = buildDecorations(view, filePath);
                 }
+
+                update(update: ViewUpdate) {
+                    const hasCollapseToggle = update.transactions.some(
+                        (tr) => tr.effects.some((e) => e.is(toggleCollapseEffect))
+                    );
+                    const hasForceUpdate = update.transactions.some(
+                        (tr) => tr.effects.some((e) => e.is(forceUpdateEffect))
+                    );
+                    if (
+                        update.docChanged ||
+                        update.viewportChanged ||
+                        update.selectionSet ||
+                        hasCollapseToggle ||
+                        hasForceUpdate
+                    ) {
+                        this.decorations = buildDecorations(update.view, filePath);
+                    }
+                }
+            },
+            {
+                decorations: (v) => v.decorations,
             }
-        },
-        {
-            decorations: (v) => v.decorations,
-        }
-    );
+        ),
+        calloutPasteHandler
+    ];
 }

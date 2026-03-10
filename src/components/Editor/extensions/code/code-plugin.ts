@@ -1,14 +1,15 @@
 import { DecorationSet, EditorView, ViewPlugin, ViewUpdate } from "@codemirror/view";
 import { Extension } from "@codemirror/state";
 import { HighlightStyle, syntaxHighlighting, syntaxTreeAvailable } from "@codemirror/language";
-import { tags } from "@lezer/highlight";
+import { tags, tagHighlighter } from "@lezer/highlight";
 import { parseCodeBlocks } from "./code-parser";
 import { buildCodeDecorations } from "./code-decoration";
 
 /**
  * Maps Lezer syntax tags to CSS classes for code highlighting.
  */
-const codeHighlightStyle = HighlightStyle.define([
+const highlightRules = [
+
     { tag: tags.comment, class: "cm-comment" },
     { tag: tags.keyword, class: "cm-keyword" },
     { tag: tags.operator, class: "cm-operator" },
@@ -22,6 +23,7 @@ const codeHighlightStyle = HighlightStyle.define([
     { tag: tags.labelName, class: "cm-labelName" },
     { tag: tags.meta, class: "cm-meta" },
     { tag: tags.bracket, class: "cm-bracket" },
+    { tag: tags.punctuation, class: "cm-punctuation" },
     { tag: tags.tagName, class: "cm-tagName" },
     { tag: tags.attributeName, class: "cm-attributeName" },
     { tag: tags.attributeValue, class: "cm-attributeValue" },
@@ -38,7 +40,19 @@ const codeHighlightStyle = HighlightStyle.define([
     { tag: tags.unit, class: "cm-number" },
     { tag: tags.escape, class: "cm-meta" },
     { tag: tags.special(tags.string), class: "cm-string" },
-]);
+];
+
+/**
+ * Maps Lezer syntax tags to CSS classes for code highlighting in the editor.
+ * Note: this generates obfuscated classes injected into the DOM.
+ */
+export const codeHighlightStyle = HighlightStyle.define(highlightRules);
+
+/**
+ * Maps Lezer syntax tags directly to pure un-mangled CSS classes.
+ * Perfect for static highlighting via `highlightTree()`.
+ */
+export const terminalHighlighter = tagHighlighter(highlightRules);
 
 /**
  * ViewPlugin responsible for applying code block container styling and visual guides.

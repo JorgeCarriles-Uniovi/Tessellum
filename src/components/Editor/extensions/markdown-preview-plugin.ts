@@ -55,8 +55,8 @@ function buildDecorations(view: EditorView): DecorationSet {
     const builder = new RangeSetBuilder<Decoration>();
     const selection = view.state.selection.main;
 
-    // Gather callout line positions so we can skip QuoteMark inside callouts.
-    const calloutPositions = getCalloutLinePositions(view);
+    // Gather callout line positions and types so we can skip hiding marks in terminal callouts.
+    const calloutMap = getCalloutLinePositions(view);
     const tablePositions = getTableLinePositions(view);
 
     syntaxTree(view.state).iterate({
@@ -73,9 +73,16 @@ function buildDecorations(view: EditorView): DecorationSet {
                 const parent = node.node.parent;
 
                 if (parent) {
+                    const calloutType = calloutMap.get(line.from);
+
+                    // Skip hiding any mark inside a terminal callout
+                    if (calloutType === "terminal") {
+                        return;
+                    }
+
                     // Skip QuoteMark nodes on lines owned by the callout plugin
                     if (name === "QuoteMark") {
-                        if (calloutPositions.has(line.from)) {
+                        if (calloutMap.has(line.from)) {
                             return;
                         }
                     }
