@@ -63,7 +63,7 @@ export class TerminalHeaderWidget extends WidgetType {
         // Add tooltip for copy functionality
         const tooltip = document.createElement("div");
         tooltip.className = "cm-terminal-tooltip";
-        tooltip.textContent = "Copy";
+        tooltip.textContent = "COPY";
         titleSpan.appendChild(tooltip);
 
         // Enable pointer events to intercept clicks
