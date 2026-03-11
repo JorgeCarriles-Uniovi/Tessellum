@@ -8,7 +8,7 @@ export function useFileTreeActions(
     onOpenFolderModal: (target: FileMetadata) => void,
     onOpenRenameModal: (target: FileMetadata) => void
 ) {
-    const { createNote, deleteFile } = useSidebarActions();
+    const { createNote, createNoteFromTemplate, deleteFile } = useSidebarActions();
     const { menuState, handleContextMenu, closeMenu } = useContextMenu();
 
     const createNoteInContext = useCallback(async () => {
@@ -18,6 +18,14 @@ export function useFileTreeActions(
         await createNote(parentPath);
         closeMenu();
     }, [menuState, createNote, closeMenu]);
+
+    const createNoteFromTemplateInContext = useCallback(async (templatePath: string, title: string) => {
+        if (!menuState?.target) return;
+
+        const parentPath = getParentFromTarget(menuState.target);
+        await createNoteFromTemplate(templatePath, title, parentPath);
+        closeMenu();
+    }, [menuState, createNoteFromTemplate, closeMenu]);
 
     const createFolderInContext = useCallback(() => {
         if (menuState?.target) {
@@ -38,8 +46,10 @@ export function useFileTreeActions(
         handleContextMenu,
         closeMenu,
         createNote,
+        createNoteFromTemplate,
         deleteFile,
         createNoteInContext,
+        createNoteFromTemplateInContext,
         createFolderInContext,
         renameInContext
     };

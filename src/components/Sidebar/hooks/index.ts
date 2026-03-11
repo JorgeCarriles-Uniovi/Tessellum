@@ -1,3 +1,4 @@
-export * from './useCreateNote.ts';
-export * from './useDeleteFile.ts';
-export * from './useRenameFile.ts';
+export * from './useCreateNote';
+export * from './useDeleteFile';
+export * from './useRenameFile';
+export * from './useCreateNoteFromTemplate';

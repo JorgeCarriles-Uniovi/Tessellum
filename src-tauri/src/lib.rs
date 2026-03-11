@@ -51,6 +51,8 @@ pub fn run() {
             commands::watcher::watch_vault,
             commands::vault::rename_file,
             commands::folders::create_folder,
+            commands::templates::list_templates,
+            commands::templates::create_note_from_template,
             commands::links::get_backlinks,
             commands::links::get_outgoing_links,
             commands::links::get_all_links,
