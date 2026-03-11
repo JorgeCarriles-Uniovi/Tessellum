@@ -21,6 +21,7 @@ export function useFileTree() {
         handleContextMenu: actions.handleContextMenu,
         closeMenu: actions.closeMenu,
         createNote: actions.createNote,
+        createNoteFromTemplate: actions.createNoteFromTemplate,
         deleteFile: actions.deleteFile,
 
         // Folder modal - map to expected names in Sidebar
@@ -40,5 +41,6 @@ export function useFileTree() {
 
         // Context menu actions
         handleContextCreateNote: actions.createNoteInContext,
+        handleContextCreateNoteFromTemplate: actions.createNoteFromTemplateInContext,
     };
 }

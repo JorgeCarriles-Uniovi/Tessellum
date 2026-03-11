@@ -4,11 +4,10 @@ import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
 import { FileMetadata } from "../../../types.ts";
 
-export function useCreateNote() {
-    // 1. Get files from store
+export function useCreateNoteFromTemplate() {
     const { files, setFiles, setActiveNote, vaultPath, toggleFolder } = useEditorStore();
 
-    return useCallback(async (parentPath?: string, title: string = 'Untitled') => {
+    return useCallback(async (templatePath: string, title: string, parentPath?: string) => {
         const targetDir = parentPath ?? vaultPath;
 
         if (!targetDir) {
@@ -16,13 +15,19 @@ export function useCreateNote() {
             return;
         }
 
+        if (!title.trim()) {
+            toast.error("Title cannot be empty");
+            return;
+        }
+
         try {
-            const newPath = await invoke<string>('create_note', {
+            const newPath = await invoke<string>('create_note_from_template', {
                 vaultPath: targetDir,
+                templatePath,
                 title
             });
 
-            const filename = (newPath.split(/[\\/]/).pop()) || 'Untitled.md';
+            const filename = (newPath.split(/[\\/]/).pop()) || `${title}.md`;
 
             const newNote: FileMetadata = {
                 path: newPath,
@@ -36,21 +41,15 @@ export function useCreateNote() {
                 toggleFolder(parentPath, true);
             }
 
-            // --- THE FIX ---
-            // 1. Safety check: ensure 'files' is an array (fallback to []) to prevent crash
             const currentFiles = Array.isArray(files) ? files : [];
-
-            // 2. Create the new array first
             const updatedFiles = [...currentFiles, newNote];
-
-            // 3. Pass the array directly (not a function)
             setFiles(updatedFiles);
 
             setActiveNote(newNote);
-            toast.success("New note created");
+            toast.success("New note created from template");
         } catch (e) {
             console.error(e);
-            toast.error("Failed to create note");
+            toast.error("Failed to create note from template");
         }
     }, [files, vaultPath, setFiles, setActiveNote, toggleFolder]);
 }

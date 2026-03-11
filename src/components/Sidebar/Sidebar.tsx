@@ -5,6 +5,7 @@ import {
     Settings,
     Trash2,
     Network,
+    ChevronDown,
 } from "lucide-react";
 import { useEditorStore } from '../../stores/editorStore';
 import { FileTree } from '../FileTree/FileTree';
@@ -12,6 +13,7 @@ import { SidebarContextMenu } from './SidebarContextMenu';
 import { InputModal } from '../InputModal';
 import { useFileTree } from "../FileTree/hooks/useFileTree";
 import { theme } from "../../styles/theme";
+import { TemplatePicker } from "../TemplatePicker";
 
 export function Sidebar() {
     const {
@@ -46,10 +48,14 @@ export function Sidebar() {
 
     // Hover states
     const [newFileBtnHovered, setNewFileBtnHovered] = useState(false);
+    const [newFileChevronHovered, setNewFileChevronHovered] = useState(false);
     const [newFolderBtnHovered, setNewFolderBtnHovered] = useState(false);
     const [graphHovered, setGraphHovered] = useState(false);
     const [settingsHovered, setSettingsHovered] = useState(false);
     const [trashHovered, setTrashHovered] = useState(false);
+
+    // Modal state
+    const [isTemplatePickerOpen, setIsTemplatePickerOpen] = useState(false);
 
     // Styles
     const sidebarStyle: React.CSSProperties = {
@@ -69,6 +75,16 @@ export function Sidebar() {
         padding: `${theme.spacing[3]} ${theme.spacing[4]}`,
     };
 
+    const newFileGroupStyle: React.CSSProperties = {
+        flex: 1,
+        display: "flex",
+        alignItems: "center",
+        borderRadius: theme.borderRadius.full,
+        overflow: "hidden",
+        boxShadow: newFileBtnHovered ? theme.shadows.sm : "none",
+        transition: theme.transitions.fast,
+    };
+
     const newFileButtonStyle: React.CSSProperties = {
         flex: 1,
         display: "flex",
@@ -78,11 +94,22 @@ export function Sidebar() {
         backgroundColor: newFileBtnHovered ? theme.colors.blue[600] : theme.colors.blue[500],
         color: "#ffffff",
         border: "none",
-        borderRadius: theme.borderRadius.full,
         height: "36px",
         padding: `0 ${theme.spacing[4]}`,
         fontSize: theme.typography.fontSize.sm,
         fontWeight: theme.typography.fontWeight.medium,
+        cursor: "pointer",
+        transition: theme.transitions.fast,
+    };
+
+    const newFileChevronStyle: React.CSSProperties = {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: "36px",
+        height: "36px",
+        backgroundColor: newFileChevronHovered ? theme.colors.blue[700] : theme.colors.blue[600],
+        border: "none",
         cursor: "pointer",
         transition: theme.transitions.fast,
     };
@@ -153,15 +180,25 @@ export function Sidebar() {
 
                         {/* New File/Folder Buttons */}
                         <div style={buttonSectionStyle}>
-                            <button
-                                style={newFileButtonStyle}
-                                onClick={() => createNote()}
-                                onMouseEnter={() => setNewFileBtnHovered(true)}
-                                onMouseLeave={() => setNewFileBtnHovered(false)}
-                            >
-                                <Plus style={{ width: "16px", height: "16px" }} />
-                                New File
-                            </button>
+                            <div style={newFileGroupStyle}>
+                                <button
+                                    style={newFileButtonStyle}
+                                    onClick={() => createNote()}
+                                    onMouseEnter={() => setNewFileBtnHovered(true)}
+                                    onMouseLeave={() => setNewFileBtnHovered(false)}
+                                >
+                                    <Plus style={{ width: "16px", height: "16px" }} />
+                                    New File
+                                </button>
+                                <button
+                                    style={newFileChevronStyle}
+                                    onClick={() => setIsTemplatePickerOpen(true)}
+                                    onMouseEnter={() => setNewFileChevronHovered(true)}
+                                    onMouseLeave={() => setNewFileChevronHovered(false)}
+                                >
+                                    <ChevronDown style={{ width: "16px", height: "16px", color: "#ffffff" }} />
+                                </button>
+                            </div>
                             <button
                                 style={newFolderButtonStyle}
                                 onClick={handleHeaderNewFolder}
@@ -249,6 +286,10 @@ export function Sidebar() {
                 defaultValue={getRenameInitialValue()}
                 onClose={closeRenameModal}
                 onSubmit={handleRenameConfirm}
+            />
+            <TemplatePicker
+                isOpen={isTemplatePickerOpen}
+                onClose={() => setIsTemplatePickerOpen(false)}
             />
         </>
     );

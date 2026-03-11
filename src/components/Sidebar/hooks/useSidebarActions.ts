@@ -1,11 +1,13 @@
 import { useCreateNote,
-        useDeleteFile,
-        useRenameFile
-        } from "./index.ts"
+    useCreateNoteFromTemplate,
+    useDeleteFile,
+    useRenameFile
+} from "./index.ts"
 
 export function useSidebarActions() {
     // --- 1. Create Note ---
     const createNote = useCreateNote();
+    const createNoteFromTemplate = useCreateNoteFromTemplate();
 
     // --- 2. Delete File/Folder ---
     const deleteFile = useDeleteFile();
@@ -13,5 +15,5 @@ export function useSidebarActions() {
     // --- 3. Rename File/Folder ---
     const renameFile = useRenameFile();
 
-    return { createNote: createNote, deleteFile, renameFile };
+    return { createNote: createNote, createNoteFromTemplate, deleteFile, renameFile };
 }

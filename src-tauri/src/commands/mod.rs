@@ -5,6 +5,7 @@ pub mod links;
 pub mod notes;
 pub mod vault;
 pub mod watcher;
+pub mod templates;
 
 pub use folders::create_folder;
 pub use graph::get_graph_data;
@@ -17,3 +18,4 @@ pub use notes::{
 };
 pub use vault::{list_files, list_files_tree, rename_file, set_vault_path};
 pub use watcher::watch_vault;
+pub use templates::{create_note_from_template, list_templates};
