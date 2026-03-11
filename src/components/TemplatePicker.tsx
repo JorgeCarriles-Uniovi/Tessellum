@@ -37,6 +37,8 @@ export function TemplatePicker({ isOpen, onClose, parentPath }: TemplatePickerPr
         if (!isOpen) return;
 
         setTitle("Untitled");
+        setTemplates([]);
+        setFocusedIndex(null);
         setIsLoading(true);
 
         if (!vaultPath) {
