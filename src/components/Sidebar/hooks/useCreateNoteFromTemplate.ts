@@ -10,7 +10,7 @@ export function useCreateNoteFromTemplate() {
     return useCallback(async (templatePath: string, title: string, parentPath?: string) => {
         const targetDir = parentPath ?? vaultPath;
 
-        if (!targetDir) {
+        if (!vaultPath || !targetDir) {
             toast.error("No folder selected");
             return;
         }
@@ -22,7 +22,8 @@ export function useCreateNoteFromTemplate() {
 
         try {
             const newPath = await invoke<string>('create_note_from_template', {
-                vaultPath: targetDir,
+                vaultPath,
+                targetDir,
                 templatePath,
                 title
             });

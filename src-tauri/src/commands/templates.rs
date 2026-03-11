@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::Path;
 
+use chrono::{DateTime, Local};
 use serde::Serialize;
 use tauri::State;
 
@@ -16,6 +17,25 @@ pub struct TemplateInfo {
 
 fn templates_dir(vault_path: &str) -> std::path::PathBuf {
 	Path::new(vault_path).join(".tessellum").join("templates")
+}
+
+fn apply_placeholders(
+	content: &str,
+	title: &str,
+	vault_path: &str,
+	now: DateTime<Local>,
+) -> String {
+	let date = now.format("%Y-%m-%d").to_string();
+	let time = now.format("%H:%M").to_string();
+	let datetime = now.format("%Y-%m-%d %H:%M").to_string();
+	let vault = normalize_path(vault_path);
+	
+	content
+		.replace("{{date}}", &date)
+		.replace("{{time}}", &time)
+		.replace("{{datetime}}", &datetime)
+		.replace("{{title}}", title)
+		.replace("{{vault}}", &vault)
 }
 
 #[tauri::command]
@@ -63,10 +83,12 @@ pub async fn list_templates(vault_path: String) -> Result<Vec<TemplateInfo>, Tes
 pub async fn create_note_from_template(
 	state: State<'_, AppState>,
 	vault_path: String,
+	target_dir: String,
 	template_path: String,
 	title: String,
 ) -> Result<String, TessellumError> {
 	validate_path_in_vault(&vault_path, &vault_path).map_err(TessellumError::Validation)?;
+	validate_path_in_vault(&target_dir, &vault_path).map_err(TessellumError::Validation)?;
 	validate_path_in_vault(&template_path, &vault_path).map_err(TessellumError::Validation)?;
 	
 	let template_content = tokio::fs::read_to_string(&template_path)
@@ -85,17 +107,20 @@ pub async fn create_note_from_template(
 	} else {
 		format!("{}.md", clean_title)
 	};
-	let mut file_path = Path::new(&vault_path).join(&filename);
+	let mut file_path = Path::new(&target_dir).join(&filename);
 	let mut collision_index = 1;
 	
 	while file_path.exists() {
 		let stem = clean_title.strip_suffix(".md").unwrap_or(&clean_title);
 		filename = format!("{} ({}).md", stem, collision_index);
-		file_path = Path::new(&vault_path).join(&filename);
+		file_path = Path::new(&target_dir).join(&filename);
 		collision_index += 1;
 	}
 	
-	tokio::fs::write(&file_path, &template_content)
+	let processed_content =
+		apply_placeholders(&template_content, &clean_title, &target_dir, Local::now());
+	
+	tokio::fs::write(&file_path, &processed_content)
 		.await
 		.map_err(TessellumError::from)?;
 	
@@ -111,4 +136,42 @@ pub async fn create_note_from_template(
 	*idx_guard = None;
 	
 	Ok(path_str)
+}
+
+#[cfg(test)]
+mod tests {
+	use super::apply_placeholders;
+	use chrono::{Local, TimeZone};
+	
+	#[test]
+	fn test_apply_placeholders_replaces_core_tokens() {
+		let now = Local.with_ymd_and_hms(2026, 3, 11, 14, 5, 0).unwrap();
+		let content = "Date: {{date}}\nTime: {{time}}\nDT: {{datetime}}\nTitle: {{title}}\nVault: {{vault}}";
+		let out = apply_placeholders(content, "My Note", "C:\\Vault", now);
+		
+		assert!(out.contains("Date: 2026-03-11"));
+		assert!(out.contains("Time: 14:05"));
+		assert!(out.contains("DT: 2026-03-11 14:05"));
+		assert!(out.contains("Title: My Note"));
+		assert!(out.contains("Vault: C:/Vault"));
+	}
+	
+	#[test]
+	fn test_apply_placeholders_leaves_unknown_tokens() {
+		let now = Local.with_ymd_and_hms(2026, 3, 11, 14, 5, 0).unwrap();
+		let content = "Hello {{unknown}} {{date}}";
+		let out = apply_placeholders(content, "X", "/vault", now);
+		
+		assert!(out.contains("{{unknown}}"));
+		assert!(out.contains("2026-03-11"));
+	}
+	
+	#[test]
+	fn test_apply_placeholders_multiple_occurrences() {
+		let now = Local.with_ymd_and_hms(2026, 3, 11, 14, 5, 0).unwrap();
+		let content = "{{date}} {{date}} {{time}} {{time}}";
+		let out = apply_placeholders(content, "X", "/vault", now);
+		
+		assert_eq!(out, "2026-03-11 2026-03-11 14:05 14:05");
+	}
 }

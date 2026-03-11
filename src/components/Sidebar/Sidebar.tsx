@@ -14,6 +14,7 @@ import { InputModal } from '../InputModal';
 import { useFileTree } from "../FileTree/hooks/useFileTree";
 import { theme } from "../../styles/theme";
 import { TemplatePicker } from "../TemplatePicker";
+import { getParentFromTarget } from "../../utils/pathUtils";
 
 export function Sidebar() {
     const {
@@ -56,6 +57,7 @@ export function Sidebar() {
 
     // Modal state
     const [isTemplatePickerOpen, setIsTemplatePickerOpen] = useState(false);
+    const [templateParentPath, setTemplateParentPath] = useState<string | undefined>(undefined);
 
     // Styles
     const sidebarStyle: React.CSSProperties = {
@@ -192,7 +194,10 @@ export function Sidebar() {
                                 </button>
                                 <button
                                     style={newFileChevronStyle}
-                                    onClick={() => setIsTemplatePickerOpen(true)}
+                                    onClick={() => {
+                                        setTemplateParentPath(undefined);
+                                        setIsTemplatePickerOpen(true);
+                                    }}
                                     onMouseEnter={() => setNewFileChevronHovered(true)}
                                     onMouseLeave={() => setNewFileChevronHovered(false)}
                                 >
@@ -267,6 +272,10 @@ export function Sidebar() {
                     onRename={handleContextRename}
                     onDelete={() => deleteFile(menuState.target)}
                     onNewNote={handleContextCreateNote}
+                    onNewNoteFromTemplate={() => {
+                        setTemplateParentPath(getParentFromTarget(menuState.target));
+                        setIsTemplatePickerOpen(true);
+                    }}
                     onNewFolder={handleContextNewFolder}
                 />
             )}
@@ -290,6 +299,7 @@ export function Sidebar() {
             <TemplatePicker
                 isOpen={isTemplatePickerOpen}
                 onClose={() => setIsTemplatePickerOpen(false)}
+                parentPath={templateParentPath}
             />
         </>
     );

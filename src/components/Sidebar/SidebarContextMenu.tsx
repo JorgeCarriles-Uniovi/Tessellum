@@ -12,11 +12,12 @@ interface SidebarContextMenuProps {
     onRename: () => void;
     onDelete: () => void;
     onNewNote?: () => void;
+    onNewNoteFromTemplate?: () => void;
     onNewFolder?: () => void;
 }
 
 export function SidebarContextMenu({
-                                       x, y, target, onClose, onRename, onDelete, onNewNote, onNewFolder
+                                       x, y, target, onClose, onRename, onDelete, onNewNote, onNewNoteFromTemplate, onNewFolder
                                    }: SidebarContextMenuProps) {
 
     const menuRef = useRef<HTMLDivElement>(null);
@@ -65,6 +66,16 @@ export function SidebarContextMenu({
                     style={{ marginBottom: "2px", marginTop: "2px" }}
                 >
                     <FilePlus size={14} /> New Note
+                </button>
+            )}
+
+            {onNewNoteFromTemplate && (
+                <button
+                    onClick={function() { onNewNoteFromTemplate(); onClose(); }}
+                    className="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2 text-gray-700"
+                    style={{ marginBottom: "2px", marginTop: "2px" }}
+                >
+                    <FilePlus size={14} /> New Note From Template
                 </button>
             )}
 
