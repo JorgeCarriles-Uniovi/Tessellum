@@ -11,6 +11,7 @@ pub struct GraphNode {
 	pub label: String,
 	pub exists: bool,
 	pub orphan: bool,
+	pub tags: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -83,6 +84,11 @@ pub async fn get_graph_data(
 		.map(|p| crate::utils::normalize_path(&p))
 		.collect();
 	
+	let file_tags = db_guard
+		.get_files_tags()
+		.await
+		.map_err(TessellumError::from)?;
+	
 	let mut nodes = Vec::new();
 	let mut edges = Vec::new();
 	
@@ -93,11 +99,14 @@ pub async fn get_graph_data(
 		let normalized = crate::utils::normalize_path(&path);
 		existing_paths.insert(normalized.clone());
 		
+		let tags = file_tags.get(&path).cloned().unwrap_or_default();
+		
 		nodes.push(GraphNode {
 			id: normalized.clone(),
 			label: path_to_label(&path, &vault_path),
 			exists: true,
 			orphan: orphaned_files.contains(&normalized),
+			tags,
 		});
 	}
 	
@@ -117,6 +126,7 @@ pub async fn get_graph_data(
 					label: path_to_label(&target, &vault_path),
 					exists: false,
 					orphan: false,
+					tags: Vec::new(),
 				});
 				existing_paths.insert(normalized_target.clone());
 			}

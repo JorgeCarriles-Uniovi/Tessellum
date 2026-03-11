@@ -48,8 +48,9 @@ pub async fn get_backlinks(
     path: String,
 ) -> Result<Vec<String>, TessellumError> {
     let db_guard = state.db.lock().await;
+    let normalized = crate::utils::normalize_path(&path);
     db_guard
-        .get_backlinks(&path)
+        .get_backlinks(&normalized)
         .await
         .map_err(TessellumError::from)
 }
@@ -61,8 +62,9 @@ pub async fn get_outgoing_links(
     path: String,
 ) -> Result<Vec<String>, TessellumError> {
     let db_guard = state.db.lock().await;
+    let normalized = crate::utils::normalize_path(&path);
     db_guard
-        .get_outgoing_links(&path)
+        .get_outgoing_links(&normalized)
         .await
         .map_err(TessellumError::from)
 }

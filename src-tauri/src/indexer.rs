@@ -1,3 +1,4 @@
+use regex::Regex;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
@@ -167,21 +168,56 @@ impl VaultIndexer {
             .unwrap_or_default()
             .as_secs() as i64;
         
-        // Extract and resolve wikilinks (non-existent targets get a fallback path)
-        let wikilinks = extract_wikilinks(&content);
+        // Parse frontmatter
+        let mut frontmatter_json_str = None;
+        let mut body_content = content.as_str();
+        
+        if let Some((yaml, _)) = crate::utils::frontmatter::parse_frontmatter(&content) {
+            body_content = crate::utils::frontmatter::strip_frontmatter(&content);
+            if let Ok(json) = crate::utils::frontmatter::frontmatter_to_json(&yaml) {
+                frontmatter_json_str = Some(json);
+            }
+        }
+        
+        // Extract inline tags
+        // obsidian tags allow alphanumeric and underscore/hyphen, must have at least one non-number char, but we'll stick to a simple match
+        // and avoid catching `#` inside URLs usually by space boundaries
+        let tag_regex = Regex::new(r"(?:^|\s)#([a-zA-Z0-9_\-]+)").unwrap();
+        let mut inline_tags = Vec::new();
+        for cap in tag_regex.captures_iter(body_content) {
+            if let Some(tag_match) = cap.get(1) {
+                inline_tags.push(tag_match.as_str().to_string());
+            }
+        }
+        
+        let inline_tags_json_str = if inline_tags.is_empty() {
+            None
+        } else {
+            serde_json::to_string(&inline_tags).ok()
+        };
+        
+        let wikilinks = extract_wikilinks(body_content);
         let resolved_links: Vec<String> = wikilinks
             .iter()
             .map(|link| {
-                file_index
-                    .resolve_or_default(vault_path, &link.target)
-                    .to_string_lossy()
-                    .to_string()
+                crate::utils::normalize_path(
+                    &file_index
+                        .resolve_or_default(vault_path, &link.target)
+                        .to_string_lossy(),
+                )
             })
             .collect();
         
         let normalized_path = crate::utils::normalize_path(file_path);
         // Index the file
-        db.index_file(&normalized_path, modified, size, &resolved_links)
+        db.index_file(
+            &normalized_path,
+            modified,
+            size,
+            frontmatter_json_str.as_deref(),
+            inline_tags_json_str.as_deref(),
+            &resolved_links,
+        )
             .await
             .map_err(|e| format!("Failed to index file: {}", e))?;
         

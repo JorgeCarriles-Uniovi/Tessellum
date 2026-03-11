@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useEditorStore } from '../../stores/editorStore';
+import { stringToColor } from '../../utils/graphUtils';
 
 interface NodeInfoPanelProps {
     nodePath: string;
+    tags?: string[];
     onClose: () => void;
 }
 
-export function NodeInfoPanel({ nodePath, onClose }: NodeInfoPanelProps) {
+export function NodeInfoPanel({ nodePath, tags, onClose }: NodeInfoPanelProps) {
     const [outgoing, setOutgoing] = useState<string[]>([]);
     const [incoming, setIncoming] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
@@ -113,6 +115,35 @@ export function NodeInfoPanel({ nodePath, onClose }: NodeInfoPanelProps) {
                     <div style={sectionLabelStyle}>Path</div>
                     <div style={sectionValueStyle}>{relativePath}</div>
                 </div>
+
+                {/* Tags */}
+                {tags && tags.length > 0 && (
+                    <div style={{ marginBottom: 12 }}>
+                        <div style={sectionLabelStyle}>Tags</div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                            {tags.map((tag) => {
+                                const { h } = stringToColor(tag);
+                                const saturation = '70%';
+                                const lightnessBg = '60%';
+                                const lightnessText = '50%';
+
+                                return (
+                                    <span key={tag} style={{
+                                        fontSize: '11px',
+                                        backgroundColor: `hsla(${h}, ${saturation}, ${lightnessBg}, 0.15)`,
+                                        color: `hsl(${h}, ${saturation}, ${lightnessText})`,
+                                        border: `1px solid hsla(${h}, ${saturation}, ${lightnessBg}, 0.3)`,
+                                        padding: '2px 6px',
+                                        borderRadius: 'var(--radius-full)',
+                                        whiteSpace: 'nowrap'
+                                    }}>
+                                        #{tag}
+                                    </span>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
 
                 {loading ? (
                     <div style={{ ...sectionValueStyle, fontStyle: 'italic' }}>Loading...</div>

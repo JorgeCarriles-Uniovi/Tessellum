@@ -22,11 +22,21 @@ impl Database {
             "CREATE TABLE IF NOT EXISTS notes (
                 path TEXT PRIMARY KEY,
                 modified_at INTEGER,
-                size INTEGER
+                size INTEGER,
+                frontmatter TEXT
             );",
         )
             .execute(&pool)
             .await?;
+        
+        // Migrate table if missing the new column (fails silently if column already exists)
+        let _ = sqlx::query("ALTER TABLE notes ADD COLUMN frontmatter TEXT;")
+            .execute(&pool)
+            .await;
+        
+        let _ = sqlx::query("ALTER TABLE notes ADD COLUMN inline_tags TEXT;")
+            .execute(&pool)
+            .await;
         
         // Create links table with RESOLVED target paths
         sqlx::query(
@@ -66,18 +76,24 @@ impl Database {
         path: &str,
         modified: i64,
         size: u64,
+        frontmatter_json: Option<&str>,
+        inline_tags_json: Option<&str>,
         resolved_links: &[String],
     ) -> Result<(), sqlx::Error> {
         // Insert or update the note metadata
         sqlx::query(
-            "INSERT INTO notes (path, modified_at, size) VALUES (?, ?, ?)
-             ON CONFLICT(path) DO UPDATE SET modified_at = ?, size = ?",
+            "INSERT INTO notes (path, modified_at, size, frontmatter, inline_tags) VALUES (?, ?, ?, ?, ?)
+             ON CONFLICT(path) DO UPDATE SET modified_at = ?, size = ?, frontmatter = ?, inline_tags = ?",
         )
             .bind(path)
             .bind(modified)
             .bind(size as i64)
+            .bind(frontmatter_json)
+            .bind(inline_tags_json)
             .bind(modified)
             .bind(size as i64)
+            .bind(frontmatter_json)
+            .bind(inline_tags_json)
             .execute(&self.pool)
             .await?;
         
@@ -113,26 +129,38 @@ impl Database {
     ///
     /// Returns a vector of full paths to files that this file links to.
     pub async fn get_outgoing_links(&self, source_path: &str) -> Result<Vec<String>, sqlx::Error> {
-        let rows =
-            sqlx::query_as::<_, (String,)>("SELECT target_path FROM links WHERE source_path = ?")
-                .bind(source_path)
-                .fetch_all(&self.pool)
-                .await?;
+        let denormalized = source_path.replace('/', "\\");
+        let rows = sqlx::query_as::<_, (String,)>(
+            "SELECT target_path FROM links WHERE source_path = ? OR source_path = ?",
+        )
+            .bind(source_path)
+            .bind(&denormalized)
+            .fetch_all(&self.pool)
+            .await?;
         
-        Ok(rows.into_iter().map(|(path,)| path).collect())
+        Ok(rows
+            .into_iter()
+            .map(|(path,)| crate::utils::normalize_path(&path))
+            .collect())
     }
     
     /// Get all backlinks to a specific file.
     ///
     /// Returns a vector of full paths to files that link to this file.
     pub async fn get_backlinks(&self, target_path: &str) -> Result<Vec<String>, sqlx::Error> {
-        let rows =
-            sqlx::query_as::<_, (String,)>("SELECT source_path FROM links WHERE target_path = ?")
-                .bind(target_path)
-                .fetch_all(&self.pool)
-                .await?;
+        let denormalized = target_path.replace('/', "\\");
+        let rows = sqlx::query_as::<_, (String,)>(
+            "SELECT source_path FROM links WHERE target_path = ? OR target_path = ?",
+        )
+            .bind(target_path)
+            .bind(&denormalized)
+            .fetch_all(&self.pool)
+            .await?;
         
-        Ok(rows.into_iter().map(|(path,)| path).collect())
+        Ok(rows
+            .into_iter()
+            .map(|(path,)| crate::utils::normalize_path(&path))
+            .collect())
     }
     
     /// Get all links in the vault (for graph visualization).
@@ -159,24 +187,82 @@ impl Database {
     ) -> Result<(), sqlx::Error> {
         let mut tx = self.pool.begin().await?;
         
-        // Update the note's primary key
-        sqlx::query("UPDATE notes SET path = ? WHERE path = ?")
+        // Defer FK checks until commit so we can safely update the notes PK
+        // and then update the referencing links.source_path in the same transaction.
+        sqlx::query("PRAGMA defer_foreign_keys = ON")
+            .execute(&mut *tx)
+            .await?;
+        
+        // 1. Update the record for the file/folder itself
+        // Use OR REPLACE for notes PK in case of orphaned DB entries
+        sqlx::query("UPDATE OR REPLACE notes SET path = ? WHERE path = ?")
             .bind(new_path)
             .bind(old_path)
             .execute(&mut *tx)
             .await?;
         
-        // Update links where this file is the source
-        sqlx::query("UPDATE links SET source_path = ? WHERE source_path = ?")
+        // 2. If this is a folder rename, update all child notes
+        // Note: paths are normalized with forward slashes
+        let old_prefix = format!("{}/%", old_path.replace('\\', "/"));
+        sqlx::query(
+            "UPDATE OR REPLACE notes SET path = ? || substr(path, length(?) + 1)
+             WHERE path LIKE ?",
+        )
+            .bind(new_path)
+            .bind(old_path)
+            .bind(&old_prefix)
+            .execute(&mut *tx)
+            .await?;
+        
+        // 3. Update links where this file/folder is the source
+        // Handles exact match
+        sqlx::query("UPDATE OR IGNORE links SET source_path = ? WHERE source_path = ?")
             .bind(new_path)
             .bind(old_path)
             .execute(&mut *tx)
             .await?;
         
-        // Update links where this file is the target (backlinks)
-        sqlx::query("UPDATE links SET target_path = ? WHERE target_path = ?")
+        // Handles children if folder
+        sqlx::query(
+            "UPDATE OR IGNORE links SET source_path = ? || substr(source_path, length(?) + 1)
+             WHERE source_path LIKE ?",
+        )
             .bind(new_path)
             .bind(old_path)
+            .bind(&old_prefix)
+            .execute(&mut *tx)
+            .await?;
+        
+        // Cleanup merged source links (ones that didn't update because of conflicts)
+        sqlx::query("DELETE FROM links WHERE source_path = ? OR source_path LIKE ?")
+            .bind(old_path)
+            .bind(&old_prefix)
+            .execute(&mut *tx)
+            .await?;
+        
+        // 4. Update links where this file/folder is the target (backlinks)
+        // Handles exact match
+        sqlx::query("UPDATE OR IGNORE links SET target_path = ? WHERE target_path = ?")
+            .bind(new_path)
+            .bind(old_path)
+            .execute(&mut *tx)
+            .await?;
+        
+        // Handles children if folder
+        sqlx::query(
+            "UPDATE OR IGNORE links SET target_path = ? || substr(target_path, length(?) + 1)
+             WHERE target_path LIKE ?",
+        )
+            .bind(new_path)
+            .bind(old_path)
+            .bind(&old_prefix)
+            .execute(&mut *tx)
+            .await?;
+        
+        // Cleanup merged target links
+        sqlx::query("DELETE FROM links WHERE target_path = ? OR target_path LIKE ?")
+            .bind(old_path)
+            .bind(&old_prefix)
             .execute(&mut *tx)
             .await?;
         
@@ -213,7 +299,8 @@ impl Database {
         let rows = sqlx::query_as::<_, (String,)>(
             "SELECT path FROM notes
              WHERE path NOT IN (SELECT DISTINCT source_path FROM links)
-             AND path NOT IN (SELECT DISTINCT target_path FROM links)",
+             AND path NOT IN (SELECT DISTINCT target_path FROM links)
+             AND replace(path, '/', '\\') NOT IN (SELECT DISTINCT target_path FROM links)",
         )
             .fetch_all(&self.pool)
             .await?;
@@ -267,5 +354,141 @@ impl Database {
         
         tx.commit().await?;
         Ok(deleted)
+    }
+    
+    /// Get frontmatter JSON for a specific file.
+    pub async fn get_frontmatter(&self, path: &str) -> Result<Option<String>, sqlx::Error> {
+        let row =
+            sqlx::query_as::<_, (Option<String>,)>("SELECT frontmatter FROM notes WHERE path = ?")
+                .bind(path)
+                .fetch_optional(&self.pool)
+                .await?;
+        
+        Ok(row.and_then(|(frontmatter,)| frontmatter))
+    }
+    
+    /// Get all unique tags from frontmatter metadata and inline tags across all notes.
+    pub async fn get_all_tags(&self) -> Result<Vec<String>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, (Option<String>, Option<String>)>(
+            "SELECT frontmatter, inline_tags FROM notes WHERE frontmatter IS NOT NULL OR inline_tags IS NOT NULL",
+        )
+            .fetch_all(&self.pool)
+            .await?;
+        
+        let mut all_tags = std::collections::HashSet::new();
+        
+        for (frontmatter_opt, inline_tags_opt) in rows {
+            // Process frontmatter tags
+            if let Some(frontmatter_json) = frontmatter_opt {
+                if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&frontmatter_json) {
+                    if let Some(tags) = parsed.get("tags") {
+                        if let Some(tags_array) = tags.as_array() {
+                            for tag in tags_array {
+                                if let Some(tag_str) = tag.as_str() {
+                                    all_tags.insert(tag_str.to_string());
+                                }
+                            }
+                        } else if let Some(tag_str) = tags.as_str() {
+                            // Support strings (e.g. tags: tag1, tag2)
+                            for t in tag_str.split(',') {
+                                let normalized = t.trim().trim_start_matches('#');
+                                if !normalized.is_empty() {
+                                    all_tags.insert(normalized.to_string());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Process inline tags
+            if let Some(inline_tags_json) = inline_tags_opt {
+                if let Ok(parsed) = serde_json::from_str::<Vec<String>>(&inline_tags_json) {
+                    for tag in parsed {
+                        all_tags.insert(tag);
+                    }
+                }
+            }
+        }
+        
+        let mut sorted_tags: Vec<String> = all_tags.into_iter().collect();
+        sorted_tags.sort();
+        Ok(sorted_tags)
+    }
+    
+    /// Get all tags for each indexed file
+    pub async fn get_files_tags(
+        &self,
+    ) -> Result<std::collections::HashMap<String, Vec<String>>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, (String, Option<String>, Option<String>)>(
+            "SELECT path, frontmatter, inline_tags FROM notes",
+        )
+            .fetch_all(&self.pool)
+            .await?;
+        
+        let mut result = std::collections::HashMap::new();
+        
+        for (path, frontmatter_opt, inline_tags_opt) in rows {
+            let mut file_tags = Vec::new();
+            
+            if let Some(frontmatter_json) = frontmatter_opt {
+                if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&frontmatter_json) {
+                    if let Some(tags) = parsed.get("tags") {
+                        if let Some(tags_array) = tags.as_array() {
+                            for tag in tags_array {
+                                if let Some(tag_str) = tag.as_str() {
+                                    file_tags.push(tag_str.to_string());
+                                }
+                            }
+                        } else if let Some(tag_str) = tags.as_str() {
+                            for t in tag_str.split(',') {
+                                file_tags.push(t.trim().to_string());
+                            }
+                        }
+                    }
+                }
+            }
+            
+            if let Some(inline_tags_json) = inline_tags_opt {
+                if let Ok(parsed) = serde_json::from_str::<Vec<String>>(&inline_tags_json) {
+                    for tag in parsed {
+                        if !file_tags.contains(&tag) {
+                            file_tags.push(tag);
+                        }
+                    }
+                }
+            }
+            
+            result.insert(path, file_tags);
+        }
+        
+        Ok(result)
+    }
+    
+    /// Get all unique property keys from frontmatter metadata across all notes.
+    pub async fn get_all_property_keys(&self) -> Result<Vec<String>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, (Option<String>,)>(
+            "SELECT frontmatter FROM notes WHERE frontmatter IS NOT NULL",
+        )
+            .fetch_all(&self.pool)
+            .await?;
+        
+        let mut all_keys = std::collections::HashSet::new();
+        
+        for (frontmatter_opt,) in rows {
+            if let Some(frontmatter_json) = frontmatter_opt {
+                if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&frontmatter_json) {
+                    if let Some(obj) = parsed.as_object() {
+                        for key in obj.keys() {
+                            all_keys.insert(key.clone());
+                        }
+                    }
+                }
+            }
+        }
+        
+        let mut sorted_keys: Vec<String> = all_keys.into_iter().collect();
+        sorted_keys.sort();
+        Ok(sorted_keys)
     }
 }

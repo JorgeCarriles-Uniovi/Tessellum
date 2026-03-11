@@ -924,6 +924,68 @@ body {
     .cm-table-hidden-line {
         @apply !text-[0] !leading-none !min-h-0 !h-0 !p-0 !m-0 !opacity-0 !overflow-hidden !text-transparent !border-none !pointer-events-none;
     }
+
+    /* --- Frontmatter --- */
+    .cm-frontmatter-widget {
+        @apply my-6 w-full select-none cursor-pointer;
+        font-family: var(--font-sans);
+    }
+
+    .cm-frontmatter-header {
+        @apply font-bold text-foreground mb-3 px-1;
+        font-size: 15px;
+    }
+
+    .cm-frontmatter-props {
+        @apply flex flex-col gap-2;
+    }
+
+    .cm-frontmatter-prop-row {
+        @apply flex items-center min-h-[36px] bg-secondary/10 border border-solid border-border rounded-md px-3 py-1 hover:bg-secondary/30 transition-colors w-full max-w-2xl;
+    }
+
+    .cm-frontmatter-prop-key {
+        @apply flex items-center gap-2 w-32 shrink-0 text-muted-foreground mr-4 font-normal text-[13px] opacity-80;
+    }
+
+    .cm-frontmatter-prop-value {
+        @apply flex-1 flex flex-wrap gap-1.5 items-center min-h-[22px] overflow-visible;
+    }
+
+    .cm-frontmatter-prop-pill {
+        @apply inline-flex items-center px-2 py-0.5 rounded-full text-[13px] font-medium bg-secondary/60 text-foreground;
+        background-color: var(--color-bg-tertiary);
+    }
+
+    .cm-frontmatter-prop-pill-close {
+        @apply ml-1.5 w-3 h-3 opacity-50 hover:opacity-100 transition-opacity;
+    }
+
+    .cm-frontmatter-add-row {
+        @apply flex items-center gap-2 text-muted-foreground mt-1 px-1 hover:text-foreground transition-colors w-max text-[13.5px] font-medium opacity-80;
+    }
+
+    .cm-frontmatter-hidden-line {
+        @apply !text-[0] !leading-none !min-h-0 !h-0 !p-0 !m-0 !opacity-0 !overflow-hidden !text-transparent !border-none !pointer-events-none;
+    }
+
+    .cm-frontmatter-edit-line {
+        @apply bg-muted/20 border-x border-solid border-border px-4;
+        font-family: var(--font-mono) !important;
+        font-size: 0.9em !important;
+        line-height: 1.6 !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+
+    /* --- Inline Tags --- */
+    .cm-hashtag {
+        @apply inline-flex items-center rounded-full text-[13px] font-medium mx-[1px];
+        background-color: #a371f71a;
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+        color: #a371f7;
+    }
 }
 
 /* Scrollbar styling */

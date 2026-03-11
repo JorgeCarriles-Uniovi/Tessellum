@@ -259,12 +259,17 @@ export function LocalGraphPanel() {
                 )}
 
                 {/* Info panel */}
-                {selectedGraphNode && (
-                    <NodeInfoPanel
-                        nodePath={selectedGraphNode}
-                        onClose={() => setSelectedGraphNode(null)}
-                    />
-                )}
+                {selectedGraphNode && (() => {
+                    const nodeElement = elements.find(e => e.data?.id === selectedGraphNode);
+                    const tags = nodeElement?.data?.tags as string[] | undefined;
+                    return (
+                        <NodeInfoPanel
+                            nodePath={selectedGraphNode}
+                            tags={tags}
+                            onClose={() => setSelectedGraphNode(null)}
+                        />
+                    );
+                })()}
             </div>
         </div>
     );
