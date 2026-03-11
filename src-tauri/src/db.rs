@@ -391,7 +391,10 @@ impl Database {
                         } else if let Some(tag_str) = tags.as_str() {
                             // Support strings (e.g. tags: tag1, tag2)
                             for t in tag_str.split(',') {
-                                all_tags.insert(t.trim().to_string());
+                                let normalized = t.trim().trim_start_matches('#');
+                                if !normalized.is_empty() {
+                                    all_tags.insert(normalized.to_string());
+                                }
                             }
                         }
                     }

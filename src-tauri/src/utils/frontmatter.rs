@@ -3,15 +3,21 @@ use serde_json::Value;
 /// Extracts the raw YAML string and the body (content after frontmatter).
 /// Returns `None` if no frontmatter exists.
 pub fn parse_frontmatter(content: &str) -> Option<(String, String)> {
-	if !content.starts_with("---\n") && !content.starts_with("---\r\n") {
+	let frontmatter_start = if content.starts_with("---\n") {
+		4
+	} else if content.starts_with("---\r\n") {
+		5
+	} else {
 		return None;
-	}
+	};
 	
-	let end_index = content[4..].find("\n---");
+	let end_index = content[frontmatter_start..].find("\n---");
 	if let Some(idx) = end_index {
-		let yaml_str = content[4..4 + idx].trim().to_string();
+		let yaml_str = content[frontmatter_start..frontmatter_start + idx]
+			.trim()
+			.to_string();
 		
-		let after_dash = &content[4 + idx + 4..];
+		let after_dash = &content[frontmatter_start + idx + 4..];
 		let body = if after_dash.starts_with('\n') {
 			after_dash[1..].to_string()
 		} else if after_dash.starts_with("\r\n") {
@@ -43,13 +49,17 @@ pub fn frontmatter_to_json(yaml_str: &str) -> Result<String, String> {
 
 /// Returns the body content without frontmatter (for wikilink extraction, etc.).
 pub fn strip_frontmatter(content: &str) -> &str {
-	if !content.starts_with("---\n") && !content.starts_with("---\r\n") {
+	let frontmatter_start = if content.starts_with("---\n") {
+		4
+	} else if content.starts_with("---\r\n") {
+		5
+	} else {
 		return content;
-	}
+	};
 	
-	let end_index = content[4..].find("\n---");
+	let end_index = content[frontmatter_start..].find("\n---");
 	if let Some(idx) = end_index {
-		let after_dash = &content[4 + idx + 4..];
+		let after_dash = &content[frontmatter_start + idx + 4..];
 		if after_dash.starts_with('\n') {
 			return &after_dash[1..];
 		} else if after_dash.starts_with("\r\n") {
@@ -60,4 +70,24 @@ pub fn strip_frontmatter(content: &str) -> &str {
 	}
 	
 	content
+}
+
+#[cfg(test)]
+mod tests {
+	use super::{parse_frontmatter, strip_frontmatter};
+	
+	#[test]
+	fn parses_frontmatter_with_crlf_delimiters() {
+		let content = "---\r\ntitle: Test\r\n---\r\nBody";
+		let parsed = parse_frontmatter(content).expect("expected frontmatter to parse");
+		
+		assert_eq!(parsed.0, "title: Test");
+		assert_eq!(parsed.1, "Body");
+	}
+	
+	#[test]
+	fn strips_frontmatter_with_crlf_delimiters() {
+		let content = "---\r\ntitle: Test\r\n---\r\nBody";
+		assert_eq!(strip_frontmatter(content), "Body");
+	}
 }

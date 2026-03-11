@@ -62,14 +62,32 @@ export function parseFrontmatter(doc: Text): FrontmatterBlock | null {
 }
 
 export function stringifyFrontmatter(properties: Record<string, any>): string {
+    const stringifyScalar = (value: any): string => {
+        if (typeof value === "string") {
+            // JSON-style quoted strings are valid YAML and correctly escape special chars.
+            return JSON.stringify(value);
+        }
+
+        if (value === null || typeof value === "number" || typeof value === "boolean") {
+            return String(value);
+        }
+
+        return JSON.stringify(String(value));
+    };
+
+    const stringifyValue = (value: any): string => {
+        if (Array.isArray(value)) {
+            return `[${value.map(item => stringifyScalar(item)).join(", ")}]`;
+        }
+
+        return stringifyScalar(value);
+    };
+
     let yaml = "---\n";
     for (const [key, value] of Object.entries(properties)) {
-        if (Array.isArray(value)) {
-            yaml += `${key}: [${value.join(", ")}]\n`;
-        } else {
-            yaml += `${key}: ${value}\n`;
-        }
+        yaml += `${key}: ${stringifyValue(value)}\n`;
     }
     yaml += "---";
     return yaml;
 }
+
