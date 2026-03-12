@@ -1,7 +1,7 @@
 use chrono::Local;
 use regex::Regex;
 use std::fs;
-use std::path::Path;
+use std::path::{Component, Path};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::State;
 
@@ -28,6 +28,23 @@ fn build_daily_note_relative_path(template: &str, now: chrono::DateTime<Local>) 
     }
     
     path
+}
+
+fn validate_template_name(template_name: &str) -> Result<(), TessellumError> {
+    let trimmed = template_name.trim();
+    if trimmed.is_empty() {
+        return Err(TessellumError::Validation(
+            "Template name cannot be empty".to_string(),
+        ));
+    }
+    
+    let mut components = Path::new(trimmed).components();
+    match (components.next(), components.next()) {
+        (Some(Component::Normal(_)), None) => Ok(()),
+        _ => Err(TessellumError::Validation(
+            "Template name must be a filename without path separators".to_string(),
+        )),
+    }
 }
 
 async fn index_note_content(
@@ -208,6 +225,9 @@ pub async fn get_or_create_daily_note(
     
     let full_path_str = crate::utils::normalize_path(&full_path.to_string_lossy());
     
+//    validate_path_in_vault(&full_path_str, &vault_path)
+//        .map_err(|e| TessellumError::Validation(e))?;
+    
     if let Some(parent) = full_path.parent() {
         tokio::fs::create_dir_all(parent)
             .await
@@ -220,10 +240,13 @@ pub async fn get_or_create_daily_note(
     
     if !full_path.exists() {
         let title = now.format("%Y-%m-%d").to_string();
-        let template_path = templates_dir(&vault_path)
-            .join(format!("{}.md", config.daily_notes.template_name));
+        let template_name = config.daily_notes.template_name.trim();
+        validate_template_name(template_name)?;
+        let template_path = templates_dir(&vault_path).join(format!("{}.md", template_name));
         
         let content = if template_path.exists() {
+            validate_path_in_vault(&template_path.to_string_lossy(), &vault_path)
+                .map_err(TessellumError::Validation)?;
             let template_content = tokio::fs::read_to_string(&template_path)
                 .await
                 .map_err(TessellumError::from)?;

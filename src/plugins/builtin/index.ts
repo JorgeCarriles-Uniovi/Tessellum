@@ -10,7 +10,7 @@ import { CodePlugin } from "./CodePlugin.ts";
 import { MermaidPlugin } from "./MermaidPlugin";
 import { InlineTagsPlugin } from "./InlineTagsPlugin";
 import { FrontmatterPlugin } from "./FrontmatterPlugin";
-import {DailyNotesPlugin} from "./DailyNotesPlugin.tsx";
+import { DailyNotesPlugin } from "./DailyNotesPlugin.tsx";
 
 /**
  * Registers all built-in plugins with the PluginRegistry.
