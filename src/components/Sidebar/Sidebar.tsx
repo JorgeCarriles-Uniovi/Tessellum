@@ -12,6 +12,7 @@ import { FileTree } from '../FileTree/FileTree';
 import { SidebarContextMenu } from './SidebarContextMenu';
 import { InputModal } from '../InputModal';
 import { useFileTree } from "../FileTree/hooks/useFileTree";
+import { useTessellumApp } from "../../plugins/TessellumApp";
 import { theme } from "../../styles/theme";
 import { TemplatePicker } from "../TemplatePicker";
 import { getParentFromTarget } from "../../utils/pathUtils";
@@ -46,6 +47,8 @@ export function Sidebar() {
 
 
     const { setViewMode } = useEditorStore();
+    const app = useTessellumApp();
+    const sidebarActions = app.ui.getSidebarActions();
 
     // Hover states
     const [newFileBtnHovered, setNewFileBtnHovered] = useState(false);
@@ -54,6 +57,7 @@ export function Sidebar() {
     const [graphHovered, setGraphHovered] = useState(false);
     const [settingsHovered, setSettingsHovered] = useState(false);
     const [trashHovered, setTrashHovered] = useState(false);
+    const [hoveredActionId, setHoveredActionId] = useState<string | null>(null);
 
     // Modal state
     const [isTemplatePickerOpen, setIsTemplatePickerOpen] = useState(false);
@@ -136,6 +140,28 @@ export function Sidebar() {
         padding: `${theme.spacing[2]} 0`,
     };
 
+    const actionSectionStyle: React.CSSProperties = {
+        display: "flex",
+        flexDirection: "column",
+        gap: theme.spacing[1],
+        padding: `0 ${theme.spacing[4]} ${theme.spacing[2]}`,
+    };
+
+    const actionButtonStyle = (isHovered: boolean): React.CSSProperties => ({
+        display: "flex",
+        alignItems: "center",
+        gap: theme.spacing[3],
+        width: "100%",
+        padding: `${theme.spacing[2]} ${theme.spacing[3]}`,
+        background: isHovered ? theme.colors.gray[50] : "transparent",
+        border: `1px solid ${theme.colors.border.light}`,
+        borderRadius: theme.borderRadius.lg,
+        cursor: "pointer",
+        color: theme.colors.gray[700],
+        transition: theme.transitions.fast,
+        textAlign: "left",
+    });
+
     const emptyStateStyle: React.CSSProperties = {
         padding: `${theme.spacing[8]} ${theme.spacing[4]}`,
         textAlign: "center",
@@ -213,6 +239,26 @@ export function Sidebar() {
                                 <FolderPlus style={{ width: "16px", height: "16px", color: theme.colors.gray[500] }} />
                             </button>
                         </div>
+
+                        {sidebarActions.length > 0 && (
+                            <div style={actionSectionStyle}>
+                                {sidebarActions.map((action) => {
+                                    const isHovered = hoveredActionId === action.id;
+                                    return (
+                                        <button
+                                            key={action.id}
+                                            style={actionButtonStyle(isHovered)}
+                                            onClick={action.onClick}
+                                            onMouseEnter={() => setHoveredActionId(action.id)}
+                                            onMouseLeave={() => setHoveredActionId(null)}
+                                        >
+                                            {action.icon}
+                                            <span>{action.label}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
 
                         {/* File Tree */}
                         <div

@@ -7,7 +7,7 @@ import {
 import { cn } from '../../lib/utils';
 import { useEditorStore } from '../../stores/editorStore';
 
-export function TitleBar() {
+export function TitleBar({ onOpenCommandPalette }: { onOpenCommandPalette?: () => void }) {
     const [isMaximized, setIsMaximized] = useState(false);
     const { toggleSidebar, isSidebarOpen, activeNote, toggleLocalGraph, isLocalGraphOpen } = useEditorStore();
     const appWindow = getCurrentWindow();
@@ -59,7 +59,7 @@ export function TitleBar() {
                 </NavButton>
 
                 {/* Search Icon */}
-                <NavButton onClick={() => { }} tooltip="Search">
+                <NavButton onClick={() => { onOpenCommandPalette?.(); }} tooltip="Search">
                     <Search size={16} />
                 </NavButton>
             </div>

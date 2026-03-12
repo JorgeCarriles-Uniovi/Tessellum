@@ -34,6 +34,20 @@ export class WorkspaceAPI {
         this.onLinkClick?.(path);
     }
 
+    /**
+     * Navigate to a note by providing its metadata. Ensures it is present
+     * in the workspace file list before activating.
+     */
+    openNoteByMetadata(file: FileMetadata): void {
+        const state = useEditorStore.getState();
+        const exists = state.files.some((f) => f.path === file.path);
+        if (!exists) {
+            state.setFiles([...state.files, file]);
+        }
+        state.setActiveNote(file);
+        this.onLinkClick?.(file.path);
+    }
+
     onLinkClick: ((path: string) => void) | null = null;
 
     /** Subscribe to active note changes. Returns EventRef for auto-cleanup. */
@@ -41,3 +55,4 @@ export class WorkspaceAPI {
         return this.app.events.on("workspace:active-note-change", cb);
     }
 }
+

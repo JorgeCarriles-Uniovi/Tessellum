@@ -10,6 +10,7 @@ import { CodePlugin } from "./CodePlugin.ts";
 import { MermaidPlugin } from "./MermaidPlugin";
 import { InlineTagsPlugin } from "./InlineTagsPlugin";
 import { FrontmatterPlugin } from "./FrontmatterPlugin";
+import { DailyNotesPlugin } from "./DailyNotesPlugin.tsx";
 
 /**
  * Registers all built-in plugins with the PluginRegistry.
@@ -29,6 +30,7 @@ import { FrontmatterPlugin } from "./FrontmatterPlugin";
  *  9. mermaid — renders mermaid diagrams in markdown code blocks
  *  10. frontmatter — renders YAML frontmatter as a widget and hides syntax
  *  11. inline-tags — renders #tags and @mentions as widgets and hides syntax
+ *  12. daily-notes — provides a sidebar action and command palette command to open today's daily note
  *
  * Note: The markdown-preview plugin is intentionally registered first to ensure
  * it can hide syntax markers for all subsequent plugins that add markdown syntax.
@@ -45,4 +47,5 @@ export function registerBuiltinPlugins(app: TessellumApp): void {
     app.plugins.register(MermaidPlugin.manifest, MermaidPlugin);
     app.plugins.register(FrontmatterPlugin.manifest, FrontmatterPlugin);
     app.plugins.register(InlineTagsPlugin.manifest, InlineTagsPlugin);
+    app.plugins.register(DailyNotesPlugin.manifest, DailyNotesPlugin);
 }

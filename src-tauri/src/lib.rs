@@ -42,17 +42,18 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::notes::create_note,
+            commands::notes::get_or_create_daily_note,
             commands::notes::trash_item,
             commands::notes::read_file,
             commands::notes::write_file,
             commands::notes::search_notes,
+            commands::templates::list_templates,
+            commands::templates::create_note_from_template,
             commands::vault::list_files,
             commands::vault::list_files_tree,
             commands::watcher::watch_vault,
             commands::vault::rename_file,
             commands::folders::create_folder,
-            commands::templates::list_templates,
-            commands::templates::create_note_from_template,
             commands::links::get_backlinks,
             commands::links::get_outgoing_links,
             commands::links::get_all_links,
@@ -123,3 +124,4 @@ mod tests {
         assert!(resolved.unwrap().to_string_lossy().contains("subfolder"));
     }
 }
+

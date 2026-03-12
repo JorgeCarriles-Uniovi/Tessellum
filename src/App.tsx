@@ -14,6 +14,7 @@ import { theme } from './styles/theme';
 import 'katex';
 import { cn } from "./lib/utils";
 import { TitleBar } from "./components/TitleBar/TitleBar";
+import { CommandPalette } from "./components/CommandPalette/CommandPalette";
 import { TessellumApp, TessellumAppContext } from "./plugins/TessellumApp";
 import { registerBuiltinPlugins } from "./plugins/builtin";
 import { useWikiLinkNavigation } from "./components/Editor/hooks";
@@ -22,8 +23,12 @@ function App() {
     // Add isSidebarOpen to the destructuring
     const { vaultPath, setVaultPath, setFiles, setFileTree, isSidebarOpen, viewMode, isLocalGraphOpen } = useEditorStore();
     const [isLoaded, setIsLoaded] = useState(false);
+    const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 
     const navigateToWikiLink = useWikiLinkNavigation();
+
+    const openCommandPalette = () => setIsCommandPaletteOpen(true);
+    const closeCommandPalette = () => setIsCommandPaletteOpen(false);
 
 
     // Create TessellumApp singleton and register plugins.
@@ -46,6 +51,28 @@ function App() {
             app.plugins.unloadAll();
         };
     }, [app]);
+
+    useEffect(() => {
+        const onKeyDown = (event: KeyboardEvent) => {
+            const target = event.target as HTMLElement | null;
+            if (target) {
+                const tag = target.tagName;
+                if (tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable) {
+                    return;
+                }
+            }
+
+            const isMac = navigator.platform.toLowerCase().includes("mac");
+            const modifier = isMac ? event.metaKey : event.ctrlKey;
+            if (modifier && event.key.toLowerCase() === "k") {
+                event.preventDefault();
+                setIsCommandPaletteOpen((prev) => !prev);
+            }
+        };
+
+        window.addEventListener("keydown", onKeyDown);
+        return () => window.removeEventListener("keydown", onKeyDown);
+    }, []);
 
     // Validate vaultPath existence on startup
     useEffect(() => {
@@ -125,7 +152,7 @@ function App() {
                     }}
                 >
                     {/* TitleBar controls the isSidebarOpen state */}
-                    <TitleBar />
+                    <TitleBar onOpenCommandPalette={openCommandPalette} />
 
                     <div className="flex-1 flex overflow-hidden w-full relative">
                         {!vaultPath ? (
@@ -177,6 +204,8 @@ function App() {
                             </div>
                         )}
                     </div>
+
+                    <CommandPalette isOpen={isCommandPaletteOpen} onClose={closeCommandPalette} />
 
                     <Toaster position="bottom-right" richColors />
                 </div>

@@ -15,11 +15,11 @@ pub struct TemplateInfo {
 	pub path: String,
 }
 
-fn templates_dir(vault_path: &str) -> std::path::PathBuf {
+pub(crate) fn templates_dir(vault_path: &str) -> std::path::PathBuf {
 	Path::new(vault_path).join(".tessellum").join("templates")
 }
 
-fn apply_placeholders(
+pub(crate) fn apply_placeholders(
 	content: &str,
 	title: &str,
 	vault_path: &str,
@@ -175,3 +175,5 @@ mod tests {
 		assert_eq!(out, "2026-03-11 2026-03-11 14:05 14:05");
 	}
 }
+
+
