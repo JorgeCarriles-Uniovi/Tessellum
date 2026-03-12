@@ -1,3 +1,4 @@
+use chrono::Local;
 use regex::Regex;
 use std::fs;
 use std::path::Path;
@@ -5,9 +6,129 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::State;
 
 use crate::commands::extract_wikilinks;
+use crate::commands::templates::{apply_placeholders, templates_dir};
 use crate::error::TessellumError;
-use crate::models::{AppState, FileIndex};
+use crate::models::{AppState, FileIndex, FileMetadata};
+use crate::utils::config::load_or_init_config;
 use crate::utils::{sanitize_string, validate_path_in_vault};
+
+fn build_daily_note_relative_path(template: &str, now: chrono::DateTime<Local>) -> String {
+    let year = now.format("%Y").to_string();
+    let month = now.format("%m").to_string();
+    let day = now.format("%d").to_string();
+    
+    let mut path = template
+        .replace("{YYYY}", &year)
+        .replace("{MM}", &month)
+        .replace("{DD}", &day)
+        .replace('\\', "/");
+    
+    if !path.to_lowercase().ends_with(".md") {
+        path = format!("{}.md", path);
+    }
+    
+    path
+}
+
+async fn index_note_content(
+    state: &State<'_, AppState>,
+    vault_path: &str,
+    path: &str,
+    content: &str,
+) -> Result<(), TessellumError> {
+    let db_guard = state.db.lock().await;
+    
+    let metadata = tokio::fs::metadata(&path).await.map_err(|e| {
+        TessellumError::Io(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("Failed to get metadata for {}: {}", path, e),
+        ))
+    })?;
+    
+    let size = metadata.len();
+    let modified = metadata
+        .modified()
+        .map_err(|e| {
+            TessellumError::Io(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Failed to get modified time: {}", e),
+            ))
+        })?
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64;
+    
+    let mut frontmatter_json_str = None;
+    let mut body_content = content;
+    
+    if let Some((yaml, _)) = crate::utils::frontmatter::parse_frontmatter(&content) {
+        body_content = crate::utils::frontmatter::strip_frontmatter(&content);
+        if let Ok(json) = crate::utils::frontmatter::frontmatter_to_json(&yaml) {
+            frontmatter_json_str = Some(json);
+        }
+    }
+    
+    let tag_regex = Regex::new(r"(?:^|\s)#([a-zA-Z0-9_\-]+)").unwrap();
+    let mut inline_tags = Vec::new();
+    for cap in tag_regex.captures_iter(body_content) {
+        if let Some(tag_match) = cap.get(1) {
+            inline_tags.push(tag_match.as_str().to_string());
+        }
+    }
+    
+    let inline_tags_json_str = if inline_tags.is_empty() {
+        None
+    } else {
+        serde_json::to_string(&inline_tags).ok()
+    };
+    
+    let wikilinks = extract_wikilinks(body_content);
+    
+    let index_guard = state.file_index.lock().await;
+    let file_index = match index_guard.as_ref() {
+        Some(idx) => idx.clone(),
+        None => {
+            drop(index_guard);
+            let idx = FileIndex::build(&vault_path).map_err(|e| {
+                TessellumError::Internal(format!("Failed to build file index: {}", e))
+            })?;
+            let mut guard = state.file_index.lock().await;
+            *guard = Some(idx.clone());
+            idx
+        }
+    };
+    
+    let resolved_links: Vec<String> = wikilinks
+        .iter()
+        .map(|link| {
+            crate::utils::normalize_path(
+                &file_index
+                    .resolve_or_default(&vault_path, &link.target)
+                    .to_string_lossy(),
+            )
+        })
+        .collect();
+    
+    db_guard
+        .index_file(
+            &path,
+            modified,
+            size,
+            frontmatter_json_str.as_deref(),
+            inline_tags_json_str.as_deref(),
+            &resolved_links,
+        )
+        .await
+        .map_err(TessellumError::from)?;
+    
+    log::debug!(
+        "Indexed file: {} with {} resolved links",
+        path,
+        resolved_links.len()
+    );
+    
+    Ok(())
+}
 
 /// Creates a new note file in the specified vault directory with a unique name.
 ///
@@ -68,6 +189,89 @@ pub async fn create_note(
     *idx_guard = None;
     
     Ok(path_str)
+}
+
+#[tauri::command]
+pub async fn get_or_create_daily_note(
+    state: State<'_, AppState>,
+    vault_path: String,
+) -> Result<FileMetadata, TessellumError> {
+    validate_path_in_vault(&vault_path, &vault_path).map_err(|e| TessellumError::Validation(e))?;
+    
+    let config = load_or_init_config(&vault_path)?;
+    let now = Local::now();
+    let relative_path = build_daily_note_relative_path(&config.daily_notes.path_template, now);
+    let full_path = Path::new(&vault_path).join(&relative_path);
+    if Path::new(&relative_path).is_absolute() {
+        return Err(TessellumError::Validation("Daily note path must be relative".to_string()));
+    }
+    
+    let full_path_str = crate::utils::normalize_path(&full_path.to_string_lossy());
+    
+    if let Some(parent) = full_path.parent() {
+        tokio::fs::create_dir_all(parent)
+            .await
+            .map_err(TessellumError::from)?;
+        
+        let parent_str = crate::utils::normalize_path(&parent.to_string_lossy());
+        validate_path_in_vault(&parent_str, &vault_path)
+            .map_err(|e| TessellumError::Validation(e))?;
+    }
+    
+    if !full_path.exists() {
+        let title = now.format("%Y-%m-%d").to_string();
+        let template_path = templates_dir(&vault_path)
+            .join(format!("{}.md", config.daily_notes.template_name));
+        
+        let content = if template_path.exists() {
+            let template_content = tokio::fs::read_to_string(&template_path)
+                .await
+                .map_err(TessellumError::from)?;
+            apply_placeholders(&template_content, &title, &vault_path, now)
+        } else {
+            format!("# {}\n", title)
+        };
+        
+        tokio::fs::write(&full_path, &content)
+            .await
+            .map_err(TessellumError::from)?;
+        
+        index_note_content(&state, &vault_path, &full_path_str, &content).await?;
+        
+        let mut idx_guard = state.file_index.lock().await;
+        *idx_guard = None;
+    }
+    
+    let metadata = tokio::fs::metadata(&full_path).await.map_err(|e| {
+        TessellumError::Io(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("Failed to get metadata for {}: {}", full_path_str, e),
+        ))
+    })?;
+    
+    let filename = full_path
+        .file_name()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_string();
+    
+    Ok(FileMetadata {
+        path: full_path_str,
+        filename,
+        is_dir: false,
+        size: metadata.len(),
+        last_modified: metadata
+            .modified()
+            .map_err(|e| {
+                TessellumError::Io(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("Failed to get modified time: {}", e),
+                ))
+            })?
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64,
+    })
 }
 
 /// Moves a note or folder to a trash directory within the specified vault directory.
@@ -154,103 +358,7 @@ pub async fn write_file(
         .await
         .map_err(TessellumError::from)?;
     
-    let db_guard = state.db.lock().await;
-    
-    // 2. Get metadata AFTER writing
-    let metadata = tokio::fs::metadata(&path).await.map_err(|e| {
-        TessellumError::Io(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            format!("Failed to get metadata for {}: {}", path, e),
-        ))
-    })?;
-    
-    let size = metadata.len();
-    let modified = metadata
-        .modified()
-        .map_err(|e| {
-            TessellumError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Failed to get modified time: {}", e),
-            ))
-        })?
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs() as i64;
-    
-    // Parse frontmatter
-    let mut frontmatter_json_str = None;
-    let mut body_content = content.as_str();
-    
-    if let Some((yaml, _)) = crate::utils::frontmatter::parse_frontmatter(&content) {
-        body_content = crate::utils::frontmatter::strip_frontmatter(&content);
-        if let Ok(json) = crate::utils::frontmatter::frontmatter_to_json(&yaml) {
-            frontmatter_json_str = Some(json);
-        }
-    }
-    
-    // 3. Extract inline tags
-    let tag_regex = Regex::new(r"(?:^|\s)#([a-zA-Z0-9_\-]+)").unwrap();
-    let mut inline_tags = Vec::new();
-    for cap in tag_regex.captures_iter(body_content) {
-        if let Some(tag_match) = cap.get(1) {
-            inline_tags.push(tag_match.as_str().to_string());
-        }
-    }
-    
-    let inline_tags_json_str = if inline_tags.is_empty() {
-        None
-    } else {
-        serde_json::to_string(&inline_tags).ok()
-    };
-    
-    // 4. Extract wikilinks
-    let wikilinks = extract_wikilinks(body_content);
-    
-    // 5. Build or use cached file index for resolving links
-    let index_guard = state.file_index.lock().await;
-    let file_index = match index_guard.as_ref() {
-        Some(idx) => idx.clone(),
-        None => {
-            drop(index_guard);
-            let idx = FileIndex::build(&vault_path).map_err(|e| {
-                TessellumError::Internal(format!("Failed to build file index: {}", e))
-            })?;
-            let mut guard = state.file_index.lock().await;
-            *guard = Some(idx.clone());
-            idx
-        }
-    };
-    
-    // 6. Resolve each wikilink to its full path (non-existent targets get a fallback path)
-    let resolved_links: Vec<String> = wikilinks
-        .iter()
-        .map(|link| {
-            crate::utils::normalize_path(
-                &file_index
-                    .resolve_or_default(&vault_path, &link.target)
-                    .to_string_lossy(),
-            )
-        })
-        .collect();
-    
-    // 7. Index the file with resolved links
-    db_guard
-        .index_file(
-            &path,
-            modified,
-            size,
-            frontmatter_json_str.as_deref(),
-            inline_tags_json_str.as_deref(),
-            &resolved_links,
-        )
-        .await
-        .map_err(TessellumError::from)?;
-    
-    log::debug!(
-        "Indexed file: {} with {} resolved links",
-        path,
-        resolved_links.len()
-    );
+    index_note_content(&state, &vault_path, &path, &content).await?;
     
     Ok(())
 }
@@ -398,3 +506,26 @@ pub async fn get_all_property_keys(
         .await
         .map_err(TessellumError::from)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::build_daily_note_relative_path;
+    use chrono::TimeZone;
+    
+    #[test]
+    fn test_build_daily_note_relative_path() {
+        let now = chrono::Local.with_ymd_and_hms(2026, 3, 11, 9, 0, 0).unwrap();
+        let path = build_daily_note_relative_path("Daily/{YYYY}/{MM}/{DD}.md", now);
+        assert_eq!(path, "Daily/2026/03/11.md");
+    }
+    
+    #[test]
+    fn test_build_daily_note_relative_path_adds_md() {
+        let now = chrono::Local.with_ymd_and_hms(2026, 3, 11, 9, 0, 0).unwrap();
+        let path = build_daily_note_relative_path("Daily/{YYYY}-{MM}-{DD}", now);
+        assert_eq!(path, "Daily/2026-03-11.md");
+    }
+}
+
+
+

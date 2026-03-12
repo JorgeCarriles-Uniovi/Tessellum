@@ -1,11 +1,31 @@
+import type { ReactNode } from "react";
 import type { TessellumApp } from "../TessellumApp";
 import type { CalloutType } from "../../constants/callout-types";
+
+export interface SidebarAction {
+    id: string;
+    label: string;
+    icon?: ReactNode;
+    onClick: () => void;
+    order?: number;
+}
+
+export interface PaletteCommand {
+    id: string;
+    name: string;
+    keywords?: string[];
+    icon?: ReactNode;
+    hotkey?: string;
+    onTrigger: () => void;
+}
 
 /**
  * UI contribution API.
  */
 export class UIAPI {
     private calloutTypes = new Map<string, CalloutType[]>(); // pluginId -> types
+    private sidebarActions = new Map<string, SidebarAction[]>();
+    private paletteCommands = new Map<string, PaletteCommand[]>();
     private _app: TessellumApp;
 
     constructor(app: TessellumApp) {
@@ -32,6 +52,48 @@ export class UIAPI {
         const result: CalloutType[] = [];
         for (const types of this.calloutTypes.values()) {
             result.push(...types);
+        }
+        return result;
+    }
+
+    // --- Sidebar actions ---
+
+    registerSidebarAction(pluginId: string, action: SidebarAction): void {
+        if (!this.sidebarActions.has(pluginId)) {
+            this.sidebarActions.set(pluginId, []);
+        }
+        this.sidebarActions.get(pluginId)!.push(action);
+    }
+
+    unregisterSidebarActions(pluginId: string): void {
+        this.sidebarActions.delete(pluginId);
+    }
+
+    getSidebarActions(): SidebarAction[] {
+        const result: SidebarAction[] = [];
+        for (const actions of this.sidebarActions.values()) {
+            result.push(...actions);
+        }
+        return result.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    }
+
+    // --- Command palette ---
+
+    registerPaletteCommand(pluginId: string, command: PaletteCommand): void {
+        if (!this.paletteCommands.has(pluginId)) {
+            this.paletteCommands.set(pluginId, []);
+        }
+        this.paletteCommands.get(pluginId)!.push(command);
+    }
+
+    unregisterPaletteCommands(pluginId: string): void {
+        this.paletteCommands.delete(pluginId);
+    }
+
+    getPaletteCommands(): PaletteCommand[] {
+        const result: PaletteCommand[] = [];
+        for (const commands of this.paletteCommands.values()) {
+            result.push(...commands);
         }
         return result;
     }
