@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import type { TessellumApp } from "../TessellumApp";
 import type { CalloutType } from "../../constants/callout-types";
 
 export interface SidebarAction {
@@ -47,11 +46,6 @@ export class UIAPI {
     private sidebarActions = new Map<string, SidebarAction[]>();
     private paletteCommands = new Map<string, PaletteCommand[]>();
     private uiActions = new Map<string, UIAction[]>();
-    private _app: TessellumApp;
-
-    constructor(app: TessellumApp) {
-        this._app = app;
-    }
 
     // --- Callout types (editor-specific) ---
 
