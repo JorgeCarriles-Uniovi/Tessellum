@@ -4,7 +4,7 @@ import { FileMetadata, TreeNode } from "./types.ts";
 import { useEditorStore } from "./stores/editorStore.ts";
 import { listen } from "@tauri-apps/api/event";
 import { exists } from '@tauri-apps/plugin-fs';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import { getCurrentWindow, LogicalPosition, LogicalSize } from '@tauri-apps/api/window';
 import { Editor } from "./components/Editor/Editor.tsx";
 import { Sidebar } from "./components/Sidebar/Sidebar.tsx";
 import { GraphView } from "./components/GraphView/GraphView.tsx";
@@ -124,10 +124,10 @@ function App() {
                     return;
                 }
                 if (state.width && state.height) {
-                    await appWindow.setSize({ width: state.width, height: state.height });
+                    await appWindow.setSize(new LogicalSize(state.width, state.height));
                 }
                 if (state.x !== undefined && state.y !== undefined) {
-                    await appWindow.setPosition({ x: state.x, y: state.y });
+                    await appWindow.setPosition(new LogicalPosition(state.x, state.y));
                 }
             } catch (e) {
                 console.error(e);

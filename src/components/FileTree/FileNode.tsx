@@ -5,7 +5,7 @@ import {
     ChevronRight,
     File as FileIcon,
     Folder as FolderIcon,
-    FolderOpenIcon,
+    FolderOpen,
 } from 'lucide-react';
 
 export type DropPosition = 'before' | 'after' | 'inside' | null;
@@ -72,7 +72,7 @@ export function FileNode({
         const isModifier = isMac ? e.metaKey : e.ctrlKey;
 
         if (e.shiftKey) {
-            const tree = (e.currentTarget as HTMLElement).closest('[role="tree"]');
+            const tree = (e.currentTarget as HTMLElement).closest('[role="tree"]') as HTMLElement | null;
             if (tree) {
                 const ordered = getVisibleTreeItemPaths(tree);
                 rangeSelect(ordered, node.id);
@@ -131,7 +131,7 @@ export function FileNode({
             toggleFolder(node.id, false);
         } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
             e.preventDefault();
-            const tree = (e.currentTarget as HTMLElement).closest('[role="tree"]');
+            const tree = (e.currentTarget as HTMLElement).closest('[role="tree"]') as HTMLElement | null;
             if (!tree) return;
 
             // Check if an element is inside a collapsed folder
@@ -213,7 +213,7 @@ export function FileNode({
                 {/* 2. File Type Icon */}
                 <span className={`mr-2.5 ${node.is_dir ? "text-yellow-500" : "text-gray-400"}`}>
                     {node.is_dir ? (
-                        isOpen ? <FolderOpenIcon size={16} /> : <FolderIcon size={16} />
+                        isOpen ? <FolderOpen size={16} /> : <FolderIcon size={16} />
                     ) : (
                         <FileIcon size={16} />
                     )}

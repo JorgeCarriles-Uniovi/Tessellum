@@ -34,6 +34,7 @@ export function FileTree({ data, onContextMenu }: FileTreeProps) {
         startX: number;
         startY: number;
         active: boolean;
+        shouldSelect: boolean;
         handlers?: DragHandlers;
     } | null>(null);
 
@@ -184,7 +185,9 @@ export function FileTree({ data, onContextMenu }: FileTreeProps) {
             }
         };
 
-        dragStateRef.current.handlers = { move: handleMove, up: handleUp };
+        if (dragStateRef.current) {
+            dragStateRef.current.handlers = { move: handleMove, up: handleUp };
+        }
         window.addEventListener('mousemove', handleMove);
         window.addEventListener('mouseup', handleUp);
         window.addEventListener('blur', handleUp);

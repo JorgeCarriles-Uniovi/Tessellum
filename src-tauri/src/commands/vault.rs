@@ -230,6 +230,92 @@ pub async fn rename_file(
     Ok(new_path.to_string_lossy().to_string())
 }
 
+#[tauri::command]
+pub async fn move_items(
+    state: tauri::State<'_, crate::models::AppState>,
+    vault_path: String,
+    item_paths: Vec<String>,
+    dest_dir: String,
+) -> Result<Vec<String>, TessellumError> {
+    if item_paths.is_empty() {
+        return Ok(Vec::new());
+    }
+    
+    validate_path_in_vault(&dest_dir, &vault_path)
+        .map_err(|e| TessellumError::Validation(e))?;
+    
+    let dest_path = Path::new(&dest_dir);
+    let dest_meta = tokio::fs::metadata(dest_path).await.map_err(TessellumError::from)?;
+    if !dest_meta.is_dir() {
+        return Err(TessellumError::Validation(
+            "Destination must be a folder".to_string(),
+        ));
+    }
+    
+    let normalized_dest = crate::utils::normalize_path(&dest_dir);
+    
+    let mut planned: Vec<(String, String)> = Vec::new();
+    let mut seen_targets: std::collections::HashSet<String> = std::collections::HashSet::new();
+    
+    for item_path in item_paths {
+        validate_path_in_vault(&item_path, &vault_path)
+            .map_err(|e| TessellumError::Validation(e))?;
+        
+        let normalized_item = crate::utils::normalize_path(&item_path);
+        if normalized_dest == normalized_item
+            || normalized_dest.starts_with(&(normalized_item.clone() + "/"))
+        {
+            return Err(TessellumError::Validation(
+                "Cannot move a folder into itself".to_string(),
+            ));
+        }
+        
+        let old_path = Path::new(&item_path);
+        let file_name = old_path.file_name().ok_or_else(|| {
+            TessellumError::Validation("Invalid path: no filename".to_string())
+        })?;
+        let new_path = dest_path.join(file_name);
+        
+        let new_path_str = new_path.to_string_lossy().to_string();
+        let normalized_new = crate::utils::normalize_path(&new_path_str);
+        if normalized_new == normalized_item {
+            continue;
+        }
+        
+        if !seen_targets.insert(normalized_new.clone()) {
+            return Err(TessellumError::Validation(
+                "Multiple items share the same name in the destination".to_string(),
+            ));
+        }
+        
+        if new_path.exists() {
+            return Err(TessellumError::Validation(
+                "A file or folder with that name already exists in the destination".to_string(),
+            ));
+        }
+        
+        planned.push((item_path, new_path_str));
+    }
+    
+    for (old_path, new_path) in planned.iter() {
+        tokio::fs::rename(old_path, new_path)
+            .await
+            .map_err(TessellumError::from)?;
+    }
+    
+    let db_guard = state.db.lock().await;
+    for (old_path, new_path) in planned.iter() {
+        db_guard
+            .update_file_path(old_path, new_path)
+            .await
+            .map_err(TessellumError::from)?;
+    }
+    
+    let mut idx_guard = state.file_index.lock().await;
+    *idx_guard = None;
+    
+    Ok(planned.into_iter().map(|(_, new_path)| new_path).collect())
+}
 use serde::Serialize;
 use std::collections::HashMap;
 
@@ -318,3 +404,6 @@ pub fn set_vault_path(app: tauri::AppHandle, path: String) -> Result<(), String>
     
     Ok(())
 }
+
+
+

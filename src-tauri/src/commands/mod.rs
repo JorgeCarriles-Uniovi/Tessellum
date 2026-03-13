@@ -17,7 +17,8 @@ pub use notes::{
 	trash_item, write_file,
 };
 pub use templates::{create_note_from_template, list_templates};
-pub use vault::{list_files, list_files_tree, rename_file, set_vault_path};
+pub use vault::{list_files, list_files_tree, move_items, rename_file, set_vault_path};
 pub use watcher::watch_vault;
+
 
 
