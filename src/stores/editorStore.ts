@@ -12,8 +12,10 @@ interface EditorState {
     activeNoteContent: string;
     isDirty: boolean;
     expandedFolders: Record<string, boolean>;
-    isSidebarOpen: boolean; // <--- NEW STATE
+    isSidebarOpen: boolean;
     isRightSidebarOpen: boolean;
+    selectedFilePaths: string[];
+    lastSelectedPath: string | null;
     // Graph state
     viewMode: 'editor' | 'graph';
     isLocalGraphOpen: boolean;
@@ -29,6 +31,11 @@ interface EditorState {
     setExpandedFolders: (folders: Record<string, boolean>) => void;
     toggleSidebar: () => void; // <--- NEW ACTION
     toggleRightSidebar: () => void;
+    setSelectedFilePaths: (paths: string[]) => void;
+    selectOnly: (path: string) => void;
+    toggleSelection: (path: string) => void;
+    rangeSelect: (orderedPaths: string[], targetPath: string) => void;
+    clearSelection: () => void;
     // Graph actions
     setViewMode: (mode: 'editor' | 'graph') => void;
     toggleLocalGraph: () => void;
@@ -49,8 +56,10 @@ export const useEditorStore = create<EditorState>((set) => ({
     activeNoteContent: '',
     isDirty: false,
     expandedFolders: {},
-    isSidebarOpen: true, // <--- DEFAULT OPEN
+    isSidebarOpen: true,
     isRightSidebarOpen: true,
+    selectedFilePaths: [],
+    lastSelectedPath: null,
     // Graph initial state
     viewMode: 'editor',
     isLocalGraphOpen: false,
@@ -82,6 +91,40 @@ export const useEditorStore = create<EditorState>((set) => ({
     // <--- TOGGLE IMPLEMENTATION
     toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
     toggleRightSidebar: () => set((state) => ({ isRightSidebarOpen: !state.isRightSidebarOpen })),
+
+    setSelectedFilePaths: (paths) => set({ selectedFilePaths: paths }),
+    selectOnly: (path) => set(() => ({
+        selectedFilePaths: [path],
+        lastSelectedPath: path
+    })),
+    toggleSelection: (path) => set((state) => {
+        const alreadySelected = state.selectedFilePaths.includes(path);
+        const nextSelection = alreadySelected
+            ? state.selectedFilePaths.filter((p) => p !== path)
+            : [...state.selectedFilePaths, path];
+        return {
+            selectedFilePaths: nextSelection,
+            lastSelectedPath: path
+        };
+    }),
+    rangeSelect: (orderedPaths, targetPath) => set((state) => {
+        const from = state.lastSelectedPath ?? targetPath;
+        const fromIndex = orderedPaths.indexOf(from);
+        const toIndex = orderedPaths.indexOf(targetPath);
+        if (fromIndex === -1 || toIndex === -1) {
+            return {
+                selectedFilePaths: [targetPath],
+                lastSelectedPath: targetPath
+            };
+        }
+        const [start, end] = fromIndex < toIndex ? [fromIndex, toIndex] : [toIndex, fromIndex];
+        const nextSelection = orderedPaths.slice(start, end + 1);
+        return {
+            selectedFilePaths: nextSelection,
+            lastSelectedPath: targetPath
+        };
+    }),
+    clearSelection: () => set({ selectedFilePaths: [], lastSelectedPath: null }),
 
     // Graph actions
     setViewMode: (mode) => set({ viewMode: mode, selectedGraphNode: null }),
@@ -123,4 +166,3 @@ export const useEditorStore = create<EditorState>((set) => ({
         };
     }),
 }));
-

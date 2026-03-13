@@ -38,6 +38,7 @@ export function Sidebar() {
     const allHeaderActions = app.ui.getUIActions("sidebar-header");
     const headerActions = allHeaderActions.filter((action) => action.id !== "sidebar-open-vault");
     const footerActions = app.ui.getUIActions("sidebar-footer");
+    const titlebarActions = app.ui.getUIActions("titlebar-right");
 
     const [hoveredActionId, setHoveredActionId] = useState<string | null>(null);
     const [isTemplatePickerOpen, setIsTemplatePickerOpen] = useState(false);
@@ -263,7 +264,7 @@ export function Sidebar() {
                     }}
                     onClick={() => {
                         const action = allHeaderActions.find((a) => a.id === "sidebar-open-vault")
-                            ?? allHeaderActions.find((a) => a.id === "open-vault");
+                            ?? titlebarActions.find((a) => a.id === "open-vault");
                         action?.onClick();
                     }}
                     title="Open / Switch Vault"
@@ -331,4 +332,8 @@ export function Sidebar() {
         </>
     );
 }
+
+
+
+
 

@@ -19,7 +19,7 @@ import { TessellumApp, TessellumAppContext } from "./plugins/TessellumApp";
 import { registerBuiltinPlugins } from "./plugins/builtin";
 import { useWikiLinkNavigation } from "./components/Editor/hooks";
 import { StatusBar } from "./components/Layout/StatusBar";
-import { RightSidebar } from "./components/Layout/RightSidebar.tsx";
+import { RightSidebar } from "./components/Layout/RightSidebar";
 
 const THEME_KEY = "tessellum-theme";
 const WINDOW_KEY = "tessellum-window";
