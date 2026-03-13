@@ -217,16 +217,13 @@ pub async fn get_or_create_daily_note(
     
     let config = load_or_init_config(&vault_path)?;
     let now = Local::now();
-    let relative_path = build_daily_note_relative_path(&config.daily_notes.path_template, now);
+    let relative_path = build_daily_note_relative_path(&config.dailyNotes.path_template, now);
     let full_path = Path::new(&vault_path).join(&relative_path);
     if Path::new(&relative_path).is_absolute() {
         return Err(TessellumError::Validation("Daily note path must be relative".to_string()));
     }
     
     let full_path_str = crate::utils::normalize_path(&full_path.to_string_lossy());
-    
-//    validate_path_in_vault(&full_path_str, &vault_path)
-//        .map_err(|e| TessellumError::Validation(e))?;
     
     if let Some(parent) = full_path.parent() {
         tokio::fs::create_dir_all(parent)
@@ -240,7 +237,7 @@ pub async fn get_or_create_daily_note(
     
     if !full_path.exists() {
         let title = now.format("%Y-%m-%d").to_string();
-        let template_name = config.daily_notes.template_name.trim();
+        let template_name = config.dailyNotes.template_name.trim();
         validate_template_name(template_name)?;
         let template_path = templates_dir(&vault_path).join(format!("{}.md", template_name));
         
@@ -518,6 +515,15 @@ pub async fn get_all_tags(state: State<'_, AppState>) -> Result<Vec<String>, Tes
     let db_guard = state.db.lock().await;
     db_guard.get_all_tags().await.map_err(TessellumError::from)
 }
+#[tauri::command]
+pub async fn get_file_tags(
+    state: State<'_, AppState>,
+    path: String,
+) -> Result<Vec<String>, TessellumError> {
+    let db_guard = state.db.lock().await;
+    let normalized = crate::utils::normalize_path(&path);
+    db_guard.get_file_tags(&normalized).await.map_err(TessellumError::from)
+}
 
 #[tauri::command]
 pub async fn get_all_property_keys(
@@ -549,6 +555,8 @@ mod tests {
         assert_eq!(path, "Daily/2026-03-11.md");
     }
 }
+
+
 
 
 
