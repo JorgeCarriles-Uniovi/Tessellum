@@ -13,7 +13,7 @@ interface EditorState {
     isDirty: boolean;
     expandedFolders: Record<string, boolean>;
     isSidebarOpen: boolean; // <--- NEW STATE
-
+    isRightSidebarOpen: boolean;
     // Graph state
     viewMode: 'editor' | 'graph';
     isLocalGraphOpen: boolean;
@@ -26,8 +26,9 @@ interface EditorState {
     setActiveNote: (file: FileMetadata | null) => void;
     setActiveNoteContent: (content: string) => void;
     setIsDirty: (isDirty: boolean) => void;
+    setExpandedFolders: (folders: Record<string, boolean>) => void;
     toggleSidebar: () => void; // <--- NEW ACTION
-
+    toggleRightSidebar: () => void;
     // Graph actions
     setViewMode: (mode: 'editor' | 'graph') => void;
     toggleLocalGraph: () => void;
@@ -49,7 +50,7 @@ export const useEditorStore = create<EditorState>((set) => ({
     isDirty: false,
     expandedFolders: {},
     isSidebarOpen: true, // <--- DEFAULT OPEN
-
+    isRightSidebarOpen: true,
     // Graph initial state
     viewMode: 'editor',
     isLocalGraphOpen: false,
@@ -66,12 +67,21 @@ export const useEditorStore = create<EditorState>((set) => ({
     },
     setFiles: (files) => set({ files }),
     setFileTree: (fileTree) => set({ fileTree }),
-    setActiveNote: (activeNote) => set({ activeNote }),
+    setActiveNote: (activeNote) => set(() => {
+        if (!activeNote) {
+            return { activeNote: null };
+        }
+        return {
+            activeNote,
+        };
+    }),
     setActiveNoteContent: (activeNoteContent) => set({ activeNoteContent }),
     setIsDirty: (isDirty) => set({ isDirty }),
+    setExpandedFolders: (folders) => set({ expandedFolders: folders }),
 
     // <--- TOGGLE IMPLEMENTATION
     toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
+    toggleRightSidebar: () => set((state) => ({ isRightSidebarOpen: !state.isRightSidebarOpen })),
 
     // Graph actions
     setViewMode: (mode) => set({ viewMode: mode, selectedGraphNode: null }),
@@ -109,7 +119,8 @@ export const useEditorStore = create<EditorState>((set) => ({
 
         return {
             files: updatedFiles,
-            activeNote: updatedActiveNote
+            activeNote: updatedActiveNote,
         };
     }),
 }));
+

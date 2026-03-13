@@ -1,29 +1,42 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import {
     Minus, Square, X, Copy,
-    PanelLeft, ArrowLeft, ArrowRight, Search, FileText, GitFork
+    PanelLeft, PanelRight, GitFork, FileText, Folder
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useEditorStore } from '../../stores/editorStore';
+import { useTessellumApp } from '../../plugins/TessellumApp';
+import { theme } from '../../styles/theme';
 
-export function TitleBar({ onOpenCommandPalette }: { onOpenCommandPalette?: () => void }) {
+export function TitleBar() {
     const [isMaximized, setIsMaximized] = useState(false);
-    const { toggleSidebar, isSidebarOpen, activeNote, toggleLocalGraph, isLocalGraphOpen } = useEditorStore();
+    const { toggleSidebar, isSidebarOpen, toggleRightSidebar, isRightSidebarOpen, activeNote, toggleLocalGraph, isLocalGraphOpen, vaultPath } = useEditorStore();
+    const app = useTessellumApp();
+    const leftActions = app.ui.getUIActions('titlebar-left');
+    const rightActions = app.ui.getUIActions('titlebar-right');
     const appWindow = getCurrentWindow();
+    const crumbs = useMemo(() => {
+        if (!activeNote || !vaultPath) return [] as string[];
+        const normalizedVault = vaultPath.replace(/\\/g, "/");
+        const normalizedPath = activeNote.path.replace(/\\/g, "/");
+        const relative = normalizedPath.startsWith(normalizedVault)
+            ? normalizedPath.slice(normalizedVault.length).replace(/^\//, "")
+            : normalizedPath;
+        return relative.split("/").filter(Boolean);
+    }, [activeNote, vaultPath]);
 
     useEffect(() => {
         const checkMaximized = async () => {
             try {
                 const maximized = await appWindow.isMaximized();
                 setIsMaximized(maximized);
-            } catch (e) {
-                console.error(e);
-            }
+            } catch (e) { console.error(e); }
         };
-
         checkMaximized();
-    }, [appWindow]);
+        const unlisten = appWindow.listen('tauri://resize', checkMaximized);
+        return () => { unlisten.then(f => f()); }
+    }, []);
 
     const handleMinimize = () => appWindow.minimize();
     const handleMaximize = async () => {
@@ -48,41 +61,68 @@ export function TitleBar({ onOpenCommandPalette }: { onOpenCommandPalette?: () =
                     <PanelLeft size={16} />
                 </NavButton>
 
-                {/* Separator (Optional, visual spacer) */}
                 <div className="w-2" />
 
-                {/* Obsidian-style Navigation (Visual placeholders for now) */}
-                <NavButton onClick={() => { }} tooltip="Go back">
-                    <ArrowLeft size={16} />
-                </NavButton>
-                <NavButton onClick={() => { }} tooltip="Go forward">
-                    <ArrowRight size={16} />
-                </NavButton>
-
-                {/* Search Icon */}
-                <NavButton onClick={() => { onOpenCommandPalette?.(); }} tooltip="Search">
-                    <Search size={16} />
-                </NavButton>
+                {leftActions.map((action) => (
+                    <NavButton
+                        key={action.id}
+                        onClick={action.onClick}
+                        tooltip={action.tooltip || action.label}
+                        disabled={action.disabled}
+                    >
+                        {action.icon}
+                    </NavButton>
+                ))}
             </div>
 
-            {/* --- TITLE SECTION: File Name --- */}
-            {/* This mimics the "Project Ideas.md" part of your image */}
+            {/* --- TITLE SECTION: Path --- */}
             <div
-                className="flex items-center gap-2 px-4 text-xs font-medium text-gray-700 dark:text-gray-300 pointer-events-none opacity-80"
+                className="flex items-center gap-2 px-4 text-[12px] font-medium text-gray-700 dark:text-gray-300 pointer-events-none opacity-80"
                 data-tauri-drag-region
             >
-                {activeNote ? (
-                    <>
-                        <FileText size={14} className="opacity-50" />
-                        <span>{activeNote.filename}</span>
-                    </>
-                ) : (
+                {crumbs.length === 0 ? (
                     <span className="opacity-50">Tessellum</span>
+                ) : (
+                    crumbs.map((crumb, idx) => (
+                        <div key={`${crumb}-${idx}`} className="flex items-center gap-2">
+                            {idx === 0 && crumbs.length > 1 && (
+                                <Folder size={14} className="mr-4" />
+                            )}
+                            <span
+                                className="inline-flex items-center gap-1"
+                                style={{ color: idx === crumbs.length - 1 ? theme.colors.blue[600] : undefined }}
+                            >
+                                {idx === crumbs.length - 1 && (
+                                    <FileText size={14} />
+                                )}
+                                {crumb}
+                            </span>
+                            {idx < crumbs.length - 1 && (
+                                <span className="mx-4">/</span>
+                            )}
+                        </div>
+                    ))
                 )}
             </div>
-
             {/* --- RIGHT SECTION: Local Graph, Status & Window Controls --- */}
             <div className="flex items-center h-full">
+                {rightActions.map((action) => (
+                    <NavButton
+                        key={action.id}
+                        onClick={action.onClick}
+                        tooltip={action.tooltip || action.label}
+                        disabled={action.disabled}
+                    >
+                        {action.icon}
+                    </NavButton>
+                ))}
+
+
+                {/* Right Sidebar Toggle */}
+                <NavButton onClick={toggleRightSidebar} active={isRightSidebarOpen} tooltip="Toggle Right Sidebar">
+                    <PanelRight size={16} />
+                </NavButton>
+
                 {/* Local Graph Toggle */}
                 <NavButton onClick={toggleLocalGraph} active={isLocalGraphOpen} tooltip="Toggle Local Graph">
                     <GitFork size={16} />
@@ -90,7 +130,7 @@ export function TitleBar({ onOpenCommandPalette }: { onOpenCommandPalette?: () =
 
                 <div className="w-2" />
 
-                {/* "EDITING" Status Badge from image */}
+                {/* "EDITING" Status Badge */}
                 <div className="hidden sm:flex items-center gap-1.5 px-3 mr-2 text-[10px] font-bold text-gray-400 tracking-wider"
                      style={{ paddingLeft: "1rem", paddingRight: "1rem", paddingTop: "1px", paddingBottom: "1px" }}>
                     <span className="w-1.5 h-1.5 rounded-full bg-green-500/50"></span>
@@ -120,18 +160,23 @@ interface NavButtonProps {
     children: React.ReactNode;
     active?: boolean;
     tooltip?: string;
+    disabled?: boolean;
 }
 
-function NavButton({ onClick, children, active, tooltip }: NavButtonProps) {
+function NavButton({ onClick, children, active, tooltip, disabled }: NavButtonProps) {
     return (
         <button
             onClick={onClick}
             title={tooltip}
+            disabled={disabled}
             className={cn(
                 "h-7 w-7 flex items-center justify-center rounded-md transition-colors",
-                "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400",
+                disabled
+                    ? "opacity-40 cursor-not-allowed"
+                    : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400",
                 active && "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200"
             )}
+            style={disabled ? { color: theme.colors.gray[400] } : undefined}
         >
             {children}
         </button>

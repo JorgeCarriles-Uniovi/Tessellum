@@ -1,12 +1,5 @@
-import React, { useState } from "react";
-import {
-    Plus,
-    FolderPlus,
-    Settings,
-    Trash2,
-    Network,
-    ChevronDown,
-} from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Settings, Trash2, Network, FolderOpen } from "lucide-react";
 import { useEditorStore } from '../../stores/editorStore';
 import { FileTree } from '../FileTree/FileTree';
 import { SidebarContextMenu } from './SidebarContextMenu';
@@ -19,7 +12,6 @@ import { getParentFromTarget } from "../../utils/pathUtils";
 
 export function Sidebar() {
     const {
-        // Data & State
         files,
         treeData,
         menuState,
@@ -28,114 +20,96 @@ export function Sidebar() {
         isRenameModalOpen,
         closeRenameModal,
         renameTarget,
-
-        // Handlers
         handleContextMenu,
         closeMenu,
-        createNote,
         deleteFile,
         handleHeaderNewFolder,
         handleContextNewFolder,
         handleContextCreateNote,
-
-        // Modal Handlers
         handleCreateFolderConfirm,
         handleContextRename,
         handleRenameConfirm,
         getRenameInitialValue,
     } = useFileTree();
 
-
-    const { setViewMode } = useEditorStore();
+    const { vaultPath } = useEditorStore();
     const app = useTessellumApp();
     const sidebarActions = app.ui.getSidebarActions();
+    const headerActions = app.ui.getUIActions("sidebar-header");
+    const footerActions = app.ui.getUIActions("sidebar-footer");
 
-    // Hover states
-    const [newFileBtnHovered, setNewFileBtnHovered] = useState(false);
-    const [newFileChevronHovered, setNewFileChevronHovered] = useState(false);
-    const [newFolderBtnHovered, setNewFolderBtnHovered] = useState(false);
-    const [graphHovered, setGraphHovered] = useState(false);
-    const [settingsHovered, setSettingsHovered] = useState(false);
-    const [trashHovered, setTrashHovered] = useState(false);
     const [hoveredActionId, setHoveredActionId] = useState<string | null>(null);
-
-    // Modal state
     const [isTemplatePickerOpen, setIsTemplatePickerOpen] = useState(false);
     const [templateParentPath, setTemplateParentPath] = useState<string | undefined>(undefined);
 
-    // Styles
+    useEffect(() => {
+        const ref = app.events.on("ui:open-new-folder", () => {
+            handleHeaderNewFolder();
+        });
+        return () => app.events.off(ref);
+    }, [app, handleHeaderNewFolder]);
+
+    useEffect(() => {
+        const ref = app.events.on("ui:open-template-picker", () => {
+            setTemplateParentPath(undefined);
+            setIsTemplatePickerOpen(true);
+        });
+        return () => app.events.off(ref);
+    }, [app]);
+
     const sidebarStyle: React.CSSProperties = {
         display: "flex",
         flexDirection: "column",
         height: "100%",
         width: "256px",
-        backgroundColor: theme.colors.background.primary,
+        backgroundColor: theme.colors.background.secondary,
         borderRight: `1px solid ${theme.colors.border.light}`,
-        transition: "width 200ms ease-in-out",
     };
 
-    const buttonSectionStyle: React.CSSProperties = {
+    const headerStyle: React.CSSProperties = {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: `${theme.spacing[4]}`,
+        borderBottom: `1px solid ${theme.colors.border.light}`,
+        backgroundColor: theme.colors.background.primary,
+    };
+
+    const headerLeftStyle: React.CSSProperties = {
         display: "flex",
         alignItems: "center",
         gap: theme.spacing[2],
-        padding: `${theme.spacing[3]} ${theme.spacing[4]}`,
     };
 
-    const newFileGroupStyle: React.CSSProperties = {
-        flex: 1,
-        display: "flex",
-        alignItems: "center",
-        borderRadius: theme.borderRadius.full,
-        overflow: "hidden",
-        boxShadow: newFileBtnHovered ? theme.shadows.sm : "none",
-        transition: theme.transitions.fast,
-    };
-
-    const newFileButtonStyle: React.CSSProperties = {
-        flex: 1,
+    const logoStyle: React.CSSProperties = {
+        width: "24px",
+        height: "24px",
+        borderRadius: theme.borderRadius.md,
+        backgroundColor: theme.colors.blue[600],
+        color: "#fff",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        gap: theme.spacing[2],
-        backgroundColor: newFileBtnHovered ? theme.colors.blue[600] : theme.colors.blue[500],
-        color: "#ffffff",
+        fontSize: theme.typography.fontSize.xs,
+        fontWeight: theme.typography.fontWeight.bold,
+    };
+
+    const headerActionStyle = (disabled?: boolean): React.CSSProperties => ({
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: "28px",
+        height: "28px",
+        borderRadius: theme.borderRadius.md,
         border: "none",
-        height: "36px",
-        padding: `0 ${theme.spacing[4]}`,
-        fontSize: theme.typography.fontSize.sm,
-        fontWeight: theme.typography.fontWeight.medium,
-        cursor: "pointer",
-        transition: theme.transitions.fast,
-    };
-
-    const newFileChevronStyle: React.CSSProperties = {
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        width: "36px",
-        height: "36px",
-        backgroundColor: newFileChevronHovered ? theme.colors.blue[700] : theme.colors.blue[600],
-        border: "none",
-        cursor: "pointer",
-        transition: theme.transitions.fast,
-    };
-
-    const newFolderButtonStyle: React.CSSProperties = {
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        width: "36px",
-        height: "36px",
-        backgroundColor: newFolderBtnHovered ? theme.colors.gray[50] : "transparent",
-        border: `1px solid ${theme.colors.border.light}`,
-        borderRadius: theme.borderRadius.lg,
-        cursor: "pointer",
-        transition: theme.transitions.fast,
-    };
+        cursor: disabled ? "not-allowed" : "pointer",
+        color: disabled ? theme.colors.gray[300] : theme.colors.gray[600],
+        backgroundColor: "transparent",
+    });
 
     const fileTreeStyle: React.CSSProperties = {
         flex: 1,
-        minHeight: 0, // Critical for flexbox scrolling
+        minHeight: 0,
         overflowY: "auto",
         padding: `${theme.spacing[2]} 0`,
     };
@@ -147,7 +121,7 @@ export function Sidebar() {
         padding: `0 ${theme.spacing[4]} ${theme.spacing[2]}`,
     };
 
-    const actionButtonStyle = (isHovered: boolean): React.CSSProperties => ({
+    const actionButtonStyle = (isHovered: boolean, disabled?: boolean): React.CSSProperties => ({
         display: "flex",
         alignItems: "center",
         gap: theme.spacing[3],
@@ -156,26 +130,19 @@ export function Sidebar() {
         background: isHovered ? theme.colors.gray[50] : "transparent",
         border: `1px solid ${theme.colors.border.light}`,
         borderRadius: theme.borderRadius.lg,
-        cursor: "pointer",
-        color: theme.colors.gray[700],
+        cursor: disabled ? "not-allowed" : "pointer",
+        color: disabled ? theme.colors.gray[400] : theme.colors.gray[700],
         transition: theme.transitions.fast,
         textAlign: "left",
+        opacity: disabled ? 0.6 : 1,
     });
-
-    const emptyStateStyle: React.CSSProperties = {
-        padding: `${theme.spacing[8]} ${theme.spacing[4]}`,
-        textAlign: "center",
-        fontSize: theme.typography.fontSize.sm,
-        fontStyle: "italic",
-        color: theme.colors.gray[400],
-    };
 
     const footerStyle: React.CSSProperties = {
         borderTop: `1px solid ${theme.colors.gray[100]}`,
         padding: `${theme.spacing[2]} 0`,
     };
 
-    const footerButtonStyle = (isHovered: boolean): React.CSSProperties => ({
+    const footerButtonStyle = (isHovered: boolean, disabled?: boolean): React.CSSProperties => ({
         display: "flex",
         alignItems: "center",
         gap: theme.spacing[3],
@@ -183,129 +150,142 @@ export function Sidebar() {
         padding: `${theme.spacing[2]} ${theme.spacing[4]}`,
         background: isHovered ? theme.colors.gray[50] : "transparent",
         border: "none",
-        cursor: "pointer",
-        color: theme.colors.gray[600],
+        cursor: disabled ? "not-allowed" : "pointer",
+        color: disabled ? theme.colors.gray[400] : theme.colors.gray[600],
         transition: theme.transitions.fast,
         textAlign: "left",
+        opacity: disabled ? 0.6 : 1,
     });
 
-    const footerIconStyle: React.CSSProperties = {
-        width: "20px",
-        height: "20px",
-    };
-
-    const footerTextStyle: React.CSSProperties = {
-        fontSize: theme.typography.fontSize.sm,
-    };
+    const vaultName = vaultPath ? vaultPath.replace(/\\/g, "/").split("/").pop() : "No Vault";
 
     return (
         <>
             <aside style={sidebarStyle}>
-                {(
-                    // Expanded View
-                    <>
-                        {/* Header */}
-
-                        {/* New File/Folder Buttons */}
-                        <div style={buttonSectionStyle}>
-                            <div style={newFileGroupStyle}>
+                {/* Header */}
+                <div style={headerStyle}>
+                    <div style={headerLeftStyle}>
+                        <div style={logoStyle}>T</div>
+                        <div>
+                            <div className="text-xs font-bold" style={{ color: theme.colors.text.secondary }}>Tessellum</div>
+                            <div className="text-[10px]" style={{ color: theme.colors.text.muted }}>{vaultName}</div>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                        {headerActions.map((action) => {
+                            const disabled = action.disabled || (!vaultPath && action.id !== "sidebar-open-vault");
+                            return (
                                 <button
-                                    style={newFileButtonStyle}
-                                    onClick={() => createNote()}
-                                    onMouseEnter={() => setNewFileBtnHovered(true)}
-                                    onMouseLeave={() => setNewFileBtnHovered(false)}
+                                    key={action.id}
+                                    title={action.tooltip || action.label}
+                                    style={headerActionStyle(disabled)}
+                                    onClick={disabled ? undefined : action.onClick}
+                                    disabled={disabled}
                                 >
-                                    <Plus style={{ width: "16px", height: "16px" }} />
-                                    New File
+                                    {action.icon || <FolderOpen size={16} />}
                                 </button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* Plugin actions */}
+                {sidebarActions.length > 0 && (
+                    <div style={actionSectionStyle}>
+                        {sidebarActions.map((action) => {
+                            const isHovered = hoveredActionId === action.id;
+                            return (
                                 <button
-                                    style={newFileChevronStyle}
-                                    onClick={() => {
-                                        setTemplateParentPath(undefined);
-                                        setIsTemplatePickerOpen(true);
-                                    }}
-                                    onMouseEnter={() => setNewFileChevronHovered(true)}
-                                    onMouseLeave={() => setNewFileChevronHovered(false)}
+                                    key={action.id}
+                                    style={actionButtonStyle(isHovered)}
+                                    onClick={action.onClick}
+                                    onMouseEnter={() => setHoveredActionId(action.id)}
+                                    onMouseLeave={() => setHoveredActionId(null)}
                                 >
-                                    <ChevronDown style={{ width: "16px", height: "16px", color: "#ffffff" }} />
+                                    {action.icon}
+                                    <span>{action.label}</span>
                                 </button>
-                            </div>
-                            <button
-                                style={newFolderButtonStyle}
-                                onClick={handleHeaderNewFolder}
-                                onMouseEnter={() => setNewFolderBtnHovered(true)}
-                                onMouseLeave={() => setNewFolderBtnHovered(false)}
-                            >
-                                <FolderPlus style={{ width: "16px", height: "16px", color: theme.colors.gray[500] }} />
-                            </button>
-                        </div>
-
-                        {sidebarActions.length > 0 && (
-                            <div style={actionSectionStyle}>
-                                {sidebarActions.map((action) => {
-                                    const isHovered = hoveredActionId === action.id;
-                                    return (
-                                        <button
-                                            key={action.id}
-                                            style={actionButtonStyle(isHovered)}
-                                            onClick={action.onClick}
-                                            onMouseEnter={() => setHoveredActionId(action.id)}
-                                            onMouseLeave={() => setHoveredActionId(null)}
-                                        >
-                                            {action.icon}
-                                            <span>{action.label}</span>
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        )}
-
-                        {/* File Tree */}
-                        <div
-                            style={fileTreeStyle}
-                            onWheel={(e) => {
-                                e.currentTarget.scrollTop += e.deltaY;
-                            }}
-                        >
-                            {files.length === 0 ? (
-                                <div style={emptyStateStyle}>
-                                    No files found
-                                </div>
-                            ) : (
-                                <FileTree data={treeData} onContextMenu={handleContextMenu} />
-                            )}
-                        </div>
-
-                        {/* Footer */}
-                        <div style={footerStyle}>
-                            <button
-                                style={footerButtonStyle(graphHovered)}
-                                onClick={() => setViewMode('graph')}
-                                onMouseEnter={() => setGraphHovered(true)}
-                                onMouseLeave={() => setGraphHovered(false)}
-                            >
-                                <Network style={footerIconStyle} />
-                                <span style={footerTextStyle}>Graph View</span>
-                            </button>
-                            <button
-                                style={footerButtonStyle(settingsHovered)}
-                                onMouseEnter={() => setSettingsHovered(true)}
-                                onMouseLeave={() => setSettingsHovered(false)}
-                            >
-                                <Settings style={footerIconStyle} />
-                                <span style={footerTextStyle}>Settings</span>
-                            </button>
-                            <button
-                                style={footerButtonStyle(trashHovered)}
-                                onMouseEnter={() => setTrashHovered(true)}
-                                onMouseLeave={() => setTrashHovered(false)}
-                            >
-                                <Trash2 style={footerIconStyle} />
-                                <span style={footerTextStyle}>Trash</span>
-                            </button>
-                        </div>
-                    </>
+                            );
+                        })}
+                    </div>
                 )}
+
+                {/* File Tree */}
+                <div
+                    style={fileTreeStyle}
+                    onWheel={(e) => {
+                        e.currentTarget.scrollTop += e.deltaY;
+                    }}
+                >
+                    {!vaultPath ? (
+                        <div className="text-center text-sm" style={{ color: theme.colors.text.muted, padding: theme.spacing[6] }}>
+                            Open a vault to start
+                        </div>
+                    ) : files.length === 0 ? (
+                        <div className="text-center text-sm" style={{ color: theme.colors.text.muted, padding: theme.spacing[6] }}>
+                            No files found
+                        </div>
+                    ) : (
+                        <FileTree data={treeData} onContextMenu={handleContextMenu} />
+                    )}
+                </div>
+
+                {/* Footer */}
+                <div style={footerStyle}>
+                    {footerActions.map((action) => {
+                        const isHovered = hoveredActionId === action.id;
+                        return (
+                            <button
+                                key={action.id}
+                                style={footerButtonStyle(isHovered, action.disabled)}
+                                onClick={action.disabled ? undefined : action.onClick}
+                                onMouseEnter={() => setHoveredActionId(action.id)}
+                                onMouseLeave={() => setHoveredActionId(null)}
+                                title={action.tooltip || action.label}
+                            >
+                                {action.icon || (action.id === "sidebar-graph" ? <Network size={18} /> : action.id === "sidebar-settings" ? <Settings size={18} /> : <Trash2 size={18} />)}
+                                <span>{action.label}</span>
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {/* Vault footer (switcher) */}
+                <button
+                    className="flex items-center gap-3 w-full text-left"
+                    style={{
+                        padding: theme.spacing[4],
+                        borderTop: `1px solid ${theme.colors.border.light}`,
+                        backgroundColor: theme.colors.background.primary,
+                        cursor: "pointer",
+                        border: "none",
+                    }}
+                    onClick={() => {
+                        const action = headerActions.find((a) => a.id === "sidebar-open-vault")
+                            ?? headerActions.find((a) => a.id === "open-vault");
+                        action?.onClick();
+                    }}
+                    title="Open / Switch Vault"
+                >
+                    <div
+                        className="rounded-full flex items-center justify-center"
+                        style={{
+                            width: 32,
+                            height: 32,
+                            backgroundColor: theme.colors.blue[50],
+                            color: theme.colors.blue[600],
+                            fontWeight: theme.typography.fontWeight.bold,
+                        }}
+                    >
+                        V
+                    </div>
+                    <div className="flex-1 overflow-hidden">
+                        <p className="text-xs font-bold truncate">{vaultName}</p>
+                        <p className="text-[10px] truncate" style={{ color: theme.colors.text.muted }}>
+                            Click to switch vault
+                        </p>
+                    </div>
+                </button>
             </aside>
 
             {/* Context Menu */}
@@ -350,3 +330,4 @@ export function Sidebar() {
         </>
     );
 }
+

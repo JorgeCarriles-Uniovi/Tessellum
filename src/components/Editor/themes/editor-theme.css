@@ -48,6 +48,17 @@
 .cm-scroller {
     height: 100%;
     overflow: auto;
+}.editor-scroll-shell .cm-editor {
+     height: auto;
+ }
+
+.editor-scroll-shell .cm-scroller {
+    height: auto;
+    overflow: visible;
+}
+
+.editor-scroll-shell .cm-content {
+    min-height: 0;
 }
 
 .cm-cursor {
@@ -140,9 +151,3 @@
     font-size: 1.05em;
     line-height: normal;
 }
-
-
-/* --- 4. Syntax Highlighting and Code Blocks moved to globals.css --- */
-
-
-/* --- 5. Callouts, Lists and Tables moved to globals.css --- */

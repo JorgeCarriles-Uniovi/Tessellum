@@ -22,7 +22,11 @@ export function GraphView() {
     const [loading, setLoading] = useState(true);
 
     const fetchGraphData = useCallback(async () => {
-        if (!vaultPath) return;
+        if (!vaultPath) {
+            setElements([]);
+            setLoading(false);
+            return;
+        }
         try {
             const data = await invoke<GraphData>('get_graph_data', { vaultPath });
             setElements(mapGraphDataToElements(data));
@@ -33,12 +37,10 @@ export function GraphView() {
         }
     }, [vaultPath]);
 
-    // Initial fetch
     useEffect(() => {
         fetchGraphData();
     }, [fetchGraphData]);
 
-    // Real-time updates on file changes
     useEffect(() => {
         const unlistenPromise = listen('file-changed', () => {
             fetchGraphData();
@@ -57,17 +59,13 @@ export function GraphView() {
 
     const handleNodeDoubleClick = useCallback(
         async (nodeId: string) => {
-            // Check if this file exists in our files list
             const existingFile = files.find((f) => f.path === nodeId);
 
             if (existingFile) {
-                // Navigate to the file
                 setActiveNote(existingFile);
                 setViewMode('editor');
             } else {
-                // Create the file and navigate to it
                 try {
-                    // Extract filename from path
                     const parts = nodeId.replace(/\\/g, '/').split('/');
                     const filename = parts[parts.length - 1];
                     const title = filename.replace(/\.md$/, '');
@@ -77,13 +75,12 @@ export function GraphView() {
                         title,
                     });
 
-                    // Set active note and switch to editor
                     setActiveNote({
                         path: createdPath,
                         filename: createdPath.replace(/\\/g, '/').split('/').pop() || title + '.md',
                         is_dir: false,
                         size: 0,
-                        last_modified: Date.now(),
+                        last_modified: Math.floor(Date.now() / 1000),
                     });
                     setViewMode('editor');
                 } catch (e) {
@@ -96,7 +93,6 @@ export function GraphView() {
 
     return (
         <div className="w-full h-full relative flex flex-col">
-            {/* Header bar */}
             <div className="flex items-center gap-2 px-4 py-2 border-b border-[var(--color-border-light)] bg-[var(--color-bg-primary)] shrink-0">
                 <button
                     onClick={() => setViewMode('editor')}
@@ -110,11 +106,14 @@ export function GraphView() {
                 </span>
             </div>
 
-            {/* Graph canvas */}
             <div className="flex-1 relative">
                 {loading ? (
                     <div className="flex items-center justify-center h-full text-[var(--color-text-muted)] text-sm">
                         Loading graph...
+                    </div>
+                ) : elements.length === 0 ? (
+                    <div className="flex items-center justify-center h-full text-[var(--color-text-muted)] text-sm">
+                        No graph data yet. Create notes and links to see connections.
                     </div>
                 ) : (
                     <GraphCanvas
@@ -125,7 +124,6 @@ export function GraphView() {
                     />
                 )}
 
-                {/* Info panel */}
                 {selectedGraphNode && (() => {
                     const nodeElement = elements.find(e => e.data?.id === selectedGraphNode);
                     const tags = nodeElement?.data?.tags as string[] | undefined;

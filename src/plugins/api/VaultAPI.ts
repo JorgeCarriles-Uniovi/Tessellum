@@ -28,12 +28,25 @@ export class VaultAPI {
 
     /** Read a file's contents. */
     async readFile(path: string): Promise<string> {
-        return invoke<string>("read_file", { path });
+        const vaultPath = this.getVaultPath();
+        if (!vaultPath) {
+            throw new Error("No vault path set");
+        }
+        return invoke<string>("read_file", { vaultPath, path });
     }
 
     /** Write content to a file. */
     async writeFile(path: string, content: string): Promise<void> {
-        return invoke<void>("write_file", { path, content });
+        const vaultPath = this.getVaultPath();
+        if (!vaultPath) {
+            throw new Error("No vault path set");
+        }
+        return invoke<void>("write_file", { vaultPath, path, content });
+    }
+
+    /** Get indexed tags for a specific file. */
+    async getFileTags(path: string): Promise<string[]> {
+        return invoke<string[]>("get_file_tags", { path });
     }
 
     /** Subscribe to file change events. Returns EventRef for auto-cleanup. */

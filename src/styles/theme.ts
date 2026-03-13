@@ -48,8 +48,8 @@ export const theme = {
 
     typography: {
         fontFamily: {
-            sans: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-            mono: "'JetBrains Mono', 'Fira Code', 'Consolas', monospace",
+            sans: "var(--font-sans)",
+            mono: "var(--font-mono)",
         },
         fontSize: {
             xs: '0.75rem',      // 12px
@@ -119,3 +119,5 @@ export const theme = {
 } as const;
 
 export type Theme = typeof theme;
+
+

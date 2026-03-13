@@ -3,8 +3,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { FileMetadata, TreeNode } from "./types.ts";
 import { useEditorStore } from "./stores/editorStore.ts";
 import { listen } from "@tauri-apps/api/event";
-import { open } from '@tauri-apps/plugin-dialog';
 import { exists } from '@tauri-apps/plugin-fs';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Editor } from "./components/Editor/Editor.tsx";
 import { Sidebar } from "./components/Sidebar/Sidebar.tsx";
 import { GraphView } from "./components/GraphView/GraphView.tsx";
@@ -18,22 +18,36 @@ import { CommandPalette } from "./components/CommandPalette/CommandPalette";
 import { TessellumApp, TessellumAppContext } from "./plugins/TessellumApp";
 import { registerBuiltinPlugins } from "./plugins/builtin";
 import { useWikiLinkNavigation } from "./components/Editor/hooks";
+import { StatusBar } from "./components/Layout/StatusBar";
+import { RightSidebar } from "./components/Layout/RightSidebar.tsx";
+
+const THEME_KEY = "tessellum-theme";
+const WINDOW_KEY = "tessellum-window";
 
 function App() {
-    // Add isSidebarOpen to the destructuring
-    const { vaultPath, setVaultPath, setFiles, setFileTree, isSidebarOpen, viewMode, isLocalGraphOpen } = useEditorStore();
+    const {
+        vaultPath,
+        setVaultPath,
+        setFiles,
+        setFileTree,
+        isSidebarOpen,
+        viewMode,
+        isLocalGraphOpen,
+        activeNote,
+        expandedFolders,
+        setExpandedFolders,
+        setViewMode,
+        setActiveNote,
+    } = useEditorStore();
     const [isLoaded, setIsLoaded] = useState(false);
     const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+    const [themeName, setThemeName] = useState<string>(() => localStorage.getItem(THEME_KEY) || "warm-paper");
 
     const navigateToWikiLink = useWikiLinkNavigation();
 
-    const openCommandPalette = () => setIsCommandPaletteOpen(true);
     const closeCommandPalette = () => setIsCommandPaletteOpen(false);
 
-
-    // Create TessellumApp singleton and register plugins.
     const app = useMemo(() => {
-        // Handle React StrictMode double-invocation gracefully
         const isNew = !(TessellumApp as any)._instance;
         const instance = TessellumApp.create();
         if (isNew) {
@@ -42,7 +56,6 @@ function App() {
         return instance;
     }, []);
 
-    // Manage plugin lifecycle safely outside of useMemo
     useEffect(() => {
         app.plugins.loadAll();
         setIsLoaded(true);
@@ -74,7 +87,79 @@ function App() {
         return () => window.removeEventListener("keydown", onKeyDown);
     }, []);
 
-    // Validate vaultPath existence on startup
+    useEffect(() => {
+        const ref = app.events.on("ui:open-command-palette", () => {
+            setIsCommandPaletteOpen(true);
+        });
+        return () => app.events.off(ref);
+    }, [app]);
+
+    useEffect(() => {
+        const ref = app.events.on("ui:set-theme", (nextTheme: string) => {
+            if (typeof nextTheme === "string") {
+                setThemeName(nextTheme);
+            }
+        });
+        return () => app.events.off(ref);
+    }, [app]);
+
+    useEffect(() => {
+        const root = document.documentElement;
+        const themes = ["theme-warm-paper", "theme-graphite", "theme-ocean"];
+        themes.forEach((t) => root.classList.remove(t));
+        root.classList.add(`theme-${themeName}`);
+        localStorage.setItem(THEME_KEY, themeName);
+    }, [themeName]);
+
+    useEffect(() => {
+        const appWindow = getCurrentWindow();
+
+        const restore = async () => {
+            try {
+                const raw = localStorage.getItem(WINDOW_KEY);
+                if (!raw) return;
+                const state = JSON.parse(raw) as { x: number; y: number; width: number; height: number; isMaximized?: boolean };
+                if (state.isMaximized) {
+                    await appWindow.maximize();
+                    return;
+                }
+                if (state.width && state.height) {
+                    await appWindow.setSize({ width: state.width, height: state.height });
+                }
+                if (state.x !== undefined && state.y !== undefined) {
+                    await appWindow.setPosition({ x: state.x, y: state.y });
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        };
+
+        const persist = async () => {
+            try {
+                const isMaximized = await appWindow.isMaximized();
+                const pos = await appWindow.outerPosition();
+                const size = await appWindow.outerSize();
+                localStorage.setItem(WINDOW_KEY, JSON.stringify({
+                    x: pos.x,
+                    y: pos.y,
+                    width: size.width,
+                    height: size.height,
+                    isMaximized,
+                }));
+            } catch (e) {
+                console.error(e);
+            }
+        };
+
+        restore();
+        const unlistenResize = appWindow.listen('tauri://resize', persist);
+        const unlistenMove = appWindow.listen('tauri://move', persist);
+        return () => {
+            unlistenResize.then((f) => f());
+            unlistenMove.then((f) => f());
+        };
+    }, []);
+
     useEffect(() => {
         if (vaultPath) {
             exists(vaultPath).then((doesExist: boolean) => {
@@ -89,33 +174,44 @@ function App() {
     useEffect(() => {
         if (vaultPath) {
             invoke('watch_vault', { vaultPath }).catch(console.error);
-            refreshFiles(vaultPath);
+            refreshFiles(vaultPath, true);
+        } else {
+            setActiveNote(null);
+            setExpandedFolders({});
         }
     }, [vaultPath]);
 
     useEffect(() => {
         const unlistenPromise = listen('file-changed', () => {
-            if (vaultPath) refreshFiles(vaultPath);
+            if (vaultPath) refreshFiles(vaultPath, false);
         });
         return () => { unlistenPromise.then(unlisten => unlisten()); };
     }, [vaultPath]);
 
-    // Periodic vault sync to pick up external filesystem changes
     useEffect(() => {
         if (!vaultPath) return;
-
-        // Initial sync on vault load
         invoke('sync_vault', { vaultPath }).catch(console.error);
-
-        // Re-sync every 5 minutes
         const interval = setInterval(() => {
             invoke('sync_vault', { vaultPath }).catch(console.error);
         }, 300_000);
-
         return () => clearInterval(interval);
     }, [vaultPath]);
 
-    async function refreshFiles(vaultPath: string): Promise<void> {
+    useEffect(() => {
+        TessellumApp.instance.workspace.onLinkClick = navigateToWikiLink;
+    }, [navigateToWikiLink]);
+
+    useEffect(() => {
+        if (!vaultPath) return;
+        const keyPrefix = `tessellum:${vaultPath}`;
+        localStorage.setItem(`${keyPrefix}:expandedFolders`, JSON.stringify(expandedFolders));
+        localStorage.setItem(`${keyPrefix}:viewMode`, viewMode);
+        if (activeNote?.path) {
+            localStorage.setItem(`${keyPrefix}:lastNote`, activeNote.path);
+        }
+    }, [vaultPath, expandedFolders, viewMode, activeNote]);
+
+    async function refreshFiles(vaultPath: string, restoreState: boolean): Promise<void> {
         try {
             const [flatFiles, treeFiles] = await Promise.all([
                 invoke<FileMetadata[]>('list_files', { vaultPath }),
@@ -123,22 +219,47 @@ function App() {
             ]);
             setFiles(flatFiles);
             setFileTree(treeFiles);
+
+            if (restoreState) {
+                const keyPrefix = `tessellum:${vaultPath}`;
+                const storedExpanded = localStorage.getItem(`${keyPrefix}:expandedFolders`);
+                const storedViewMode = localStorage.getItem(`${keyPrefix}:viewMode`);
+                const storedLastNote = localStorage.getItem(`${keyPrefix}:lastNote`);
+
+                if (storedExpanded) {
+                    setExpandedFolders(JSON.parse(storedExpanded));
+                }
+                if (storedViewMode === 'graph' || storedViewMode === 'editor') {
+                    setViewMode(storedViewMode);
+                }
+                if (storedLastNote) {
+                    const note = flatFiles.find((f) => f.path === storedLastNote) || null;
+                    setActiveNote(note);
+                }
+                seedTemplatesIfEmpty(vaultPath).catch(console.error);
+            }
         } catch (e) { console.error(e); }
     }
 
-    useEffect(() => {
-        TessellumApp.instance.workspace.onLinkClick = navigateToWikiLink;
-    }, [navigateToWikiLink]);
-
-    async function handleOpenVault() {
+    async function seedTemplatesIfEmpty(vaultPath: string): Promise<void> {
         try {
-            const selected = await open({
-                directory: true,
-                multiple: false,
-                title: "Select Vault Folder"
-            });
-            if (selected) setVaultPath(selected);
-        } catch (e) { console.error(e); }
+            const templates = await invoke<{ name: string; path: string }[]>('list_templates', { vaultPath });
+            if (templates.length > 0) return;
+            const baseDir = vaultPath.replace(/\\/g, "/") + "/.tessellum/templates";
+            const templatesToSeed = [
+                { name: "Daily Note", content: "# {{date}}\n\n## Highlights\n- \n\n## Notes\n- \n" },
+                { name: "Meeting Notes", content: "# {{title}}\n\n**Date:** {{date}}\n\n## Agenda\n- \n\n## Notes\n- \n\n## Action Items\n- [ ] \n" },
+                { name: "Project Brief", content: "# {{title}}\n\n## Goal\n\n## Scope\n\n## Milestones\n- \n" },
+                { name: "Task List", content: "# {{title}}\n\n- [ ] \n- [ ] \n" },
+                { name: "Procrastination Plan", content: "# {{title}}\n\n## Things I should do\n- [ ] \n\n## What I will probably do instead\n- [ ] \n" },
+            ];
+            for (const tmpl of templatesToSeed) {
+                const path = `${baseDir}/${tmpl.name}.md`;
+                await invoke('write_file', { vaultPath, path, content: tmpl.content });
+            }
+        } catch (e) {
+            console.error(e);
+        }
     }
 
     return (
@@ -151,58 +272,41 @@ function App() {
                         fontFamily: theme.typography.fontFamily.sans
                     }}
                 >
-                    {/* TitleBar controls the isSidebarOpen state */}
-                    <TitleBar onOpenCommandPalette={openCommandPalette} />
+                    <TitleBar />
 
                     <div className="flex-1 flex overflow-hidden w-full relative">
-                        {!vaultPath ? (
-                            <div
-                                className="w-full h-full flex flex-col items-center justify-center gap-6 select-none"
-                                style={{ backgroundColor: theme.colors.gray[50] }}
-                            >
-                                {/* ... Welcome Screen Content ... */}
-                                <div className="text-center space-y-2">
-                                    <h1 className="bg-clip-text text-transparent text-4xl font-bold bg-gradient-to-br from-blue-600 to-blue-800">
-                                        Tessellum
-                                    </h1>
-                                    <p className="text-gray-500">Local-first Knowledge Management</p>
-                                </div>
-                                <button
-                                    onClick={handleOpenVault}
-                                    className="px-6 py-2.5 text-white bg-blue-600 rounded-lg font-medium hover:bg-blue-700 transition-colors shadow-sm"
-                                >
-                                    Open Vault
-                                </button>
+                        <div className="flex w-full h-full overflow-hidden">
+                            {/* Sidebar */}
+                            <div className={cn(
+                                "h-full overflow-hidden transition-all duration-300 ease-in-out border-r border-gray-200 dark:border-gray-800",
+                                isSidebarOpen ? "w-64 opacity-100" : "w-0 opacity-0 overflow-hidden border-none"
+                            )}>
+                                <Sidebar />
                             </div>
-                        ) : (
-                            <div className="flex w-full h-full overflow-hidden">
-                                {/* Sidebar */}
-                                <div className={cn(
-                                    "h-full overflow-hidden transition-all duration-300 ease-in-out border-r border-gray-200 dark:border-gray-800",
-                                    isSidebarOpen ? "w-64 opacity-100" : "w-0 opacity-0 overflow-hidden border-none"
-                                )}>
-                                    <Sidebar />
-                                </div>
 
-                                {/* Main content area */}
+                            {/* Main content area */}
+                            <div className="flex-1 h-full min-w-0 bg-white relative flex flex-col min-h-0 overflow-hidden">
                                 {viewMode === 'graph' ? (
-                                    /* Global Graph View — replaces the editor */
-                                    <div className="flex-1 h-full min-w-0 relative flex flex-col">
+                                    <div className="flex-1 h-full min-w-0 relative flex flex-col min-h-0 overflow-hidden">
                                         <GraphView />
                                     </div>
                                 ) : (
-                                    /* Editor + optional Local Graph Panel */
                                     <>
-                                        <div className="flex-1 h-full min-w-0 bg-white relative flex flex-col">
-                                            <Editor />
+                                        <div className="flex-1 h-full min-w-0 relative flex min-h-0 overflow-hidden">
+                                            <div className="flex-1 h-full min-w-0 relative flex flex-col min-h-0 overflow-hidden">
+                                                <Editor />
+                                            </div>
+                                            {isLocalGraphOpen && (
+                                                <LocalGraphPanel />
+                                            )}
                                         </div>
-                                        {isLocalGraphOpen && (
-                                            <LocalGraphPanel />
-                                        )}
                                     </>
                                 )}
+                                <StatusBar />
                             </div>
-                        )}
+
+                            <RightSidebar />
+                        </div>
                     </div>
 
                     <CommandPalette isOpen={isCommandPaletteOpen} onClose={closeCommandPalette} />
@@ -215,3 +319,4 @@ function App() {
 }
 
 export default App;
+

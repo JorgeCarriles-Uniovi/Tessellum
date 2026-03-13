@@ -180,7 +180,7 @@ export function InputModal({
                     style={{
                         padding: "2px 6px",
                         fontSize: "10px",
-                        fontFamily: "monospace",
+                        fontFamily: theme.typography.fontFamily.mono,
                         backgroundColor: theme.colors.background.tertiary,
                         border: `1px solid ${theme.colors.border.light}`,
                         borderRadius: theme.borderRadius.base,
@@ -196,7 +196,7 @@ export function InputModal({
                     style={{
                         padding: "2px 6px",
                         fontSize: "10px",
-                        fontFamily: "monospace",
+                        fontFamily: theme.typography.fontFamily.mono,
                         backgroundColor: theme.colors.background.tertiary,
                         border: `1px solid ${theme.colors.border.light}`,
                         borderRadius: theme.borderRadius.base,
