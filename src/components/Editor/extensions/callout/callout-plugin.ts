@@ -2,7 +2,8 @@ import { Decoration, DecorationSet, EditorView, ViewPlugin, ViewUpdate } from "@
 import { RangeSetBuilder, StateEffect } from "@codemirror/state";
 import { getCalloutType } from "../../../../constants/callout-types";
 import { parseCalloutBlocks, CALLOUT_HEADER_RE, CALLOUT_CONTINUATION_RE } from "./callout-parser";
-import { CalloutHeaderWidget, toggleCollapseEffect } from "./callout-widget";
+import { CalloutHeaderWidget } from "./callout-widget";
+import { toggleCollapseEffect } from "./callout-header-base";
 import { TerminalHeaderWidget } from "./terminal-widget";
 import { isCollapsed, calloutKey } from "./callout-state";
 import { languages } from "@codemirror/language-data";

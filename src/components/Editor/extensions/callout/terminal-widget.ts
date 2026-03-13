@@ -1,7 +1,6 @@
 import { WidgetType, EditorView } from "@codemirror/view";
 import { CalloutBlock } from "./callout-parser";
-import { setCollapseState } from "./callout-state";
-import { createIconSVG, createChevronSVG, toggleCollapseEffect } from "./callout-widget";
+import { baseHeaderEq, buildCollapseToggle, buildIconSpan } from "./callout-header-base";
 import { toast } from "sonner";
 
 export class TerminalHeaderWidget extends WidgetType {
@@ -14,13 +13,7 @@ export class TerminalHeaderWidget extends WidgetType {
     }
 
     eq(other: TerminalHeaderWidget): boolean {
-        return (
-            this.block.type === other.block.type &&
-            this.block.title === other.block.title &&
-            this.collapsed === other.collapsed &&
-            this.block.headerFrom === other.block.headerFrom &&
-            this.block.hasContent === other.block.hasContent
-        );
+        return baseHeaderEq(this, other);
     }
 
     toDOM(view: EditorView): HTMLElement {
@@ -44,12 +37,7 @@ export class TerminalHeaderWidget extends WidgetType {
         header.appendChild(dots);
 
         // Icon (pure SVG, no React)
-        const iconSpan = document.createElement("span");
-        iconSpan.className = "cm-callout-icon";
-        const svgIcon = createIconSVG(this.block.type);
-        if (svgIcon) {
-            iconSpan.appendChild(svgIcon);
-        }
+        const iconSpan = buildIconSpan(this.block.type);
 
         // Title
         const titleSpan = document.createElement("span");
@@ -63,7 +51,7 @@ export class TerminalHeaderWidget extends WidgetType {
         // Add tooltip for copy functionality
         const tooltip = document.createElement("div");
         tooltip.className = "cm-terminal-tooltip";
-        tooltip.textContent = "COPY";
+        tooltip.textContent = "Copy";
         titleSpan.appendChild(tooltip);
 
         // Enable pointer events to intercept clicks
@@ -90,39 +78,7 @@ export class TerminalHeaderWidget extends WidgetType {
 
         // Collapse toggle (only if there are content lines)
         if (this.block.hasContent) {
-            const toggle = document.createElement("span");
-            toggle.className = this.collapsed
-                ? "cm-callout-toggle cm-callout-toggle-collapsed"
-                : "cm-callout-toggle";
-
-            // SVG chevron-down (CSS rotates it -90deg when collapsed)
-            const chevron = createChevronSVG();
-            toggle.appendChild(chevron);
-
-            // Accessibility
-            toggle.setAttribute("role", "button");
-            toggle.setAttribute("aria-expanded", String(!this.collapsed));
-            toggle.setAttribute("aria-label", `Toggle ${label} callout`);
-            toggle.setAttribute("tabindex", "0");
-
-            const doToggle = (e: Event) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const newCollapsed = !this.collapsed;
-                setCollapseState(this.collapseKey, newCollapsed);
-                view.dispatch({
-                    effects: toggleCollapseEffect.of(null),
-                });
-            };
-
-            toggle.addEventListener("mousedown", doToggle);
-            toggle.addEventListener("keydown", (e: KeyboardEvent) => {
-                if (e.key === "Enter" || e.key === " ") {
-                    doToggle(e);
-                }
-            });
-
-            header.appendChild(toggle);
+            header.appendChild(buildCollapseToggle(view, this.collapsed, this.collapseKey, label));
         }
 
         return header;
