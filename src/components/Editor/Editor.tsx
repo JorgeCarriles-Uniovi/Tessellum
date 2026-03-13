@@ -240,7 +240,7 @@ export function Editor() {
                             className="text-[28px] font-bold bg-transparent outline-none border-none w-full"
                             style={{
                                 color: theme.colors.text.primary,
-                                fontFamily: theme.typography.fontFamily.mono,
+                                fontFamily: theme.typography.fontFamily.sans,
                                 textAlign: "left",
                                 paddingTop: 8
                             }}

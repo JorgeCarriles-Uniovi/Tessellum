@@ -35,7 +35,8 @@ export function Sidebar() {
     const { vaultPath } = useEditorStore();
     const app = useTessellumApp();
     const sidebarActions = app.ui.getSidebarActions();
-    const headerActions = app.ui.getUIActions("sidebar-header");
+    const allHeaderActions = app.ui.getUIActions("sidebar-header");
+    const headerActions = allHeaderActions.filter((action) => action.id !== "sidebar-open-vault");
     const footerActions = app.ui.getUIActions("sidebar-footer");
 
     const [hoveredActionId, setHoveredActionId] = useState<string | null>(null);
@@ -261,8 +262,8 @@ export function Sidebar() {
                         border: "none",
                     }}
                     onClick={() => {
-                        const action = headerActions.find((a) => a.id === "sidebar-open-vault")
-                            ?? headerActions.find((a) => a.id === "open-vault");
+                        const action = allHeaderActions.find((a) => a.id === "sidebar-open-vault")
+                            ?? allHeaderActions.find((a) => a.id === "open-vault");
                         action?.onClick();
                     }}
                     title="Open / Switch Vault"

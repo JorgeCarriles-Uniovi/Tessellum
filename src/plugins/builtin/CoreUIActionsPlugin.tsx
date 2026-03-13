@@ -121,16 +121,6 @@ export class CoreUIActionsPlugin extends Plugin {
             region: "titlebar-left",
             order: 30,
         });
-
-        this.app.ui.registerUIAction(this.manifest.id, {
-            id: "open-vault",
-            label: "Open Vault",
-            icon: <FolderOpen size={16} />,
-            onClick: openVault,
-            region: "titlebar-right",
-            order: 10,
-        });
-
         this.app.ui.registerUIAction(this.manifest.id, {
             id: "sidebar-open-vault",
             label: "Open Vault",

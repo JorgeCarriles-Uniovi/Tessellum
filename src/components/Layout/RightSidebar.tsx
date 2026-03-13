@@ -39,7 +39,7 @@ function normalizeLinkTarget(target: string): string {
 
 function truncateSnippet(line: string): string {
     if (line.length <= SNIPPET_MAX_LEN) return line;
-    return `${line.slice(0, SNIPPET_MAX_LEN - 1)}�`;
+    return `"${line.slice(0, SNIPPET_MAX_LEN - 1)}"...`;
 }
 
 function stripFrontmatter(content: string): string {
@@ -59,8 +59,8 @@ function extractSnippet(content: string): string | undefined {
 
     if (words.length === 0) return undefined;
 
-    const snippet = words.slice(0, SNIPPET_WORDS).join(" ");
-    const suffix = words.length > SNIPPET_WORDS ? "�" : "";
+    const snippet = "\"" + words.slice(0, SNIPPET_WORDS).join(" ");
+    const suffix = words.length > SNIPPET_WORDS ? "\"..." : "\"";
     return truncateSnippet(`${snippet}${suffix}`);
 }
 
