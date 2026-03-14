@@ -12,7 +12,6 @@ import { LocalGraphPanel } from "./components/GraphView/LocalGraphPanel.tsx";
 import { Toaster } from "sonner";
 import { theme } from './styles/theme';
 import 'katex';
-import { cn } from "./lib/utils";
 import { TitleBar } from "./components/TitleBar/TitleBar";
 import { CommandPalette } from "./components/CommandPalette/CommandPalette";
 import { TessellumApp, TessellumAppContext } from "./plugins/TessellumApp";
@@ -30,7 +29,6 @@ function App() {
         setVaultPath,
         setFiles,
         setFileTree,
-        isSidebarOpen,
         viewMode,
         isLocalGraphOpen,
         activeNote,
@@ -70,7 +68,8 @@ function App() {
             const target = event.target as HTMLElement | null;
             if (target) {
                 const tag = target.tagName;
-                if (tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable) {
+                const isEditor = target.closest(".cm-editor");
+                if ((tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable) && !isEditor) {
                     return;
                 }
             }
@@ -277,12 +276,7 @@ function App() {
                     <div className="flex-1 flex overflow-hidden w-full relative">
                         <div className="flex w-full h-full overflow-hidden">
                             {/* Sidebar */}
-                            <div className={cn(
-                                "h-full overflow-hidden transition-all duration-300 ease-in-out border-r border-gray-200 dark:border-gray-800",
-                                isSidebarOpen ? "w-64 opacity-100" : "w-0 opacity-0 overflow-hidden border-none"
-                            )}>
-                                <Sidebar />
-                            </div>
+                            <Sidebar />
 
                             {/* Main content area */}
                             <div className="flex-1 h-full min-w-0 bg-white relative flex flex-col min-h-0 overflow-hidden">
@@ -319,4 +313,3 @@ function App() {
 }
 
 export default App;
-

@@ -1,6 +1,26 @@
 import { create } from 'zustand';
 import { FileMetadata } from "../types";
 
+const EDITOR_FONT_SIZE_KEY = "tessellum:editorFontSizePx";
+export const DEFAULT_EDITOR_FONT_SIZE_PX = 16;
+const MIN_EDITOR_FONT_SIZE_PX = 12;
+const MAX_EDITOR_FONT_SIZE_PX = 24;
+
+export function clampEditorFontSizePx(value: number): number {
+    return Math.min(MAX_EDITOR_FONT_SIZE_PX, Math.max(MIN_EDITOR_FONT_SIZE_PX, value));
+}
+
+export function nextEditorFontSizePx(current: number, delta: number): number {
+    if (!delta) return clampEditorFontSizePx(current);
+    return clampEditorFontSizePx(current + delta);
+}
+
+function readInitialEditorFontSizePx(): number {
+    const raw = localStorage.getItem(EDITOR_FONT_SIZE_KEY);
+    const parsed = raw ? Number(raw) : NaN;
+    if (!Number.isFinite(parsed)) return DEFAULT_EDITOR_FONT_SIZE_PX;
+    return clampEditorFontSizePx(parsed);
+}
 // Sort logic moved to backend list_files_tree command
 
 interface EditorState {
@@ -16,6 +36,7 @@ interface EditorState {
     isRightSidebarOpen: boolean;
     selectedFilePaths: string[];
     lastSelectedPath: string | null;
+    editorFontSizePx: number;
     // Graph state
     viewMode: 'editor' | 'graph';
     isLocalGraphOpen: boolean;
@@ -36,6 +57,7 @@ interface EditorState {
     toggleSelection: (path: string) => void;
     rangeSelect: (orderedPaths: string[], targetPath: string) => void;
     clearSelection: () => void;
+    setEditorFontSizePx: (value: number) => void;
     // Graph actions
     setViewMode: (mode: 'editor' | 'graph') => void;
     toggleLocalGraph: () => void;
@@ -60,6 +82,7 @@ export const useEditorStore = create<EditorState>((set) => ({
     isRightSidebarOpen: true,
     selectedFilePaths: [],
     lastSelectedPath: null,
+    editorFontSizePx: readInitialEditorFontSizePx(),
     // Graph initial state
     viewMode: 'editor',
     isLocalGraphOpen: false,
@@ -125,6 +148,11 @@ export const useEditorStore = create<EditorState>((set) => ({
         };
     }),
     clearSelection: () => set({ selectedFilePaths: [], lastSelectedPath: null }),
+    setEditorFontSizePx: (value) => set(() => {
+        const nextValue = clampEditorFontSizePx(value);
+        localStorage.setItem(EDITOR_FONT_SIZE_KEY, String(nextValue));
+        return { editorFontSizePx: nextValue };
+    }),
 
     // Graph actions
     setViewMode: (mode) => set({ viewMode: mode, selectedGraphNode: null }),

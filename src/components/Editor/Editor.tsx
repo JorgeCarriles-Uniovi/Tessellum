@@ -9,7 +9,7 @@ import {
 } from "react";
 import type { CSSProperties } from "react";
 import { useEditorStore } from "../../stores/editorStore";
-import { useSlashCommand, useWikiLinkSuggestions } from "./hooks";
+import { useEditorFontZoom, useSlashCommand, useWikiLinkSuggestions } from "./hooks";
 import { Command } from "../../plugins/types";
 import { SlashMenu } from "./SlashMenu";
 import { WikiLinkSuggestionsMenu } from "./WikiLinkSuggestionsMenu";
@@ -18,7 +18,7 @@ import { TableSizePicker } from "./TableSizePicker";
 import { useEditorActions, useFileSynchronization } from "./hooks/useEditorActions";
 import { cn } from "../../lib/utils";
 import { lightTheme } from "./themes/lightTheme";
-import { useEditorExtensions } from "./hooks";
+import { useEditorExtensions } from "./hooks/useEditorExtensions";
 import { CalloutType } from "../../constants/callout-types";
 import { TessellumApp, useTessellumApp } from "../../plugins/TessellumApp";
 import { PaletteCommand } from "../../plugins/api/UIAPI";
@@ -71,7 +71,7 @@ function getPrimaryAction(vaultPath: string | null | undefined, newNote?: Palett
     return vaultPath ? newNote : openVault;
 }
 
-function useEditorViewRegistration(editorRef: RefObject<ReactCodeMirrorRef>) {
+function useEditorViewRegistration(editorRef: React.RefObject<ReactCodeMirrorRef>) {
     useEffect(() => {
         const view = editorRef.current?.view;
         if (view) {
@@ -84,7 +84,7 @@ function useEditorViewRegistration(editorRef: RefObject<ReactCodeMirrorRef>) {
 }
 
 function useSlashInsertions(
-    editorRef: RefObject<ReactCodeMirrorRef>,
+    editorRef: React.RefObject<ReactCodeMirrorRef>,
     slashProps: ReturnType<typeof useSlashCommand>["slashProps"]
 ) {
     const slashPosRef = useRef<number | null>(null);
@@ -271,12 +271,14 @@ function EditorHeader({
                           onTitleBlur,
                           editedAt,
                           lastModified,
+                          titleFontSizePx,
                       }: {
     title: string;
     onTitleChange: (value: string) => void;
     onTitleBlur: () => void;
     editedAt: string;
     lastModified: number;
+    titleFontSizePx: number;
 }) {
     return (
         <div className="w-full mx-auto px-12 pt-20 pb-16 flex-shrink-0" style={{ borderColor: theme.colors.border.light }}>
@@ -286,6 +288,7 @@ function EditorHeader({
                     style={{
                         color: theme.colors.text.primary,
                         fontFamily: theme.typography.fontFamily.mono,
+                        fontSize: titleFontSizePx,
                         textAlign: "left",
                         paddingTop: 8,
                     }}
@@ -319,6 +322,7 @@ const dividerStyle: CSSProperties = {
 
 function EditorBody({
                         editorRef,
+                        editorFontSizePx,
                         content,
                         activeNotePath,
                         pluginExtensions,
@@ -339,7 +343,8 @@ function EditorBody({
                         closeTablePicker,
                         handleSlashSelect,
                     }: {
-    editorRef: React.RefObject<ReactCodeMirrorRef>;
+    editorRef: RefObject<ReactCodeMirrorRef>;
+    editorFontSizePx: number;
     content: string;
     activeNotePath: string;
     pluginExtensions: Extension[];
@@ -361,7 +366,7 @@ function EditorBody({
     handleSlashSelect: (command: Command, view?: EditorView) => void;
 }) {
     return (
-        <div className="w-full relative min-h-0 cursor-text">
+        <div className="w-full relative min-h-0 cursor-text" style={{ "--editor-font-size": `${editorFontSizePx}px` } as CSSProperties}>
             <div className="relative w-full">
                 <CodeMirror
                     ref={editorRef}
@@ -447,9 +452,10 @@ function EditorBody({
 }
 
 export function Editor() {
-    const { activeNote, vaultPath } = useEditorStore();
+    const { activeNote, vaultPath, editorFontSizePx } = useEditorStore();
     const { content, isLoading, handleContentChange } = useFileSynchronization(activeNote);
     const editorRef = useRef<ReactCodeMirrorRef>(null);
+    useEditorFontZoom(editorRef);
     const { noteRenaming } = useEditorActions();
     const app = useTessellumApp();
 
@@ -491,6 +497,8 @@ export function Editor() {
         [paletteCommands]
     );
 
+    const titleFontSizePx = useMemo(() => Math.round(28 * editorFontSizePx / 16), [editorFontSizePx]);
+
     if (!activeNote) {
         const primaryAction = getPrimaryAction(vaultPath, newNoteCommand, openVaultCommand);
         return <EmptyEditorState vaultPath={vaultPath} primaryAction={primaryAction} />;
@@ -510,6 +518,7 @@ export function Editor() {
                     onTitleChange={noteRenaming.setTitleInput}
                     onTitleBlur={noteRenaming.handleRename}
                     editedAt={editedAt}
+                    titleFontSizePx={titleFontSizePx}
                     lastModified={activeNote.last_modified}
                 />
                 <div className="w-full border-b" style={dividerStyle} />
@@ -523,6 +532,7 @@ export function Editor() {
                     handleContentChange={handleContentChange}
                     slashProps={slashProps}
                     wikiLinkSuggestionsProps={wikiLinkSuggestionsProps}
+                    editorFontSizePx={editorFontSizePx}
                     calloutPickerOpen={calloutPickerOpen}
                     calloutPickerPos={calloutPickerPos}
                     calloutPickerIndex={calloutPickerIndex}
@@ -539,3 +549,9 @@ export function Editor() {
         </div>
     );
 }
+
+
+
+
+
+
