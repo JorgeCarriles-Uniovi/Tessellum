@@ -1,33 +1,25 @@
-import { create } from 'zustand';
-import { FileMetadata } from "../types";
+import { create } from "zustand";
+import type { FileMetadata, TreeNode } from "../types";
+import { useVaultStore } from "./vaultStore";
+import {
+    useEditorContentStore,
+    DEFAULT_EDITOR_FONT_SIZE_PX,
+    clampEditorFontSizePx,
+    nextEditorFontSizePx,
+} from "./editorContentStore";
+import { useUiStore } from "./uiStore";
+import { useGraphStore } from "./graphStore";
+import { useSelectionStore } from "./selectionStore";
 
-const EDITOR_FONT_SIZE_KEY = "tessellum:editorFontSizePx";
-export const DEFAULT_EDITOR_FONT_SIZE_PX = 16;
-const MIN_EDITOR_FONT_SIZE_PX = 12;
-const MAX_EDITOR_FONT_SIZE_PX = 24;
-
-export function clampEditorFontSizePx(value: number): number {
-    return Math.min(MAX_EDITOR_FONT_SIZE_PX, Math.max(MIN_EDITOR_FONT_SIZE_PX, value));
-}
-
-export function nextEditorFontSizePx(current: number, delta: number): number {
-    if (!delta) return clampEditorFontSizePx(current);
-    return clampEditorFontSizePx(current + delta);
-}
-
-function readInitialEditorFontSizePx(): number {
-    const raw = localStorage.getItem(EDITOR_FONT_SIZE_KEY);
-    const parsed = raw ? Number(raw) : NaN;
-    if (!Number.isFinite(parsed)) return DEFAULT_EDITOR_FONT_SIZE_PX;
-    return clampEditorFontSizePx(parsed);
-}
-// Sort logic moved to backend list_files_tree command
+// Legacy compatibility layer. Prefer the specialized stores for new code.
+export { useVaultStore, useEditorContentStore, useUiStore, useGraphStore, useSelectionStore };
+export { DEFAULT_EDITOR_FONT_SIZE_PX, clampEditorFontSizePx, nextEditorFontSizePx };
 
 interface EditorState {
     // State
     vaultPath: string | null;
     files: FileMetadata[]; // Flat list used for fast lookups
-    fileTree: import('../types').TreeNode[]; // Hierarchical tree from backend
+    fileTree: TreeNode[]; // Hierarchical tree from backend
     activeNote: FileMetadata | null;
     activeNoteContent: string;
     isDirty: boolean;
@@ -38,19 +30,19 @@ interface EditorState {
     lastSelectedPath: string | null;
     editorFontSizePx: number;
     // Graph state
-    viewMode: 'editor' | 'graph';
+    viewMode: "editor" | "graph";
     isLocalGraphOpen: boolean;
     selectedGraphNode: string | null;
 
     // Actions
     setVaultPath: (path: string | null) => void;
     setFiles: (files: FileMetadata[]) => void;
-    setFileTree: (tree: import('../types').TreeNode[]) => void;
+    setFileTree: (tree: TreeNode[]) => void;
     setActiveNote: (file: FileMetadata | null) => void;
     setActiveNoteContent: (content: string) => void;
     setIsDirty: (isDirty: boolean) => void;
     setExpandedFolders: (folders: Record<string, boolean>) => void;
-    toggleSidebar: () => void; // <--- NEW ACTION
+    toggleSidebar: () => void;
     toggleRightSidebar: () => void;
     setSelectedFilePaths: (paths: string[]) => void;
     selectOnly: (path: string) => void;
@@ -59,7 +51,7 @@ interface EditorState {
     clearSelection: () => void;
     setEditorFontSizePx: (value: number) => void;
     // Graph actions
-    setViewMode: (mode: 'editor' | 'graph') => void;
+    setViewMode: (mode: "editor" | "graph") => void;
     toggleLocalGraph: () => void;
     setSelectedGraphNode: (path: string | null) => void;
 
@@ -69,128 +61,96 @@ interface EditorState {
     addFile: (file: FileMetadata) => void;
 }
 
-export const useEditorStore = create<EditorState>((set) => ({
-    // --- Initial State ---
-    vaultPath: localStorage.getItem('vaultPath'),
-    files: [],
-    fileTree: [],
-    activeNote: null,
-    activeNoteContent: '',
-    isDirty: false,
-    expandedFolders: {},
-    isSidebarOpen: true,
-    isRightSidebarOpen: true,
-    selectedFilePaths: [],
-    lastSelectedPath: null,
-    editorFontSizePx: readInitialEditorFontSizePx(),
-    // Graph initial state
-    viewMode: 'editor',
-    isLocalGraphOpen: false,
-    selectedGraphNode: null,
+export const useEditorStore = create<EditorState>(() => {
+    const vault = useVaultStore.getState();
+    const editorContent = useEditorContentStore.getState();
+    const ui = useUiStore.getState();
+    const graph = useGraphStore.getState();
+    const selection = useSelectionStore.getState();
 
-    // --- Simple Setters ---
-    setVaultPath: (path) => {
-        if (path) {
-            localStorage.setItem('vaultPath', path);
-        } else {
-            localStorage.removeItem('vaultPath');
-        }
-        set({ vaultPath: path });
-    },
-    setFiles: (files) => set({ files }),
-    setFileTree: (fileTree) => set({ fileTree }),
-    setActiveNote: (activeNote) => set(() => {
-        if (!activeNote) {
-            return { activeNote: null };
-        }
-        return {
-            activeNote,
-        };
-    }),
-    setActiveNoteContent: (activeNoteContent) => set({ activeNoteContent }),
-    setIsDirty: (isDirty) => set({ isDirty }),
-    setExpandedFolders: (folders) => set({ expandedFolders: folders }),
+    return {
+        // State
+        vaultPath: vault.vaultPath,
+        files: vault.files,
+        fileTree: vault.fileTree,
+        activeNote: vault.activeNote,
+        activeNoteContent: editorContent.activeNoteContent,
+        isDirty: editorContent.isDirty,
+        expandedFolders: ui.expandedFolders,
+        isSidebarOpen: ui.isSidebarOpen,
+        isRightSidebarOpen: ui.isRightSidebarOpen,
+        selectedFilePaths: selection.selectedFilePaths,
+        lastSelectedPath: selection.lastSelectedPath,
+        editorFontSizePx: editorContent.editorFontSizePx,
+        // Graph state
+        viewMode: graph.viewMode,
+        isLocalGraphOpen: graph.isLocalGraphOpen,
+        selectedGraphNode: graph.selectedGraphNode,
 
-    // <--- TOGGLE IMPLEMENTATION
-    toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
-    toggleRightSidebar: () => set((state) => ({ isRightSidebarOpen: !state.isRightSidebarOpen })),
+        // Actions
+        setVaultPath: (path) => useVaultStore.getState().setVaultPath(path),
+        setFiles: (files) => useVaultStore.getState().setFiles(files),
+        setFileTree: (tree) => useVaultStore.getState().setFileTree(tree),
+        setActiveNote: (file) => useVaultStore.getState().setActiveNote(file),
+        setActiveNoteContent: (content) => useEditorContentStore.getState().setActiveNoteContent(content),
+        setIsDirty: (isDirty) => useEditorContentStore.getState().setIsDirty(isDirty),
+        setExpandedFolders: (folders) => useUiStore.getState().setExpandedFolders(folders),
+        toggleSidebar: () => useUiStore.getState().toggleSidebar(),
+        toggleRightSidebar: () => useUiStore.getState().toggleRightSidebar(),
+        setSelectedFilePaths: (paths) => useSelectionStore.getState().setSelectedFilePaths(paths),
+        selectOnly: (path) => useSelectionStore.getState().selectOnly(path),
+        toggleSelection: (path) => useSelectionStore.getState().toggleSelection(path),
+        rangeSelect: (orderedPaths, targetPath) => useSelectionStore.getState().rangeSelect(orderedPaths, targetPath),
+        clearSelection: () => useSelectionStore.getState().clearSelection(),
+        setEditorFontSizePx: (value) => useEditorContentStore.getState().setEditorFontSizePx(value),
+        // Graph actions
+        setViewMode: (mode) => useGraphStore.getState().setViewMode(mode),
+        toggleLocalGraph: () => useGraphStore.getState().toggleLocalGraph(),
+        setSelectedGraphNode: (path) => useGraphStore.getState().setSelectedGraphNode(path),
 
-    setSelectedFilePaths: (paths) => set({ selectedFilePaths: paths }),
-    selectOnly: (path) => set(() => ({
-        selectedFilePaths: [path],
-        lastSelectedPath: path
-    })),
-    toggleSelection: (path) => set((state) => {
-        const alreadySelected = state.selectedFilePaths.includes(path);
-        const nextSelection = alreadySelected
-            ? state.selectedFilePaths.filter((p) => p !== path)
-            : [...state.selectedFilePaths, path];
-        return {
-            selectedFilePaths: nextSelection,
-            lastSelectedPath: path
-        };
-    }),
-    rangeSelect: (orderedPaths, targetPath) => set((state) => {
-        const from = state.lastSelectedPath ?? targetPath;
-        const fromIndex = orderedPaths.indexOf(from);
-        const toIndex = orderedPaths.indexOf(targetPath);
-        if (fromIndex === -1 || toIndex === -1) {
-            return {
-                selectedFilePaths: [targetPath],
-                lastSelectedPath: targetPath
-            };
-        }
-        const [start, end] = fromIndex < toIndex ? [fromIndex, toIndex] : [toIndex, fromIndex];
-        const nextSelection = orderedPaths.slice(start, end + 1);
-        return {
-            selectedFilePaths: nextSelection,
-            lastSelectedPath: targetPath
-        };
-    }),
-    clearSelection: () => set({ selectedFilePaths: [], lastSelectedPath: null }),
-    setEditorFontSizePx: (value) => set(() => {
-        const nextValue = clampEditorFontSizePx(value);
-        localStorage.setItem(EDITOR_FONT_SIZE_KEY, String(nextValue));
-        return { editorFontSizePx: nextValue };
-    }),
+        // Complex Actions
+        renameFile: (oldPath, newPath, newName) => useVaultStore.getState().renameFile(oldPath, newPath, newName),
+        toggleFolder: (path, expand) => useUiStore.getState().toggleFolder(path, expand),
+        addFile: (file) => useVaultStore.getState().addFile(file),
+    };
+});
 
-    // Graph actions
-    setViewMode: (mode) => set({ viewMode: mode, selectedGraphNode: null }),
-    toggleLocalGraph: () => set((state) => ({ isLocalGraphOpen: !state.isLocalGraphOpen, selectedGraphNode: null })),
-    setSelectedGraphNode: (path) => set({ selectedGraphNode: path }),
+useVaultStore.subscribe((state) => {
+    useEditorStore.setState({
+        vaultPath: state.vaultPath,
+        files: state.files,
+        fileTree: state.fileTree,
+        activeNote: state.activeNote,
+    });
+});
 
-    // --- Complex Logic ---
+useEditorContentStore.subscribe((state) => {
+    useEditorStore.setState({
+        activeNoteContent: state.activeNoteContent,
+        isDirty: state.isDirty,
+        editorFontSizePx: state.editorFontSizePx,
+    });
+});
 
-    toggleFolder: (path, forceState) => set((state) => {
-        const nextState = forceState !== undefined
-            ? forceState
-            : !state.expandedFolders[path];
+useUiStore.subscribe((state) => {
+    useEditorStore.setState({
+        expandedFolders: state.expandedFolders,
+        isSidebarOpen: state.isSidebarOpen,
+        isRightSidebarOpen: state.isRightSidebarOpen,
+    });
+});
 
-        return {
-            expandedFolders: { ...state.expandedFolders, [path]: nextState }
-        };
-    }),
+useSelectionStore.subscribe((state) => {
+    useEditorStore.setState({
+        selectedFilePaths: state.selectedFilePaths,
+        lastSelectedPath: state.lastSelectedPath,
+    });
+});
 
-    addFile: (newFile) => set((state) => ({
-        files: [...state.files, newFile]
-        // Note: The tree refresh happens via backend file-changed event
-    })),
-
-    renameFile: (oldPath, newPath, newFilename) => set((state) => {
-        const updatedFiles = state.files.map((f) =>
-            f.path === oldPath
-                ? { ...f, path: newPath, filename: newFilename }
-                : f
-        );
-
-        const shouldUpdateActive = state.activeNote?.path === oldPath;
-        const updatedActiveNote = shouldUpdateActive
-            ? { ...state.activeNote!, path: newPath, filename: newFilename }
-            : state.activeNote;
-
-        return {
-            files: updatedFiles,
-            activeNote: updatedActiveNote,
-        };
-    }),
-}));
+useGraphStore.subscribe((state) => {
+    useEditorStore.setState({
+        viewMode: state.viewMode,
+        isLocalGraphOpen: state.isLocalGraphOpen,
+        selectedGraphNode: state.selectedGraphNode,
+    });
+});

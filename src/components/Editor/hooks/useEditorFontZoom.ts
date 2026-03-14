@@ -3,11 +3,11 @@ import type { ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import {
     DEFAULT_EDITOR_FONT_SIZE_PX,
     nextEditorFontSizePx,
-    useEditorStore,
-} from "../../../stores/editorStore";
+    useEditorContentStore,
+} from "../../../stores";
 
 export function useEditorFontZoom(editorRef: RefObject<ReactCodeMirrorRef>) {
-    const { setEditorFontSizePx } = useEditorStore();
+    const { setEditorFontSizePx } = useEditorContentStore();
 
     useEffect(() => {
         let editorRoot: HTMLElement | null = editorRef.current?.view?.dom ?? null;
@@ -28,7 +28,7 @@ export function useEditorFontZoom(editorRef: RefObject<ReactCodeMirrorRef>) {
             const delta = direction > 0 ? -1 : direction < 0 ? 1 : 0;
             if (!delta) return;
             event.preventDefault();
-            const current = useEditorStore.getState().editorFontSizePx;
+            const current = useEditorContentStore.getState().editorFontSizePx;
             setEditorFontSizePx(nextEditorFontSizePx(current, delta));
         };
 
