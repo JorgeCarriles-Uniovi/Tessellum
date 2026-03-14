@@ -3,7 +3,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
 import { theme } from "../styles/theme";
 import { useEditorStore } from "../stores/editorStore";
-import { useCreateNote, useCreateNoteFromTemplate } from "./Sidebar/hooks";
+import { useCreateNote } from "./Sidebar/hooks/useCreateNote";
+import { useCreateNoteFromTemplate } from "./Sidebar/hooks/useCreateNoteFromTemplate";
 
 interface TemplateInfo {
     name: string;
@@ -37,8 +38,6 @@ export function TemplatePicker({ isOpen, onClose, parentPath }: TemplatePickerPr
         if (!isOpen) return;
 
         setTitle("Untitled");
-        setTemplates([]);
-        setFocusedIndex(null);
         setIsLoading(true);
 
         if (!vaultPath) {

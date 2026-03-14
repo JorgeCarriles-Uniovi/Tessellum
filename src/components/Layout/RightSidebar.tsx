@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { MouseEvent as ReactMouseEvent } from "react";
+import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
 import { Text } from "@codemirror/state";
 import { Link2, List, Tag } from "lucide-react";
 import { theme } from "../../styles/theme";
+import { BaseSidebar } from "./BaseSidebar";
 import { useEditorStore } from "../../stores/editorStore";
 import { useTessellumApp } from "../../plugins/TessellumApp";
 import { parseFrontmatter } from "../Editor/extensions/frontmatter/frontmatter-parser";
@@ -30,16 +31,9 @@ function getFilenameLabel(path: string): string {
     return name.endsWith(".md") ? name.slice(0, -3) : name;
 }
 
-function normalizeLinkTarget(target: string): string {
-    return target
-        .trim()
-        .replace(/\\/g, "/")
-        .replace(/\.md$/i, "");
-}
-
 function truncateSnippet(line: string): string {
     if (line.length <= SNIPPET_MAX_LEN) return line;
-    return `"${line.slice(0, SNIPPET_MAX_LEN - 1)}"...`;
+    return `${line.slice(0, SNIPPET_MAX_LEN - 1)}ï¿½`;
 }
 
 function stripFrontmatter(content: string): string {
@@ -59,8 +53,8 @@ function extractSnippet(content: string): string | undefined {
 
     if (words.length === 0) return undefined;
 
-    const snippet = "\"" + words.slice(0, SNIPPET_WORDS).join(" ");
-    const suffix = words.length > SNIPPET_WORDS ? "\"..." : "\"";
+    const snippet = words.slice(0, SNIPPET_WORDS).join(" ");
+    const suffix = words.length > SNIPPET_WORDS ? "ï¿½" : "";
     return truncateSnippet(`${snippet}${suffix}`);
 }
 
@@ -68,108 +62,113 @@ function clampWidth(value: number): number {
     return Math.min(RIGHT_SIDEBAR_MAX, Math.max(RIGHT_SIDEBAR_MIN, value));
 }
 
-export function RightSidebar() {
-    const { activeNote, activeNoteContent, files, vaultPath, isRightSidebarOpen } = useEditorStore();
-    const app = useTessellumApp();
-    const [backlinks, setBacklinks] = useState<BacklinkItem[]>([]);
-    const [isLoadingBacklinks, setIsLoadingBacklinks] = useState(false);
-    const [backendTags, setBackendTags] = useState<string[]>([]);
+function getTagStyles(tag: string) {
+    const { h } = stringToColor(tag);
+    const saturation = "70%";
+    const lightnessBg = "60%";
+    const lightnessText = "50%";
+    return {
+        backgroundColor: `hsla(${h}, ${saturation}, ${lightnessBg}, 0.15)`,
+        color: `hsl(${h}, ${saturation}, ${lightnessText})`,
+        border: `1px solid hsla(${h}, ${saturation}, ${lightnessBg}, 0.3)`,
+        paddingLeft: "0.5rem",
+        paddingRight: "0.5rem",
+    };
+}
+
+function getFrontmatterTags(content: string): Set<string> {
+    const doc = Text.of(content.split("\n"));
+    const block = parseFrontmatter(doc);
+    const tags = new Set<string>();
+
+    if (!block) return tags;
+
+    const raw = block.properties.tags ?? block.properties.tag;
+    if (Array.isArray(raw)) {
+        raw.forEach((t) => {
+            const normalized = normalizeTag(String(t));
+            if (normalized) tags.add(normalized);
+        });
+        return tags;
+    }
+
+    if (typeof raw === "string") {
+        raw.split(",").forEach((t) => {
+            const normalized = normalizeTag(t);
+            if (normalized) tags.add(normalized);
+        });
+    }
+
+    return tags;
+}
+
+function getInlineTags(content: string): Set<string> {
+    const body = stripFrontmatter(content);
+    const tags = new Set<string>();
+    const regex = /(?:^|\s)(#[a-zA-Z0-9_\-]+)/g;
+    let match: RegExpExecArray | null;
+
+    while ((match = regex.exec(body)) !== null) {
+        const normalized = normalizeTag(match[1]);
+        if (normalized) tags.add(normalized);
+    }
+
+    return tags;
+}
+
+function getFrontendTags(content?: string): string[] {
+    if (!content) return [];
+
+    const merged = new Set<string>();
+    getFrontmatterTags(content).forEach((tag) => merged.add(tag));
+    getInlineTags(content).forEach((tag) => merged.add(tag));
+    return Array.from(merged);
+}
+
+function getAllTags(frontendTags: string[], backendTags: string[]) {
+    const merged = new Set<string>();
+    frontendTags.forEach((t) => merged.add(normalizeTag(t)));
+    backendTags.forEach((t) => merged.add(normalizeTag(t)));
+    return Array.from(merged).filter(Boolean).sort((a, b) => a.localeCompare(b));
+}
+
+function createBacklinkItems(paths: string[], files?: { path: string; filename?: string }[]): BacklinkItem[] {
+    return paths.map((path) => {
+        const file = files?.find((f) => f.path === path);
+        const label = file?.filename ? file.filename.replace(/\.md$/i, "") : getFilenameLabel(path);
+        return { path, label };
+    });
+}
+
+async function readSnippetSafely(app: ReturnType<typeof useTessellumApp>, path: string) {
+    try {
+        const content = await app.vault.readFile(path);
+        return extractSnippet(content);
+    } catch (e) {
+        console.error(e);
+        return undefined;
+    }
+}
+
+async function fetchSnippets(app: ReturnType<typeof useTessellumApp>, items: BacklinkItem[]) {
+    const targets = items.slice(0, SNIPPET_LIMIT);
+    return Promise.all(targets.map((item) => readSnippetSafely(app, item.path)));
+}
+
+function mergeSnippets(items: BacklinkItem[], snippets: Array<string | undefined>) {
+    return items.map((item, idx) => {
+        if (idx >= SNIPPET_LIMIT) return item;
+        return { ...item, snippet: snippets[idx] };
+    });
+}
+
+function useSidebarWidth() {
     const [sidebarWidth, setSidebarWidth] = useState(() => {
         const stored = localStorage.getItem(RIGHT_SIDEBAR_WIDTH_KEY);
         const parsed = stored ? Number.parseInt(stored, 10) : NaN;
         return Number.isFinite(parsed) ? clampWidth(parsed) : 288;
     });
     const isResizingRef = useRef(false);
-
-    const targetCandidates = useMemo(() => {
-        if (!activeNote) return new Set<string>();
-        const normalizedPath = normalizeLinkTarget(activeNote.path);
-        const relative = vaultPath
-            ? normalizeLinkTarget(activeNote.path.replace(/\\/g, "/").replace(vaultPath.replace(/\\/g, "/"), "").replace(/^\//, ""))
-            : normalizedPath;
-        const nameOnly = normalizeLinkTarget(getFilenameLabel(activeNote.path));
-
-        return new Set([normalizedPath, relative, nameOnly]);
-    }, [activeNote?.path, vaultPath]);
-
-    useEffect(() => {
-        let cancelled = false;
-
-        const loadBacklinks = async () => {
-            if (!activeNote) {
-                setBacklinks([]);
-                setIsLoadingBacklinks(false);
-                return;
-            }
-
-            setIsLoadingBacklinks(true);
-            try {
-                const paths = await app.workspace.getBacklinks(activeNote.path);
-                const items: BacklinkItem[] = paths.map((path) => {
-                    const file = files.find((f) => f.path === path);
-                    const label = file?.filename ? file.filename.replace(/\.md$/i, "") : getFilenameLabel(path);
-                    return { path, label };
-                });
-
-                if (cancelled) return;
-                setBacklinks(items);
-
-                const snippetTargets = items.slice(0, SNIPPET_LIMIT);
-                const snippets = await Promise.all(
-                    snippetTargets.map(async (item) => {
-                        try {
-                            const content = await app.vault.readFile(item.path);
-                            return extractSnippet(content);
-                        } catch (e) {
-                            console.error(e);
-                            return undefined;
-                        }
-                    })
-                );
-
-                if (cancelled) return;
-                setBacklinks((prev) =>
-                    prev.map((item, idx) => {
-                        if (idx >= SNIPPET_LIMIT) return item;
-                        return { ...item, snippet: snippets[idx] };
-                    })
-                );
-            } catch (e) {
-                console.error(e);
-                if (!cancelled) {
-                    setBacklinks([]);
-                }
-            } finally {
-                if (!cancelled) setIsLoadingBacklinks(false);
-            }
-        };
-
-        loadBacklinks();
-        return () => {
-            cancelled = true;
-        };
-    }, [activeNote?.path, files, app.workspace, app.vault, targetCandidates]);
-
-    useEffect(() => {
-        let cancelled = false;
-        const loadBackendTags = async () => {
-            if (!activeNote) {
-                setBackendTags([]);
-                return;
-            }
-            try {
-                const tags = await app.vault.getFileTags(activeNote.path);
-                if (!cancelled) setBackendTags(tags);
-            } catch (e) {
-                console.error(e);
-                if (!cancelled) setBackendTags([]);
-            }
-        };
-        loadBackendTags();
-        return () => {
-            cancelled = true;
-        };
-    }, [activeNote?.path, app.vault]);
 
     useEffect(() => {
         const handleMove = (event: MouseEvent) => {
@@ -202,55 +201,228 @@ export function RightSidebar() {
         document.body.style.userSelect = "none";
     };
 
-    const frontendTags = useMemo(() => {
-        if (!activeNoteContent) return [] as string[];
-        const doc = Text.of(activeNoteContent.split("\n"));
-        const block = parseFrontmatter(doc);
-        const tags = new Set<string>();
+    return { sidebarWidth, onResizeStart };
+}
 
-        if (block) {
-            const raw = block.properties.tags ?? block.properties.tag;
-            if (Array.isArray(raw)) {
-                raw.forEach((t) => {
-                    const normalized = normalizeTag(String(t));
-                    if (normalized) tags.add(normalized);
-                });
-            } else if (typeof raw === "string") {
-                raw.split(",").forEach((t) => {
-                    const normalized = normalizeTag(t);
-                    if (normalized) tags.add(normalized);
-                });
+function useBacklinks(
+    app: ReturnType<typeof useTessellumApp>,
+    activePath?: string,
+    files?: { path: string; filename?: string }[]
+) {
+    const [backlinks, setBacklinks] = useState<BacklinkItem[]>([]);
+    const [isLoadingBacklinks, setIsLoadingBacklinks] = useState(false);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const setIfActive = (updater: () => void) => {
+            if (!cancelled) updater();
+        };
+
+        const loadBacklinks = async () => {
+            if (!activePath) {
+                setBacklinks([]);
+                setIsLoadingBacklinks(false);
+                return;
             }
-        }
 
-        const body = stripFrontmatter(activeNoteContent);
-        const regex = /(?:^|\s)(#[a-zA-Z0-9_\-]+)/g;
-        let match: RegExpExecArray | null;
-        while ((match = regex.exec(body)) !== null) {
-            const normalized = normalizeTag(match[1]);
-            if (normalized) tags.add(normalized);
-        }
+            setIsLoadingBacklinks(true);
+            try {
+                const paths = await app.workspace.getBacklinks(activePath);
+                const items = createBacklinkItems(paths, files);
 
-        return Array.from(tags);
-    }, [activeNoteContent]);
+                if (cancelled) return;
+                setBacklinks(items);
 
-    const allTags = useMemo(() => {
-        const merged = new Set<string>();
-        frontendTags.forEach((t) => merged.add(normalizeTag(t)));
-        backendTags.forEach((t) => merged.add(normalizeTag(t)));
-        return Array.from(merged).filter(Boolean).sort((a, b) => a.localeCompare(b));
-    }, [frontendTags, backendTags]);
+                const snippets = await fetchSnippets(app, items);
+                setIfActive(() => setBacklinks(mergeSnippets(items, snippets)));
+            } catch (e) {
+                console.error(e);
+                setIfActive(() => setBacklinks([]));
+            } finally {
+                setIfActive(() => setIsLoadingBacklinks(false));
+            }
+        };
+
+        loadBacklinks();
+        return () => {
+            cancelled = true;
+        };
+    }, [activePath, files, app.workspace, app.vault]);
+
+    return { backlinks, isLoadingBacklinks };
+}
+
+function useBackendTags(app: ReturnType<typeof useTessellumApp>, activePath?: string) {
+    const [backendTags, setBackendTags] = useState<string[]>([]);
+
+    useEffect(() => {
+        let cancelled = false;
+        const loadBackendTags = async () => {
+            if (!activePath) {
+                setBackendTags([]);
+                return;
+            }
+            try {
+                const tags = await app.vault.getFileTags(activePath);
+                if (!cancelled) setBackendTags(tags);
+            } catch (e) {
+                console.error(e);
+                if (!cancelled) setBackendTags([]);
+            }
+        };
+        loadBackendTags();
+        return () => {
+            cancelled = true;
+        };
+    }, [activePath, app.vault]);
+
+    return backendTags;
+}
+
+function SidebarSectionHeader({ title, icon }: { title: string; icon: ReactNode }) {
+    return (
+        <div className="flex items-center justify-between">
+            <h3
+                className="text-[12px] font-semibold uppercase tracking-[0.24em]"
+                style={{
+                    color: theme.colors.text.muted,
+                    padding: "1rem",
+                }}
+            >
+                {title}
+            </h3>
+            {icon}
+        </div>
+    );
+}
+
+function EmptyState({ children }: { children: ReactNode }) {
+    return (
+        <div className="text-[11px]" style={{ color: theme.colors.text.muted, paddingLeft: "1rem" }}>
+            {children}
+        </div>
+    );
+}
+
+function BacklinksSection({
+                              activeNote,
+                              backlinks,
+                              isLoading,
+                              onOpen,
+                          }: {
+    activeNote: { path: string } | null;
+    backlinks: BacklinkItem[];
+    isLoading: boolean;
+    onOpen: (path: string) => void;
+}) {
+    return (
+        <section className="space-y-4">
+            <SidebarSectionHeader
+                title="Backlinks"
+                icon={<Link2 size={14} style={{ color: theme.colors.text.muted, marginRight: "1rem" }} />}
+            />
+            {isLoading ? (
+                <EmptyState>Loading backlinks</EmptyState>
+            ) : !activeNote ? (
+                <EmptyState>Select a note to see backlinks.</EmptyState>
+            ) : backlinks.length === 0 ? (
+                <EmptyState>No backlinks yet.</EmptyState>
+            ) : (
+                <div className="space-y-3" style={{ padding: "1rem" }}>
+                    {backlinks.map((item) => (
+                        <button
+                            key={item.path}
+                            className="w-full text-left p-4 rounded-2xl border transition-colors"
+                            onClick={() => onOpen(item.path)}
+                            style={{
+                                backgroundColor: theme.colors.background.secondary,
+                                borderColor: theme.colors.border.light,
+                                padding: "1rem",
+                                marginBottom: "1rem",
+                            }}
+                        >
+                            <p className="text-[13px] font-semibold" style={{ color: theme.colors.text.secondary }}>
+                                {item.label}.md
+                            </p>
+                            {item.snippet && (
+                                <p className="text-[11px] mt-2 leading-5" style={{ color: theme.colors.text.muted }}>
+                                    {item.snippet}
+                                </p>
+                            )}
+                        </button>
+                    ))}
+                </div>
+            )}
+        </section>
+    );
+}
+
+function TagsSection({ activeNote, tags }: { activeNote: { path: string } | null; tags: string[] }) {
+    return (
+        <section className="space-y-4">
+            <SidebarSectionHeader
+                title="Tags"
+                icon={<Tag size={14} style={{ color: theme.colors.text.muted, marginRight: "1rem" }} />}
+            />
+            {!activeNote ? (
+                <EmptyState>Select a note to see tags.</EmptyState>
+            ) : tags.length === 0 ? (
+                <EmptyState>No tags found.</EmptyState>
+            ) : (
+                <div className="flex flex-wrap gap-2" style={{ padding: "1rem" }}>
+                    {tags.map((tag) => (
+                        <span
+                            key={tag}
+                            className="inline-flex gap-1.5 items-center px-3 py-1 rounded-full text-[13px] font-medium text-foreground group/pill"
+                            style={getTagStyles(tag)}
+                        >
+                            {tag}
+                        </span>
+                    ))}
+                </div>
+            )}
+        </section>
+    );
+}
+
+function OutlineSection() {
+    return (
+        <section className="space-y-4">
+            <SidebarSectionHeader
+                title="Outline"
+                icon={<List size={14} style={{ color: theme.colors.text.muted, marginRight: "1rem" }} />}
+            />
+            <div className="space-y-2 text-[12px]" style={{ color: theme.colors.text.muted, padding: "1rem" }}>
+                <div className="flex items-center gap-2"> Meeting Goals</div>
+                <div className="flex items-center gap-2"> Technical Specs</div>
+                <div className="flex items-center gap-2" style={{ paddingLeft: theme.spacing[2] }}> Backend Refactor</div>
+                <div className="flex items-center gap-2"> Action Items</div>
+            </div>
+        </section>
+    );
+}
+
+export function RightSidebar() {
+    const { activeNote, activeNoteContent, files, isRightSidebarOpen } = useEditorStore();
+    const app = useTessellumApp();
+    const { sidebarWidth, onResizeStart } = useSidebarWidth();
+    const { backlinks, isLoadingBacklinks } = useBacklinks(app, activeNote?.path, files);
+    const backendTags = useBackendTags(app, activeNote?.path);
+
+    const frontendTags = useMemo(() => getFrontendTags(activeNoteContent), [activeNoteContent]);
+    const allTags = useMemo(() => getAllTags(frontendTags, backendTags), [frontendTags, backendTags]);
 
     return (
-        <aside
-            className="hidden xl:flex flex-col border-l overflow-y-auto relative transition-all duration-300 ease-in-out"
+        <BaseSidebar
+            side="right"
+            isOpen={isRightSidebarOpen}
+            width={sidebarWidth}
+            className="hidden xl:flex flex-col overflow-y-auto relative"
             style={{
-                width: isRightSidebarOpen ? sidebarWidth : 0,
                 backgroundColor: theme.colors.background.primary,
-                borderColor: isRightSidebarOpen ? theme.colors.border.light : "transparent",
+                borderColor: theme.colors.border.light,
                 padding: isRightSidebarOpen ? "1.75rem" : "0",
-                opacity: isRightSidebarOpen ? 1 : 0,
-                pointerEvents: isRightSidebarOpen ? "auto" : "none",
             }}
         >
             <div
@@ -267,122 +439,15 @@ export function RightSidebar() {
                     transform: isRightSidebarOpen ? "translateX(0)" : "translateX(8px)",
                 }}
             >
-                <section className="space-y-4">
-                    <div className="flex items-center justify-between">
-                        <h3
-                            className="text-[12px] font-semibold uppercase tracking-[0.24em]"
-                            style={{
-                                color: theme.colors.text.muted,
-                                padding: "1rem"
-                            }}
-                        >
-                            Backlinks
-                        </h3>
-                        <Link2 size={14} style={{ color: theme.colors.text.muted, marginRight: "1rem" }} />
-                    </div>
-                    {isLoadingBacklinks ? (
-                        <div className="text-[11px]" style={{ color: theme.colors.text.muted, paddingLeft: "1rem" }}>
-                            Loading backlinks
-                        </div>
-                    ) : !activeNote ? (
-                        <div className="text-[11px]" style={{ color: theme.colors.text.muted, paddingLeft: "1rem" }}>
-                            Select a note to see backlinks.
-                        </div>
-                    ) : backlinks.length === 0 ? (
-                        <div className="text-[11px]" style={{ color: theme.colors.text.muted, paddingLeft: "1rem" }}>
-                            No backlinks yet.
-                        </div>
-                    ) : (
-                        <div className="space-y-3" style={{ padding: "1rem" }}>
-                            {backlinks.map((item) => (
-                                <button
-                                    key={item.path}
-                                    className="w-full text-left p-4 rounded-2xl border transition-colors"
-                                    onClick={() => app.workspace.openNote(item.path)}
-                                    style={{
-                                        backgroundColor: theme.colors.background.secondary,
-                                        borderColor: theme.colors.border.light,
-                                        padding: "1rem",
-                                        marginBottom: "1rem"
-                                    }}
-                                >
-                                    <p className="text-[13px] font-semibold" style={{ color: theme.colors.text.secondary }}>
-                                        {item.label}.md
-                                    </p>
-                                    {item.snippet && (
-                                        <p className="text-[11px] mt-2 leading-5" style={{ color: theme.colors.text.muted }}>
-                                            {item.snippet}
-                                        </p>
-                                    )}
-                                </button>
-                            ))}
-                        </div>
-                    )}
-                </section>
-
-                <section className="space-y-4">
-                    <div className="flex items-center justify-between">
-                        <h3
-                            className="text-[12px] font-semibold uppercase tracking-[0.24em]"
-                            style={{ color: theme.colors.text.muted, padding: "1rem" }}
-                        >
-                            Tags
-                        </h3>
-                        <Tag size={14} style={{ color: theme.colors.text.muted, marginRight: "1rem" }} />
-                    </div>
-                    {!activeNote ? (
-                        <div className="text-[11px]" style={{ color: theme.colors.text.muted, paddingLeft: "1rem" }}>
-                            Select a note to see tags.
-                        </div>
-                    ) : allTags.length === 0 ? (
-                        <div className="text-[11px]" style={{ color: theme.colors.text.muted, paddingLeft: "1rem" }}>
-                            No tags found.
-                        </div>
-                    ) : (
-                        <div className="flex flex-wrap gap-2" style={{ padding: "1rem" }}>
-                            {allTags.map((tag) => {
-                                const { h } = stringToColor(tag);
-                                const saturation = "70%";
-                                const lightnessBg = "60%";
-                                const lightnessText = "50%";
-                                return (
-                                    <span
-                                        key={tag}
-                                        className="inline-flex gap-1.5 items-center px-3 py-1 rounded-full text-[13px] font-medium text-foreground group/pill"
-                                        style={{
-                                            backgroundColor: `hsla(${h}, ${saturation}, ${lightnessBg}, 0.15)`,
-                                            color: `hsl(${h}, ${saturation}, ${lightnessText})`,
-                                            border: `1px solid hsla(${h}, ${saturation}, ${lightnessBg}, 0.3)`,
-                                            paddingLeft: "0.5rem",
-                                            paddingRight: "0.5rem",
-                                        }}
-                                    >
-                                        {tag}
-                                    </span>
-                                );
-                            })}
-                        </div>
-                    )}
-                </section>
-
-                <section className="space-y-4">
-                    <div className="flex items-center justify-between">
-                        <h3
-                            className="text-[12px] font-semibold uppercase tracking-[0.24em]"
-                            style={{ color: theme.colors.text.muted, padding: "1rem" }}
-                        >
-                            Outline
-                        </h3>
-                        <List size={14} style={{ color: theme.colors.text.muted, marginRight: "1rem" }} />
-                    </div>
-                    <div className="space-y-2 text-[12px]" style={{ color: theme.colors.text.muted, padding: "1rem" }}>
-                        <div className="flex items-center gap-2"> Meeting Goals</div>
-                        <div className="flex items-center gap-2"> Technical Specs</div>
-                        <div className="flex items-center gap-2" style={{ paddingLeft: theme.spacing[2] }}> Backend Refactor</div>
-                        <div className="flex items-center gap-2"> Action Items</div>
-                    </div>
-                </section>
+                <BacklinksSection
+                    activeNote={activeNote}
+                    backlinks={backlinks}
+                    isLoading={isLoadingBacklinks}
+                    onOpen={(path) => app.workspace.openNote(path)}
+                />
+                <TagsSection activeNote={activeNote} tags={allTags} />
+                <OutlineSection />
             </div>
-        </aside>
+        </BaseSidebar>
     );
 }

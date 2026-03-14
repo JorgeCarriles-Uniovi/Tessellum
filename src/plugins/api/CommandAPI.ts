@@ -1,4 +1,5 @@
 import type { EditorView } from "@codemirror/view";
+import type { TessellumApp } from "../TessellumApp";
 import type { Command } from "../types";
 
 /**
@@ -10,6 +11,9 @@ import type { Command } from "../types";
  */
 export class CommandAPI {
     private commands = new Map<string, Command[]>(); // pluginId -> commands
+
+    constructor(_app: TessellumApp) {
+    }
 
     /** Register a command for a plugin. */
     register(pluginId: string, command: Command): void {
