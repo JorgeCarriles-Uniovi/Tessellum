@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { FileMetadata, TreeNode } from "./types.ts";
-import { useEditorStore } from "./stores/editorStore.ts";
+import { useGraphStore, useUiStore, useVaultStore } from "./stores";
 import { listen } from "@tauri-apps/api/event";
 import { exists } from '@tauri-apps/plugin-fs';
 import { getCurrentWindow, LogicalPosition, LogicalSize } from '@tauri-apps/api/window';
@@ -29,15 +29,13 @@ function App() {
         setVaultPath,
         setFiles,
         setFileTree,
-        viewMode,
-        isLocalGraphOpen,
         activeNote,
-        expandedFolders,
-        setExpandedFolders,
-        setViewMode,
         setActiveNote,
-    } = useEditorStore();
+    } = useVaultStore();
+    const { expandedFolders, setExpandedFolders } = useUiStore();
+    const { viewMode, isLocalGraphOpen, setViewMode } = useGraphStore();
     const [isLoaded, setIsLoaded] = useState(false);
+    const [workspaceRestored, setWorkspaceRestored] = useState(false);
     const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
     const [themeName, setThemeName] = useState<string>(() => localStorage.getItem(THEME_KEY) || "warm-paper");
 
@@ -173,10 +171,12 @@ function App() {
     useEffect(() => {
         if (vaultPath) {
             invoke('watch_vault', { vaultPath }).catch(console.error);
+            setWorkspaceRestored(false);
             refreshFiles(vaultPath, true);
         } else {
             setActiveNote(null);
             setExpandedFolders({});
+            setWorkspaceRestored(false);
         }
     }, [vaultPath]);
 
@@ -188,7 +188,7 @@ function App() {
     }, [vaultPath]);
 
     useEffect(() => {
-        if (!vaultPath) return;
+        if (!vaultPath || !workspaceRestored) return;
         invoke('sync_vault', { vaultPath }).catch(console.error);
         const interval = setInterval(() => {
             invoke('sync_vault', { vaultPath }).catch(console.error);
@@ -201,14 +201,14 @@ function App() {
     }, [navigateToWikiLink]);
 
     useEffect(() => {
-        if (!vaultPath) return;
+        if (!vaultPath || !workspaceRestored) return;
         const keyPrefix = `tessellum:${vaultPath}`;
         localStorage.setItem(`${keyPrefix}:expandedFolders`, JSON.stringify(expandedFolders));
         localStorage.setItem(`${keyPrefix}:viewMode`, viewMode);
         if (activeNote?.path) {
             localStorage.setItem(`${keyPrefix}:lastNote`, activeNote.path);
         }
-    }, [vaultPath, expandedFolders, viewMode, activeNote]);
+    }, [vaultPath, expandedFolders, viewMode, activeNote, workspaceRestored]);
 
     async function refreshFiles(vaultPath: string, restoreState: boolean): Promise<void> {
         try {
@@ -235,6 +235,7 @@ function App() {
                     const note = flatFiles.find((f) => f.path === storedLastNote) || null;
                     setActiveNote(note);
                 }
+                setWorkspaceRestored(true);
                 seedTemplatesIfEmpty(vaultPath).catch(console.error);
             }
         } catch (e) { console.error(e); }
