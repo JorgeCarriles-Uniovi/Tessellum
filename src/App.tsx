@@ -194,7 +194,7 @@ function App() {
             invoke('sync_vault', { vaultPath }).catch(console.error);
         }, 300_000);
         return () => clearInterval(interval);
-    }, [vaultPath]);
+    }, [vaultPath, workspaceRestored]);
 
     useEffect(() => {
         TessellumApp.instance.workspace.onLinkClick = navigateToWikiLink;

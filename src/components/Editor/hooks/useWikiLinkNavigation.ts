@@ -7,7 +7,7 @@ import { TessellumApp } from "../../../plugins/TessellumApp";
 import { createNoteInDir } from "../../../utils/noteUtils";
 
 export function useWikiLinkNavigation() {
-    const { activeNote, files, setActiveNote, addFileIfMissing } = useVaultStore();
+    const { activeNote, setActiveNote, addFileIfMissing } = useVaultStore();
 
     return useCallback(async (linkTarget: string) => {
         if (!activeNote) return;
@@ -18,6 +18,9 @@ export function useWikiLinkNavigation() {
 
             // Normalize path separators if it's an absolute path or has them
             const normalizedLinkTarget = rawTarget.replace(/\\/g, '/');
+
+            // Get fresh files list from store
+            const { files } = useVaultStore.getState();
 
             // 1. Check if it's an absolute path and exists in store
             const fileByPath = files.find(f => f.path === normalizedLinkTarget);
@@ -77,7 +80,7 @@ export function useWikiLinkNavigation() {
             const message = e instanceof Error ? e.message : "Failed to open link";
             toast.error(message);
         }
-    }, [activeNote, files, setActiveNote, addFileIfMissing]);
+    }, [activeNote, setActiveNote, addFileIfMissing]);
 }
 
 function sanitizeFilename(name: string): string {

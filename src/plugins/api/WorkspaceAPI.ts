@@ -81,7 +81,6 @@ export class WorkspaceAPI {
         vaultState.addFileIfMissing(file);
         vaultState.setActiveNote(file);
         graphState.setViewMode('editor');
-        this.onLinkClick?.(file.path);
     }
 
     onLinkClick: ((path: string) => void) | null = null;
