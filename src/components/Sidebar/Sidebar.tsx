@@ -219,8 +219,7 @@ export function Sidebar() {
     const { sidebarWidth, onResizeStart } = useLeftSidebarWidth();
     const app = useTessellumApp();
     const sidebarActions = app.ui.getSidebarActions();
-    const allHeaderActions = app.ui.getUIActions("sidebar-header");
-    const headerActions = allHeaderActions.filter((action) => action.id !== "sidebar-open-vault");
+    const headerActions = app.ui.getUIActions("sidebar-header");
     const footerActions = app.ui.getUIActions("sidebar-footer");
     const openVaultAction =
         headerActions.find((action) => action.id === "sidebar-open-vault")
@@ -297,6 +296,8 @@ export function Sidebar() {
                         width: sidebarWidth,
                         height: "100%",
                         minHeight: 0,
+                        opacity: isSidebarOpen ? 1 : 0,
+                        transform: isSidebarOpen ? "translateX(0)" : "translateX(-8px)",
                     }}
                 >
                     <div style={headerStyle}>
