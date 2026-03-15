@@ -248,7 +248,7 @@ function useBacklinks(
         return () => {
             cancelled = true;
         };
-    }, [activePath, files, app.workspace, app.vault]);
+    }, [activePath, app.workspace, app.vault]);
 
     return { backlinks, isLoadingBacklinks };
 }

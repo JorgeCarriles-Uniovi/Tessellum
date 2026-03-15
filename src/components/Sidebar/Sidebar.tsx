@@ -11,6 +11,7 @@ import { theme } from "../../styles/theme";
 import { BaseSidebar } from "../Layout/BaseSidebar";
 import { TemplatePicker } from "../TemplatePicker";
 import { getParentFromTarget } from "../../utils/pathUtils";
+import { useFileSync } from "../FileTree/hooks/useFileSync";
 
 const LEFT_SIDEBAR_WIDTH_KEY = "tessellum:left-sidebar-width";
 const LEFT_SIDEBAR_MIN = 220;
@@ -216,6 +217,7 @@ const emptyStateTextStyle: CSSProperties = {
 };
 
 export function Sidebar() {
+    useFileSync();
     const { vaultPath } = useVaultStore();
     const { isSidebarOpen } = useUiStore();
     const { sidebarWidth, onResizeStart } = useLeftSidebarWidth();
