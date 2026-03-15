@@ -59,72 +59,79 @@ function buildDecorations(view: EditorView): DecorationSet {
     const calloutMap = getCalloutLinePositions(view);
     const tablePositions = getTableLinePositions(view);
 
+    const shouldSkipForTable = (lineFrom: number) => tablePositions.has(lineFrom);
+    const isInTerminalCallout = (lineFrom: number) => calloutMap.get(lineFrom) === "terminal";
+    const isCalloutOwnedLine = (lineFrom: number) => calloutMap.has(lineFrom);
+    const isLinkLike = (nodeName: string) => nodeName === "LinkMark" || nodeName === "URL";
+    const isLinkParent = (parentName: string) =>
+        parentName === "Link" || parentName === "Image";
+    const cursorOverlapsParent = (parentFrom: number, parentTo: number) =>
+        selection.from <= parentTo && selection.to >= parentFrom;
+    const addListDecoration = (from: number, to: number) => {
+        const markerText = view.state.doc.sliceString(from, to);
+        const isOrdered = /[0-9]/.test(markerText);
+        const displayContent = isOrdered ? markerText : "-";
+        builder.add(
+            from,
+            to,
+            Decoration.replace({
+                widget: new ListMarkWidget(displayContent, isOrdered),
+            })
+        );
+    };
+
     syntaxTree(view.state).iterate({
         enter: (node) => {
             const { from, to, name } = node;
 
-            if (HIDDEN_MARKS.has(name)) {
-                // Skip hiding markdown marks inside tables to prevent layout shifting
-                const line = view.state.doc.lineAt(from);
-                if (tablePositions.has(line.from)) {
-                    return;
-                }
-
-                const parent = node.node.parent;
-
-                if (parent) {
-                    const calloutType = calloutMap.get(line.from);
-
-                    // Skip hiding any mark inside a terminal callout
-                    if (calloutType === "terminal") {
-                        return;
-                    }
-
-                    // Skip QuoteMark nodes on lines owned by the callout plugin
-                    if (name === "QuoteMark") {
-                        if (calloutMap.has(line.from)) {
-                            return;
-                        }
-                    }
-
-                    // Skip LinkMark/URL nodes that aren't inside a standard Link or Image
-                    if (
-                        (name === "LinkMark" || name === "URL") &&
-                        parent.name !== "Link" &&
-                        parent.name !== "Image"
-                    ) {
-                        return;
-                    }
-
-                    // Check if cursor overlaps with the parent container
-                    const cursorOverlaps =
-                        selection.from <= parent.to && selection.to >= parent.from;
-
-                    if (!cursorOverlaps) {
-                        if (name === "ListMark") {
-                            const markerText = view.state.doc.sliceString(from, to);
-                            const isOrdered = /[0-9]/.test(markerText);
-                            const displayContent = isOrdered ? markerText : "•";
-                            builder.add(
-                                from,
-                                to,
-                                Decoration.replace({
-                                    widget: new ListMarkWidget(displayContent, isOrdered),
-                                })
-                            );
-                        } else {
-                            builder.add(from, to, Decoration.replace({}));
-                        }
-                    }
-                }
+            if (!HIDDEN_MARKS.has(name)) {
+                return;
             }
+
+            // Skip hiding markdown marks inside tables to prevent layout shifting
+            const line = view.state.doc.lineAt(from);
+            if (shouldSkipForTable(line.from)) {
+                return;
+            }
+
+            const parent = node.node.parent;
+            if (!parent) {
+                return;
+            }
+
+            // Skip hiding any mark inside a terminal callout
+            if (isInTerminalCallout(line.from)) {
+                return;
+            }
+
+            // Skip QuoteMark nodes on lines owned by the callout plugin
+            if (name === "QuoteMark" && isCalloutOwnedLine(line.from)) {
+                return;
+            }
+
+            // Skip LinkMark/URL nodes that aren't inside a standard Link or Image
+            if (isLinkLike(name) && !isLinkParent(parent.name)) {
+                return;
+            }
+
+            // Check if cursor overlaps with the parent container
+            if (cursorOverlapsParent(parent.from, parent.to)) {
+                return;
+            }
+
+            if (name === "ListMark") {
+                addListDecoration(from, to);
+                return;
+            }
+
+            builder.add(from, to, Decoration.replace({}));
         },
     });
 
     return builder.finish();
 }
 
-// ─── CM6 ViewPlugin ───────────────────────────────────────────────────────────
+// ------ CM6 ViewPlugin ------------------------------------------
 
 const markdownLivePreviewPlugin = ViewPlugin.fromClass(
     class {
@@ -156,7 +163,7 @@ const markdownLivePreviewPlugin = ViewPlugin.fromClass(
     }
 );
 
-// ─── Public API ───────────────────────────────────────────────────────────────
+// ------ Public API ------------------------------------------
 
 /**
  * Creates a CM6 extension that hides markdown syntax markers (Live Preview).

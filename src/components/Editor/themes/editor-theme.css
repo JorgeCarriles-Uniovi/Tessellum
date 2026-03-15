@@ -48,9 +48,11 @@
 .cm-scroller {
     height: 100%;
     overflow: auto;
-}.editor-scroll-shell .cm-editor {
-     height: auto;
- }
+}
+
+.editor-scroll-shell .cm-editor {
+    height: auto;
+}
 
 .editor-scroll-shell .cm-scroller {
     height: auto;
@@ -62,12 +64,12 @@
 }
 
 .cm-cursor {
-    border-left-color: black;
+    border-left-color: var(--foreground);
 }
 
 /* --- 2. Markdown Elements --- */
 .cm-quote {
-    border-left: 4px solid #e5e7eb;
+    border-left: 4px solid var(--color-border-medium);
     display: block;
     padding-left: 10px;
     margin-left: 0;
@@ -80,16 +82,16 @@
 
 /* Valid links */
 .cm-wikilink-valid {
-    color: #3b82f6;
+    color: var(--primary);
     text-decoration: underline;
-    text-decoration-color: #3b82f620;
+    text-decoration-color: color-mix(in srgb, var(--primary) 20%, transparent);
     text-underline-offset: 2px;
 }
 
 .cm-wikilink-valid:hover {
-    color: #2563eb;
-    text-decoration-color: #2563eb;
-    background-color: #3b82f610;
+    color: var(--primary);
+    text-decoration-color: var(--primary);
+    background-color: color-mix(in srgb, var(--primary) 10%, transparent);
 }
 
 /* Broken links */

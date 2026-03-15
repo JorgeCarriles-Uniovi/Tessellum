@@ -523,7 +523,7 @@ body {
     }
 
     .cm-string {
-        @apply !text-[#50a14f];
+        color: var(--cm-string) !important;
     }
 
     .cm-number {
@@ -551,7 +551,7 @@ body {
     }
 
     .cm-functionName {
-        @apply !text-[#4078f2];
+        color: var(--cm-function) !important;
     }
 
     .cm-className {
@@ -980,12 +980,12 @@ body {
     }
 
     /* --- Inline Tags --- */
+
     .cm-hashtag {
         @apply inline-flex items-center rounded-full text-[13px] font-medium mx-[1px];
-        background-color: #a371f71a;
-        padding-left: 0.5rem !important;
-        padding-right: 0.5rem !important;
-        color: #a371f7;
+        background-color: var(--cm-hashtag-bg);
+        color: var(--cm-hashtag);
+        padding: 0 0.5rem !important;
     }
 }
 
@@ -1023,6 +1023,11 @@ body {
     --color-border-dark: #b9a997;
 
     --primary: #8a5a3c;
+
+    --cm-string: #50a14f;
+    --cm-function: #4078f2;
+    --cm-hashtag: #8a5a3c;
+    --cm-hashtag-bg: rgba(138, 90, 60, 0.1);
 }
 
 .theme-graphite {
@@ -1040,6 +1045,11 @@ body {
     --color-border-dark: #4a5159;
 
     --primary: #6aa3ff;
+
+    --cm-string: #addb67;
+    --cm-function: #82aaff;
+    --cm-hashtag: #c792ea;
+    --cm-hashtag-bg: rgba(199, 146, 234, 0.1);
 }
 
 .theme-ocean {
@@ -1057,4 +1067,9 @@ body {
     --color-border-dark: #a8c1dd;
 
     --primary: #2563eb;
+
+    --cm-string: #16a34a;
+    --cm-function: #2563eb;
+    --cm-hashtag: #7c3aed;
+    --cm-hashtag-bg: rgba(124, 58, 237, 0.1);
 }
