@@ -271,7 +271,7 @@ body {
     body {
         @apply bg-background text-foreground;
         font-family: var(--font-sans);
-        font-size: 16px;
+        font-size: var(--editor-font-size, 16px);
         line-height: 1.6;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
@@ -361,12 +361,12 @@ body {
 
     .cm-table {
         @apply w-full border-collapse border border-solid border-border;
-        font-size: 15px !important;
+        font-size: calc(var(--editor-font-size, 16px) * 0.95) !important;
     }
 
     .cm-table th {
         @apply bg-secondary/80 font-bold text-foreground py-5 px-10 border border-solid border-border tracking-tight;
-        font-size: 14px !important;
+        font-size: calc(var(--editor-font-size, 16px) * 0.9) !important;
         padding-left: 1rem !important;
         padding-right: 1rem !important;
         padding-top: 0.5rem !important;
@@ -523,7 +523,7 @@ body {
     }
 
     .cm-string {
-        @apply !text-[#50a14f];
+        color: var(--cm-string) !important;
     }
 
     .cm-number {
@@ -551,7 +551,7 @@ body {
     }
 
     .cm-functionName {
-        @apply !text-[#4078f2];
+        color: var(--cm-function) !important;
     }
 
     .cm-className {
@@ -657,7 +657,7 @@ body {
         @apply border-none px-8 py-0 overflow-hidden transition-all duration-300 ease-in-out;
         background-color: color-mix(in srgb, var(--callout-color, #448aff) 14%, transparent) !important;
         color: inherit;
-        font-size: 16px;
+        font-size: var(--editor-font-size, 16px);
         line-height: 1.7;
         min-height: 1.7em;
         padding-left: 1rem !important;
@@ -743,7 +743,8 @@ body {
     }
 
     .cm-terminal-line {
-        @apply !bg-[#24292e] !text-[#c9d1d9] !font-mono !text-[13.5px] !leading-[1.7] !pl-12 !pr-8 !py-0.5;
+        font-size: calc(var(--editor-font-size, 16px) * 0.85) !important;
+        @apply !bg-[#24292e] !text-[#c9d1d9] !font-mono !leading-[1.7] !pl-12 !pr-8 !py-0.5;
         padding-left: 2rem !important;
         padding-right: 2rem !important;
     }
@@ -787,7 +788,8 @@ body {
     .cm-terminal-editing .cm-heading5,
     .cm-terminal-editing.cm-heading6,
     .cm-terminal-editing .cm-heading6 {
-        @apply !text-[13.5px] !font-normal !tracking-normal !leading-[1.7];
+        @apply !font-normal !tracking-normal !leading-[1.7];
+        font-size: calc(var(--editor-font-size, 16px) * 0.85) !important;
     }
 
     .cm-terminal-line.cm-heading1,
@@ -817,7 +819,7 @@ body {
     .cm-terminal-editing .cm-heading5,
     .cm-terminal-editing.cm-heading6,
     .cm-terminal-editing .cm-heading6 {
-        @apply !text-[16px];
+        font-size: calc(var(--editor-font-size, 16px) * 0.85) !important;
         color: inherit !important;
     }
 
@@ -906,7 +908,6 @@ body {
     .cm-terminal-line .cm-typePrimitive {
         @apply !text-[#ff7b72] !font-semibold;
     }
-
     /* --- List Markers --- */
     .cm-list-marker-widget {
         @apply !inline-block !text-muted-foreground !font-medium !select-none;
@@ -979,12 +980,12 @@ body {
     }
 
     /* --- Inline Tags --- */
+
     .cm-hashtag {
         @apply inline-flex items-center rounded-full text-[13px] font-medium mx-[1px];
-        background-color: #a371f71a;
-        padding-left: 0.5rem !important;
-        padding-right: 0.5rem !important;
-        color: #a371f7;
+        background-color: var(--cm-hashtag-bg);
+        color: var(--cm-hashtag);
+        padding: 0 0.5rem !important;
     }
 }
 
@@ -1005,4 +1006,70 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
     background: var(--color-gray-500);
+}
+/* --- Named Themes --- */
+.theme-warm-paper {
+    --color-bg-primary: #f8f6f1;
+    --color-bg-secondary: #f3efe7;
+    --color-bg-tertiary: #ebe5da;
+
+    --color-text-primary: #1f1a15;
+    --color-text-secondary: #2c241c;
+    --color-text-tertiary: #4a3f34;
+    --color-text-muted: #7a6c5e;
+
+    --color-border-light: #e2d9cc;
+    --color-border-medium: #d3c7b7;
+    --color-border-dark: #b9a997;
+
+    --primary: #8a5a3c;
+
+    --cm-string: #50a14f;
+    --cm-function: #4078f2;
+    --cm-hashtag: #8a5a3c;
+    --cm-hashtag-bg: rgba(138, 90, 60, 0.1);
+}
+
+.theme-graphite {
+    --color-bg-primary: #141618;
+    --color-bg-secondary: #1b1f23;
+    --color-bg-tertiary: #252a30;
+
+    --color-text-primary: #e7e7e7;
+    --color-text-secondary: #c9c9c9;
+    --color-text-tertiary: #9aa0a6;
+    --color-text-muted: #7a7f86;
+
+    --color-border-light: #2f343a;
+    --color-border-medium: #3b4148;
+    --color-border-dark: #4a5159;
+
+    --primary: #6aa3ff;
+
+    --cm-string: #addb67;
+    --cm-function: #82aaff;
+    --cm-hashtag: #c792ea;
+    --cm-hashtag-bg: rgba(199, 146, 234, 0.1);
+}
+
+.theme-ocean {
+    --color-bg-primary: #f3f7fb;
+    --color-bg-secondary: #e8f0f8;
+    --color-bg-tertiary: #dbe7f4;
+
+    --color-text-primary: #0f172a;
+    --color-text-secondary: #1e293b;
+    --color-text-tertiary: #334155;
+    --color-text-muted: #64748b;
+
+    --color-border-light: #d7e3f1;
+    --color-border-medium: #c2d4ea;
+    --color-border-dark: #a8c1dd;
+
+    --primary: #2563eb;
+
+    --cm-string: #16a34a;
+    --cm-function: #2563eb;
+    --cm-hashtag: #7c3aed;
+    --cm-hashtag-bg: rgba(124, 58, 237, 0.1);
 }

@@ -1,14 +1,13 @@
-import { useEditorStore } from "../../../stores/editorStore.ts";
+import { useVaultStore } from "../../../stores";
 import { useCallback } from "react";
 import { dirname } from "@tauri-apps/api/path";
-import { invoke } from "@tauri-apps/api/core";
-import { FileMetadata } from "../../../types.ts";
 import { toast } from "sonner";
 import { clearWikiLinkCacheEffect } from "../extensions/wikilink/wikiLink-plugin";
 import { TessellumApp } from "../../../plugins/TessellumApp";
+import { createNoteInDir } from "../../../utils/noteUtils";
 
 export function useWikiLinkNavigation() {
-    const { activeNote, files, setActiveNote, addFile } = useEditorStore();
+    const { activeNote, setActiveNote, addFileIfMissing } = useVaultStore();
 
     return useCallback(async (linkTarget: string) => {
         if (!activeNote) return;
@@ -19,6 +18,9 @@ export function useWikiLinkNavigation() {
 
             // Normalize path separators if it's an absolute path or has them
             const normalizedLinkTarget = rawTarget.replace(/\\/g, '/');
+
+            // Get fresh files list from store
+            const { files } = useVaultStore.getState();
 
             // 1. Check if it's an absolute path and exists in store
             const fileByPath = files.find(f => f.path === normalizedLinkTarget);
@@ -61,22 +63,9 @@ export function useWikiLinkNavigation() {
             // 4. Create New Note
             const vaultPath = await dirname(activeNote.path);
 
-            const newPath = await invoke<string>('create_note', {
-                vaultPath,
-                title: cleanStem
-            });
+            const newNote = await createNoteInDir(vaultPath, cleanStem);
 
-            const filename = newPath.split(/[\\/]/).pop() || targetFilename;
-
-            const newNote: FileMetadata = {
-                path: newPath,
-                filename,
-                is_dir: false,
-                size: 0,
-                last_modified: Math.floor(Date.now() / 1000)
-            };
-
-            addFile(newNote);
+            addFileIfMissing(newNote);
             setActiveNote(newNote);
 
             // 5. Clear wikilink cache in the editor so it re-resolves immediately
@@ -91,7 +80,7 @@ export function useWikiLinkNavigation() {
             const message = e instanceof Error ? e.message : "Failed to open link";
             toast.error(message);
         }
-    }, [activeNote, files, setActiveNote, addFile]);
+    }, [activeNote, setActiveNote, addFileIfMissing]);
 }
 
 function sanitizeFilename(name: string): string {

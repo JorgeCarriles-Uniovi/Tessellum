@@ -15,7 +15,7 @@
 
 .cm-editor .cm-content {
     font-family: var(--font-sans);
-    font-size: 16px;
+    font-size: var(--editor-font-size, 16px);
     line-height: 1.7;
     max-width: 800px;
     margin: 0 auto;
@@ -33,7 +33,7 @@
 
 .cm-content {
     font-family: var(--font-sans);
-    font-size: 16px;
+    font-size: var(--editor-font-size, 16px);
     line-height: 1.7;
     margin: 0 auto;
     padding: 2rem;
@@ -50,13 +50,26 @@
     overflow: auto;
 }
 
+.editor-scroll-shell .cm-editor {
+    height: auto;
+}
+
+.editor-scroll-shell .cm-scroller {
+    height: auto;
+    overflow: visible;
+}
+
+.editor-scroll-shell .cm-content {
+    min-height: 0;
+}
+
 .cm-cursor {
-    border-left-color: black;
+    border-left-color: var(--foreground);
 }
 
 /* --- 2. Markdown Elements --- */
 .cm-quote {
-    border-left: 4px solid #e5e7eb;
+    border-left: 4px solid var(--color-border-medium);
     display: block;
     padding-left: 10px;
     margin-left: 0;
@@ -69,16 +82,16 @@
 
 /* Valid links */
 .cm-wikilink-valid {
-    color: #3b82f6;
+    color: var(--primary);
     text-decoration: underline;
-    text-decoration-color: #3b82f620;
+    text-decoration-color: color-mix(in srgb, var(--primary) 20%, transparent);
     text-underline-offset: 2px;
 }
 
 .cm-wikilink-valid:hover {
-    color: #2563eb;
-    text-decoration-color: #2563eb;
-    background-color: #3b82f610;
+    color: var(--primary);
+    text-decoration-color: var(--primary);
+    background-color: color-mix(in srgb, var(--primary) 10%, transparent);
 }
 
 /* Broken links */
@@ -140,9 +153,3 @@
     font-size: 1.05em;
     line-height: normal;
 }
-
-
-/* --- 4. Syntax Highlighting and Code Blocks moved to globals.css --- */
-
-
-/* --- 5. Callouts, Lists and Tables moved to globals.css --- */

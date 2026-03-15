@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import type { TessellumApp } from "../TessellumApp";
 import type { CalloutType } from "../../constants/callout-types";
 
 export interface SidebarAction {
@@ -19,6 +18,26 @@ export interface PaletteCommand {
     onTrigger: () => void;
 }
 
+export type UIActionRegion =
+    | "titlebar-left"
+    | "titlebar-right"
+    | "sidebar-header"
+    | "sidebar-footer"
+    | "editor-header"
+    | "statusbar-left"
+    | "statusbar-right";
+
+export interface UIAction {
+    id: string;
+    label: string;
+    icon?: ReactNode;
+    onClick: () => void;
+    order?: number;
+    disabled?: boolean;
+    tooltip?: string;
+    region: UIActionRegion;
+}
+
 /**
  * UI contribution API.
  */
@@ -26,10 +45,9 @@ export class UIAPI {
     private calloutTypes = new Map<string, CalloutType[]>(); // pluginId -> types
     private sidebarActions = new Map<string, SidebarAction[]>();
     private paletteCommands = new Map<string, PaletteCommand[]>();
-    private _app: TessellumApp;
+    private uiActions = new Map<string, UIAction[]>();
 
-    constructor(app: TessellumApp) {
-        this._app = app;
+    constructor() {
     }
 
     // --- Callout types (editor-specific) ---
@@ -73,6 +91,31 @@ export class UIAPI {
         const result: SidebarAction[] = [];
         for (const actions of this.sidebarActions.values()) {
             result.push(...actions);
+        }
+        return result.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    }
+
+    // --- UI actions (layout regions) ---
+
+    registerUIAction(pluginId: string, action: UIAction): void {
+        if (!this.uiActions.has(pluginId)) {
+            this.uiActions.set(pluginId, []);
+        }
+        this.uiActions.get(pluginId)!.push(action);
+    }
+
+    unregisterUIActions(pluginId: string): void {
+        this.uiActions.delete(pluginId);
+    }
+
+    getUIActions(region: UIActionRegion): UIAction[] {
+        const result: UIAction[] = [];
+        for (const actions of this.uiActions.values()) {
+            for (const action of actions) {
+                if (action.region === region) {
+                    result.push(action);
+                }
+            }
         }
         return result.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     }

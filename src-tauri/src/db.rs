@@ -464,6 +464,52 @@ impl Database {
         
         Ok(result)
     }
+    /// Get all tags for a specific indexed file.
+    pub async fn get_file_tags(&self, path: &str) -> Result<Vec<String>, sqlx::Error> {
+        let row = sqlx::query_as::<_, (Option<String>, Option<String>)>(
+            "SELECT frontmatter, inline_tags FROM notes WHERE path = ?",
+        )
+            .bind(path)
+            .fetch_optional(&self.pool)
+            .await?;
+        
+        let mut file_tags = Vec::new();
+        
+        if let Some((frontmatter_opt, inline_tags_opt)) = row {
+            if let Some(frontmatter_json) = frontmatter_opt {
+                if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&frontmatter_json) {
+                    if let Some(tags) = parsed.get("tags") {
+                        if let Some(tags_array) = tags.as_array() {
+                            for tag in tags_array {
+                                if let Some(tag_str) = tag.as_str() {
+                                    file_tags.push(tag_str.to_string());
+                                }
+                            }
+                        } else if let Some(tag_str) = tags.as_str() {
+                            for t in tag_str.split(',') {
+                                let normalized = t.trim().trim_start_matches('#');
+                                if !normalized.is_empty() {
+                                    file_tags.push(normalized.to_string());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            if let Some(inline_tags_json) = inline_tags_opt {
+                if let Ok(parsed) = serde_json::from_str::<Vec<String>>(&inline_tags_json) {
+                    for tag in parsed {
+                        if !file_tags.contains(&tag) {
+                            file_tags.push(tag);
+                        }
+                    }
+                }
+            }
+        }
+        
+        Ok(file_tags)
+    }
     
     /// Get all unique property keys from frontmatter metadata across all notes.
     pub async fn get_all_property_keys(&self) -> Result<Vec<String>, sqlx::Error> {
@@ -492,3 +538,4 @@ impl Database {
         Ok(sorted_keys)
     }
 }
+

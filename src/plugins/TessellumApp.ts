@@ -40,8 +40,8 @@ export class TessellumApp {
         this.editor = new EditorAPI(this);
         this.vault = new VaultAPI(this);
         this.workspace = new WorkspaceAPI(this);
-        this.commands = new CommandAPI(this);
-        this.ui = new UIAPI(this);
+        this.commands = new CommandAPI();
+        this.ui = new UIAPI();
         this.plugins = new PluginRegistry(this);
     }
 

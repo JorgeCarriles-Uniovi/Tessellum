@@ -5,7 +5,7 @@ use serde_json::Value;
 pub fn parse_frontmatter(content: &str) -> Option<(String, String)> {
 	let frontmatter_start = if content.starts_with("---\n") {
 		4
-	} else if content.starts_with("---\r\n") {
+	} else if content.starts_with("---") {
 		5
 	} else {
 		return None;
@@ -20,7 +20,7 @@ pub fn parse_frontmatter(content: &str) -> Option<(String, String)> {
 		let after_dash = &content[frontmatter_start + idx + 4..];
 		let body = if after_dash.starts_with('\n') {
 			after_dash[1..].to_string()
-		} else if after_dash.starts_with("\r\n") {
+		} else if after_dash.starts_with("") {
 			after_dash[2..].to_string()
 		} else {
 			after_dash.to_string()
@@ -51,7 +51,7 @@ pub fn frontmatter_to_json(yaml_str: &str) -> Result<String, String> {
 pub fn strip_frontmatter(content: &str) -> &str {
 	let frontmatter_start = if content.starts_with("---\n") {
 		4
-	} else if content.starts_with("---\r\n") {
+	} else if content.starts_with("---") {
 		5
 	} else {
 		return content;
@@ -62,7 +62,7 @@ pub fn strip_frontmatter(content: &str) -> &str {
 		let after_dash = &content[frontmatter_start + idx + 4..];
 		if after_dash.starts_with('\n') {
 			return &after_dash[1..];
-		} else if after_dash.starts_with("\r\n") {
+		} else if after_dash.starts_with("") {
 			return &after_dash[2..];
 		} else {
 			return after_dash;
@@ -78,7 +78,7 @@ mod tests {
 	
 	#[test]
 	fn parses_frontmatter_with_crlf_delimiters() {
-		let content = "---\r\ntitle: Test\r\n---\r\nBody";
+		let content = "---title: Test---Body";
 		let parsed = parse_frontmatter(content).expect("expected frontmatter to parse");
 		
 		assert_eq!(parsed.0, "title: Test");
@@ -87,7 +87,7 @@ mod tests {
 	
 	#[test]
 	fn strips_frontmatter_with_crlf_delimiters() {
-		let content = "---\r\ntitle: Test\r\n---\r\nBody";
+		let content = "---title: Test---Body";
 		assert_eq!(strip_frontmatter(content), "Body");
 	}
 }

@@ -53,6 +53,7 @@ pub fn run() {
             commands::vault::list_files_tree,
             commands::watcher::watch_vault,
             commands::vault::rename_file,
+            commands::vault::move_items,
             commands::folders::create_folder,
             commands::links::get_backlinks,
             commands::links::get_outgoing_links,
@@ -60,6 +61,7 @@ pub fn run() {
             commands::links::resolve_wikilink,
             commands::notes::get_all_notes,
             commands::notes::get_all_tags,
+            commands::notes::get_file_tags,
             commands::notes::get_all_property_keys,
             commands::indexer::sync_vault,
             commands::graph::get_graph_data,
@@ -124,4 +126,6 @@ mod tests {
         assert!(resolved.unwrap().to_string_lossy().contains("subfolder"));
     }
 }
+
+
 

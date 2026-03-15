@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { CalendarDays } from "lucide-react";
+import {Calendar, CalendarDays} from "lucide-react";
 import { Plugin } from "../Plugin";
 import type { PluginManifest } from "../types";
 import type { FileMetadata } from "../../types";
@@ -28,19 +28,20 @@ export class DailyNotesPlugin extends Plugin {
                     " again.");
             }
         };
-        this.app.ui.registerSidebarAction(this.manifest.id, {
-            id: "daily-note",
-            label: "Daily Note",
-            icon: <CalendarDays size={16} />,
-            onClick: openDailyNote,
-            order: 5,
-        });
         this.app.ui.registerPaletteCommand(this.manifest.id, {
             id: "daily-note-today",
             name: "Open Today's Daily Note",
             keywords: ["daily", "journal", "today"],
             icon: <CalendarDays size={16} />,
             onTrigger: openDailyNote,
+        });
+        this.app.ui.registerUIAction(this.manifest.id, {
+            id: "sidebar-create-daily-note",
+            label: "Create Daily Note",
+            icon: <Calendar size={16} />,
+            onClick: () => openDailyNote(),
+            region: "sidebar-header",
+            order: 0,
         });
     }
 }

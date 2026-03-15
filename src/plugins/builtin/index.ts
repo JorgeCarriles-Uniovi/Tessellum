@@ -10,7 +10,8 @@ import { CodePlugin } from "./CodePlugin.ts";
 import { MermaidPlugin } from "./MermaidPlugin";
 import { InlineTagsPlugin } from "./InlineTagsPlugin";
 import { FrontmatterPlugin } from "./FrontmatterPlugin";
-import { DailyNotesPlugin } from "./DailyNotesPlugin.tsx";
+import { DailyNotesPlugin } from "./DailyNotesPlugin";
+import { CoreUIActionsPlugin } from "./CoreUIActionsPlugin";
 
 /**
  * Registers all built-in plugins with the PluginRegistry.
@@ -48,4 +49,5 @@ export function registerBuiltinPlugins(app: TessellumApp): void {
     app.plugins.register(FrontmatterPlugin.manifest, FrontmatterPlugin);
     app.plugins.register(InlineTagsPlugin.manifest, InlineTagsPlugin);
     app.plugins.register(DailyNotesPlugin.manifest, DailyNotesPlugin);
+    app.plugins.register(CoreUIActionsPlugin.manifest, CoreUIActionsPlugin);
 }
