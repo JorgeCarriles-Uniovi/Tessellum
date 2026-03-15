@@ -49,7 +49,7 @@ export const theme = {
     typography: {
         fontFamily: {
             sans: "var(--font-sans)",
-            mono: "var(--font-sans)",
+            mono: "var(--font-mono)",
         },
         fontSize: {
             xs: '0.75rem',      // 12px

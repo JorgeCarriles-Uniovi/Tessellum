@@ -7,7 +7,6 @@ import {
 } from './index.ts';
 import { useEditorStore } from "../../../stores/editorStore.ts";
 
-// --- HOOK 1: Handles File I/O (Read, Write, Debounce) ---
 export function useFileSynchronization(activeNote: FileMetadata | null) {
     const [content, setContent] = useState<string>("");
     const [isLoading, setIsLoading] = useState(false);
@@ -38,6 +37,7 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
                 const errorText = `Error loading file: ${activeNote.path}`;
                 setContent(errorText);
                 setActiveNoteContent(errorText);
+                setIsDirty(false);
             } finally {
                 setIsLoading(false);
             }

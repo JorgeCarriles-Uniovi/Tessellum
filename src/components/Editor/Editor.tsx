@@ -18,7 +18,7 @@ import { TableSizePicker } from "./TableSizePicker";
 import { useEditorActions, useFileSynchronization } from "./hooks/useEditorActions";
 import { cn } from "../../lib/utils";
 import { lightTheme } from "./themes/lightTheme";
-import { useEditorExtensions } from "./hooks/useEditorExtensions";
+import { useEditorExtensions } from "./hooks";
 import { CalloutType } from "../../constants/callout-types";
 import { TessellumApp, useTessellumApp } from "../../plugins/TessellumApp";
 import { PaletteCommand } from "../../plugins/api/UIAPI";
@@ -287,7 +287,7 @@ function EditorHeader({
                     className="text-[28px] font-bold bg-transparent outline-none border-none w-full"
                     style={{
                         color: theme.colors.text.primary,
-                        fontFamily: theme.typography.fontFamily.mono,
+                        fontFamily: theme.typography.fontFamily.sans,
                         fontSize: titleFontSizePx,
                         textAlign: "left",
                         paddingTop: 8,

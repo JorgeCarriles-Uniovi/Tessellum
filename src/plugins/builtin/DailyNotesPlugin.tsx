@@ -42,6 +42,6 @@ export class DailyNotesPlugin extends Plugin {
             onClick: () => openDailyNote(),
             region: "sidebar-header",
             order: 0,
-        })
+        });
     }
 }

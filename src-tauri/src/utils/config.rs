@@ -15,7 +15,7 @@ pub struct DailyNotesConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
 	#[serde(default)]
-	pub dailyNotes: DailyNotesConfig,
+	pub daily_notes: DailyNotesConfig,
 }
 
 impl Default for DailyNotesConfig {
@@ -30,7 +30,7 @@ impl Default for DailyNotesConfig {
 impl Default for AppConfig {
 	fn default() -> Self {
 		Self {
-			dailyNotes: DailyNotesConfig::default(),
+			daily_notes: DailyNotesConfig::default(),
 		}
 	}
 }

@@ -217,7 +217,7 @@ pub async fn get_or_create_daily_note(
     
     let config = load_or_init_config(&vault_path)?;
     let now = Local::now();
-    let relative_path = build_daily_note_relative_path(&config.dailyNotes.path_template, now);
+    let relative_path = build_daily_note_relative_path(&config.daily_notes.path_template, now);
     let full_path = Path::new(&vault_path).join(&relative_path);
     if Path::new(&relative_path).is_absolute() {
         return Err(TessellumError::Validation("Daily note path must be relative".to_string()));
@@ -237,7 +237,7 @@ pub async fn get_or_create_daily_note(
     
     if !full_path.exists() {
         let title = now.format("%Y-%m-%d").to_string();
-        let template_name = config.dailyNotes.template_name.trim();
+        let template_name = config.daily_notes.template_name.trim();
         validate_template_name(template_name)?;
         let template_path = templates_dir(&vault_path).join(format!("{}.md", template_name));
         
