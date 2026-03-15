@@ -1,12 +1,11 @@
 import { useCallback } from 'react';
-import { useEditorStore } from '../../../stores/editorStore.ts';
-import { invoke } from "@tauri-apps/api/core";
+import { useUiStore, useVaultStore } from "../../../stores";
 import { toast } from "sonner";
-import { FileMetadata } from "../../../types.ts";
+import { createNoteInDir } from "../../../utils/noteUtils";
 
 export function useCreateNote() {
-    // 1. Get files from store
-    const { files, setFiles, setActiveNote, vaultPath, toggleFolder } = useEditorStore();
+    const { addFileIfMissing, setActiveNote, vaultPath } = useVaultStore();
+    const { toggleFolder } = useUiStore();
 
     return useCallback(async (parentPath?: string, title: string = 'Untitled') => {
         const targetDir = parentPath ?? vaultPath;
@@ -17,40 +16,18 @@ export function useCreateNote() {
         }
 
         try {
-            const newPath = await invoke<string>('create_note', {
-                vaultPath: targetDir,
-                title
-            });
-
-            const filename = (newPath.split(/[\\/]/).pop()) || 'Untitled.md';
-
-            const newNote: FileMetadata = {
-                path: newPath,
-                filename: filename,
-                is_dir: false,
-                size: 0,
-                last_modified: Math.floor(Date.now() / 1000)
-            };
+            const newNote = await createNoteInDir(targetDir, title);
 
             if (parentPath) {
                 toggleFolder(parentPath, true);
             }
 
-            // --- THE FIX ---
-            // 1. Safety check: ensure 'files' is an array (fallback to []) to prevent crash
-            const currentFiles = Array.isArray(files) ? files : [];
-
-            // 2. Create the new array first
-            const updatedFiles = [...currentFiles, newNote];
-
-            // 3. Pass the array directly (not a function)
-            setFiles(updatedFiles);
-
+            addFileIfMissing(newNote);
             setActiveNote(newNote);
             toast.success("New note created");
         } catch (e) {
             console.error(e);
             toast.error("Failed to create note");
         }
-    }, [files, vaultPath, setFiles, setActiveNote, toggleFolder]);
+    }, [addFileIfMissing, vaultPath, setActiveNote, toggleFolder]);
 }

@@ -1,11 +1,11 @@
 import { useCallback } from 'react';
-import { useEditorStore } from '../../../stores/editorStore.ts';
-import { invoke } from "@tauri-apps/api/core";
+import { useUiStore, useVaultStore } from "../../../stores";
 import { toast } from "sonner";
-import { FileMetadata } from "../../../types.ts";
+import { createNoteFromTemplateInDir } from "../../../utils/noteUtils";
 
 export function useCreateNoteFromTemplate() {
-    const { files, setFiles, setActiveNote, vaultPath, toggleFolder } = useEditorStore();
+    const { addFileIfMissing, setActiveNote, vaultPath } = useVaultStore();
+    const { toggleFolder } = useUiStore();
 
     return useCallback(async (templatePath: string, title: string, parentPath?: string) => {
         const targetDir = parentPath ?? vaultPath;
@@ -21,36 +21,18 @@ export function useCreateNoteFromTemplate() {
         }
 
         try {
-            const newPath = await invoke<string>('create_note_from_template', {
-                vaultPath,
-                targetDir,
-                templatePath,
-                title
-            });
-
-            const filename = (newPath.split(/[\\/]/).pop()) || `${title}.md`;
-
-            const newNote: FileMetadata = {
-                path: newPath,
-                filename: filename,
-                is_dir: false,
-                size: 0,
-                last_modified: Math.floor(Date.now() / 1000)
-            };
+            const newNote = await createNoteFromTemplateInDir(vaultPath, targetDir, templatePath, title);
 
             if (parentPath) {
                 toggleFolder(parentPath, true);
             }
 
-            const currentFiles = Array.isArray(files) ? files : [];
-            const updatedFiles = [...currentFiles, newNote];
-            setFiles(updatedFiles);
-
+            addFileIfMissing(newNote);
             setActiveNote(newNote);
             toast.success("New note created from template");
         } catch (e) {
             console.error(e);
             toast.error("Failed to create note from template");
         }
-    }, [files, vaultPath, setFiles, setActiveNote, toggleFolder]);
+    }, [addFileIfMissing, vaultPath, setActiveNote, toggleFolder]);
 }

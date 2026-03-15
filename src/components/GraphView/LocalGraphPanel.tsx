@@ -1,23 +1,17 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { useEditorStore } from '../../stores/editorStore';
+import { useGraphStore, useVaultStore } from "../../stores";
 import { GraphCanvas } from './GraphCanvas';
 import { NodeInfoPanel } from './NodeInfoPanel';
 import { mapGraphDataToElements, GraphData } from '../../utils/graphUtils';
 import { X } from 'lucide-react';
 import cytoscape from 'cytoscape';
+import { createNoteInDir } from "../../utils/noteUtils";
 
 export function LocalGraphPanel() {
-    const {
-        vaultPath,
-        activeNote,
-        selectedGraphNode,
-        setSelectedGraphNode,
-        setActiveNote,
-        toggleLocalGraph,
-        files,
-    } = useEditorStore();
+    const { vaultPath, activeNote, setActiveNote, files, addFileIfMissing } = useVaultStore();
+    const { selectedGraphNode, setSelectedGraphNode, toggleLocalGraph } = useGraphStore();
 
     const [elements, setElements] = useState<cytoscape.ElementDefinition[]>([]);
     const [loading, setLoading] = useState(true);
@@ -118,24 +112,17 @@ export function LocalGraphPanel() {
                     const filename = parts[parts.length - 1];
                     const title = filename.replace(/\.md$/, '');
 
-                    const createdPath = await invoke<string>('create_note', {
-                        vaultPath,
-                        title,
-                    });
+                    if (!vaultPath) return;
 
-                    setActiveNote({
-                        path: createdPath,
-                        filename: createdPath.replace(/\\/g, '/').split('/').pop() || title + '.md',
-                        is_dir: false,
-                        size: 0,
-                        last_modified: Date.now(),
-                    });
+                    const newNote = await createNoteInDir(vaultPath, title);
+                    addFileIfMissing(newNote);
+                    setActiveNote(newNote);
                 } catch (e) {
                     console.error('Failed to create note:', e);
                 }
             }
         },
-        [files, vaultPath, setActiveNote]
+        [files, vaultPath, setActiveNote, addFileIfMissing]
     );
 
     const noteLabel = activeNote

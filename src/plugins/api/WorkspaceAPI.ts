@@ -78,10 +78,7 @@ export class WorkspaceAPI {
     openNoteByMetadata(file: FileMetadata): void {
         const vaultState = useVaultStore.getState();
         const graphState = useGraphStore.getState();
-        const exists = vaultState.files.some((f) => f.path === file.path);
-        if (!exists) {
-            vaultState.setFiles([...vaultState.files, file]);
-        }
+        vaultState.addFileIfMissing(file);
         vaultState.setActiveNote(file);
         graphState.setViewMode('editor');
         this.onLinkClick?.(file.path);

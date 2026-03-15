@@ -1,5 +1,4 @@
 import { open } from "@tauri-apps/plugin-dialog";
-import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
 import {
     ArrowLeft,
@@ -16,7 +15,7 @@ import {
 } from "lucide-react";
 import { Plugin } from "../Plugin";
 import type { PluginManifest } from "../types";
-import type { FileMetadata } from "../../types";
+import { createNoteInDir } from "../../utils/noteUtils";
 
 export class CoreUIActionsPlugin extends Plugin {
     static manifest: PluginManifest = {
@@ -54,18 +53,7 @@ export class CoreUIActionsPlugin extends Plugin {
                 return;
             }
             try {
-                const newPath = await invoke<string>("create_note", {
-                    vaultPath,
-                    title: "Untitled",
-                });
-                const filename = newPath.replace(/\\/g, "/").split("/").pop() || "Untitled.md";
-                const note: FileMetadata = {
-                    path: newPath,
-                    filename,
-                    is_dir: false,
-                    size: 0,
-                    last_modified: Math.floor(Date.now() / 1000),
-                };
+                const note = await createNoteInDir(vaultPath, "Untitled");
                 this.app.workspace.openNoteByMetadata(note);
             } catch (e) {
                 console.error(e);

@@ -1,22 +1,17 @@
 import { useEffect, useState, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { useEditorStore } from '../../stores/editorStore';
+import { useGraphStore, useVaultStore } from "../../stores";
 import { GraphCanvas } from './GraphCanvas';
 import { NodeInfoPanel } from './NodeInfoPanel';
 import { ArrowLeft } from 'lucide-react';
 import cytoscape from 'cytoscape';
 import { mapGraphDataToElements, GraphData } from "../../utils/graphUtils.ts";
+import { createNoteInDir } from "../../utils/noteUtils";
 
 export function GraphView() {
-    const {
-        vaultPath,
-        setViewMode,
-        selectedGraphNode,
-        setSelectedGraphNode,
-        setActiveNote,
-        files,
-    } = useEditorStore();
+    const { vaultPath, files, setActiveNote, addFileIfMissing } = useVaultStore();
+    const { setViewMode, selectedGraphNode, setSelectedGraphNode } = useGraphStore();
 
     const [elements, setElements] = useState<cytoscape.ElementDefinition[]>([]);
     const [loading, setLoading] = useState(true);
@@ -70,25 +65,18 @@ export function GraphView() {
                     const filename = parts[parts.length - 1];
                     const title = filename.replace(/\.md$/, '');
 
-                    const createdPath = await invoke<string>('create_note', {
-                        vaultPath,
-                        title,
-                    });
+                    if (!vaultPath) return;
 
-                    setActiveNote({
-                        path: createdPath,
-                        filename: createdPath.replace(/\\/g, '/').split('/').pop() || title + '.md',
-                        is_dir: false,
-                        size: 0,
-                        last_modified: Math.floor(Date.now() / 1000),
-                    });
+                    const newNote = await createNoteInDir(vaultPath, title);
+                    addFileIfMissing(newNote);
+                    setActiveNote(newNote);
                     setViewMode('editor');
                 } catch (e) {
                     console.error('Failed to create note:', e);
                 }
             }
         },
-        [files, vaultPath, setActiveNote, setViewMode]
+        [files, vaultPath, setActiveNote, setViewMode, addFileIfMissing]
     );
 
     return (
