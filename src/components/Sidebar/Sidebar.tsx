@@ -65,10 +65,12 @@ const footerStyle: CSSProperties = {
 
 const vaultSwitcherStyle: CSSProperties = {
     padding: theme.spacing[4],
-    borderTop: `1px solid ${theme.colors.border.light}`,
     backgroundColor: theme.colors.background.primary,
     cursor: "pointer",
     border: "none",
+    width: "100%",
+    textAlign: "left",
+    transition: theme.transitions.fast,
 };
 
 const vaultBadgeStyle: CSSProperties = {
@@ -219,10 +221,12 @@ export function Sidebar() {
     const { sidebarWidth, onResizeStart } = useLeftSidebarWidth();
     const app = useTessellumApp();
     const sidebarActions = app.ui.getSidebarActions();
-    const headerActions = app.ui.getUIActions("sidebar-header");
-    const footerActions = app.ui.getUIActions("sidebar-footer");
+    const allHeaderActions = app.ui.getUIActions("sidebar-header");
+    const headerActions = allHeaderActions.filter(a => a.id !== "sidebar-open-vault");
+    const footerActions = app.ui.getUIActions("sidebar-footer").filter(a => a.id !== "sidebar-settings");
+    const settingsAction = app.ui.getUIActions("sidebar-footer").find(a => a.id === "sidebar-settings");
     const openVaultAction =
-        headerActions.find((action) => action.id === "sidebar-open-vault")
+        allHeaderActions.find((action) => action.id === "sidebar-open-vault")
         ?? app.ui.getUIActions("titlebar-right").find((action) => action.id === "open-vault")
         ?? app.ui.getUIActions("titlebar-left").find((action) => action.id === "open-vault");
 
@@ -378,7 +382,32 @@ export function Sidebar() {
                         })}
                     </div>
 
-                    <VaultSwitcher vaultName={vaultName} onOpenVault={openVaultAction?.onClick} />
+                    <div className="flex items-center border-t bg-white" style={{ borderColor: theme.colors.border.light }}>
+                        <div className="flex-1 overflow-hidden">
+                            <VaultSwitcher vaultName={vaultName} onOpenVault={openVaultAction?.onClick} />
+                        </div>
+                        {settingsAction && (
+                            <button
+                                onClick={settingsAction.onClick}
+                                title={settingsAction.tooltip || settingsAction.label}
+                                className="hover:bg-gray-50 rounded-md transition-colors"
+                                style={{
+                                    marginRight: theme.spacing[2],
+                                    width: "32px",
+                                    height: "32px",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    color: theme.colors.gray[600],
+                                    cursor: settingsAction.disabled ? "not-allowed" : "pointer",
+                                    opacity: settingsAction.disabled ? 0.6 : 1,
+                                }}
+                                disabled={settingsAction.disabled}
+                            >
+                                <Settings size={18} />
+                            </button>
+                        )}
+                    </div>
                 </div>
             </BaseSidebar>
 
