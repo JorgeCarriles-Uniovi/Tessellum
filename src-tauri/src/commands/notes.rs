@@ -204,6 +204,8 @@ pub async fn create_note(
     // Invalidate the cache since a new file exists
     let mut idx_guard = state.file_index.lock().await;
     *idx_guard = None;
+    let mut asset_guard = state.asset_index.lock().await;
+    *asset_guard = None;
     
     Ok(path_str)
 }
@@ -220,7 +222,9 @@ pub async fn get_or_create_daily_note(
     let relative_path = build_daily_note_relative_path(&config.daily_notes.path_template, now);
     let full_path = Path::new(&vault_path).join(&relative_path);
     if Path::new(&relative_path).is_absolute() {
-        return Err(TessellumError::Validation("Daily note path must be relative".to_string()));
+        return Err(TessellumError::Validation(
+            "Daily note path must be relative".to_string(),
+        ));
     }
     
     let full_path_str = crate::utils::normalize_path(&full_path.to_string_lossy());
@@ -260,6 +264,8 @@ pub async fn get_or_create_daily_note(
         
         let mut idx_guard = state.file_index.lock().await;
         *idx_guard = None;
+        let mut asset_guard = state.asset_index.lock().await;
+        *asset_guard = None;
     }
     
     let metadata = tokio::fs::metadata(&full_path).await.map_err(|e| {
@@ -345,6 +351,8 @@ pub async fn trash_item(
     // Invalidate the cache
     let mut idx_guard = state.file_index.lock().await;
     *idx_guard = None;
+    let mut asset_guard = state.asset_index.lock().await;
+    *asset_guard = None;
     
     Ok(())
 }
@@ -522,7 +530,10 @@ pub async fn get_file_tags(
 ) -> Result<Vec<String>, TessellumError> {
     let db_guard = state.db.lock().await;
     let normalized = crate::utils::normalize_path(&path);
-    db_guard.get_file_tags(&normalized).await.map_err(TessellumError::from)
+    db_guard
+        .get_file_tags(&normalized)
+        .await
+        .map_err(TessellumError::from)
 }
 
 #[tauri::command]
@@ -543,20 +554,19 @@ mod tests {
     
     #[test]
     fn test_build_daily_note_relative_path() {
-        let now = chrono::Local.with_ymd_and_hms(2026, 3, 11, 9, 0, 0).unwrap();
+        let now = chrono::Local
+            .with_ymd_and_hms(2026, 3, 11, 9, 0, 0)
+            .unwrap();
         let path = build_daily_note_relative_path("Daily/{YYYY}/{MM}/{DD}.md", now);
         assert_eq!(path, "Daily/2026/03/11.md");
     }
     
     #[test]
     fn test_build_daily_note_relative_path_adds_md() {
-        let now = chrono::Local.with_ymd_and_hms(2026, 3, 11, 9, 0, 0).unwrap();
+        let now = chrono::Local
+            .with_ymd_and_hms(2026, 3, 11, 9, 0, 0)
+            .unwrap();
         let path = build_daily_note_relative_path("Daily/{YYYY}-{MM}-{DD}", now);
         assert_eq!(path, "Daily/2026-03-11.md");
     }
 }
-
-
-
-
-

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use crate::db::Database;
-use crate::models::FileIndex;
+use crate::models::{AssetIndex, FileIndex};
 
 /// Represents the application state that contains shared resources such as
 /// a file watcher and a database connection.
@@ -19,10 +19,12 @@ use crate::models::FileIndex;
 ///   and a `Mutex` to provide mutable access, ensuring thread-safe operations.
 ///
 /// * `file_index` - Cached FileIndex to resolve links quickly without traversing the FS.
+/// * `asset_index` - Cached AssetIndex for media embeds.
 pub struct AppState {
     pub watcher: tokio::sync::Mutex<Option<RecommendedWatcher>>,
     pub db: Arc<Mutex<Database>>,
     pub file_index: Arc<Mutex<Option<FileIndex>>>,
+    pub asset_index: Arc<Mutex<Option<AssetIndex>>>,
 }
 
 impl AppState {
@@ -31,6 +33,7 @@ impl AppState {
             db: Arc::new(Mutex::new(db)),
             watcher: tokio::sync::Mutex::new(None),
             file_index: Arc::new(Mutex::new(None)),
+            asset_index: Arc::new(Mutex::new(None)),
         }
     }
 }

@@ -12,6 +12,7 @@ import { InlineTagsPlugin } from "./InlineTagsPlugin";
 import { FrontmatterPlugin } from "./FrontmatterPlugin";
 import { DailyNotesPlugin } from "./DailyNotesPlugin";
 import { CoreUIActionsPlugin } from "./CoreUIActionsPlugin";
+import { MediaEmbedPlugin } from "./MediaEmbedPlugin";
 
 /**
  * Registers all built-in plugins with the PluginRegistry.
@@ -32,12 +33,14 @@ import { CoreUIActionsPlugin } from "./CoreUIActionsPlugin";
  *  10. frontmatter — renders YAML frontmatter as a widget and hides syntax
  *  11. inline-tags — renders #tags and @mentions as widgets and hides syntax
  *  12. daily-notes — provides a sidebar action and command palette command to open today's daily note
+ *  13. media-embed
  *
  * Note: The markdown-preview plugin is intentionally registered first to ensure
  * it can hide syntax markers for all subsequent plugins that add markdown syntax.
  */
 export function registerBuiltinPlugins(app: TessellumApp): void {
     app.plugins.register(MarkdownPreviewPlugin.manifest, MarkdownPreviewPlugin);
+    app.plugins.register(MediaEmbedPlugin.manifest, MediaEmbedPlugin);
     app.plugins.register(DividerPlugin.manifest, DividerPlugin);
     app.plugins.register(MathPlugin.manifest, MathPlugin);
     app.plugins.register(CalloutPlugin.manifest, CalloutPlugin);

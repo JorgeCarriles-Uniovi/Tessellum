@@ -1,0 +1,403 @@
+import {
+    Decoration,
+    DecorationSet,
+    EditorView,
+    ViewPlugin,
+    ViewUpdate,
+    WidgetType,
+} from "@codemirror/view";
+import { RangeSetBuilder, StateEffect, StateField } from "@codemirror/state";
+import { invoke, convertFileSrc } from "@tauri-apps/api/core";
+import { readFile } from "@tauri-apps/plugin-fs";
+import { parseCodeBlocks } from "./code/code-parser";
+
+interface MediaEmbedConfig {
+    vaultPath: string;
+    getSourcePath: () => string | null;
+}
+
+type EmbedMode = "obsidian" | "markdown";
+
+type MediaKind = "image" | "pdf" | "unknown";
+type MediaStatus = "loading" | "missing" | "ok";
+
+interface EmbedMatch {
+    from: number;
+    to: number;
+    target: string;
+    alt?: string;
+    mode: EmbedMode;
+    size?: { width?: number; height?: number };
+    isBlock: boolean;
+}
+
+interface PendingRequest {
+    key: string;
+    target: string;
+    mode: EmbedMode;
+    sourcePath: string | null;
+}
+
+const resolvedEffect = StateEffect.define<void>();
+
+const resolvedField = StateField.define<number>({
+    create() {
+        return 0;
+    },
+    update(value, tr) {
+        for (const effect of tr.effects) {
+            if (effect.is(resolvedEffect)) {
+                return value + 1;
+            }
+        }
+        return value;
+    },
+});
+
+class MediaEmbedWidget extends WidgetType {
+    constructor(
+        readonly kind: MediaKind,
+        readonly src: string | null,
+        readonly alt: string | undefined,
+        readonly displayName: string,
+        readonly status: MediaStatus,
+        readonly width?: number,
+        readonly height?: number,
+        readonly isBlock?: boolean,
+        readonly startPos?: number,
+        readonly endPos?: number
+    ) {
+        super();
+    }
+
+    eq(other: MediaEmbedWidget) {
+        return (
+            this.kind === other.kind &&
+            this.src === other.src &&
+            this.alt === other.alt &&
+            this.displayName === other.displayName &&
+            this.status === other.status &&
+            this.width === other.width &&
+            this.height === other.height &&
+            this.isBlock === other.isBlock
+        );
+    }
+
+    toDOM(view: EditorView) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "cm-media-embed";
+        wrapper.style.display = this.isBlock ? "block" : "inline-block";
+        if (this.isBlock) wrapper.style.margin = "1rem 0";
+
+        if (!this.src) {
+            const missing = document.createElement("div");
+            missing.className = "cm-media-missing";
+            missing.textContent =
+                this.status === "loading"
+                    ? "Loading asset..."
+                    : `Missing asset: ${this.displayName}`;
+            wrapper.appendChild(missing);
+        } else if (this.kind === "pdf") {
+            const frame = document.createElement("iframe");
+            frame.className = "cm-media-pdf";
+            frame.src = this.src;
+            frame.title = this.displayName;
+            if (this.width) frame.style.width = `${this.width}px`;
+            if (this.height) frame.style.height = `${this.height}px`;
+            wrapper.appendChild(frame);
+        } else {
+            const img = document.createElement("img");
+            img.className = "cm-media-image";
+            img.src = this.src;
+            if (this.alt) img.alt = this.alt;
+            img.loading = "lazy";
+            if (this.width) img.style.width = `${this.width}px`;
+            if (this.height) img.style.height = `${this.height}px`;
+            wrapper.appendChild(img);
+        }
+
+        if (this.startPos !== undefined && this.endPos !== undefined) {
+            const overlay = document.createElement("div");
+            overlay.style.position = "absolute";
+            overlay.style.inset = "0";
+            overlay.style.cursor = "pointer";
+            overlay.style.zIndex = "1";
+            overlay.style.pointerEvents = "auto";
+            overlay.addEventListener("mousedown", (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                view.dispatch({
+                    selection: { anchor: this.startPos!, head: this.endPos! },
+                });
+                view.focus();
+            });
+
+            wrapper.style.position = "relative";
+            wrapper.appendChild(overlay);
+        }
+
+        return wrapper;
+    }
+
+    ignoreEvent(): boolean {
+        return true;
+    }
+}
+
+function parseSize(input?: string): { width?: number; height?: number } | undefined {
+    if (!input) return undefined;
+    const trimmed = input.trim();
+    if (!trimmed) return undefined;
+
+    const exact = trimmed.match(/^(\d+)x(\d+)$/);
+    if (exact) {
+        return { width: Number(exact[1]), height: Number(exact[2]) };
+    }
+
+    const widthOnly = trimmed.match(/^(\d+)$/);
+    if (widthOnly) {
+        return { width: Number(widthOnly[1]) };
+    }
+
+    return undefined;
+}
+
+function getExtension(value: string): string {
+    const clean = value.split("?")[0].split("#")[0];
+    const parts = clean.split(".");
+    return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : "";
+}
+
+function getMediaKind(path: string): MediaKind {
+    const ext = getExtension(path);
+    if (ext === "pdf") return "pdf";
+    if (["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "tif", "tiff", "avif"].includes(ext)) {
+        return "image";
+    }
+    return "unknown";
+}
+
+function getMimeType(path: string): string {
+    const ext = getExtension(path);
+    if (ext === "pdf") return "application/pdf";
+    if (ext === "jpg" || ext === "jpeg") return "image/jpeg";
+    if (ext === "png") return "image/png";
+    if (ext === "gif") return "image/gif";
+    if (ext === "webp") return "image/webp";
+    if (ext === "svg") return "image/svg+xml";
+    if (ext === "bmp") return "image/bmp";
+    if (ext === "tif" || ext === "tiff") return "image/tiff";
+    if (ext === "avif") return "image/avif";
+    return "application/octet-stream";
+}
+
+function parseEmbeds(view: EditorView): EmbedMatch[] {
+    const matches: EmbedMatch[] = [];
+    const doc = view.state.doc;
+    const blocks = parseCodeBlocks(view.state);
+
+    const isInCodeBlock = (pos: number) =>
+        blocks.some((b) => pos >= b.from && pos <= b.to);
+
+    const obsidianRe = /!\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g;
+    const markdownRe = /!\[([^\]]*)\]\(([^)]+)\)/g;
+
+    for (let i = 1; i <= doc.lines; i++) {
+        const line = doc.line(i);
+        const lineText = line.text;
+
+        let match: RegExpExecArray | null;
+        obsidianRe.lastIndex = 0;
+        while ((match = obsidianRe.exec(lineText)) !== null) {
+            const from = line.from + match.index;
+            const to = from + match[0].length;
+            if (isInCodeBlock(from)) continue;
+
+            const target = match[1].trim();
+            if (!target) continue;
+            const size = parseSize(match[2]);
+            const isBlock = lineText.trim() === match[0];
+
+            matches.push({
+                from,
+                to,
+                target,
+                mode: "obsidian",
+                size,
+                isBlock,
+            });
+        }
+
+        markdownRe.lastIndex = 0;
+        while ((match = markdownRe.exec(lineText)) !== null) {
+            const from = line.from + match.index;
+            const to = from + match[0].length;
+            if (isInCodeBlock(from)) continue;
+
+            const alt = match[1]?.trim();
+            const rawTarget = match[2]?.trim();
+            if (!rawTarget) continue;
+            const target = rawTarget.split(/\s+/)[0].replace(/^<|>$/g, "");
+            if (!target) continue;
+            const isBlock = lineText.trim() === match[0];
+
+            matches.push({
+                from,
+                to,
+                target,
+                alt,
+                mode: "markdown",
+                isBlock,
+            });
+        }
+    }
+
+    return matches;
+}
+
+export function createMediaEmbedPlugin(config: MediaEmbedConfig) {
+    const resolvedPathCache = new Map<string, string | null>();
+    const resolvedSrcCache = new Map<string, string | null>();
+    const pendingRequests = new Map<string, PendingRequest>();
+
+    const plugin = ViewPlugin.fromClass(
+        class {
+            decorations: DecorationSet;
+
+            constructor(view: EditorView) {
+                this.decorations = this.buildDecorations(view);
+            }
+
+            update(update: ViewUpdate) {
+                if (
+                    update.docChanged ||
+                    update.viewportChanged ||
+                    update.selectionSet ||
+                    update.transactions.some((t) => t.effects.some((e) => e.is(resolvedEffect)))
+                ) {
+                    this.decorations = this.buildDecorations(update.view);
+                }
+            }
+
+            buildDecorations(view: EditorView): DecorationSet {
+                const builder = new RangeSetBuilder<Decoration>();
+                const selection = view.state.selection.main;
+                const embeds = parseEmbeds(view);
+
+                let needsResolve = false;
+
+                for (const embed of embeds) {
+                    const cursorOverlaps =
+                        selection.from <= embed.to && selection.to >= embed.from;
+                    if (cursorOverlaps && !embed.isBlock) {
+                        continue;
+                    }
+
+                    const sourcePath = config.getSourcePath();
+                    const key = `${embed.mode}|${embed.target}|${sourcePath ?? ""}`;
+
+                    if (!resolvedSrcCache.has(key) && !pendingRequests.has(key)) {
+                        pendingRequests.set(key, {
+                            key,
+                            target: embed.target,
+                            mode: embed.mode,
+                            sourcePath,
+                        });
+                        needsResolve = true;
+                    }
+
+                    const hasResolved = resolvedSrcCache.has(key);
+                    const src = resolvedSrcCache.get(key) ?? null;
+                    const resolvedPath = resolvedPathCache.get(key) ?? null;
+                    const kind = resolvedPath ? getMediaKind(resolvedPath) : getMediaKind(embed.target);
+                    const status: MediaStatus = hasResolved
+                        ? (src ? "ok" : "missing")
+                        : "loading";
+
+                    builder.add(
+                        embed.from,
+                        embed.to,
+                        Decoration.replace({
+                            widget: new MediaEmbedWidget(
+                                kind,
+                                src,
+                                embed.alt,
+                                embed.target,
+                                status,
+                                embed.size?.width,
+                                embed.size?.height,
+                                embed.isBlock,
+                                embed.from,
+                                embed.to
+                            ),
+                        })
+                    );
+                }
+
+                if (needsResolve) {
+                    this.resolvePending(view);
+                }
+
+                return builder.finish();
+            }
+
+            async resolvePending(view: EditorView) {
+                const requests = Array.from(pendingRequests.values());
+                pendingRequests.clear();
+                if (requests.length === 0) return;
+
+                let anyUpdated = false;
+
+                for (const req of requests) {
+                    try {
+                        const resolved = await invoke<string | null>("resolve_asset", {
+                            vaultPath: config.vaultPath,
+                            target: req.target,
+                            sourcePath: req.sourcePath,
+                            mode: req.mode,
+                        });
+
+                        resolvedPathCache.set(req.key, resolved ?? null);
+
+                        if (!resolved) {
+                            resolvedSrcCache.set(req.key, null);
+                            anyUpdated = true;
+                            continue;
+                        }
+
+                        try {
+                            const data = await readFile(resolved);
+                            const mime = getMimeType(resolved);
+                            const blob = new Blob([data], { type: mime });
+                            const url = URL.createObjectURL(blob);
+                            const previous = resolvedSrcCache.get(req.key);
+                            if (previous && previous.startsWith("blob:")) {
+                                URL.revokeObjectURL(previous);
+                            }
+                            resolvedSrcCache.set(req.key, url);
+                            anyUpdated = true;
+                        } catch {
+                            const fallback = convertFileSrc(resolved);
+                            resolvedSrcCache.set(req.key, fallback);
+                            anyUpdated = true;
+                        }
+                    } catch (e) {
+                        console.error("Failed to resolve asset:", e);
+                        resolvedPathCache.set(req.key, null);
+                        resolvedSrcCache.set(req.key, null);
+                        anyUpdated = true;
+                    }
+                }
+
+                if (anyUpdated && view) {
+                    // Dispatch an effect even in read-only mode so the view
+                    // re-renders once assets resolve (e.g., right after reload).
+                    view.dispatch({ effects: resolvedEffect.of() });
+                }
+            }
+        },
+        { decorations: (v) => v.decorations }
+    );
+
+    return [resolvedField, plugin];
+}

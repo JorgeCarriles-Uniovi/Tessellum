@@ -134,6 +134,8 @@ pub async fn create_note_from_template(
 	
 	let mut idx_guard = state.file_index.lock().await;
 	*idx_guard = None;
+	let mut asset_guard = state.asset_index.lock().await;
+	*asset_guard = None;
 	
 	Ok(path_str)
 }
