@@ -116,7 +116,11 @@ class MediaEmbedWidget extends WidgetType {
             wrapper.appendChild(img);
         }
 
-        if (this.startPos !== undefined && this.endPos !== undefined) {
+        if (
+            this.startPos !== undefined &&
+            this.endPos !== undefined &&
+            this.kind !== "pdf"
+        ) {
             const overlay = document.createElement("div");
             overlay.style.position = "absolute";
             overlay.style.inset = "0";
@@ -263,8 +267,40 @@ export function createMediaEmbedPlugin(config: MediaEmbedConfig) {
     const plugin = ViewPlugin.fromClass(
         class {
             decorations: DecorationSet;
+            private view: EditorView;
+            private isUserFocused = false;
+            private hasUserInteracted = false;
+            private onFocusIn: () => void;
+            private onFocusOut: () => void;
+            private onUserInteract: () => void;
 
             constructor(view: EditorView) {
+                this.view = view;
+                this.onFocusIn = () => {
+                    if (!this.isUserFocused) {
+                        this.isUserFocused = true;
+                        this.view.dispatch({ effects: resolvedEffect.of() });
+                    }
+                };
+                this.onFocusOut = () => {
+                    if (this.isUserFocused) {
+                        this.isUserFocused = false;
+                        this.view.dispatch({ effects: resolvedEffect.of() });
+                    }
+                };
+                this.onUserInteract = () => {
+                    if (!this.hasUserInteracted) {
+                        this.hasUserInteracted = true;
+                    }
+                    if (!this.isUserFocused) {
+                        this.isUserFocused = true;
+                    }
+                    this.view.dispatch({ effects: resolvedEffect.of() });
+                };
+                this.view.dom.addEventListener("focusin", this.onFocusIn);
+                this.view.dom.addEventListener("focusout", this.onFocusOut);
+                this.view.dom.addEventListener("keydown", this.onUserInteract);
+                this.view.dom.addEventListener("pointerdown", this.onUserInteract);
                 this.decorations = this.buildDecorations(view);
             }
 
@@ -279,6 +315,13 @@ export function createMediaEmbedPlugin(config: MediaEmbedConfig) {
                 }
             }
 
+            destroy() {
+                this.view.dom.removeEventListener("focusin", this.onFocusIn);
+                this.view.dom.removeEventListener("focusout", this.onFocusOut);
+                this.view.dom.removeEventListener("keydown", this.onUserInteract);
+                this.view.dom.removeEventListener("pointerdown", this.onUserInteract);
+            }
+
             buildDecorations(view: EditorView): DecorationSet {
                 const builder = new RangeSetBuilder<Decoration>();
                 const selection = view.state.selection.main;
@@ -289,7 +332,7 @@ export function createMediaEmbedPlugin(config: MediaEmbedConfig) {
                 for (const embed of embeds) {
                     const cursorOverlaps =
                         selection.from <= embed.to && selection.to >= embed.from;
-                    if (cursorOverlaps && !embed.isBlock) {
+                    if (this.hasUserInteracted && this.isUserFocused && cursorOverlaps && !embed.isBlock) {
                         continue;
                     }
 
