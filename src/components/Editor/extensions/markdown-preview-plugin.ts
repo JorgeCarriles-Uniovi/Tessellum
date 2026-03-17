@@ -54,6 +54,7 @@ class ListMarkWidget extends WidgetType {
 function buildDecorations(view: EditorView): DecorationSet {
     const builder = new RangeSetBuilder<Decoration>();
     const selection = view.state.selection.main;
+    const selectionLine = view.state.doc.lineAt(selection.from);
 
     // Gather callout line positions and types so we can skip hiding marks in terminal callouts.
     const calloutMap = getCalloutLinePositions(view);
@@ -67,6 +68,8 @@ function buildDecorations(view: EditorView): DecorationSet {
         parentName === "Link" || parentName === "Image";
     const cursorOverlapsParent = (parentFrom: number, parentTo: number) =>
         selection.from <= parentTo && selection.to >= parentFrom;
+    const isCursorLine = (parentFrom: number) =>
+        selectionLine.from <= parentFrom && selectionLine.to >= parentFrom;
     const addListDecoration = (from: number, to: number) => {
         const markerText = view.state.doc.sliceString(from, to);
         const isOrdered = /[0-9]/.test(markerText);
@@ -94,6 +97,14 @@ function buildDecorations(view: EditorView): DecorationSet {
                 return;
             }
 
+            // If cursor is on an embed line, keep raw syntax visible
+            if (
+                line.from === selectionLine.from &&
+                /!\[\[[^\]]+\]\]|!\[[^\]]*\]\([^)]+\)/.test(line.text)
+            ) {
+                return;
+            }
+
             const parent = node.node.parent;
             if (!parent) {
                 return;
@@ -111,6 +122,11 @@ function buildDecorations(view: EditorView): DecorationSet {
 
             // Skip LinkMark/URL nodes that aren't inside a standard Link or Image
             if (isLinkLike(name) && !isLinkParent(parent.name)) {
+                return;
+            }
+
+            // If cursor is on the same line as an image, show full raw syntax
+            if (parent.name === "Image" && isCursorLine(parent.from)) {
                 return;
             }
 

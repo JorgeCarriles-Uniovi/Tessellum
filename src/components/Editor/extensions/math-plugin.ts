@@ -95,16 +95,30 @@ function buildMathDecorations(state: EditorState) {
     const matches = findLatexExpressions(docText);
 
     for (const m of matches) {
-        const cursorOverlap =
-            selection.from >= m.start && selection.to <= m.end;
+        const startLine = state.doc.lineAt(m.start);
+        const endLine = state.doc.lineAt(m.end);
 
-        if (!cursorOverlap) {
+        // Check if cursor overlaps ANY line that the math expression occupies
+        const isFocused = selection.from <= endLine.to && selection.to >= startLine.from;
+
+        if (!isFocused) {
             builder.add(
                 m.start,
                 m.end,
                 Decoration.replace({
                     widget: new MathWidget(m.formula, m.isBlock, m.start, m.end),
                     block: m.isBlock,
+                })
+            );
+        } else {
+            // If focused, keep syntax visible but render a preview below the last line of the expression
+            builder.add(
+                endLine.to,
+                endLine.to,
+                Decoration.widget({
+                    widget: new MathWidget(m.formula, true, m.start, m.end),
+                    block: true,
+                    side: 1, // Render after the line content
                 })
             );
         }

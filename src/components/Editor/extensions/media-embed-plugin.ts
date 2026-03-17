@@ -6,7 +6,7 @@ import {
     ViewUpdate,
     WidgetType,
 } from "@codemirror/view";
-import { RangeSetBuilder, StateEffect, StateField } from "@codemirror/state";
+import { RangeSetBuilder, StateEffect, StateField, EditorState } from "@codemirror/state";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { parseCodeBlocks } from "./code/code-parser";
@@ -40,19 +40,6 @@ interface PendingRequest {
 
 const resolvedEffect = StateEffect.define<void>();
 
-const resolvedField = StateField.define<number>({
-    create() {
-        return 0;
-    },
-    update(value, tr) {
-        for (const effect of tr.effects) {
-            if (effect.is(resolvedEffect)) {
-                return value + 1;
-            }
-        }
-        return value;
-    },
-});
 
 class MediaEmbedWidget extends WidgetType {
     constructor(
@@ -79,8 +66,24 @@ class MediaEmbedWidget extends WidgetType {
             this.status === other.status &&
             this.width === other.width &&
             this.height === other.height &&
-            this.isBlock === other.isBlock
+            this.isBlock === other.isBlock &&
+            this.startPos === other.startPos &&
+            this.endPos === other.endPos
         );
+    }
+
+    updateDOM(dom: HTMLElement, _view: EditorView): boolean {
+        // Find the container within our wrapper
+        const container = dom.querySelector(".cm-media-container") as HTMLElement;
+        if (!container) return false;
+
+        // If generic state changed significantly (e.g. kind), re-render via toDOM
+        // but if it's just minor attributes, we could update here.
+        // For simplicity and correctness with complexity, returning false
+        // if core visual identity changes is safer, but returning true
+        // and updating attributes prevents flicker.
+        // Let's check src and status.
+        return false; // For now, let eq handle it, but we can refine if still flickering
     }
 
     toDOM(view: EditorView) {
@@ -89,6 +92,13 @@ class MediaEmbedWidget extends WidgetType {
         wrapper.style.display = this.isBlock ? "block" : "inline-block";
         if (this.isBlock) wrapper.style.margin = "1rem 0";
 
+        // Create a custom container that renders the HTML content
+        const container = document.createElement("div");
+        container.className = "cm-media-container";
+        container.style.position = "relative";
+        container.style.display = "inline-block";
+        container.style.maxWidth = "100%";
+
         if (!this.src) {
             const missing = document.createElement("div");
             missing.className = "cm-media-missing";
@@ -96,7 +106,7 @@ class MediaEmbedWidget extends WidgetType {
                 this.status === "loading"
                     ? "Loading asset..."
                     : `Missing asset: ${this.displayName}`;
-            wrapper.appendChild(missing);
+            container.appendChild(missing);
         } else if (this.kind === "pdf") {
             const frame = document.createElement("iframe");
             frame.className = "cm-media-pdf";
@@ -104,7 +114,7 @@ class MediaEmbedWidget extends WidgetType {
             frame.title = this.displayName;
             if (this.width) frame.style.width = `${this.width}px`;
             if (this.height) frame.style.height = `${this.height}px`;
-            wrapper.appendChild(frame);
+            container.appendChild(frame);
         } else {
             const img = document.createElement("img");
             img.className = "cm-media-image";
@@ -113,7 +123,7 @@ class MediaEmbedWidget extends WidgetType {
             img.loading = "lazy";
             if (this.width) img.style.width = `${this.width}px`;
             if (this.height) img.style.height = `${this.height}px`;
-            wrapper.appendChild(img);
+            container.appendChild(img);
         }
 
         if (
@@ -122,6 +132,7 @@ class MediaEmbedWidget extends WidgetType {
             this.kind !== "pdf"
         ) {
             const overlay = document.createElement("div");
+            overlay.className = "cm-media-overlay";
             overlay.style.position = "absolute";
             overlay.style.inset = "0";
             overlay.style.cursor = "pointer";
@@ -135,11 +146,10 @@ class MediaEmbedWidget extends WidgetType {
                 });
                 view.focus();
             });
-
-            wrapper.style.position = "relative";
-            wrapper.appendChild(overlay);
+            container.appendChild(overlay);
         }
 
+        wrapper.appendChild(container);
         return wrapper;
     }
 
@@ -195,10 +205,10 @@ function getMimeType(path: string): string {
     return "application/octet-stream";
 }
 
-function parseEmbeds(view: EditorView): EmbedMatch[] {
+function parseEmbeds(state: EditorState): EmbedMatch[] {
     const matches: EmbedMatch[] = [];
-    const doc = view.state.doc;
-    const blocks = parseCodeBlocks(view.state);
+    const doc = state.doc;
+    const blocks = parseCodeBlocks(state);
 
     const isInCodeBlock = (pos: number) =>
         blocks.some((b) => pos >= b.from && pos <= b.to);
@@ -259,14 +269,88 @@ function parseEmbeds(view: EditorView): EmbedMatch[] {
     return matches;
 }
 
+function buildMediaDecorations(
+    state: EditorState,
+    config: MediaEmbedConfig,
+    resolvedPathCache: Map<string, string | null>,
+    resolvedSrcCache: Map<string, string | null>
+): DecorationSet {
+    const builder = new RangeSetBuilder<Decoration>();
+    const selection = state.selection.main;
+    const embeds = parseEmbeds(state);
+
+    for (const embed of embeds) {
+        const embedLine = state.doc.lineAt(embed.from);
+        const isFocused = selection.from <= embedLine.to && selection.to >= embedLine.from;
+
+        const sourcePath = config.getSourcePath();
+        const key = `${embed.mode}|${embed.target}|${sourcePath ?? ""}`;
+
+        const hasResolved = resolvedSrcCache.has(key);
+        const src = resolvedSrcCache.get(key) ?? null;
+        const resolvedPath = resolvedPathCache.get(key) ?? null;
+        const kind = resolvedPath ? getMediaKind(resolvedPath) : getMediaKind(embed.target);
+        const status: MediaStatus = hasResolved
+            ? (src ? "ok" : "missing")
+            : "loading";
+
+        // 1. Syntax Visibility: Hide syntax ONLY when NOT focused
+        if (!isFocused) {
+            builder.add(
+                embed.from,
+                embed.to,
+                Decoration.replace({})
+            );
+        }
+
+        // 2. Persistent Preview: Always add the preview widget at the end of the line
+        // This ensures the widget decoration identity stays stable across focus changes.
+        const insertPos = embedLine.to;
+        builder.add(
+            insertPos,
+            insertPos,
+            Decoration.widget({
+                block: true,
+                side: 1, // Render after the line content (syntax)
+                widget: new MediaEmbedWidget(
+                    kind,
+                    src,
+                    embed.alt,
+                    embed.target,
+                    status,
+                    embed.size?.width,
+                    embed.size?.height,
+                    true, // Always block for stable preview below
+                    embed.from,
+                    embed.to
+                ),
+            })
+        );
+    }
+
+    return builder.finish();
+}
+
 export function createMediaEmbedPlugin(config: MediaEmbedConfig) {
     const resolvedPathCache = new Map<string, string | null>();
     const resolvedSrcCache = new Map<string, string | null>();
     const pendingRequests = new Map<string, PendingRequest>();
 
+    const mediaStateField = StateField.define<DecorationSet>({
+        create(state) {
+            return buildMediaDecorations(state, config, resolvedPathCache, resolvedSrcCache);
+        },
+        update(value, tr) {
+            if (tr.docChanged || tr.selection || tr.effects.some((e) => e.is(resolvedEffect))) {
+                return buildMediaDecorations(tr.state, config, resolvedPathCache, resolvedSrcCache);
+            }
+            return value.map(tr.changes);
+        },
+        provide: (field) => EditorView.decorations.from(field),
+    });
+
     const plugin = ViewPlugin.fromClass(
         class {
-            decorations: DecorationSet;
             private view: EditorView;
             private isUserFocused = false;
             private hasUserInteracted = false;
@@ -301,17 +385,36 @@ export function createMediaEmbedPlugin(config: MediaEmbedConfig) {
                 this.view.dom.addEventListener("focusout", this.onFocusOut);
                 this.view.dom.addEventListener("keydown", this.onUserInteract);
                 this.view.dom.addEventListener("pointerdown", this.onUserInteract);
-                this.decorations = this.buildDecorations(view);
+
+                this.checkPending(view.state);
             }
 
             update(update: ViewUpdate) {
-                if (
-                    update.docChanged ||
-                    update.viewportChanged ||
-                    update.selectionSet ||
-                    update.transactions.some((t) => t.effects.some((e) => e.is(resolvedEffect)))
-                ) {
-                    this.decorations = this.buildDecorations(update.view);
+                if (update.docChanged || update.viewportChanged) {
+                    this.checkPending(update.state);
+                }
+            }
+
+            checkPending(state: EditorState) {
+                const embeds = parseEmbeds(state);
+                let needsResolve = false;
+                const sourcePath = config.getSourcePath();
+
+                for (const embed of embeds) {
+                    const key = `${embed.mode}|${embed.target}|${sourcePath ?? ""}`;
+                    if (!resolvedSrcCache.has(key) && !pendingRequests.has(key)) {
+                        pendingRequests.set(key, {
+                            key,
+                            target: embed.target,
+                            mode: embed.mode,
+                            sourcePath,
+                        });
+                        needsResolve = true;
+                    }
+                }
+
+                if (needsResolve) {
+                    this.resolvePending(this.view);
                 }
             }
 
@@ -326,68 +429,6 @@ export function createMediaEmbedPlugin(config: MediaEmbedConfig) {
                     }
                 }
                 resolvedSrcCache.clear();
-            }
-
-            buildDecorations(view: EditorView): DecorationSet {
-                const builder = new RangeSetBuilder<Decoration>();
-                const selection = view.state.selection.main;
-                const embeds = parseEmbeds(view);
-
-                let needsResolve = false;
-
-                for (const embed of embeds) {
-                    const cursorOverlaps =
-                        selection.from <= embed.to && selection.to >= embed.from;
-                    if (this.hasUserInteracted && this.isUserFocused && cursorOverlaps && !embed.isBlock) {
-                        continue;
-                    }
-
-                    const sourcePath = config.getSourcePath();
-                    const key = `${embed.mode}|${embed.target}|${sourcePath ?? ""}`;
-
-                    if (!resolvedSrcCache.has(key) && !pendingRequests.has(key)) {
-                        pendingRequests.set(key, {
-                            key,
-                            target: embed.target,
-                            mode: embed.mode,
-                            sourcePath,
-                        });
-                        needsResolve = true;
-                    }
-
-                    const hasResolved = resolvedSrcCache.has(key);
-                    const src = resolvedSrcCache.get(key) ?? null;
-                    const resolvedPath = resolvedPathCache.get(key) ?? null;
-                    const kind = resolvedPath ? getMediaKind(resolvedPath) : getMediaKind(embed.target);
-                    const status: MediaStatus = hasResolved
-                        ? (src ? "ok" : "missing")
-                        : "loading";
-
-                    builder.add(
-                        embed.from,
-                        embed.to,
-                        Decoration.replace({
-                            widget: new MediaEmbedWidget(
-                                kind,
-                                src,
-                                embed.alt,
-                                embed.target,
-                                status,
-                                embed.size?.width,
-                                embed.size?.height,
-                                embed.isBlock,
-                                embed.from,
-                                embed.to
-                            ),
-                        })
-                    );
-                }
-
-                if (needsResolve) {
-                    this.resolvePending(view);
-                }
-
-                return builder.finish();
             }
 
             async resolvePending(view: EditorView) {
@@ -416,8 +457,6 @@ export function createMediaEmbedPlugin(config: MediaEmbedConfig) {
 
                         try {
                             const mime = getMimeType(resolved);
-                            // Use a direct file URL for PDFs to avoid reading large files
-                            // into memory and creating Blob-based object URLs.
                             if (mime === "application/pdf") {
                                 const url = convertFileSrc(resolved);
                                 const previous = resolvedSrcCache.get(req.key);
@@ -456,14 +495,11 @@ export function createMediaEmbedPlugin(config: MediaEmbedConfig) {
                 }
 
                 if (anyUpdated && view) {
-                    // Dispatch an effect even in read-only mode so the view
-                    // re-renders once assets resolve (e.g., right after reload).
                     view.dispatch({ effects: resolvedEffect.of() });
                 }
             }
-        },
-        { decorations: (v) => v.decorations }
+        }
     );
 
-    return [resolvedField, plugin];
+    return [mediaStateField, plugin];
 }

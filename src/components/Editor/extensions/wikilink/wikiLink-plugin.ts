@@ -55,6 +55,7 @@ export function createWikiLinkPlugin(config: WikiLinkPluginConfig) {
                 const builder = new RangeSetBuilder<Decoration>();
                 const matches = findWikiLinks(view);
                 const selection = view.state.selection.main;
+                const selectionLine = view.state.doc.lineAt(selection.from);
 
                 let requiresAsyncUpdate = false;
 
@@ -69,6 +70,8 @@ export function createWikiLinkPlugin(config: WikiLinkPluginConfig) {
                     }
 
                     const cursorOverlaps = (selection.from <= match.to && selection.to >= match.from);
+                    const isCursorLine = match.from >= selectionLine.from && match.from <= selectionLine.to;
+                    const showRaw = cursorOverlaps || isCursorLine;
 
                     const mark = Decoration.mark({
                         class: exists ? "cm-wikilink cm-wikilink-valid" : "cm-wikilink cm-wikilink-broken",
@@ -78,7 +81,7 @@ export function createWikiLinkPlugin(config: WikiLinkPluginConfig) {
                         },
                     });
 
-                    if (!cursorOverlaps) {
+                    if (!showRaw) {
                         if (match.alias && match.aliasOffset !== undefined) {
                             // 1. Hide everything before the alias (includes [[, target, and |)
                             builder.add(match.from, match.from + match.aliasOffset, Decoration.replace({}));
