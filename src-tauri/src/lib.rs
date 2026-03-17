@@ -59,6 +59,7 @@ pub fn run() {
             commands::links::get_outgoing_links,
             commands::links::get_all_links,
             commands::links::resolve_wikilink,
+            commands::assets::resolve_asset,
             commands::notes::get_all_notes,
             commands::notes::get_all_tags,
             commands::notes::get_file_tags,
@@ -126,6 +127,3 @@ mod tests {
         assert!(resolved.unwrap().to_string_lossy().contains("subfolder"));
     }
 }
-
-
-

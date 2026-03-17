@@ -31,6 +31,7 @@ pub async fn watch_vault(
     
     let app_handle_clone = handle.clone();
     let file_index_clone = state.file_index.clone();
+    let asset_index_clone = state.asset_index.clone();
     let notify_config = Config::default();
     let last_emit = Arc::new(Mutex::new(
         Instant::now() - Duration::from_millis(DEBOUNCE_MS),
@@ -45,11 +46,14 @@ pub async fn watch_vault(
                     if last.elapsed() >= Duration::from_millis(DEBOUNCE_MS) {
                         *last = Instant::now();
                         
-                        // Invalidate cache
+                        // Invalidate caches
                         let fi = file_index_clone.clone();
+                        let ai = asset_index_clone.clone();
                         tauri::async_runtime::spawn(async move {
                             let mut guard = fi.lock().await;
                             *guard = None;
+                            let mut asset_guard = ai.lock().await;
+                            *asset_guard = None;
                         });
                         
                         let _ = app_handle_clone.emit("file-changed", ());

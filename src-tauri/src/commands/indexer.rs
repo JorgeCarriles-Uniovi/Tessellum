@@ -44,6 +44,8 @@ pub async fn sync_vault(
         Ok(stats) => {
             let mut idx_guard = state.file_index.lock().await;
             *idx_guard = None;
+            let mut asset_guard = state.asset_index.lock().await;
+            *asset_guard = None;
             Ok(SyncResult::from(stats))
         }
         Err(e) => Ok(SyncResult {

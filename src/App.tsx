@@ -163,10 +163,14 @@ function App() {
                 if (!doesExist) {
                     console.warn(`Vault path ${vaultPath} no longer exists. Clearing.`);
                     setVaultPath(null);
+                    return;
                 }
+                invoke("set_vault_path", { path: vaultPath })
+                    .then(() => app.events.emit("vault:scope-ready", vaultPath))
+                    .catch(console.error);
             }).catch(console.error);
         }
-    }, [vaultPath, setVaultPath]);
+    }, [vaultPath, setVaultPath, app]);
 
     useEffect(() => {
         if (vaultPath) {

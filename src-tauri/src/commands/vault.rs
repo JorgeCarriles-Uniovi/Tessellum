@@ -37,7 +37,8 @@ async fn rewrite_backlinks(
         };
         
         let new_content = re.replace_all(&content, |caps: &regex::Captures<'_>| {
-            // If preceded by a backslash, the link is escaped — leave it verbatim.
+            // If preceded by a backslash, the link is escaped — leave it
+            // verbatim.
             if caps.get(1).map_or(false, |m| m.as_str() == "\\") {
                 return caps[0].to_string();
             }
@@ -226,6 +227,8 @@ pub async fn rename_file(
     // Invalidate the cache since path has changed
     let mut idx_guard = state.file_index.lock().await;
     *idx_guard = None;
+    let mut asset_guard = state.asset_index.lock().await;
+    *asset_guard = None;
     
     Ok(new_path.to_string_lossy().to_string())
 }
@@ -313,11 +316,14 @@ pub async fn move_items(
     
     let mut idx_guard = state.file_index.lock().await;
     *idx_guard = None;
+    let mut asset_guard = state.asset_index.lock().await;
+    *asset_guard = None;
     
     Ok(planned.into_iter().map(|(_, new_path)| new_path).collect())
 }
 use serde::Serialize;
 use std::collections::HashMap;
+use tauri::Manager;
 
 #[derive(Serialize, Clone)]
 pub struct TreeNode {
@@ -397,6 +403,10 @@ pub fn list_files_tree(vault_path: String) -> Result<Vec<TreeNode>, TessellumErr
 #[tauri::command]
 pub fn set_vault_path(app: tauri::AppHandle, path: String) -> Result<(), String> {
     let path = std::path::PathBuf::from(&path);
+    
+    app.asset_protocol_scope().
+        allow_directory(&path, true)
+        .map_err(|e| e.to_string())?;
     
     app.fs_scope()
         .allow_directory(&path, true)

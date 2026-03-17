@@ -353,6 +353,29 @@ body {
 }
 
 @layer components {
+
+    /* --- Media Embeds --- */
+    .cm-media-embed {
+        @apply max-w-full;
+    }
+
+    .cm-media-image {
+        @apply max-w-full rounded-md border border-border;
+    }
+
+    .cm-media-pdf {
+        @apply w-full rounded-md border border-border bg-white;
+        height: 480px;
+    }
+
+    .cm-media-missing {
+        @apply text-sm text-muted-foreground border border-border rounded-md px-3 py-2 bg-muted/30;
+    }
+
+    /* --- Blockquotes --- */
+    .cm-blockquote {
+        @apply relative border-l-4 border-border pl-4 py-2 text-muted-foreground;
+    }
     .cm-table-widget {
         @apply my-8 w-full overflow-x-auto select-none cursor-default;
         margin-top: 2rem !important;
