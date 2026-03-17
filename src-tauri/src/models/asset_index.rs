@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fs::canonicalize;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
@@ -61,6 +62,13 @@ impl AssetIndex {
 	
 	pub fn resolve(&self, vault_path: &str, link_target: &str) -> Option<PathBuf> {
 		let vault_root = Path::new(vault_path);
+		let canonical_vault_root = canonicalize(vault_root).ok()?;
+		
+		// Reject absolute link targets so they cannot escape the vault via
+		// join.
+		if Path::new(link_target).is_absolute() {
+			return None;
+		}
 		
 		if link_target.contains('/') || link_target.contains('\\') {
 			let mut full_path = vault_root.join(link_target);
@@ -72,7 +80,14 @@ impl AssetIndex {
 				for ext in SUPPORTED_EXTS {
 					full_path.set_extension(ext);
 					if full_path.exists() {
-						return Some(full_path.clone());
+						if let Ok(canonical_full) = canonicalize(&full_path) {
+							return if canonical_full.starts_with
+							(&canonical_vault_root) {
+								Some(full_path)
+							} else {
+								None
+							}
+						}
 					}
 				}
 			}
@@ -92,7 +107,15 @@ impl AssetIndex {
 						.collect();
 					
 					if !matching.is_empty() {
-						return Some(matching[0].clone());
+						let candidate = matching[0];
+						if let Ok(canonical_candidate) = canonicalize(candidate) {
+							return if canonical_candidate.starts_with
+							(&canonical_vault_root) {
+								Some(candidate.clone())
+							} else {
+								 None
+							}
+						}
 					}
 				}
 			}
@@ -110,7 +133,13 @@ impl AssetIndex {
 					.unwrap_or(usize::MAX)
 			})?;
 			
-			return Some(best_match.clone());
+			if let Ok(canonical_best) = canonicalize(best_match) {
+				return if canonical_best.starts_with(&canonical_vault_root) {
+					Some(best_match.clone())
+				} else {
+					None
+				};
+			}
 		}
 		
 		None

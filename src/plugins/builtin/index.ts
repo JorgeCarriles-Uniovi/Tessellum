@@ -37,6 +37,8 @@ import { MediaEmbedPlugin } from "./MediaEmbedPlugin";
  *
  * Note: The markdown-preview plugin is intentionally registered first to ensure
  * it can hide syntax markers for all subsequent plugins that add markdown syntax.
+ * Media embeds are registered before the markdown-preview plugin to ensure they
+ * are rendered and not hidden.
  */
 export function registerBuiltinPlugins(app: TessellumApp): void {
     app.plugins.register(MediaEmbedPlugin.manifest, MediaEmbedPlugin);

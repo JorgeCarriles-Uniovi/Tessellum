@@ -61,11 +61,25 @@ pub async fn resolve_asset(
 		return Ok(Some(to_asset_path(&resolved)));
 	}
 	
+	// First check under the lock whether the index is already built.
+	{
+		let mut index_guard = state.asset_index.lock().await;
+		if index_guard.is_some() {
+			let asset_index = index_guard.as_ref().unwrap();
+			return Ok(asset_index
+				.resolve(&vault_path, target)
+				.map(|p| to_asset_path(&p)));
+		}
+		// `index_guard` is dropped here, releasing the lock before building the index.
+	}
+	// Build the asset index without holding the mutex, as this can be expensive.
+	let built_index = AssetIndex::build(&vault_path)
+		.map_err(|e| TessellumError::Internal(format!("Failed to build asset index: {}", e)))?;
+	// Reacquire the lock and install the built index if another task hasn't done so already.
+	
 	let mut index_guard = state.asset_index.lock().await;
 	if index_guard.is_none() {
-		let idx = AssetIndex::build(&vault_path)
-			.map_err(|e| TessellumError::Internal(format!("Failed to build asset index: {}", e)))?;
-		*index_guard = Some(idx);
+		*index_guard = Some(built_index);
 	}
 	
 	let asset_index = index_guard.as_ref().unwrap();

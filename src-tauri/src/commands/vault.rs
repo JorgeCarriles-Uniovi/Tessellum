@@ -37,7 +37,8 @@ async fn rewrite_backlinks(
         };
         
         let new_content = re.replace_all(&content, |caps: &regex::Captures<'_>| {
-            // If preceded by a backslash, the link is escaped â€” leave it verbatim.
+            // If preceded by a backslash, the link is escaped — leave it
+            // verbatim.
             if caps.get(1).map_or(false, |m| m.as_str() == "\\") {
                 return caps[0].to_string();
             }
@@ -322,6 +323,7 @@ pub async fn move_items(
 }
 use serde::Serialize;
 use std::collections::HashMap;
+use tauri::Manager;
 
 #[derive(Serialize, Clone)]
 pub struct TreeNode {
@@ -401,6 +403,10 @@ pub fn list_files_tree(vault_path: String) -> Result<Vec<TreeNode>, TessellumErr
 #[tauri::command]
 pub fn set_vault_path(app: tauri::AppHandle, path: String) -> Result<(), String> {
     let path = std::path::PathBuf::from(&path);
+    
+    app.asset_protocol_scope().
+        allow_directory(&path, true)
+        .map_err(|e| e.to_string())?;
     
     app.fs_scope()
         .allow_directory(&path, true)

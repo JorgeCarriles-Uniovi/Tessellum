@@ -320,6 +320,12 @@ export function createMediaEmbedPlugin(config: MediaEmbedConfig) {
                 this.view.dom.removeEventListener("focusout", this.onFocusOut);
                 this.view.dom.removeEventListener("keydown", this.onUserInteract);
                 this.view.dom.removeEventListener("pointerdown", this.onUserInteract);
+                for (const value of resolvedSrcCache.values()) {
+                    if (value && value.startsWith("blob:")) {
+                        URL.revokeObjectURL(value);
+                    }
+                }
+                resolvedSrcCache.clear();
             }
 
             buildDecorations(view: EditorView): DecorationSet {
@@ -409,8 +415,21 @@ export function createMediaEmbedPlugin(config: MediaEmbedConfig) {
                         }
 
                         try {
-                            const data = await readFile(resolved);
                             const mime = getMimeType(resolved);
+                            // Use a direct file URL for PDFs to avoid reading large files
+                            // into memory and creating Blob-based object URLs.
+                            if (mime === "application/pdf") {
+                                const url = convertFileSrc(resolved);
+                                const previous = resolvedSrcCache.get(req.key);
+                                if (previous && previous.startsWith("blob:")) {
+                                    URL.revokeObjectURL(previous);
+                                }
+                                resolvedSrcCache.set(req.key, url);
+                                anyUpdated = true;
+                                continue;
+                            }
+
+                            const data = await readFile(resolved);
                             const blob = new Blob([data], { type: mime });
                             const url = URL.createObjectURL(blob);
                             const previous = resolvedSrcCache.get(req.key);
@@ -421,6 +440,10 @@ export function createMediaEmbedPlugin(config: MediaEmbedConfig) {
                             anyUpdated = true;
                         } catch {
                             const fallback = convertFileSrc(resolved);
+                            const previous = resolvedSrcCache.get(req.key);
+                            if (previous && previous.startsWith("blob:")) {
+                                URL.revokeObjectURL(previous);
+                            }
                             resolvedSrcCache.set(req.key, fallback);
                             anyUpdated = true;
                         }
