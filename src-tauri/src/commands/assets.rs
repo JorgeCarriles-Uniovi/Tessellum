@@ -48,7 +48,7 @@ pub async fn resolve_asset(
 		};
 		
 		if !resolved_path.exists() {
-			return Ok(None);
+			return Ok(None); 
 		}
 		
 		let resolved = validate_path_in_vault(&resolved_path.to_string_lossy(), &vault_path)
