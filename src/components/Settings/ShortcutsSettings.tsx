@@ -1,5 +1,5 @@
-import {SettingSection} from "./items/SettingSection.tsx";
-import {ShortcutItem} from "./items/ShortcutItem.tsx";
+import { SettingSection } from "./items/SettingSection.tsx";
+import { ShortcutItem } from "./items/ShortcutItem.tsx";
 
 export function ShortcutsSettings() {
     return (

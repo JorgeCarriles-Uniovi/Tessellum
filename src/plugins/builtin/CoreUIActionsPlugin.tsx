@@ -11,20 +11,22 @@ import {
     Settings,
     Trash2,
     Palette,
-    Paintbrush, User, FileText, Keyboard,
+    Paintbrush, User, FileText, Keyboard, Eye,
 } from "lucide-react";
 import { Plugin } from "../Plugin";
 import type { PluginManifest } from "../types";
 import { createNoteInDir } from "../../utils/noteUtils";
 import {GeneralSettings} from "../../components/Settings/GeneralSettings.tsx";
 import {EditorSettings} from "../../components/Settings/EditorSettings.tsx";
-import {theme} from "../../styles/theme.ts";
 import {
     AppearanceSettings
 } from "../../components/Settings/AppearanceSettings.tsx";
 import {
     ShortcutsSettings
 } from "../../components/Settings/ShortcutsSettings.tsx";
+import {
+    AccessibilitySettings
+} from "../../components/Settings/AccessibilitySettings.tsx";
 
 export class CoreUIActionsPlugin extends Plugin {
     static manifest: PluginManifest = {
@@ -248,35 +250,33 @@ export class CoreUIActionsPlugin extends Plugin {
         this.app.ui.registerSettingsTab(this.manifest.id, {
             id: "General",
             name: "General",
-            icon: <User size={16}/>,
-            component: <GeneralSettings
-                autoSave={true}
-                setAutoSave={(value: boolean) => toast.info(`Auto-save ${value ? "enabled" : "disabled"}`)}
-                spellCheck={true}
-                setSpellCheck={(value: boolean)=> toast.info(`Spell Check ${value ? "enabled" : "disabled"}`) }
-            ></GeneralSettings>,
+            icon: <User size={16} />,
+            isActive: true,
+            component: <GeneralSettings />,
         });
         this.app.ui.registerSettingsTab(this.manifest.id, {
             id: "Editor",
             name: "Editor",
             icon: <FileText size={16} />,
-            component: <EditorSettings
-                fontSize={theme.typography.fontSize.base.toString()}
-                setFontSize={(value: string) => toast.info(`Font size set to ${value}px`)}
-                lineNumbers={false}
-                setLineNumbers={(value: boolean) => toast.info(`Line numbers shown = ${value}}`)}/>
+            component: <EditorSettings />
         });
         this.app.ui.registerSettingsTab(this.manifest.id, {
             id: "Appearance",
             name: "Appearance",
-            icon: <Palette size={16}/>,
-            component: <AppearanceSettings></AppearanceSettings>
+            icon: <Palette size={16} />,
+            component: <AppearanceSettings/>
         });
         this.app.ui.registerSettingsTab(this.manifest.id, {
             id: "Shortcuts",
             name: "Shortcuts",
-            icon: <Keyboard size={16}/>,
-            component: <ShortcutsSettings></ShortcutsSettings>
-        })
+            icon: <Keyboard size={16} />,
+            component: <ShortcutsSettings/>
+        });
+        this.app.ui.registerSettingsTab(this.manifest.id, {
+            id: "Accessibility",
+            name: "Accessibility",
+            icon: <Eye size={16} />,
+            component: <AccessibilitySettings/>
+        });
     }
 }

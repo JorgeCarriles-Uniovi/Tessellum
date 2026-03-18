@@ -1,6 +1,6 @@
-import { X, User, Bell, Shield, Palette, FileText, Cloud, Keyboard, Moon, Sun, Monitor, ChevronRight, Check } from 'lucide-react';
+import { X, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
-import {useTessellumApp} from "../../plugins/TessellumApp.ts";
+import { useTessellumApp } from "../../plugins/TessellumApp.ts";
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -8,7 +8,7 @@ interface SettingsModalProps {
 }
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
-    const [activeTab, setActiveTab] = useState<String>('general');
+    const [activeTab, setActiveTab] = useState<String>('General');
     const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('light');
     const [fontSize, setFontSize] = useState('16');
     const [autoSave, setAutoSave] = useState(true);
@@ -31,7 +31,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
             {/* Modal */}
             <div className="relative bg-white rounded-2xl shadow-2xl w-[900px] h-[640px] flex overflow-hidden animate-in fade-in zoom-in-95 duration-200"
-                 >
+            >
                 {/* Sidebar */}
                 <div className="w-[240px] bg-[#f8fafc] border-r border-[#e2e8f0] p-6 flex flex-col">
                     <div className="mb-8"
@@ -39,7 +39,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                              paddingTop: `1rem`,
                              paddingBottom: `0.2rem`,
                              paddingLeft: `1rem`,
-                             paddingRight: `1rem`}}>
+                             paddingRight: `1rem`
+                         }}>
                         <h2 className="text-xl font-bold text-[#0f172a] tracking-tight">Settings</h2>
                         <p className="text-xs text-[#94a3b8] mt-1">Customize your workspace</p>
                     </div>
@@ -48,7 +49,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         paddingTop: `1rem`,
                         paddingBottom: `0.2rem`,
                         paddingLeft: `1rem`,
-                        paddingRight: `1rem`}}>
+                        paddingRight: `1rem`
+                    }}>
 
                         {settingsTabs.map((tab) => {
                             return (
@@ -59,12 +61,12 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                     onClick={() => {
                                         settingsTabs.map(t => t.isActive = false);
                                         tab.isActive = true;
-                                        setActiveTab(tab.id)}
+                                        setActiveTab(tab.id)
                                     }
-                                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                                        tab.isActive
-                                            ? 'bg-[#3d14b8] text-white shadow-lg shadow-[rgba(61,20,184,0.25)]'
-                                            : 'text-[#64748b] hover:bg-white hover:text-[#0f172a] hover:shadow-sm'
+                                    }
+                                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${tab.isActive
+                                        ? 'bg-[#3d14b8] text-white shadow-lg shadow-[rgba(61,20,184,0.25)]'
+                                        : 'text-[#64748b] hover:bg-white hover:text-[#0f172a] hover:shadow-sm'
                                     }`}
                                     style={{
                                         paddingTop: `0.75rem`,
@@ -125,7 +127,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     <div className="flex-1 overflow-y-auto p-8">
 
                         {settingsTabs.find(t => t.id === activeTab)?.component ||
-                            <div>No settings available for this tab.</div> }
+                            <div>No settings available for this tab.</div>}
                     </div>
 
                     {/* Footer */}
@@ -133,12 +135,24 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         <button
                             onClick={onClose}
                             className="px-4 py-2 text-sm font-semibold text-[#64748b] hover:text-[#0f172a] transition-colors"
+                            style={{
+                                paddingTop: `0.5rem`,
+                                paddingBottom: `0.5rem`,
+                                paddingLeft: `1rem`,
+                                paddingRight: `1rem`
+                            }}
                         >
                             Cancel
                         </button>
                         <button
                             onClick={onClose}
                             className="px-4 py-2 bg-[#3d14b8] text-white rounded-lg text-sm font-semibold hover:bg-[#2d0f8a] transition-colors shadow-lg shadow-[rgba(61,20,184,0.25)]"
+                            style={{
+                                paddingTop: `0.5rem`,
+                                paddingBottom: `0.5rem`,
+                                paddingLeft: `1rem`,
+                                paddingRight: `1rem`
+                            }}
                         >
                             Save Changes
                         </button>
