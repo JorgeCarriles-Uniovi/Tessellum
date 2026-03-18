@@ -15,6 +15,7 @@
     "core:window:allow-is-maximized",
     "core:window:allow-set-size",
     "fs:default",
-    "fs:allow-exists"
+    "fs:allow-exists",
+    "window-state:default"
   ]
 }

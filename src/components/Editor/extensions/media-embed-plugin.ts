@@ -96,7 +96,8 @@ class MediaEmbedWidget extends WidgetType {
         const container = document.createElement("div");
         container.className = "cm-media-container";
         container.style.position = "relative";
-        container.style.display = "inline-block";
+        container.style.display = this.kind === "pdf" ? "block" : "inline-block";
+        container.style.width = this.kind === "pdf" ? "100%" : "auto";
         container.style.maxWidth = "100%";
 
         if (!this.src) {
@@ -110,10 +111,11 @@ class MediaEmbedWidget extends WidgetType {
         } else if (this.kind === "pdf") {
             const frame = document.createElement("iframe");
             frame.className = "cm-media-pdf";
-            frame.src = this.src;
+            frame.src = `${this.src}#view=FitH`;
             frame.title = this.displayName;
-            if (this.width) frame.style.width = `${this.width}px`;
-            if (this.height) frame.style.height = `${this.height}px`;
+            frame.style.width = this.width ? `${this.width}px` : "100%";
+            frame.style.height = this.height ? `${this.height}px` : "73vh";
+            frame.style.border = "none";
             container.appendChild(frame);
         } else {
             const img = document.createElement("img");
