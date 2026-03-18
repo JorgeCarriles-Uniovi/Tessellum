@@ -8,7 +8,7 @@ pub mod templates;
 pub mod vault;
 pub mod watcher;
 
-pub use assets::resolve_asset;
+pub use assets::{resolve_asset, save_asset};
 pub use folders::create_folder;
 pub use graph::get_graph_data;
 pub use links::{

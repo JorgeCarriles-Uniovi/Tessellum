@@ -365,7 +365,8 @@ body {
 
     .cm-media-pdf {
         @apply w-full rounded-md border border-border bg-white;
-        height: 480px;
+        height: 73vh;
+        min-height: 640px;
     }
 
     .cm-media-missing {

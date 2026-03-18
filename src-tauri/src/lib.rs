@@ -7,7 +7,7 @@ mod utils;
 
 use db::Database;
 use tauri::Manager;
-
+use tauri_plugin_window_state::Builder as WindowStateBuilder;
 pub use models::*;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -17,6 +17,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_persisted_scope::init())
+        .plugin(WindowStateBuilder::default().build())
         .setup(|app| {
             let app_handle = app.handle();
             let db_url = app_handle
@@ -60,6 +61,7 @@ pub fn run() {
             commands::links::get_all_links,
             commands::links::resolve_wikilink,
             commands::assets::resolve_asset,
+            commands::assets::save_asset,
             commands::notes::get_all_notes,
             commands::notes::get_all_tags,
             commands::notes::get_file_tags,

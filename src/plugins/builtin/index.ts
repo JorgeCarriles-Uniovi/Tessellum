@@ -13,6 +13,7 @@ import { FrontmatterPlugin } from "./FrontmatterPlugin";
 import { DailyNotesPlugin } from "./DailyNotesPlugin";
 import { CoreUIActionsPlugin } from "./CoreUIActionsPlugin";
 import { MediaEmbedPlugin } from "./MediaEmbedPlugin";
+import { MediaPastePlugin } from "./MediaPastePlugin.ts";
 
 /**
  * Registers all built-in plugins with the PluginRegistry.
@@ -42,6 +43,7 @@ import { MediaEmbedPlugin } from "./MediaEmbedPlugin";
  */
 export function registerBuiltinPlugins(app: TessellumApp): void {
     app.plugins.register(MediaEmbedPlugin.manifest, MediaEmbedPlugin);
+    app.plugins.register(MediaPastePlugin.manifest, MediaPastePlugin);
     app.plugins.register(MarkdownPreviewPlugin.manifest, MarkdownPreviewPlugin);
     app.plugins.register(DividerPlugin.manifest, DividerPlugin);
     app.plugins.register(MathPlugin.manifest, MathPlugin);
