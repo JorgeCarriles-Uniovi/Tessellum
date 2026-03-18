@@ -3,15 +3,19 @@ use tauri::State;
 
 use crate::error::TessellumError;
 use crate::models::{AppState, AssetIndex};
-use crate::utils::validate_path_in_vault;
+use crate::utils::{normalize_path, sanitize_string, validate_path_in_vault};
 
 const SUPPORTED_EXTS: &[&str] = &[
 	"png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "tif", "tiff", "avif", "pdf",
 ];
 
+fn is_supported_ext(ext: &str) -> bool {
+	SUPPORTED_EXTS.contains(&ext)
+}
+
 fn is_supported_asset(path: &Path) -> bool {
 	let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("").to_lowercase();
-	SUPPORTED_EXTS.contains(&ext.as_str())
+	is_supported_ext(ext.as_str())
 }
 
 fn to_asset_path(path: &Path) -> String {
@@ -48,7 +52,7 @@ pub async fn resolve_asset(
 		};
 		
 		if !resolved_path.exists() {
-			return Ok(None); 
+			return Ok(None);
 		}
 		
 		let resolved = validate_path_in_vault(&resolved_path.to_string_lossy(), &vault_path)
@@ -61,29 +65,74 @@ pub async fn resolve_asset(
 		return Ok(Some(to_asset_path(&resolved)));
 	}
 	
-	// First check under the lock whether the index is already built.
-	{
-		let mut index_guard = state.asset_index.lock().await;
-		if index_guard.is_some() {
-			let asset_index = index_guard.as_ref().unwrap();
-			return Ok(asset_index
-				.resolve(&vault_path, target)
-				.map(|p| to_asset_path(&p)));
-		}
-		// `index_guard` is dropped here, releasing the lock before building the index.
-	}
-	// Build the asset index without holding the mutex, as this can be expensive.
-	let built_index = AssetIndex::build(&vault_path)
-		.map_err(|e| TessellumError::Internal(format!("Failed to build asset index: {}", e)))?;
-	// Reacquire the lock and install the built index if another task hasn't done so already.
-	
 	let mut index_guard = state.asset_index.lock().await;
 	if index_guard.is_none() {
-		*index_guard = Some(built_index);
+		let idx = AssetIndex::build(&vault_path)
+			.map_err(|e| TessellumError::Internal(format!("Failed to build asset index: {}", e)))?;
+		*index_guard = Some(idx);
 	}
 	
 	let asset_index = index_guard.as_ref().unwrap();
 	Ok(asset_index
 		.resolve(&vault_path, target)
 		.map(|p| to_asset_path(&p)))
+}
+
+#[tauri::command]
+pub async fn save_asset(
+	state: State<'_, AppState>,
+	vault_path: String,
+	target_dir: String,
+	base_name: String,
+	extension: String,
+	bytes: Vec<u8>,
+) -> Result<String, TessellumError> {
+	let ext = extension.trim().trim_start_matches('.').to_lowercase();
+	if !is_supported_ext(&ext) {
+		return Err(TessellumError::Validation("Unsupported file type".to_string()));
+	}
+	
+	let clean_base = sanitize_string(base_name);
+	let base = if clean_base.trim().is_empty() {
+		"Pasted file".to_string()
+	} else {
+		clean_base
+	};
+	
+	let vault_root = validate_path_in_vault(&vault_path, &vault_path)
+		.map_err(TessellumError::Validation)?;
+	
+	let dir_path = if target_dir.trim().is_empty() {
+		vault_root.to_path_buf()
+	} else {
+		let candidate = Path::new(&target_dir);
+		let full = if candidate.is_absolute() {
+			candidate.to_path_buf()
+		} else {
+			vault_root.join(candidate)
+		};
+		validate_path_in_vault(&full.to_string_lossy(), &vault_path)
+			.map_err(TessellumError::Validation)?
+	};
+	
+	tokio::fs::create_dir_all(&dir_path).await?;
+	
+	let mut filename = format!("{}.{}", base, ext);
+	let mut final_path = dir_path.join(&filename);
+	let mut counter = 1;
+	while final_path.exists() {
+		filename = format!("{}-{}.{}", base, counter, ext);
+		final_path = dir_path.join(&filename);
+		counter += 1;
+	}
+	
+	tokio::fs::write(&final_path, bytes).await?;
+	
+	let mut index_guard = state.asset_index.lock().await;
+	*index_guard = None;
+	
+	let final_resolved = validate_path_in_vault(&final_path.to_string_lossy(), &vault_path)
+		.map_err(TessellumError::Validation)?;
+	let relative = final_resolved.strip_prefix(&vault_root).unwrap_or(&final_resolved);
+	Ok(normalize_path(&relative.to_string_lossy()))
 }
