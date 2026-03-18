@@ -12,6 +12,7 @@ import { BaseSidebar } from "../Layout/BaseSidebar";
 import { TemplatePicker } from "../TemplatePicker";
 import { getParentFromTarget } from "../../utils/pathUtils";
 import { useFileSync } from "../FileTree/hooks/useFileSync";
+import { cn } from "../../lib/utils";
 
 const LEFT_SIDEBAR_WIDTH_KEY = "tessellum:left-sidebar-width";
 const LEFT_SIDEBAR_MIN = 220;
@@ -136,6 +137,7 @@ function useLeftSidebarWidth() {
         const parsed = stored ? Number.parseInt(stored, 10) : NaN;
         return Number.isFinite(parsed) ? clampWidth(parsed) : 256;
     });
+    const [isResizing, setIsResizing] = useState(false);
     const isResizingRef = useRef(false);
 
     useEffect(() => {
@@ -149,6 +151,7 @@ function useLeftSidebarWidth() {
         const handleUp = () => {
             if (isResizingRef.current) {
                 isResizingRef.current = false;
+                setIsResizing(false);
                 document.body.style.cursor = "";
                 document.body.style.userSelect = "";
             }
@@ -165,11 +168,12 @@ function useLeftSidebarWidth() {
     const onResizeStart = (event: ReactMouseEvent<HTMLDivElement>) => {
         event.preventDefault();
         isResizingRef.current = true;
+        setIsResizing(true);
         document.body.style.cursor = "col-resize";
         document.body.style.userSelect = "none";
     };
 
-    return { sidebarWidth, onResizeStart };
+    return { sidebarWidth, isResizing, onResizeStart };
 }
 
 const actionButtonContentStyle: CSSProperties = {
@@ -220,7 +224,7 @@ export function Sidebar() {
     useFileSync();
     const { vaultPath } = useVaultStore();
     const { isSidebarOpen } = useUiStore();
-    const { sidebarWidth, onResizeStart } = useLeftSidebarWidth();
+    const { sidebarWidth, isResizing, onResizeStart } = useLeftSidebarWidth();
     const app = useTessellumApp();
     const sidebarActions = app.ui.getSidebarActions();
     const allHeaderActions = app.ui.getUIActions("sidebar-header");
@@ -283,6 +287,7 @@ export function Sidebar() {
                 side="left"
                 isOpen={isSidebarOpen}
                 width={sidebarWidth}
+                isResizing={isResizing}
                 style={{
                     position: "relative",
                     backgroundColor: theme.colors.background.secondary,
@@ -290,12 +295,18 @@ export function Sidebar() {
                 }}
             >
                 <div
-                    className="absolute right-0 top-0 h-full w-1 cursor-col-resize"
+                    className="absolute right-0 top-0 h-full cursor-col-resize group z-50"
                     onMouseDown={onResizeStart}
                     style={{
-                        backgroundColor: "transparent",
+                        width: "6px",
+                        marginRight: "-3px",
                     }}
-                />
+                >
+                    <div className={cn(
+                        "w-[2px] h-full transition-colors",
+                        isResizing ? "bg-blue-500" : "bg-transparent group-hover:bg-gray-200"
+                    )} />
+                </div>
                 <div
                     className="flex flex-col transition-all duration-300 ease-in-out"
                     style={{

@@ -6,6 +6,7 @@ import {
     useNoteRenaming,
 } from './index.ts';
 import { useEditorStore } from "../../../stores/editorStore.ts";
+import { isMediaFile } from "../../../utils/fileType";
 
 export function useFileSynchronization(activeNote: FileMetadata | null) {
     const [content, setContent] = useState<string>("");
@@ -28,6 +29,14 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
         const load = async () => {
             try {
                 setIsLoading(true);
+
+                if (isMediaFile(activeNote.path)) {
+                    setContent("");
+                    setActiveNoteContent("");
+                    setIsDirty(false);
+                    return;
+                }
+
                 const text = await invoke<string>('read_file', { vaultPath, path: activeNote.path });
                 setContent(text);
                 setActiveNoteContent(text);
