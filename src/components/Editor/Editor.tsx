@@ -26,6 +26,8 @@ import { EditorView } from "@codemirror/view";
 import { Extension } from "@codemirror/state";
 import { Calendar, Clock } from "lucide-react";
 import { theme } from "../../styles/theme";
+import { isMediaFile } from "../../utils/fileType";
+import { MediaPreview } from "./MediaPreview";
 
 function normalizeTimestampSeconds(value: number): number {
     if (value > 1_000_000_000_000) {
@@ -510,48 +512,53 @@ export function Editor() {
 
     const editedAt = activeNote.last_modified ? formatRelativeTime(activeNote.last_modified) : "";
 
+    const isMedia = activeNote ? isMediaFile(activeNote.path) : false;
+
     return (
         <div className="h-full w-full flex flex-col overflow-hidden">
             <div className="flex-1 min-h-0 overflow-y-auto editor-scroll-shell">
-                <EditorHeader
-                    title={noteRenaming.titleInput}
-                    onTitleChange={noteRenaming.setTitleInput}
-                    onTitleBlur={noteRenaming.handleRename}
-                    editedAt={editedAt}
-                    titleFontSizePx={titleFontSizePx}
-                    lastModified={activeNote.last_modified}
-                />
-                <div className="w-full border-b" style={dividerStyle} />
-                <EditorBody
-                    editorRef={editorRef}
-                    content={content}
-                    activeNotePath={activeNote.path}
-                    pluginExtensions={pluginExtensions}
-                    slashExtension={slashExtension}
-                    wikiLinkSuggestionsExtension={wikiLinkSuggestionsExtension}
-                    handleContentChange={handleContentChange}
-                    slashProps={slashProps}
-                    wikiLinkSuggestionsProps={wikiLinkSuggestionsProps}
-                    editorFontSizePx={editorFontSizePx}
-                    calloutPickerOpen={calloutPickerOpen}
-                    calloutPickerPos={calloutPickerPos}
-                    calloutPickerIndex={calloutPickerIndex}
-                    setCalloutPickerIndex={setCalloutPickerIndex}
-                    handleCalloutSelect={handleCalloutSelect}
-                    closeCalloutPicker={closeCalloutPicker}
-                    tablePickerOpen={tablePickerOpen}
-                    tablePickerPos={tablePickerPos}
-                    handleTableSelect={handleTableSelect}
-                    closeTablePicker={closeTablePicker}
-                    handleSlashSelect={handleSlashSelect}
-                />
+                {!isMedia && (
+                    <>
+                        <EditorHeader
+                            title={noteRenaming.titleInput}
+                            onTitleChange={noteRenaming.setTitleInput}
+                            onTitleBlur={noteRenaming.handleRename}
+                            editedAt={editedAt}
+                            titleFontSizePx={titleFontSizePx}
+                            lastModified={activeNote.last_modified}
+                        />
+                        <div className="w-full border-b" style={dividerStyle} />
+                        <EditorBody
+                            editorRef={editorRef}
+                            content={content}
+                            activeNotePath={activeNote.path}
+                            pluginExtensions={pluginExtensions}
+                            slashExtension={slashExtension}
+                            wikiLinkSuggestionsExtension={wikiLinkSuggestionsExtension}
+                            handleContentChange={handleContentChange}
+                            slashProps={slashProps}
+                            wikiLinkSuggestionsProps={wikiLinkSuggestionsProps}
+                            editorFontSizePx={editorFontSizePx}
+                            calloutPickerOpen={calloutPickerOpen}
+                            calloutPickerPos={calloutPickerPos}
+                            calloutPickerIndex={calloutPickerIndex}
+                            setCalloutPickerIndex={setCalloutPickerIndex}
+                            handleCalloutSelect={handleCalloutSelect}
+                            closeCalloutPicker={closeCalloutPicker}
+                            tablePickerOpen={tablePickerOpen}
+                            tablePickerPos={tablePickerPos}
+                            handleTableSelect={handleTableSelect}
+                            closeTablePicker={closeTablePicker}
+                            handleSlashSelect={handleSlashSelect}
+                        />
+                    </>
+                )}
+                {isMedia && (
+                    <div className="h-full w-full">
+                        <MediaPreview path={activeNote.path} />
+                    </div>
+                )}
             </div>
         </div>
     );
 }
-
-
-
-
-
-

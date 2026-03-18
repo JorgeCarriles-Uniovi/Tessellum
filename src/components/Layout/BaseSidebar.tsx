@@ -7,12 +7,13 @@ interface BaseSidebarProps {
     side: SidebarSide;
     isOpen: boolean;
     width: number | string;
+    isResizing?: boolean;
     className?: string;
     style?: CSSProperties;
     children: ReactNode;
 }
 
-export function BaseSidebar({ side, isOpen, width, className, style, children }: BaseSidebarProps) {
+export function BaseSidebar({ side, isOpen, width, isResizing, className, style, children }: BaseSidebarProps) {
     const borderColor = isOpen ? (style?.borderColor ?? "transparent") : "transparent";
 
     const mergedStyle: CSSProperties = {
@@ -20,7 +21,7 @@ export function BaseSidebar({ side, isOpen, width, className, style, children }:
         flexDirection: "column",
         height: "100%",
         overflow: "hidden",
-        transition: "all 300ms ease-in-out",
+        transition: isResizing ? "none" : "all 300ms ease-in-out",
         width: isOpen ? width : 0,
         opacity: isOpen ? 1 : 0,
         pointerEvents: isOpen ? "auto" : "none",

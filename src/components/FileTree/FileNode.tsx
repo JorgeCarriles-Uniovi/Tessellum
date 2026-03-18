@@ -6,7 +6,11 @@ import {
     File as FileIcon,
     Folder as FolderIcon,
     FolderOpen,
+    FileText,
+    FileImage,
+    FileDown,
 } from 'lucide-react';
+import { TbFileTypePdf } from "react-icons/tb";
 
 export type DropPosition = 'before' | 'after' | 'inside' | null;
 
@@ -71,13 +75,31 @@ function getSelectionClassName(isSelected: boolean, isActive: boolean): string {
     return 'group-hover:bg-secondary/40 text-muted-foreground group-hover:text-foreground';
 }
 
-function renderFileIcon(isDir: boolean, isOpen: boolean): JSX.Element {
+function renderFileIcon(isDir: boolean, isOpen: boolean, fileName?: string): JSX.Element {
+
     if (isDir) {
         return isOpen
-            ? <FolderOpen size={16} strokeWidth={2} />
-            : <FolderIcon size={16} strokeWidth={2} />;
+            ? <FolderOpen size={16} strokeWidth={2} style={{ marginRight: `0.5rem` }} />
+            : <FolderIcon size={16} strokeWidth={2} style={{ marginRight: `0.5rem` }} />;
     }
-    return <FileIcon size={14} strokeWidth={2} />;
+
+    if (fileName) {
+        const ext = fileName.toLowerCase().split('.').pop() || "";
+        if (ext === "md") {
+            return <FileDown size={14} strokeWidth={2.5} style={{ marginRight: `0.5rem` }} />;
+        }
+        if (ext === "txt") {
+            return <FileText size={14} strokeWidth={2} style={{ marginRight: `0.5rem` }} />;
+        }
+        if (["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(ext)) {
+            return <FileImage size={14} strokeWidth={2} style={{ marginRight: `0.5rem` }} />;
+        }
+        if("pdf".includes(ext)){
+            return <TbFileTypePdf size={14} strokeWidth={2} style={{marginRight: `0.5rem`}}></TbFileTypePdf>
+        }
+    }
+
+    return <FileIcon size={14} strokeWidth={2} style={{ marginRight: `0.5rem` }} />;
 }
 
 function renderExpandIcon(isDir: boolean, isOpen: boolean): JSX.Element | null {
@@ -276,7 +298,7 @@ function FileNodeRow({
                          onExpandClick,
                      }: FileNodeRowProps) {
     const selectionClassName = getSelectionClassName(isSelected, isActive);
-    const fileIconClassName = `mr-1.5 ${node.is_dir ? "text-primary opacity-90" : "text-muted-foreground opacity-70"}`;
+    const fileIconClassName = `mr-4 ${node.is_dir ? "text-primary opacity-90" : "text-muted-foreground opacity-70"}`;
     const selectionWrapperStyle = { height: "32px", paddingLeft: "4px", paddingRight: "32px" };
 
     const nodeStyles: React.CSSProperties = {
@@ -303,9 +325,9 @@ function FileNodeRow({
             {/* 1. Selection Highlight Wrapper - Constrained to Content Width */}
             <div
                 className={`
-                    inline-flex items-center pr-6 max-w-full overflow-hidden mr-2
+                    flex items-center pr-2 max-w-full overflow-hidden mr-2
                     text-[13px] font-medium transition-all duration-200
-                    rounded-md min-w-[120px]
+                    rounded-md w-full
                     ${selectionClassName}
                 `}
                 style={selectionWrapperStyle}
@@ -320,14 +342,26 @@ function FileNodeRow({
 
                 {/* File Type Icon */}
                 <span className={fileIconClassName}>
-                    {renderFileIcon(node.is_dir, isOpen)}
+                    {renderFileIcon(node.is_dir, isOpen, node.name)}
                 </span>
 
                 {/* Name */}
-                <span className="truncate min-w-0 mr-6">{node.name}</span>
+                <span className="truncate min-w-0 flex-1">{
+                    node.is_dir ? node.name : (() => {
+                        const dotIndex = node.name.lastIndexOf('.');
+                        return dotIndex !== -1 ? node.name.slice(0, dotIndex) : node.name;
+                    })()
+                }</span>
+
+                {/* Extension for non-markdown files */}
+                {!node.is_dir && !node.name.toLowerCase().endsWith('.md') && (
+                    <span className="ml-auto text-[10px] font-bold opacity-40 shrink-0 uppercase pr-1">
+                        {node.name.split('.').pop()}
+                    </span>
+                )}
 
                 {/* Spacer for extra breathing room */}
-                <div className="w-2 shrink-0" />
+                <div className="w-1 shrink-0" />
             </div>
         </div>
     );

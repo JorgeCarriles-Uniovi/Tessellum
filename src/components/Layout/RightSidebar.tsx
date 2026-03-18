@@ -4,6 +4,7 @@ import { Text } from "@codemirror/state";
 import { Link2, List, Tag } from "lucide-react";
 import { theme } from "../../styles/theme";
 import { BaseSidebar } from "./BaseSidebar";
+import { cn } from "../../lib/utils";
 import { useEditorStore } from "../../stores/editorStore";
 import { useTessellumApp } from "../../plugins/TessellumApp";
 import { parseFrontmatter } from "../Editor/extensions/frontmatter/frontmatter-parser";
@@ -168,6 +169,7 @@ function useSidebarWidth() {
         const parsed = stored ? Number.parseInt(stored, 10) : NaN;
         return Number.isFinite(parsed) ? clampWidth(parsed) : 288;
     });
+    const [isResizing, setIsResizing] = useState(false);
     const isResizingRef = useRef(false);
 
     useEffect(() => {
@@ -181,6 +183,7 @@ function useSidebarWidth() {
         const handleUp = () => {
             if (isResizingRef.current) {
                 isResizingRef.current = false;
+                setIsResizing(false);
                 document.body.style.cursor = "";
                 document.body.style.userSelect = "";
             }
@@ -197,11 +200,12 @@ function useSidebarWidth() {
     const onResizeStart = (event: ReactMouseEvent<HTMLDivElement>) => {
         event.preventDefault();
         isResizingRef.current = true;
+        setIsResizing(true);
         document.body.style.cursor = "col-resize";
         document.body.style.userSelect = "none";
     };
 
-    return { sidebarWidth, onResizeStart };
+    return { sidebarWidth, isResizing, onResizeStart };
 }
 
 function useBacklinks(
@@ -406,7 +410,7 @@ function OutlineSection() {
 export function RightSidebar() {
     const { activeNote, activeNoteContent, files, isRightSidebarOpen } = useEditorStore();
     const app = useTessellumApp();
-    const { sidebarWidth, onResizeStart } = useSidebarWidth();
+    const { sidebarWidth, isResizing, onResizeStart } = useSidebarWidth();
     const { backlinks, isLoadingBacklinks } = useBacklinks(app, activeNote?.path, files);
     const backendTags = useBackendTags(app, activeNote?.path);
 
@@ -418,20 +422,28 @@ export function RightSidebar() {
             side="right"
             isOpen={isRightSidebarOpen}
             width={sidebarWidth}
-            className="hidden xl:flex flex-col overflow-y-auto relative"
+            isResizing={isResizing}
+            className="hidden xl:flex flex-col relative"
             style={{
                 backgroundColor: theme.colors.background.primary,
                 borderColor: theme.colors.border.light,
                 padding: isRightSidebarOpen ? "1.75rem" : "0",
+                overflow: "visible", // To allow the handle to stay on the edge
             }}
         >
             <div
-                className="absolute left-0 top-0 h-full w-1 cursor-col-resize"
+                className="absolute left-0 top-0 h-full cursor-col-resize group z-50"
                 onMouseDown={onResizeStart}
                 style={{
-                    backgroundColor: "transparent",
+                    width: "6px",
+                    marginLeft: "-3px",
                 }}
-            />
+            >
+                <div className={cn(
+                    "w-[2px] h-full transition-colors",
+                    isResizing ? "bg-blue-500" : "bg-transparent group-hover:bg-gray-200"
+                )} />
+            </div>
             <div
                 className="flex flex-col space-y-10 transition-all duration-300 ease-in-out"
                 style={{
