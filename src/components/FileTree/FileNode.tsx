@@ -94,7 +94,7 @@ function renderFileIcon(isDir: boolean, isOpen: boolean, fileName?: string): JSX
         if (["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(ext)) {
             return <FileImage size={14} strokeWidth={2} style={{ marginRight: `0.5rem` }} />;
         }
-        if("pdf".includes(ext)){
+        if(ext === "pdf"){
             return <TbFileTypePdf size={14} strokeWidth={2} style={{marginRight: `0.5rem`}}></TbFileTypePdf>
         }
     }

@@ -19,6 +19,7 @@ import { registerBuiltinPlugins } from "./plugins/builtin";
 import { useWikiLinkNavigation } from "./components/Editor/hooks";
 import { StatusBar } from "./components/Layout/StatusBar";
 import { RightSidebar } from "./components/Layout/RightSidebar";
+import {SettingsModal} from "./components/Settings/SettingsModal.tsx";
 
 const THEME_KEY = "tessellum-theme";
 const WINDOW_KEY = "tessellum-window";
@@ -37,11 +38,13 @@ function App() {
     const [isLoaded, setIsLoaded] = useState(false);
     const [workspaceRestored, setWorkspaceRestored] = useState(false);
     const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+    const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
     const [themeName, setThemeName] = useState<string>(() => localStorage.getItem(THEME_KEY) || "warm-paper");
 
     const navigateToWikiLink = useWikiLinkNavigation();
 
     const closeCommandPalette = () => setIsCommandPaletteOpen(false);
+    const closeSettingsPanel = () => setIsSettingsPanelOpen(false);
 
     const app = useMemo(() => {
         const isNew = !(TessellumApp as any)._instance;
@@ -87,6 +90,13 @@ function App() {
     useEffect(() => {
         const ref = app.events.on("ui:open-command-palette", () => {
             setIsCommandPaletteOpen(true);
+        });
+        return () => app.events.off(ref);
+    }, [app]);
+
+    useEffect(() => {
+        const ref = app.events.on("ui:open-settings", () => {
+            setIsSettingsPanelOpen(true);
         });
         return () => app.events.off(ref);
     }, [app]);
@@ -307,7 +317,7 @@ function App() {
                     </div>
 
                     <CommandPalette isOpen={isCommandPaletteOpen} onClose={closeCommandPalette} />
-
+                    <SettingsModal isOpen={isSettingsPanelOpen} onClose={closeSettingsPanel} />
                     <Toaster position="bottom-right" richColors />
                 </div>
             ) : null}

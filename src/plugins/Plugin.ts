@@ -58,6 +58,7 @@ export abstract class Plugin {
         this.app.ui.unregisterSidebarActions(this.manifest.id);
         this.app.ui.unregisterPaletteCommands(this.manifest.id);
         this.app.ui.unregisterUIActions(this.manifest.id);
+        this.app.ui.unregisterSettingsTab(this.manifest.id);
         this.app.events.removeAll(this._eventRefs);
         this._eventRefs = [];
     }

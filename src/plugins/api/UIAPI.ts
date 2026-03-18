@@ -38,6 +38,16 @@ export interface UIAction {
     region: UIActionRegion;
 }
 
+export type SettingsTab = {
+    id: string;
+    name: string;
+    icon?: ReactNode;
+    component: ReactNode;
+    disabled?: boolean;
+    order?: number;
+    isActive?: boolean;
+}
+
 /**
  * UI contribution API.
  */
@@ -46,6 +56,7 @@ export class UIAPI {
     private sidebarActions = new Map<string, SidebarAction[]>();
     private paletteCommands = new Map<string, PaletteCommand[]>();
     private uiActions = new Map<string, UIAction[]>();
+    private settingsTabs = new Map<string, SettingsTab[]>();
 
     constructor() {
     }
@@ -141,8 +152,29 @@ export class UIAPI {
         return result;
     }
 
+    // --- Settings tabs ---
+
+    registerSettingsTab(pluginId: string, tab: SettingsTab): void {
+        if (!this.settingsTabs.has(pluginId)) {
+            this.settingsTabs.set(pluginId, []);
+        }
+        this.settingsTabs.get(pluginId)!.push(tab);
+    }
+
+    unregisterSettingsTab(pluginId: string): void {
+        this.settingsTabs.delete(pluginId);
+    }
+
+    getSettingsTabs(): SettingsTab[] {
+        const result: SettingsTab[] = [];
+        for (const tabs of this.settingsTabs.values()) {
+            result.push(...tabs);
+        }
+        return result;
+    }
+
+
     // --- Future expansion ---
-    // registerSettingsTab(pluginId: string, tab: SettingsTab): void;
     // registerSidebarView(pluginId: string, view: SidebarViewConfig): void;
     // registerRibbonAction(pluginId: string, action: RibbonAction): void;
     // addStatusBarItem(pluginId: string): HTMLElement;
