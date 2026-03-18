@@ -13,3 +13,6 @@ export type { GraphActions, GraphState, GraphStore } from "./graphStore";
 
 export { useSelectionStore } from "./selectionStore";
 export type { SelectionActions, SelectionState, SelectionStore } from "./selectionStore";
+
+export { useSettingsStore } from "./settingsStore";
+export type { SettingsActions, SettingsState, SettingsStore } from "./settingsStore";

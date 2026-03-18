@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { FileMetadata, TreeNode } from "./types.ts";
-import { useGraphStore, useUiStore, useVaultStore } from "./stores";
+import { useEditorContentStore, useGraphStore, useSettingsStore, useUiStore, useVaultStore } from "./stores";
 import { listen } from "@tauri-apps/api/event";
 import { exists } from '@tauri-apps/plugin-fs';
 import { getCurrentWindow, LogicalPosition, LogicalSize } from '@tauri-apps/api/window';
@@ -40,6 +40,8 @@ function App() {
     const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
     const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
     const [themeName, setThemeName] = useState<string>(() => localStorage.getItem(THEME_KEY) || "warm-paper");
+    const editorFontSizePx = useEditorContentStore((state) => state.editorFontSizePx);
+    const { fontFamily, editorLineHeight, editorLetterSpacing } = useSettingsStore();
 
     const navigateToWikiLink = useWikiLinkNavigation();
 
@@ -117,6 +119,21 @@ function App() {
         root.classList.add(`theme-${themeName}`);
         localStorage.setItem(THEME_KEY, themeName);
     }, [themeName]);
+
+    useEffect(() => {
+        document.documentElement.style.fontSize = `${editorFontSizePx}px`;
+    }, [editorFontSizePx]);
+
+    useEffect(() => {
+        const root = document.documentElement;
+        const fallback = "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Helvetica Neue', sans-serif";
+        const hasComma = fontFamily.includes(",");
+        const needsQuotes = fontFamily.includes(" ");
+        const family = hasComma ? fontFamily : `${needsQuotes ? `"${fontFamily}"` : fontFamily}, ${fallback}`;
+        root.style.setProperty("--font-sans", family);
+        root.style.setProperty("--editor-line-height", String(editorLineHeight));
+        root.style.setProperty("--editor-letter-spacing", `${editorLetterSpacing}em`);
+    }, [fontFamily, editorLineHeight, editorLetterSpacing]);
 
     useEffect(() => {
         const appWindow = getCurrentWindow();

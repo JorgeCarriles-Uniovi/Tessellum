@@ -36,9 +36,9 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                 <div className="w-[240px] bg-[#f8fafc] border-r border-[#e2e8f0] p-6 flex flex-col">
                     <div className="mb-8"
                          style={{
-                             paddingTop: `1rem`,
+                             paddingTop: `1.5rem`,
                              paddingBottom: `0.2rem`,
-                             paddingLeft: `1rem`,
+                             paddingLeft: `1.5rem`,
                              paddingRight: `1rem`
                          }}>
                         <h2 className="text-xl font-bold text-[#0f172a] tracking-tight">Settings</h2>
@@ -128,34 +128,6 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
                         {settingsTabs.find(t => t.id === activeTab)?.component ||
                             <div>No settings available for this tab.</div>}
-                    </div>
-
-                    {/* Footer */}
-                    <div className="h-16 border-t border-[#f1f5f9] px-8 flex items-center justify-end gap-3">
-                        <button
-                            onClick={onClose}
-                            className="px-4 py-2 text-sm font-semibold text-[#64748b] hover:text-[#0f172a] transition-colors"
-                            style={{
-                                paddingTop: `0.5rem`,
-                                paddingBottom: `0.5rem`,
-                                paddingLeft: `1rem`,
-                                paddingRight: `1rem`
-                            }}
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            onClick={onClose}
-                            className="px-4 py-2 bg-[#3d14b8] text-white rounded-lg text-sm font-semibold hover:bg-[#2d0f8a] transition-colors shadow-lg shadow-[rgba(61,20,184,0.25)]"
-                            style={{
-                                paddingTop: `0.5rem`,
-                                paddingBottom: `0.5rem`,
-                                paddingLeft: `1rem`,
-                                paddingRight: `1rem`
-                            }}
-                        >
-                            Save Changes
-                        </button>
                     </div>
                 </div>
             </div>
