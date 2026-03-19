@@ -13,8 +13,9 @@ export function ToggleSetting({ label, description, checked, onChange }: { label
             </div>
             <button
                 onClick={() => onChange(!checked)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${checked ? 'bg-[#3d14b8]' : 'bg-[#cbd5e1]'
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${checked ? '' : 'bg-[#cbd5e1]'
                 }`}
+                style={{ backgroundColor: checked ? "var(--color-blue-600)" : undefined }}
             >
                 <span
                     className={`inline-block size-4 transform rounded-full bg-white transition-transform shadow-sm ${checked ? 'translate-x-6' : 'translate-x-1'

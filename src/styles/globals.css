@@ -70,13 +70,19 @@ body {
     --color-border-dark: #9ca3af;
 
     /* Spacing */
+    --spacing-0: 0;
     --spacing-1: 0.25rem;
     --spacing-2: 0.5rem;
     --spacing-3: 0.75rem;
     --spacing-4: 1rem;
+    --spacing-5: 1.25rem;
     --spacing-6: 1.5rem;
     --spacing-8: 2rem;
+    --spacing-10: 2.5rem;
     --spacing-12: 3rem;
+    --spacing-16: 4rem;
+    --spacing-20: 5rem;
+    --spacing-24: 6rem;
 
     /* Border radius */
     --radius: 0.625rem;
@@ -88,7 +94,7 @@ body {
 
     /* Shadows */
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-
+    --shadow-base: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px 0 rgb(0 0 0 / 0.06);
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -1px rgb(0 0 0 / 0.06);
     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.05);
     --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 10px 10px -5px rgb(0 0 0 / 0.04);
@@ -1096,4 +1102,14 @@ body {
     --cm-function: #2563eb;
     --cm-hashtag: #7c3aed;
     --cm-hashtag-bg: rgba(124, 58, 237, 0.1);
+}
+
+:root[data-icon-style="outline"] .lucide {
+    fill: none;
+    stroke-width: 1.75;
+}
+
+:root[data-icon-style="filled"] .lucide {
+    fill: currentColor;
+    stroke-width: 1.25;
 }

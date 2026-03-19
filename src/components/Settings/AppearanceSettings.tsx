@@ -3,18 +3,25 @@ import { ThemeOption } from "./items/ThemeOption.tsx";
 import { ToggleSetting } from "./items/ToggleSetting.tsx";
 import { Check, Monitor, Moon, Sun } from "lucide-react";
 import { useState } from "react";
+import { useAppearanceStore } from "../../stores";
 
 export function AppearanceSettings() {
     const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('light');
     const [themeSchedule, setThemeSchedule] = useState<'system' | 'sun' | 'custom'>('system');
-    const [accentColor, setAccentColor] = useState('#3d14b8');
-    const [customAccent, setCustomAccent] = useState('#3d14b8');
-    const [density, setDensity] = useState<'compact' | 'comfortable'>('comfortable');
-    const [radius, setRadius] = useState('10');
-    const [shadow, setShadow] = useState<'subtle' | 'medium' | 'strong'>('medium');
-    const [iconStyle, setIconStyle] = useState<'outline' | 'filled'>('outline');
-    const [sidebarPosition, setSidebarPosition] = useState<'left' | 'right'>('left');
-    const [toolbarVisible, setToolbarVisible] = useState(true);
+    const accentColor = useAppearanceStore((state) => state.accentColor);
+    const setAccentColor = useAppearanceStore((state) => state.setAccentColor);
+    const density = useAppearanceStore((state) => state.density);
+    const setDensity = useAppearanceStore((state) => state.setDensity);
+    const radius = useAppearanceStore((state) => state.radius);
+    const setRadius = useAppearanceStore((state) => state.setRadius);
+    const shadow = useAppearanceStore((state) => state.shadow);
+    const setShadow = useAppearanceStore((state) => state.setShadow);
+    const iconStyle = useAppearanceStore((state) => state.iconStyle);
+    const setIconStyle = useAppearanceStore((state) => state.setIconStyle);
+    const sidebarPosition = useAppearanceStore((state) => state.sidebarPosition);
+    const setSidebarPosition = useAppearanceStore((state) => state.setSidebarPosition);
+    const toolbarVisible = useAppearanceStore((state) => state.toolbarVisible);
+    const setToolbarVisible = useAppearanceStore((state) => state.setToolbarVisible);
 
     const pillStyle = {
         paddingTop: `0.5rem`,
@@ -59,30 +66,45 @@ export function AppearanceSettings() {
                     <button
                         onClick={() => setThemeSchedule('system')}
                         className={`px-3 py-2 rounded-lg border text-xs font-semibold transition-all ${themeSchedule === 'system'
-                            ? 'border-[#3d14b8] bg-[rgba(61,20,184,0.05)] text-[#3d14b8]'
+                            ? 'text-[var(--color-blue-600)]'
                             : 'border-[#e2e8f0] text-[#64748b] hover:border-[#cbd5e1]'
                         }`}
-                        style={pillStyle}
+                        style={{
+                            ...pillStyle,
+                            borderColor: themeSchedule === 'system' ? "var(--color-blue-600)" : undefined,
+                            backgroundColor: themeSchedule === 'system' ? "color-mix(in srgb, var(--color-blue-600) 10%, transparent)" : undefined,
+                            color: themeSchedule === 'system' ? "var(--color-blue-600)" : undefined,
+                        }}
                     >
                         System
                     </button>
                     <button
                         onClick={() => setThemeSchedule('sun')}
                         className={`px-3 py-2 rounded-lg border text-xs font-semibold transition-all ${themeSchedule === 'sun'
-                            ? 'border-[#3d14b8] bg-[rgba(61,20,184,0.05)] text-[#3d14b8]'
+                            ? 'text-[var(--color-blue-600)]'
                             : 'border-[#e2e8f0] text-[#64748b] hover:border-[#cbd5e1]'
                         }`}
-                        style={pillStyle}
+                        style={{
+                            ...pillStyle,
+                            borderColor: themeSchedule === 'sun' ? "var(--color-blue-600)" : undefined,
+                            backgroundColor: themeSchedule === 'sun' ? "color-mix(in srgb, var(--color-blue-600) 10%, transparent)" : undefined,
+                            color: themeSchedule === 'sun' ? "var(--color-blue-600)" : undefined,
+                        }}
                     >
                         Sunrise / Sunset
                     </button>
                     <button
                         onClick={() => setThemeSchedule('custom')}
                         className={`px-3 py-2 rounded-lg border text-xs font-semibold transition-all ${themeSchedule === 'custom'
-                            ? 'border-[#3d14b8] bg-[rgba(61,20,184,0.05)] text-[#3d14b8]'
+                            ? 'text-[var(--color-blue-600)]'
                             : 'border-[#e2e8f0] text-[#64748b] hover:border-[#cbd5e1]'
                         }`}
-                        style={pillStyle}
+                        style={{
+                            ...pillStyle,
+                            borderColor: themeSchedule === 'custom' ? "var(--color-blue-600)" : undefined,
+                            backgroundColor: themeSchedule === 'custom' ? "color-mix(in srgb, var(--color-blue-600) 10%, transparent)" : undefined,
+                            color: themeSchedule === 'custom' ? "var(--color-blue-600)" : undefined,
+                        }}
                     >
                         Custom
                     </button>
@@ -99,7 +121,7 @@ export function AppearanceSettings() {
                             <input
                                 type="time"
                                 defaultValue="08:00"
-                                className="px-2 py-1 border border-[#e2e8f0] rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-[#3d14b8] focus:border-transparent transition-all"
+                                className="px-2 py-1 border border-[#e2e8f0] rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-blue-600)] focus:border-transparent transition-all"
                                 style={timeInputStyle}
                             />
                         </div>
@@ -108,7 +130,7 @@ export function AppearanceSettings() {
                             <input
                                 type="time"
                                 defaultValue="20:00"
-                                className="px-2 py-1 border border-[#e2e8f0] rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-[#3d14b8] focus:border-transparent transition-all"
+                                className="px-2 py-1 border border-[#e2e8f0] rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-blue-600)] focus:border-transparent transition-all"
                                 style={timeInputStyle}
                             />
                         </div>
@@ -126,9 +148,12 @@ export function AppearanceSettings() {
                         <button
                             key={color}
                             onClick={() => setAccentColor(color)}
-                            className={`size-10 rounded-lg border-2 transition-all relative group ${accentColor === color ? 'border-[#3d14b8]' : 'border-transparent hover:border-[#e2e8f0]'
+                            className={`size-10 rounded-lg border-2 transition-all relative group ${accentColor === color ? 'border-transparent' : 'border-transparent hover:border-[#e2e8f0]'
                             }`}
-                            style={{ backgroundColor: color }}
+                            style={{
+                                backgroundColor: color,
+                                borderColor: accentColor === color ? "var(--color-blue-600)" : undefined,
+                            }}
                         >
                             {accentColor === color && (
                                 <Check className="size-4 text-white absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
@@ -139,21 +164,19 @@ export function AppearanceSettings() {
                 <div className="mt-4 flex items-center gap-3">
                     <input
                         type="color"
-                        value={customAccent}
+                        value={accentColor}
                         onChange={(e) => {
-                            setCustomAccent(e.target.value);
                             setAccentColor(e.target.value);
                         }}
                         className="size-10 rounded-lg border border-[#e2e8f0] bg-white cursor-pointer"
                     />
                     <input
                         type="text"
-                        value={customAccent}
+                        value={accentColor}
                         onChange={(e) => {
-                            setCustomAccent(e.target.value);
                             setAccentColor(e.target.value);
                         }}
-                        className="px-3 py-2 border border-[#e2e8f0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#3d14b8] focus:border-transparent transition-all w-32"
+                        className="px-3 py-2 border border-[#e2e8f0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-blue-600)] focus:border-transparent transition-all w-32"
                         style={pillStyle}
                     />
                     <div
@@ -170,7 +193,7 @@ export function AppearanceSettings() {
                         <select
                             value={density}
                             onChange={(e) => setDensity(e.target.value as 'compact' | 'comfortable')}
-                            className="px-3 py-2 border border-[#e2e8f0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#3d14b8] focus:border-transparent transition-all bg-white cursor-pointer"
+                            className="px-3 py-2 border border-[#e2e8f0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-blue-600)] focus:border-transparent transition-all bg-white cursor-pointer"
                             style={pillStyle}
                         >
                             <option value="compact">Compact</option>
@@ -181,8 +204,8 @@ export function AppearanceSettings() {
                         <label className="text-sm text-[#475569]">Corner radius</label>
                         <select
                             value={radius}
-                            onChange={(e) => setRadius(e.target.value)}
-                            className="px-3 py-2 border border-[#e2e8f0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#3d14b8] focus:border-transparent transition-all bg-white cursor-pointer"
+                            onChange={(e) => setRadius(e.target.value as '6' | '10' | '16')}
+                            className="px-3 py-2 border border-[#e2e8f0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-blue-600)] focus:border-transparent transition-all bg-white cursor-pointer"
                             style={pillStyle}
                         >
                             <option value="6">Sharp</option>
@@ -195,7 +218,7 @@ export function AppearanceSettings() {
                         <select
                             value={shadow}
                             onChange={(e) => setShadow(e.target.value as 'subtle' | 'medium' | 'strong')}
-                            className="px-3 py-2 border border-[#e2e8f0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#3d14b8] focus:border-transparent transition-all bg-white cursor-pointer"
+                            className="px-3 py-2 border border-[#e2e8f0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-blue-600)] focus:border-transparent transition-all bg-white cursor-pointer"
                             style={pillStyle}
                         >
                             <option value="subtle">Subtle</option>
@@ -208,7 +231,7 @@ export function AppearanceSettings() {
                         <select
                             value={iconStyle}
                             onChange={(e) => setIconStyle(e.target.value as 'outline' | 'filled')}
-                            className="px-3 py-2 border border-[#e2e8f0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#3d14b8] focus:border-transparent transition-all bg-white cursor-pointer"
+                            className="px-3 py-2 border border-[#e2e8f0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-blue-600)] focus:border-transparent transition-all bg-white cursor-pointer"
                             style={pillStyle}
                         >
                             <option value="outline">Outline</option>
@@ -225,7 +248,7 @@ export function AppearanceSettings() {
                         <select
                             value={sidebarPosition}
                             onChange={(e) => setSidebarPosition(e.target.value as 'left' | 'right')}
-                            className="px-3 py-2 border border-[#e2e8f0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#3d14b8] focus:border-transparent transition-all bg-white cursor-pointer"
+                            className="px-3 py-2 border border-[#e2e8f0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-blue-600)] focus:border-transparent transition-all bg-white cursor-pointer"
                             style={pillStyle}
                         >
                             <option value="left">Left</option>

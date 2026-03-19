@@ -37,8 +37,17 @@ export function SidebarContextMenu({
     return (
         <div
             ref={menuRef}
-            className="fixed bg-white border border-gray-200 shadow-xl rounded-lg py-1 w-48 z-50 text-sm animate-in fade-in zoom-in-95 duration-100"
-            style={{ top: y, left: x ,paddingTop: "8px", paddingBottom: "8px", paddingLeft: "1rem", paddingRight: "1rem"}}
+            className="fixed bg-white border border-gray-200 py-1 w-48 z-50 text-sm animate-in fade-in zoom-in-95 duration-100"
+            style={{
+                top: y,
+                left: x,
+                paddingTop: "8px",
+                paddingBottom: "8px",
+                paddingLeft: "1rem",
+                paddingRight: "1rem",
+                borderRadius: "var(--radius-lg)",
+                boxShadow: "var(--shadow-xl)",
+            }}
             onClick={function(e) { return e.stopPropagation() }} // Prevent bubbling
         >
             {/* Header: File Name */}

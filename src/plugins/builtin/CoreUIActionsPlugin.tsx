@@ -16,8 +16,8 @@ import {
 import { Plugin } from "../Plugin";
 import type { PluginManifest } from "../types";
 import { createNoteInDir } from "../../utils/noteUtils";
-import {GeneralSettings} from "../../components/Settings/GeneralSettings.tsx";
-import {EditorSettings} from "../../components/Settings/EditorSettings.tsx";
+import { GeneralSettings } from "../../components/Settings/GeneralSettings.tsx";
+import { EditorSettings } from "../../components/Settings/EditorSettings.tsx";
 import {
     AppearanceSettings
 } from "../../components/Settings/AppearanceSettings.tsx";
@@ -100,7 +100,7 @@ export class CoreUIActionsPlugin extends Plugin {
             id: "nav-back",
             label: "Back",
             icon: <ArrowLeft size={16} />,
-            onClick: () => {},
+            onClick: () => { },
             disabled: true,
             tooltip: "Coming soon",
             region: "titlebar-left",
@@ -110,7 +110,7 @@ export class CoreUIActionsPlugin extends Plugin {
             id: "nav-forward",
             label: "Forward",
             icon: <ArrowRight size={16} />,
-            onClick: () => {},
+            onClick: () => { },
             disabled: true,
             tooltip: "Coming soon",
             region: "titlebar-left",
@@ -170,7 +170,7 @@ export class CoreUIActionsPlugin extends Plugin {
             id: "sidebar-trash",
             label: "Trash",
             icon: <Trash2 size={16} />,
-            onClick: () => {},
+            onClick: () => { },
             disabled: true,
             tooltip: "Coming soon",
             region: "sidebar-footer",
@@ -264,19 +264,20 @@ export class CoreUIActionsPlugin extends Plugin {
             id: "Appearance",
             name: "Appearance",
             icon: <Palette size={16} />,
-            component: <AppearanceSettings/>
+            component: <AppearanceSettings></AppearanceSettings>
         });
         this.app.ui.registerSettingsTab(this.manifest.id, {
             id: "Shortcuts",
             name: "Shortcuts",
             icon: <Keyboard size={16} />,
-            component: <ShortcutsSettings/>
+            component: <ShortcutsSettings></ShortcutsSettings>
         });
         this.app.ui.registerSettingsTab(this.manifest.id, {
             id: "Accessibility",
             name: "Accessibility",
             icon: <Eye size={16} />,
-            component: <AccessibilitySettings/>
+            component: <AccessibilitySettings></AccessibilitySettings>
         });
     }
 }
+

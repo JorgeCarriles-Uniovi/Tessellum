@@ -22,7 +22,7 @@ export function AccessibilitySettings() {
                     <select
                         value={uiScale}
                         onChange={(e) => setUiScale(e.target.value)}
-                        className="px-3 py-2 border border-[#e2e8f0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#3d14b8] focus:border-transparent transition-all bg-white cursor-pointer"
+                        className="px-3 py-2 border border-[#e2e8f0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-blue-600)] focus:border-transparent transition-all bg-white cursor-pointer"
                         style={{
                             paddingTop: `0.5rem`,
                             paddingBottom: `0.5rem`,
@@ -53,7 +53,7 @@ export function AccessibilitySettings() {
                     <select
                         value={colorFilter}
                         onChange={(e) => setColorFilter(e.target.value)}
-                        className="px-3 py-2 border border-[#e2e8f0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#3d14b8] focus:border-transparent transition-all bg-white cursor-pointer"
+                        className="px-3 py-2 border border-[#e2e8f0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-blue-600)] focus:border-transparent transition-all bg-white cursor-pointer"
                         style={{
                             paddingTop: `0.5rem`,
                             paddingBottom: `0.5rem`,

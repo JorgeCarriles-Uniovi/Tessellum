@@ -2,47 +2,47 @@ export const theme = {
     colors: {
         // Grayscale
         gray: {
-            50: '#f9fafb',
-            100: '#f3f4f6',
-            200: '#e5e7eb',
-            300: '#d1d5db',
-            400: '#9ca3af',
-            500: '#6b7280',
-            600: '#4b5563',
-            700: '#374151',
-            800: '#1f2937',
-            900: '#111827',
+            50: 'var(--color-gray-50)',
+            100: 'var(--color-gray-100)',
+            200: 'var(--color-gray-200)',
+            300: 'var(--color-gray-300)',
+            400: 'var(--color-gray-400)',
+            500: 'var(--color-gray-500)',
+            600: 'var(--color-gray-600)',
+            700: 'var(--color-gray-700)',
+            800: 'var(--color-gray-800)',
+            900: 'var(--color-gray-900)',
         },
         // Brand/Accent colors
         blue: {
-            50: '#eff6ff',
-            100: '#dbeafe',
-            200: '#bfdbfe',
-            300: '#93c5fd',
-            400: '#60a5fa',
-            500: '#3b82f6',
-            600: '#2563eb',
-            700: '#1d4ed8',
-            800: '#1e40af',
-            900: '#1e3a8a',
+            50: 'var(--color-blue-50)',
+            100: 'var(--color-blue-100)',
+            200: 'var(--color-blue-200)',
+            300: 'var(--color-blue-300)',
+            400: 'var(--color-blue-400)',
+            500: 'var(--color-blue-500)',
+            600: 'var(--color-blue-600)',
+            700: 'var(--color-blue-700)',
+            800: 'var(--color-blue-800)',
+            900: 'var(--color-blue-900)',
         },
         // Semantic colors
         background: {
-            primary: '#ffffff',
-            secondary: '#f9fafb',
-            tertiary: '#f3f4f6',
+            primary: 'var(--color-bg-primary)',
+            secondary: 'var(--color-bg-secondary)',
+            tertiary: 'var(--color-bg-tertiary)',
         },
         text: {
-            primary: '#111827',
-            secondary: '#1f2937',
-            tertiary: '#374151',
-            muted: '#6b7280',
-            link: '#2563eb',
+            primary: 'var(--color-text-primary)',
+            secondary: 'var(--color-text-secondary)',
+            tertiary: 'var(--color-text-tertiary)',
+            muted: 'var(--color-text-muted)',
+            link: 'var(--color-text-link)',
         },
         border: {
-            light: '#e5e7eb',
-            medium: '#d1d5db',
-            dark: '#9ca3af',
+            light: 'var(--color-border-light)',
+            medium: 'var(--color-border-medium)',
+            dark: 'var(--color-border-dark)',
         },
     },
 
@@ -77,38 +77,38 @@ export const theme = {
     },
 
     spacing: {
-        0: '0',
-        1: '0.25rem',   // 4px
-        2: '0.5rem',    // 8px
-        3: '0.75rem',   // 12px
-        4: '1rem',      // 16px
-        5: '1.25rem',   // 20px
-        6: '1.5rem',    // 24px
-        8: '2rem',      // 32px
-        10: '2.5rem',   // 40px
-        12: '3rem',     // 48px
-        16: '4rem',     // 64px
-        20: '5rem',     // 80px
-        24: '6rem',     // 96px
+        0: 'var(--spacing-0)',
+        1: 'var(--spacing-1)',
+        2: 'var(--spacing-2)',
+        3: 'var(--spacing-3)',
+        4: 'var(--spacing-4)',
+        5: 'var(--spacing-5)',
+        6: 'var(--spacing-6)',
+        8: 'var(--spacing-8)',
+        10: 'var(--spacing-10)',
+        12: 'var(--spacing-12)',
+        16: 'var(--spacing-16)',
+        20: 'var(--spacing-20)',
+        24: 'var(--spacing-24)',
     },
 
     borderRadius: {
         none: '0',
-        sm: '0.125rem',   // 2px
-        base: '0.25rem',  // 4px
-        md: '0.375rem',   // 6px
-        lg: '0.5rem',     // 8px
-        xl: '0.75rem',    // 12px
-        '2xl': '1rem',    // 16px
+        sm: 'var(--radius-sm)',
+        base: 'var(--radius-base)',
+        md: 'var(--radius-md)',
+        lg: 'var(--radius-lg)',
+        xl: 'var(--radius-xl)',
+        '2xl': 'var(--radius-xl)',
         full: '9999px',
     },
 
     shadows: {
-        sm: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-        base: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
-        md: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-        lg: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-        xl: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+        sm: 'var(--shadow-sm)',
+        base: 'var(--shadow-base)',
+        md: 'var(--shadow-md)',
+        lg: 'var(--shadow-lg)',
+        xl: 'var(--shadow-xl)',
     },
 
     transitions: {

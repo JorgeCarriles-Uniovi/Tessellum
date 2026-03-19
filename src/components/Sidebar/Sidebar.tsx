@@ -1,5 +1,5 @@
-import { useEffect, useState, useRef } from "react";
-import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { Settings, Trash2, Network, FolderOpen } from "lucide-react";
 import { useUiStore, useVaultStore } from "../../stores";
 import { FileTree } from "../FileTree/FileTree";
@@ -13,6 +13,7 @@ import { TemplatePicker } from "../TemplatePicker";
 import { getParentFromTarget } from "../../utils/pathUtils";
 import { useFileSync } from "../FileTree/hooks/useFileSync";
 import { cn } from "../../lib/utils";
+import { useResizableSidebarWidth } from "../Layout/useResizableSidebarWidth";
 
 const LEFT_SIDEBAR_WIDTH_KEY = "tessellum:left-sidebar-width";
 const LEFT_SIDEBAR_MIN = 220;
@@ -127,55 +128,6 @@ const footerButtonStyle = (isHovered: boolean, disabled?: boolean): CSSPropertie
     opacity: disabled ? 0.6 : 1,
 });
 
-function clampWidth(value: number): number {
-    return Math.min(LEFT_SIDEBAR_MAX, Math.max(LEFT_SIDEBAR_MIN, value));
-}
-
-function useLeftSidebarWidth() {
-    const [sidebarWidth, setSidebarWidth] = useState(() => {
-        const stored = localStorage.getItem(LEFT_SIDEBAR_WIDTH_KEY);
-        const parsed = stored ? Number.parseInt(stored, 10) : NaN;
-        return Number.isFinite(parsed) ? clampWidth(parsed) : 256;
-    });
-    const [isResizing, setIsResizing] = useState(false);
-    const isResizingRef = useRef(false);
-
-    useEffect(() => {
-        const handleMove = (event: MouseEvent) => {
-            if (!isResizingRef.current) return;
-            const nextWidth = clampWidth(event.clientX);
-            setSidebarWidth(nextWidth);
-            localStorage.setItem(LEFT_SIDEBAR_WIDTH_KEY, String(nextWidth));
-        };
-
-        const handleUp = () => {
-            if (isResizingRef.current) {
-                isResizingRef.current = false;
-                setIsResizing(false);
-                document.body.style.cursor = "";
-                document.body.style.userSelect = "";
-            }
-        };
-
-        window.addEventListener("mousemove", handleMove);
-        window.addEventListener("mouseup", handleUp);
-        return () => {
-            window.removeEventListener("mousemove", handleMove);
-            window.removeEventListener("mouseup", handleUp);
-        };
-    }, []);
-
-    const onResizeStart = (event: ReactMouseEvent<HTMLDivElement>) => {
-        event.preventDefault();
-        isResizingRef.current = true;
-        setIsResizing(true);
-        document.body.style.cursor = "col-resize";
-        document.body.style.userSelect = "none";
-    };
-
-    return { sidebarWidth, isResizing, onResizeStart };
-}
-
 const actionButtonContentStyle: CSSProperties = {
     display: "flex",
     alignItems: "center",
@@ -220,11 +172,21 @@ const emptyStateTextStyle: CSSProperties = {
     lineHeight: 1.5,
 };
 
-export function Sidebar() {
+export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
     useFileSync();
     const { vaultPath } = useVaultStore();
     const { isSidebarOpen } = useUiStore();
-    const { sidebarWidth, isResizing, onResizeStart } = useLeftSidebarWidth();
+    const sidebarContentRef = useRef<HTMLDivElement>(null);
+    const { sidebarWidth, isResizing, onResizeStart } = useResizableSidebarWidth({
+        side,
+        storageKey: LEFT_SIDEBAR_WIDTH_KEY,
+        min: LEFT_SIDEBAR_MIN,
+        max: LEFT_SIDEBAR_MAX,
+        defaultWidth: 256,
+        getRightEdge: side === "right"
+            ? () => sidebarContentRef.current?.getBoundingClientRect().right ?? window.innerWidth
+            : undefined,
+    });
     const app = useTessellumApp();
     const sidebarActions = app.ui.getSidebarActions();
     const allHeaderActions = app.ui.getUIActions("sidebar-header");
@@ -284,7 +246,7 @@ export function Sidebar() {
     return (
         <>
             <BaseSidebar
-                side="left"
+                side={side}
                 isOpen={isSidebarOpen}
                 width={sidebarWidth}
                 isResizing={isResizing}
@@ -295,11 +257,15 @@ export function Sidebar() {
                 }}
             >
                 <div
-                    className="absolute right-0 top-0 h-full cursor-col-resize group z-50"
+                    className={cn(
+                        "absolute top-0 h-full cursor-col-resize group z-50",
+                        side === "left" ? "right-0" : "left-0"
+                    )}
                     onMouseDown={onResizeStart}
                     style={{
                         width: "6px",
-                        marginRight: "-3px",
+                        marginRight: side === "left" ? "-3px" : undefined,
+                        marginLeft: side === "right" ? "-3px" : undefined,
                     }}
                 >
                     <div className={cn(
@@ -308,13 +274,18 @@ export function Sidebar() {
                     )} />
                 </div>
                 <div
+                    ref={sidebarContentRef}
                     className="flex flex-col transition-all duration-300 ease-in-out"
                     style={{
                         width: sidebarWidth,
                         height: "100%",
                         minHeight: 0,
                         opacity: isSidebarOpen ? 1 : 0,
-                        transform: isSidebarOpen ? "translateX(0)" : "translateX(-8px)",
+                        transform: isSidebarOpen
+                            ? "translateX(0)"
+                            : side === "left"
+                                ? "translateX(-8px)"
+                                : "translateX(8px)",
                     }}
                 >
                     <div style={headerStyle}>

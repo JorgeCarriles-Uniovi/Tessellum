@@ -31,7 +31,7 @@ export function EditorSettings() {
                     <select
                         value={fontFamily}
                         onChange={(e) => setFontFamily(e.target.value)}
-                        className="px-3 py-2 border border-[#e2e8f0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#3d14b8] focus:border-transparent transition-all bg-white cursor-pointer"
+                        className="px-3 py-2 border border-[#e2e8f0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-blue-600)] focus:border-transparent transition-all bg-white cursor-pointer"
                         style={selectStyle}
                     >
                         <option value="Geist Sans">Geist Sans</option>
@@ -46,7 +46,7 @@ export function EditorSettings() {
                     <select
                         value={String(editorFontSizePx)}
                         onChange={(e) => setEditorFontSizePx(Number(e.target.value))}
-                        className="px-3 py-2 border border-[#e2e8f0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#3d14b8] focus:border-transparent transition-all bg-white cursor-pointer"
+                        className="px-3 py-2 border border-[#e2e8f0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-blue-600)] focus:border-transparent transition-all bg-white cursor-pointer"
                         style={selectStyle}
                     >
                         <option value="14">14px - Small</option>

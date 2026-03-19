@@ -14,7 +14,7 @@ export function GeneralSettings() {
                     <input
                         type="text"
                         defaultValue="DevAdmin"
-                        className="px-3 py-2 border border-[#e2e8f0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#3d14b8] focus:border-transparent transition-all"
+                        className="px-3 py-2 border border-[#e2e8f0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-blue-600)] focus:border-transparent transition-all"
                         style={{
                             paddingTop: `0.5rem`,
                             paddingBottom: `0.5rem`,
@@ -27,7 +27,7 @@ export function GeneralSettings() {
                     <input
                         type="email"
                         defaultValue="admin@workspace.com"
-                        className="px-3 py-2 border border-[#e2e8f0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#3d14b8] focus:border-transparent transition-all"
+                        className="px-3 py-2 border border-[#e2e8f0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-blue-600)] focus:border-transparent transition-all"
                         style={{
                             paddingTop: `0.5rem`,
                             paddingBottom: `0.5rem`,

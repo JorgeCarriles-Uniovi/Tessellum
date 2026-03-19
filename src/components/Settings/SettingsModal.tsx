@@ -1,4 +1,4 @@
-import { X, ChevronRight } from 'lucide-react';
+import { X, User, Bell, Shield, Palette, FileText, Cloud, Keyboard, Moon, Sun, Monitor, ChevronRight, Check } from 'lucide-react';
 import { useState } from 'react';
 import { useTessellumApp } from "../../plugins/TessellumApp.ts";
 
@@ -30,15 +30,19 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             />
 
             {/* Modal */}
-            <div className="relative bg-white rounded-2xl shadow-2xl w-[900px] h-[640px] flex overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+            <div className="relative bg-white w-[900px] h-[640px] flex overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+                 style={{
+                     borderRadius: "var(--radius-xl)",
+                     boxShadow: "var(--shadow-modal)",
+                 }}
             >
                 {/* Sidebar */}
                 <div className="w-[240px] bg-[#f8fafc] border-r border-[#e2e8f0] p-6 flex flex-col">
                     <div className="mb-8"
                          style={{
-                             paddingTop: `1.5rem`,
+                             paddingTop: `1rem`,
                              paddingBottom: `0.2rem`,
-                             paddingLeft: `1.5rem`,
+                             paddingLeft: `1rem`,
                              paddingRight: `1rem`
                          }}>
                         <h2 className="text-xl font-bold text-[#0f172a] tracking-tight">Settings</h2>
@@ -65,10 +69,12 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                     }
                                     }
                                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${tab.isActive
-                                        ? 'bg-[#3d14b8] text-white shadow-lg shadow-[rgba(61,20,184,0.25)]'
+                                        ? 'text-white shadow-lg'
                                         : 'text-[#64748b] hover:bg-white hover:text-[#0f172a] hover:shadow-sm'
                                     }`}
                                     style={{
+                                        backgroundColor: tab.isActive ? "var(--color-blue-600)" : undefined,
+                                        boxShadow: tab.isActive ? "0 10px 15px -3px color-mix(in srgb, var(--color-blue-600) 25%, transparent)" : undefined,
                                         paddingTop: `0.75rem`,
                                         paddingBottom: `0.75rem`,
                                         paddingLeft: `1rem`,

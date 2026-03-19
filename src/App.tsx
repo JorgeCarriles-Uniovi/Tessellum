@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { FileMetadata, TreeNode } from "./types.ts";
-import { useEditorContentStore, useGraphStore, useSettingsStore, useUiStore, useVaultStore } from "./stores";
+import { useAppearanceStore, useEditorContentStore, useGraphStore, useSettingsStore, useUiStore, useVaultStore } from "./stores";
 import { listen } from "@tauri-apps/api/event";
 import { exists } from '@tauri-apps/plugin-fs';
 import { getCurrentWindow, LogicalPosition, LogicalSize } from '@tauri-apps/api/window';
@@ -20,6 +20,7 @@ import { useWikiLinkNavigation } from "./components/Editor/hooks";
 import { StatusBar } from "./components/Layout/StatusBar";
 import { RightSidebar } from "./components/Layout/RightSidebar";
 import {SettingsModal} from "./components/Settings/SettingsModal.tsx";
+import { useApplyAppearanceSettings } from "./hooks/useApplyAppearanceSettings";
 
 const THEME_KEY = "tessellum-theme";
 const WINDOW_KEY = "tessellum-window";
@@ -42,8 +43,26 @@ function App() {
     const [themeName, setThemeName] = useState<string>(() => localStorage.getItem(THEME_KEY) || "warm-paper");
     const editorFontSizePx = useEditorContentStore((state) => state.editorFontSizePx);
     const { fontFamily, editorLineHeight, editorLetterSpacing } = useSettingsStore();
+    const [layoutAppearance, setLayoutAppearance] = useState(() => {
+        const state = useAppearanceStore.getState();
+        return { sidebarPosition: state.sidebarPosition, toolbarVisible: state.toolbarVisible };
+    });
 
     const navigateToWikiLink = useWikiLinkNavigation();
+    useApplyAppearanceSettings();
+
+    useEffect(() => {
+        const unsubscribe = useAppearanceStore.subscribe((state) => {
+            const next = { sidebarPosition: state.sidebarPosition, toolbarVisible: state.toolbarVisible };
+            setLayoutAppearance((prev) => {
+                if (prev.sidebarPosition === next.sidebarPosition && prev.toolbarVisible === next.toolbarVisible) {
+                    return prev;
+                }
+                return next;
+            });
+        });
+        return unsubscribe;
+    }, []);
 
     const closeCommandPalette = () => setIsCommandPaletteOpen(false);
     const closeSettingsPanel = () => setIsSettingsPanelOpen(false);
@@ -303,12 +322,12 @@ function App() {
                         fontFamily: theme.typography.fontFamily.sans
                     }}
                 >
-                    <TitleBar />
+                    {layoutAppearance.toolbarVisible && <TitleBar />}
 
                     <div className="flex-1 flex overflow-hidden w-full relative">
                         <div className="flex w-full h-full overflow-hidden">
                             {/* Sidebar */}
-                            <Sidebar />
+                            {layoutAppearance.sidebarPosition === "left" && <Sidebar side="left" />}
 
                             {/* Main content area */}
                             <div className="flex-1 h-full min-w-0 bg-white relative flex flex-col min-h-0 overflow-hidden">
@@ -329,6 +348,7 @@ function App() {
                                 <StatusBar />
                             </div>
 
+                            {layoutAppearance.sidebarPosition === "right" && <Sidebar side="right" />}
                             <RightSidebar />
                         </div>
                     </div>

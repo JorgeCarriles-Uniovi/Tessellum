@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { Text } from "@codemirror/state";
 import { Link2, List, Tag } from "lucide-react";
 import { theme } from "../../styles/theme";
@@ -7,6 +7,7 @@ import { BaseSidebar } from "./BaseSidebar";
 import { cn } from "../../lib/utils";
 import { useEditorStore } from "../../stores/editorStore";
 import { useTessellumApp } from "../../plugins/TessellumApp";
+import { useResizableSidebarWidth } from "./useResizableSidebarWidth";
 import { parseFrontmatter } from "../Editor/extensions/frontmatter/frontmatter-parser";
 import { stringToColor } from "../../utils/graphUtils";
 
@@ -57,10 +58,6 @@ function extractSnippet(content: string): string | undefined {
     const snippet = "\"" + words.slice(0, SNIPPET_WORDS).join(" ");
     const suffix = words.length > SNIPPET_WORDS ? "\" ..." : "\"";
     return truncateSnippet(`${snippet}${suffix}`);
-}
-
-function clampWidth(value: number): number {
-    return Math.min(RIGHT_SIDEBAR_MAX, Math.max(RIGHT_SIDEBAR_MIN, value));
 }
 
 function getTagStyles(tag: string) {
@@ -164,48 +161,13 @@ function mergeSnippets(items: BacklinkItem[], snippets: Array<string | undefined
 }
 
 function useSidebarWidth() {
-    const [sidebarWidth, setSidebarWidth] = useState(() => {
-        const stored = localStorage.getItem(RIGHT_SIDEBAR_WIDTH_KEY);
-        const parsed = stored ? Number.parseInt(stored, 10) : NaN;
-        return Number.isFinite(parsed) ? clampWidth(parsed) : 288;
+    return useResizableSidebarWidth({
+        side: "right",
+        storageKey: RIGHT_SIDEBAR_WIDTH_KEY,
+        min: RIGHT_SIDEBAR_MIN,
+        max: RIGHT_SIDEBAR_MAX,
+        defaultWidth: 288,
     });
-    const [isResizing, setIsResizing] = useState(false);
-    const isResizingRef = useRef(false);
-
-    useEffect(() => {
-        const handleMove = (event: MouseEvent) => {
-            if (!isResizingRef.current) return;
-            const nextWidth = clampWidth(window.innerWidth - event.clientX);
-            setSidebarWidth(nextWidth);
-            localStorage.setItem(RIGHT_SIDEBAR_WIDTH_KEY, String(nextWidth));
-        };
-
-        const handleUp = () => {
-            if (isResizingRef.current) {
-                isResizingRef.current = false;
-                setIsResizing(false);
-                document.body.style.cursor = "";
-                document.body.style.userSelect = "";
-            }
-        };
-
-        window.addEventListener("mousemove", handleMove);
-        window.addEventListener("mouseup", handleUp);
-        return () => {
-            window.removeEventListener("mousemove", handleMove);
-            window.removeEventListener("mouseup", handleUp);
-        };
-    }, []);
-
-    const onResizeStart = (event: ReactMouseEvent<HTMLDivElement>) => {
-        event.preventDefault();
-        isResizingRef.current = true;
-        setIsResizing(true);
-        document.body.style.cursor = "col-resize";
-        document.body.style.userSelect = "none";
-    };
-
-    return { sidebarWidth, isResizing, onResizeStart };
 }
 
 function useBacklinks(
