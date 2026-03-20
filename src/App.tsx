@@ -19,8 +19,10 @@ import { registerBuiltinPlugins } from "./plugins/builtin";
 import { useWikiLinkNavigation } from "./components/Editor/hooks";
 import { StatusBar } from "./components/Layout/StatusBar";
 import { RightSidebar } from "./components/Layout/RightSidebar";
-import {SettingsModal} from "./components/Settings/SettingsModal.tsx";
+import { SettingsModal } from "./components/Settings/SettingsModal.tsx";
 import { useApplyAppearanceSettings } from "./hooks/useApplyAppearanceSettings";
+import { useApplyAccessibilitySettings } from "./hooks/useApplyAccessibilitySettings";
+import { ColorFilterDefs } from "./components/Accessibility/ColorFilterDefs";
 
 const THEME_KEY = "tessellum-theme";
 const WINDOW_KEY = "tessellum-window";
@@ -50,6 +52,7 @@ function App() {
 
     const navigateToWikiLink = useWikiLinkNavigation();
     useApplyAppearanceSettings();
+    useApplyAccessibilitySettings();
 
     useEffect(() => {
         const unsubscribe = useAppearanceStore.subscribe((state) => {
@@ -140,7 +143,7 @@ function App() {
     }, [themeName]);
 
     useEffect(() => {
-        document.documentElement.style.fontSize = `${editorFontSizePx}px`;
+        document.documentElement.style.setProperty("--editor-font-size", `${editorFontSizePx}px`);
     }, [editorFontSizePx]);
 
     useEffect(() => {
@@ -316,21 +319,25 @@ function App() {
         <TessellumAppContext.Provider value={app}>
             {isLoaded ? (
                 <div
-                    className="flex flex-col h-screen w-screen overflow-hidden"
+                    className="app-root flex flex-col h-screen w-screen overflow-hidden"
                     style={{
                         backgroundColor: theme.colors.background.primary,
                         fontFamily: theme.typography.fontFamily.sans
                     }}
                 >
+                    <ColorFilterDefs />
                     {layoutAppearance.toolbarVisible && <TitleBar />}
 
-                    <div className="flex-1 flex overflow-hidden w-full relative">
+                    <div className="flex-1 flex overflow-hidden w-full relative" style={{ backgroundColor: theme.colors.background.primary }}>
                         <div className="flex w-full h-full overflow-hidden">
                             {/* Sidebar */}
                             {layoutAppearance.sidebarPosition === "left" && <Sidebar side="left" />}
 
                             {/* Main content area */}
-                            <div className="flex-1 h-full min-w-0 bg-white relative flex flex-col min-h-0 overflow-hidden">
+                            <div
+                                className="flex-1 h-full min-w-0 relative flex flex-col min-h-0 overflow-hidden"
+                                style={{ backgroundColor: theme.colors.background.primary }}
+                            >
                                 {viewMode === 'graph' ? (
                                     <div className="flex-1 h-full min-w-0 relative flex flex-col min-h-0 overflow-hidden">
                                         <GraphView />

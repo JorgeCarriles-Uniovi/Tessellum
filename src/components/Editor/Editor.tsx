@@ -286,11 +286,11 @@ function EditorHeader({
         <div className="w-full mx-auto px-12 pt-20 pb-16 flex-shrink-0" style={{ borderColor: theme.colors.border.light }}>
             <div style={{ maxWidth: "720px", margin: "0 auto" }}>
                 <input
-                    className="text-[28px] font-bold bg-transparent outline-none border-none w-full"
+                    className="text-[1.75rem] font-bold bg-transparent outline-none border-none w-full"
                     style={{
                         color: theme.colors.text.primary,
                         fontFamily: theme.typography.fontFamily.sans,
-                        fontSize: titleFontSizePx,
+                        fontSize: `calc(${titleFontSizePx}px * var(--ui-scale, 1))`,
                         textAlign: "left",
                         paddingTop: 8,
                     }}
@@ -299,7 +299,7 @@ function EditorHeader({
                     onBlur={onTitleBlur}
                     placeholder="Untitled"
                 />
-                <div className="flex items-center gap-3 text-[11px] mt-5" style={{ color: theme.colors.text.muted, paddingBottom: 20 }}>
+                <div className="flex items-center gap-3 text-[0.6875rem] mt-5" style={{ color: theme.colors.text.muted, paddingBottom: 20 }}>
                     <span className="flex items-center gap-1">
                         <Calendar size={12} />
                         {new Date(normalizeTimestampSeconds(lastModified) * 1000).toLocaleDateString()}
@@ -368,7 +368,10 @@ function EditorBody({
     handleSlashSelect: (command: Command, view?: EditorView) => void;
 }) {
     return (
-        <div className="w-full relative min-h-0 cursor-text" style={{ "--editor-font-size": `${editorFontSizePx}px` } as CSSProperties}>
+        <div
+            className="w-full relative min-h-0 cursor-text"
+            style={{ "--editor-font-size": `calc(${editorFontSizePx}px * var(--ui-scale, 1))` } as CSSProperties}
+        >
             <div className="relative w-full">
                 <CodeMirror
                     ref={editorRef}

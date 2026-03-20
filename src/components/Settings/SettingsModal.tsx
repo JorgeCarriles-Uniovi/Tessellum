@@ -1,5 +1,5 @@
 import { X, User, Bell, Shield, Palette, FileText, Cloud, Keyboard, Moon, Sun, Monitor, ChevronRight, Check } from 'lucide-react';
-import { useState } from 'react';
+import { useState, isValidElement, cloneElement } from 'react';
 import { useTessellumApp } from "../../plugins/TessellumApp.ts";
 
 interface SettingsModalProps {
@@ -18,6 +18,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     const [syncEnabled, setSyncEnabled] = useState(true);
     const app = useTessellumApp();
     const settingsTabs = app.ui.getSettingsTabs();
+    const iconSize = 16;
+    const iconStyle = { width: "1rem", height: "1rem" };
 
     if (!isOpen) return null;
 
@@ -81,7 +83,13 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                         paddingRight: `1rem`
                                     }}
                                 >
-                                    {tab.icon}
+                                    {isValidElement(tab.icon)
+                                        ? cloneElement(tab.icon as any, {
+                                            size: iconSize,
+                                            style: { ...iconStyle, ...(tab.icon as any).props?.style },
+                                        })
+                                        : tab.icon
+                                    }
                                     <span>{tab.name}</span>
                                     {tab.isActive && <ChevronRight className="size-3.5 ml-auto" />}
                                 </button>

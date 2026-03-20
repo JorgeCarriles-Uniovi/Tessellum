@@ -17,6 +17,8 @@ const SNIPPET_WORDS = 20;
 const RIGHT_SIDEBAR_WIDTH_KEY = "tessellum:right-sidebar-width";
 const RIGHT_SIDEBAR_MIN = 240;
 const RIGHT_SIDEBAR_MAX = 520;
+const SIDEBAR_ICON_SIZE = 14;
+const SIDEBAR_ICON_STYLE = { width: "0.875rem", height: "0.875rem" };
 
 interface BacklinkItem {
     path: string;
@@ -250,7 +252,7 @@ function SidebarSectionHeader({ title, icon }: { title: string; icon: ReactNode 
     return (
         <div className="flex items-center justify-between">
             <h3
-                className="text-[12px] font-semibold uppercase tracking-[0.24em]"
+                className="text-[0.75rem] font-semibold uppercase tracking-[0.24em]"
                 style={{
                     color: theme.colors.text.muted,
                     padding: "1rem",
@@ -265,7 +267,7 @@ function SidebarSectionHeader({ title, icon }: { title: string; icon: ReactNode 
 
 function EmptyState({ children }: { children: ReactNode }) {
     return (
-        <div className="text-[11px]" style={{ color: theme.colors.text.muted, paddingLeft: "1rem" }}>
+        <div className="text-[0.6875rem]" style={{ color: theme.colors.text.muted, paddingLeft: "1rem" }}>
             {children}
         </div>
     );
@@ -286,7 +288,7 @@ function BacklinksSection({
         <section className="space-y-4">
             <SidebarSectionHeader
                 title="Backlinks"
-                icon={<Link2 size={14} style={{ color: theme.colors.text.muted, marginRight: "1rem" }} />}
+                icon={<Link2 size={SIDEBAR_ICON_SIZE} style={{ ...SIDEBAR_ICON_STYLE, color: theme.colors.text.muted, marginRight: "1rem" }} />}
             />
             {isLoading ? (
                 <EmptyState>Loading backlinks</EmptyState>
@@ -308,11 +310,11 @@ function BacklinksSection({
                                 marginBottom: "1rem",
                             }}
                         >
-                            <p className="text-[13px] font-semibold" style={{ color: theme.colors.text.secondary }}>
+                            <p className="text-[0.8125rem] font-semibold" style={{ color: theme.colors.text.secondary }}>
                                 {item.label}.md
                             </p>
                             {item.snippet && (
-                                <p className="text-[11px] mt-2 leading-5" style={{ color: theme.colors.text.muted }}>
+                                <p className="text-[0.6875rem] mt-2 leading-5" style={{ color: theme.colors.text.muted }}>
                                     {item.snippet}
                                 </p>
                             )}
@@ -329,7 +331,7 @@ function TagsSection({ activeNote, tags }: { activeNote: { path: string } | null
         <section className="space-y-4">
             <SidebarSectionHeader
                 title="Tags"
-                icon={<Tag size={14} style={{ color: theme.colors.text.muted, marginRight: "1rem" }} />}
+                icon={<Tag size={SIDEBAR_ICON_SIZE} style={{ ...SIDEBAR_ICON_STYLE, color: theme.colors.text.muted, marginRight: "1rem" }} />}
             />
             {!activeNote ? (
                 <EmptyState>Select a note to see tags.</EmptyState>
@@ -340,7 +342,7 @@ function TagsSection({ activeNote, tags }: { activeNote: { path: string } | null
                     {tags.map((tag) => (
                         <span
                             key={tag}
-                            className="inline-flex gap-1.5 items-center px-3 py-1 rounded-full text-[13px] font-medium text-foreground group/pill"
+                            className="inline-flex gap-1.5 items-center px-3 py-1 rounded-full text-[0.8125rem] font-medium text-foreground group/pill"
                             style={getTagStyles(tag)}
                         >
                             {tag}
@@ -357,9 +359,9 @@ function OutlineSection() {
         <section className="space-y-4">
             <SidebarSectionHeader
                 title="Outline"
-                icon={<List size={14} style={{ color: theme.colors.text.muted, marginRight: "1rem" }} />}
+                icon={<List size={SIDEBAR_ICON_SIZE} style={{ ...SIDEBAR_ICON_STYLE, color: theme.colors.text.muted, marginRight: "1rem" }} />}
             />
-            <div className="space-y-2 text-[12px]" style={{ color: theme.colors.text.muted, padding: "1rem" }}>
+            <div className="space-y-2 text-[0.75rem]" style={{ color: theme.colors.text.muted, padding: "1rem" }}>
                 <div className="flex items-center gap-2"> Meeting Goals</div>
                 <div className="flex items-center gap-2"> Technical Specs</div>
                 <div className="flex items-center gap-2" style={{ paddingLeft: theme.spacing[2] }}> Backend Refactor</div>

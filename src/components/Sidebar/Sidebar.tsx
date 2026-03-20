@@ -18,6 +18,12 @@ import { useResizableSidebarWidth } from "../Layout/useResizableSidebarWidth";
 const LEFT_SIDEBAR_WIDTH_KEY = "tessellum:left-sidebar-width";
 const LEFT_SIDEBAR_MIN = 220;
 const LEFT_SIDEBAR_MAX = 420;
+const SIDEBAR_ICON_SIZE = 16;
+const SIDEBAR_ICON_STYLE = { width: "1rem", height: "1rem" };
+const SIDEBAR_ACTION_ICON_SIZE = 18;
+const SIDEBAR_ACTION_ICON_STYLE = { width: "1.125rem", height: "1.125rem" };
+const SIDEBAR_EMPTY_ICON_SIZE = 26;
+const SIDEBAR_EMPTY_ICON_STYLE = { width: "1.625rem", height: "1.625rem" };
 
 const headerStyle: CSSProperties = {
     display: "flex",
@@ -64,6 +70,7 @@ const actionSectionStyle: CSSProperties = {
 const footerStyle: CSSProperties = {
     borderTop: `1px solid ${theme.colors.gray[100]}`,
     padding: `${theme.spacing[2]} 0`,
+    backgroundColor: theme.colors.background.primary,
 };
 
 const vaultSwitcherStyle: CSSProperties = {
@@ -304,7 +311,7 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
                                         onClick={disabled ? undefined : action.onClick}
                                         disabled={disabled}
                                     >
-                                        {action.icon || <FolderOpen size={16} />}
+                                        {action.icon || <FolderOpen size={SIDEBAR_ICON_SIZE} style={SIDEBAR_ICON_STYLE} />}
                                     </button>
                                 );
                             })}
@@ -315,7 +322,7 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
                         {files.length === 0 ? (
                             <div style={emptyStateStyle}>
                                 <div style={emptyStateIconStyle}>
-                                    <FolderOpen size={26} />
+                                    <FolderOpen size={SIDEBAR_EMPTY_ICON_SIZE} style={SIDEBAR_EMPTY_ICON_STYLE} />
                                 </div>
                                 <div style={emptyStateTitleStyle}>No notes yet</div>
                                 <div style={emptyStateTextStyle}>Create your first note or folder to get started.</div>
@@ -359,14 +366,23 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
                                     onMouseLeave={() => setHoveredActionId(null)}
                                     title={action.tooltip || action.label}
                                 >
-                                    {action.icon || (action.id === "sidebar-graph" ? <Network size={18} /> : action.id === "sidebar-settings" ? <Settings size={18} /> : <Trash2 size={18} />)}
+                                    {action.icon || (
+                                        action.id === "sidebar-graph"
+                                            ? <Network size={SIDEBAR_ACTION_ICON_SIZE} style={SIDEBAR_ACTION_ICON_STYLE} />
+                                            : action.id === "sidebar-settings"
+                                                ? <Settings size={SIDEBAR_ACTION_ICON_SIZE} style={SIDEBAR_ACTION_ICON_STYLE} />
+                                                : <Trash2 size={SIDEBAR_ACTION_ICON_SIZE} style={SIDEBAR_ACTION_ICON_STYLE} />
+                                    )}
                                     <span>{action.label}</span>
                                 </button>
                             );
                         })}
                     </div>
 
-                    <div className="flex items-center border-t bg-white" style={{ borderColor: theme.colors.border.light }}>
+                    <div
+                        className="flex items-center border-t"
+                        style={{ borderColor: theme.colors.border.light, backgroundColor: theme.colors.background.primary }}
+                    >
                         <div className="flex-1 overflow-hidden">
                             <VaultSwitcher vaultName={vaultName} onOpenVault={openVaultAction?.onClick} />
                         </div>
@@ -374,7 +390,7 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
                             <button
                                 onClick={settingsAction.onClick}
                                 title={settingsAction.tooltip || settingsAction.label}
-                                className="hover:bg-gray-50 rounded-md transition-colors"
+                                className="rounded-md transition-colors"
                                 style={{
                                     marginRight: theme.spacing[2],
                                     width: "32px",
@@ -383,12 +399,13 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
                                     alignItems: "center",
                                     justifyContent: "center",
                                     color: theme.colors.gray[600],
+                                    backgroundColor: theme.colors.background.primary,
                                     cursor: settingsAction.disabled ? "not-allowed" : "pointer",
                                     opacity: settingsAction.disabled ? 0.6 : 1,
                                 }}
                                 disabled={settingsAction.disabled}
                             >
-                                <Settings size={18} />
+                                <Settings size={SIDEBAR_ACTION_ICON_SIZE} style={SIDEBAR_ACTION_ICON_STYLE} />
                             </button>
                         )}
                     </div>

@@ -76,30 +76,32 @@ function getSelectionClassName(isSelected: boolean, isActive: boolean): string {
 }
 
 function renderFileIcon(isDir: boolean, isOpen: boolean, fileName?: string): JSX.Element {
+    const folderIconStyle = { marginRight: "0.5rem", width: "1rem", height: "1rem" };
+    const fileIconStyle = { marginRight: "0.5rem", width: "0.875rem", height: "0.875rem" };
 
     if (isDir) {
         return isOpen
-            ? <FolderOpen size={16} strokeWidth={2} style={{ marginRight: `0.5rem` }} />
-            : <FolderIcon size={16} strokeWidth={2} style={{ marginRight: `0.5rem` }} />;
+            ? <FolderOpen size={16} strokeWidth={2} style={folderIconStyle} />
+            : <FolderIcon size={16} strokeWidth={2} style={folderIconStyle} />;
     }
 
     if (fileName) {
         const ext = fileName.toLowerCase().split('.').pop() || "";
         if (ext === "md") {
-            return <FileDown size={14} strokeWidth={2.5} style={{ marginRight: `0.5rem` }} />;
+            return <FileDown size={14} strokeWidth={2.5} style={fileIconStyle} />;
         }
         if (ext === "txt") {
-            return <FileText size={14} strokeWidth={2} style={{ marginRight: `0.5rem` }} />;
+            return <FileText size={14} strokeWidth={2} style={fileIconStyle} />;
         }
         if (["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(ext)) {
-            return <FileImage size={14} strokeWidth={2} style={{ marginRight: `0.5rem` }} />;
+            return <FileImage size={14} strokeWidth={2} style={fileIconStyle} />;
         }
-        if(ext === "pdf"){
-            return <TbFileTypePdf size={14} strokeWidth={2} style={{marginRight: `0.5rem`}}></TbFileTypePdf>
+        if (ext === "pdf") {
+            return <TbFileTypePdf size={14} style={fileIconStyle} />;
         }
     }
 
-    return <FileIcon size={14} strokeWidth={2} style={{ marginRight: `0.5rem` }} />;
+    return <FileIcon size={14} strokeWidth={2} style={fileIconStyle} />;
 }
 
 function renderExpandIcon(isDir: boolean, isOpen: boolean): JSX.Element | null {
@@ -109,6 +111,7 @@ function renderExpandIcon(isDir: boolean, isOpen: boolean): JSX.Element | null {
         <ChevronRight
             size={14}
             strokeWidth={2.5}
+            style={{ width: "0.875rem", height: "0.875rem" }}
             className={`transform transition-transform duration-200 ease-in-out ${isOpen ? 'rotate-90' : 'rotate-0'}`}
         />
     );
@@ -299,11 +302,11 @@ function FileNodeRow({
                      }: FileNodeRowProps) {
     const selectionClassName = getSelectionClassName(isSelected, isActive);
     const fileIconClassName = `mr-4 ${node.is_dir ? "text-primary opacity-90" : "text-muted-foreground opacity-70"}`;
-    const selectionWrapperStyle = { height: "32px", paddingLeft: "4px", paddingRight: "32px" };
+    const selectionWrapperStyle = { height: "2rem", paddingLeft: "0.25rem", paddingRight: "2rem" };
 
     const nodeStyles: React.CSSProperties = {
         paddingLeft,
-        marginBottom: "1px",
+        marginBottom: "0.0625rem",
         fontFamily: "var(--font-sans)",
         ...dropStyle,
     };
@@ -326,7 +329,7 @@ function FileNodeRow({
             <div
                 className={`
                     flex items-center pr-2 max-w-full overflow-hidden mr-2
-                    text-[13px] font-medium transition-all duration-200
+                    text-[0.8125rem] font-medium transition-all duration-200
                     rounded-md w-full
                     ${selectionClassName}
                 `}
@@ -355,7 +358,7 @@ function FileNodeRow({
 
                 {/* Extension for non-markdown files */}
                 {!node.is_dir && !node.name.toLowerCase().endsWith('.md') && (
-                    <span className="ml-auto text-[10px] font-bold opacity-40 shrink-0 uppercase pr-1">
+                    <span className="ml-auto text-[0.625rem] font-bold opacity-40 shrink-0 uppercase pr-1">
                         {node.name.split('.').pop()}
                     </span>
                 )}
@@ -413,7 +416,7 @@ function FileNodeChildren({
                 ) : (
                     <div
                         className="py-2 pr-2 text-xs italic text-muted-foreground opacity-60"
-                        style={{ paddingLeft: `${(level + 1) * 16 + 28}px` }}
+                        style={{ paddingLeft: `calc(${level + 1} * 1rem + 1.75rem)` }}
                     >
                         Empty
                     </div>
@@ -439,7 +442,7 @@ export function FileNode({
     const isOpen = (expandedFolders[node.id]) || false;
     const hasChildren = node.children && node.children.length > 0;
 
-    const paddingLeft = `${level * 16 + 12}px`;
+    const paddingLeft = `calc(${level} * 1rem + 0.75rem)`;
     const isActive = activeNote?.path === node.id;
     const isSelected = selectedFilePaths.includes(node.id);
     const dropStyle = getDropStyle(dragOverPath, dragOverPosition, node.id);

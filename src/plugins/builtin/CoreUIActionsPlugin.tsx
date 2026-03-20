@@ -280,4 +280,3 @@ export class CoreUIActionsPlugin extends Plugin {
         });
     }
 }
-

@@ -1,13 +1,18 @@
 import { SettingSection } from "./items/SettingSection.tsx";
 import { SettingItem } from "./items/SettingItem.tsx";
 import { ToggleSetting } from "./items/ToggleSetting.tsx";
-import { useState } from "react";
+import { useAccessibilityStore } from "../../stores";
+import type { ColorFilter, UiScale } from "../../stores/accessibilityStore";
 
 export function AccessibilitySettings() {
-    const [highContrast, setHighContrast] = useState(false);
-    const [reducedMotion, setReducedMotion] = useState(false);
-    const [uiScale, setUiScale] = useState('100');
-    const [colorFilter, setColorFilter] = useState('none');
+    const highContrast = useAccessibilityStore((state) => state.highContrast);
+    const setHighContrast = useAccessibilityStore((state) => state.setHighContrast);
+    const reducedMotion = useAccessibilityStore((state) => state.reducedMotion);
+    const setReducedMotion = useAccessibilityStore((state) => state.setReducedMotion);
+    const uiScale = useAccessibilityStore((state) => state.uiScale);
+    const setUiScale = useAccessibilityStore((state) => state.setUiScale);
+    const colorFilter = useAccessibilityStore((state) => state.colorFilter);
+    const setColorFilter = useAccessibilityStore((state) => state.setColorFilter);
 
     return (
         <div className="space-y-6">
@@ -20,8 +25,8 @@ export function AccessibilitySettings() {
                 />
                 <SettingItem label="UI Scale">
                     <select
-                        value={uiScale}
-                        onChange={(e) => setUiScale(e.target.value)}
+                        value={String(uiScale)}
+                        onChange={(e) => setUiScale(Number(e.target.value) as UiScale)}
                         className="px-3 py-2 border border-[#e2e8f0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-blue-600)] focus:border-transparent transition-all bg-white cursor-pointer"
                         style={{
                             paddingTop: `0.5rem`,
@@ -52,7 +57,7 @@ export function AccessibilitySettings() {
                 <SettingItem label="Color filter">
                     <select
                         value={colorFilter}
-                        onChange={(e) => setColorFilter(e.target.value)}
+                        onChange={(e) => setColorFilter(e.target.value as ColorFilter)}
                         className="px-3 py-2 border border-[#e2e8f0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-blue-600)] focus:border-transparent transition-all bg-white cursor-pointer"
                         style={{
                             paddingTop: `0.5rem`,
