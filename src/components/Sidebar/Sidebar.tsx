@@ -1,5 +1,5 @@
-import { useEffect, useState, useRef } from "react";
-import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { Settings, Trash2, Network, FolderOpen } from "lucide-react";
 import { useUiStore, useVaultStore } from "../../stores";
 import { FileTree } from "../FileTree/FileTree";
@@ -13,10 +13,17 @@ import { TemplatePicker } from "../TemplatePicker";
 import { getParentFromTarget } from "../../utils/pathUtils";
 import { useFileSync } from "../FileTree/hooks/useFileSync";
 import { cn } from "../../lib/utils";
+import { useResizableSidebarWidth } from "../Layout/useResizableSidebarWidth";
 
 const LEFT_SIDEBAR_WIDTH_KEY = "tessellum:left-sidebar-width";
 const LEFT_SIDEBAR_MIN = 220;
 const LEFT_SIDEBAR_MAX = 420;
+const SIDEBAR_ICON_SIZE = 16;
+const SIDEBAR_ICON_STYLE = { width: "1rem", height: "1rem" };
+const SIDEBAR_ACTION_ICON_SIZE = 18;
+const SIDEBAR_ACTION_ICON_STYLE = { width: "1.125rem", height: "1.125rem" };
+const SIDEBAR_EMPTY_ICON_SIZE = 26;
+const SIDEBAR_EMPTY_ICON_STYLE = { width: "1.625rem", height: "1.625rem" };
 
 const headerStyle: CSSProperties = {
     display: "flex",
@@ -63,6 +70,7 @@ const actionSectionStyle: CSSProperties = {
 const footerStyle: CSSProperties = {
     borderTop: `1px solid ${theme.colors.gray[100]}`,
     padding: `${theme.spacing[2]} 0`,
+    backgroundColor: theme.colors.background.primary,
 };
 
 const vaultSwitcherStyle: CSSProperties = {
@@ -127,55 +135,6 @@ const footerButtonStyle = (isHovered: boolean, disabled?: boolean): CSSPropertie
     opacity: disabled ? 0.6 : 1,
 });
 
-function clampWidth(value: number): number {
-    return Math.min(LEFT_SIDEBAR_MAX, Math.max(LEFT_SIDEBAR_MIN, value));
-}
-
-function useLeftSidebarWidth() {
-    const [sidebarWidth, setSidebarWidth] = useState(() => {
-        const stored = localStorage.getItem(LEFT_SIDEBAR_WIDTH_KEY);
-        const parsed = stored ? Number.parseInt(stored, 10) : NaN;
-        return Number.isFinite(parsed) ? clampWidth(parsed) : 256;
-    });
-    const [isResizing, setIsResizing] = useState(false);
-    const isResizingRef = useRef(false);
-
-    useEffect(() => {
-        const handleMove = (event: MouseEvent) => {
-            if (!isResizingRef.current) return;
-            const nextWidth = clampWidth(event.clientX);
-            setSidebarWidth(nextWidth);
-            localStorage.setItem(LEFT_SIDEBAR_WIDTH_KEY, String(nextWidth));
-        };
-
-        const handleUp = () => {
-            if (isResizingRef.current) {
-                isResizingRef.current = false;
-                setIsResizing(false);
-                document.body.style.cursor = "";
-                document.body.style.userSelect = "";
-            }
-        };
-
-        window.addEventListener("mousemove", handleMove);
-        window.addEventListener("mouseup", handleUp);
-        return () => {
-            window.removeEventListener("mousemove", handleMove);
-            window.removeEventListener("mouseup", handleUp);
-        };
-    }, []);
-
-    const onResizeStart = (event: ReactMouseEvent<HTMLDivElement>) => {
-        event.preventDefault();
-        isResizingRef.current = true;
-        setIsResizing(true);
-        document.body.style.cursor = "col-resize";
-        document.body.style.userSelect = "none";
-    };
-
-    return { sidebarWidth, isResizing, onResizeStart };
-}
-
 const actionButtonContentStyle: CSSProperties = {
     display: "flex",
     alignItems: "center",
@@ -220,11 +179,21 @@ const emptyStateTextStyle: CSSProperties = {
     lineHeight: 1.5,
 };
 
-export function Sidebar() {
+export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
     useFileSync();
     const { vaultPath } = useVaultStore();
     const { isSidebarOpen } = useUiStore();
-    const { sidebarWidth, isResizing, onResizeStart } = useLeftSidebarWidth();
+    const sidebarContentRef = useRef<HTMLDivElement>(null);
+    const { sidebarWidth, isResizing, onResizeStart } = useResizableSidebarWidth({
+        side,
+        storageKey: LEFT_SIDEBAR_WIDTH_KEY,
+        min: LEFT_SIDEBAR_MIN,
+        max: LEFT_SIDEBAR_MAX,
+        defaultWidth: 256,
+        getRightEdge: side === "right"
+            ? () => sidebarContentRef.current?.getBoundingClientRect().right ?? window.innerWidth
+            : undefined,
+    });
     const app = useTessellumApp();
     const sidebarActions = app.ui.getSidebarActions();
     const allHeaderActions = app.ui.getUIActions("sidebar-header");
@@ -284,7 +253,7 @@ export function Sidebar() {
     return (
         <>
             <BaseSidebar
-                side="left"
+                side={side}
                 isOpen={isSidebarOpen}
                 width={sidebarWidth}
                 isResizing={isResizing}
@@ -295,11 +264,15 @@ export function Sidebar() {
                 }}
             >
                 <div
-                    className="absolute right-0 top-0 h-full cursor-col-resize group z-50"
+                    className={cn(
+                        "absolute top-0 h-full cursor-col-resize group z-50",
+                        side === "left" ? "right-0" : "left-0"
+                    )}
                     onMouseDown={onResizeStart}
                     style={{
                         width: "6px",
-                        marginRight: "-3px",
+                        marginRight: side === "left" ? "-3px" : undefined,
+                        marginLeft: side === "right" ? "-3px" : undefined,
                     }}
                 >
                     <div className={cn(
@@ -308,13 +281,18 @@ export function Sidebar() {
                     )} />
                 </div>
                 <div
+                    ref={sidebarContentRef}
                     className="flex flex-col transition-all duration-300 ease-in-out"
                     style={{
                         width: sidebarWidth,
                         height: "100%",
                         minHeight: 0,
                         opacity: isSidebarOpen ? 1 : 0,
-                        transform: isSidebarOpen ? "translateX(0)" : "translateX(-8px)",
+                        transform: isSidebarOpen
+                            ? "translateX(0)"
+                            : side === "left"
+                                ? "translateX(-8px)"
+                                : "translateX(8px)",
                     }}
                 >
                     <div style={headerStyle}>
@@ -333,7 +311,7 @@ export function Sidebar() {
                                         onClick={disabled ? undefined : action.onClick}
                                         disabled={disabled}
                                     >
-                                        {action.icon || <FolderOpen size={16} />}
+                                        {action.icon || <FolderOpen size={SIDEBAR_ICON_SIZE} style={SIDEBAR_ICON_STYLE} />}
                                     </button>
                                 );
                             })}
@@ -344,7 +322,7 @@ export function Sidebar() {
                         {files.length === 0 ? (
                             <div style={emptyStateStyle}>
                                 <div style={emptyStateIconStyle}>
-                                    <FolderOpen size={26} />
+                                    <FolderOpen size={SIDEBAR_EMPTY_ICON_SIZE} style={SIDEBAR_EMPTY_ICON_STYLE} />
                                 </div>
                                 <div style={emptyStateTitleStyle}>No notes yet</div>
                                 <div style={emptyStateTextStyle}>Create your first note or folder to get started.</div>
@@ -388,14 +366,23 @@ export function Sidebar() {
                                     onMouseLeave={() => setHoveredActionId(null)}
                                     title={action.tooltip || action.label}
                                 >
-                                    {action.icon || (action.id === "sidebar-graph" ? <Network size={18} /> : action.id === "sidebar-settings" ? <Settings size={18} /> : <Trash2 size={18} />)}
+                                    {action.icon || (
+                                        action.id === "sidebar-graph"
+                                            ? <Network size={SIDEBAR_ACTION_ICON_SIZE} style={SIDEBAR_ACTION_ICON_STYLE} />
+                                            : action.id === "sidebar-settings"
+                                                ? <Settings size={SIDEBAR_ACTION_ICON_SIZE} style={SIDEBAR_ACTION_ICON_STYLE} />
+                                                : <Trash2 size={SIDEBAR_ACTION_ICON_SIZE} style={SIDEBAR_ACTION_ICON_STYLE} />
+                                    )}
                                     <span>{action.label}</span>
                                 </button>
                             );
                         })}
                     </div>
 
-                    <div className="flex items-center border-t bg-white" style={{ borderColor: theme.colors.border.light }}>
+                    <div
+                        className="flex items-center border-t"
+                        style={{ borderColor: theme.colors.border.light, backgroundColor: theme.colors.background.primary }}
+                    >
                         <div className="flex-1 overflow-hidden">
                             <VaultSwitcher vaultName={vaultName} onOpenVault={openVaultAction?.onClick} />
                         </div>
@@ -403,7 +390,7 @@ export function Sidebar() {
                             <button
                                 onClick={settingsAction.onClick}
                                 title={settingsAction.tooltip || settingsAction.label}
-                                className="hover:bg-gray-50 rounded-md transition-colors"
+                                className="rounded-md transition-colors"
                                 style={{
                                     marginRight: theme.spacing[2],
                                     width: "32px",
@@ -412,12 +399,13 @@ export function Sidebar() {
                                     alignItems: "center",
                                     justifyContent: "center",
                                     color: theme.colors.gray[600],
+                                    backgroundColor: theme.colors.background.primary,
                                     cursor: settingsAction.disabled ? "not-allowed" : "pointer",
                                     opacity: settingsAction.disabled ? 0.6 : 1,
                                 }}
                                 disabled={settingsAction.disabled}
                             >
-                                <Settings size={18} />
+                                <Settings size={SIDEBAR_ACTION_ICON_SIZE} style={SIDEBAR_ACTION_ICON_STYLE} />
                             </button>
                         )}
                     </div>

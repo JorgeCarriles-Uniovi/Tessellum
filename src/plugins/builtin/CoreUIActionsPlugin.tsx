@@ -11,11 +11,22 @@ import {
     Settings,
     Trash2,
     Palette,
-    Paintbrush,
+    Paintbrush, User, FileText, Keyboard, Eye,
 } from "lucide-react";
 import { Plugin } from "../Plugin";
 import type { PluginManifest } from "../types";
 import { createNoteInDir } from "../../utils/noteUtils";
+import { GeneralSettings } from "../../components/Settings/GeneralSettings.tsx";
+import { EditorSettings } from "../../components/Settings/EditorSettings.tsx";
+import {
+    AppearanceSettings
+} from "../../components/Settings/AppearanceSettings.tsx";
+import {
+    ShortcutsSettings
+} from "../../components/Settings/ShortcutsSettings.tsx";
+import {
+    AccessibilitySettings
+} from "../../components/Settings/AccessibilitySettings.tsx";
 
 export class CoreUIActionsPlugin extends Plugin {
     static manifest: PluginManifest = {
@@ -81,11 +92,15 @@ export class CoreUIActionsPlugin extends Plugin {
             this.app.events.emit("ui:set-theme", themeName);
         };
 
+        const openSettings = () => {
+            this.app.events.emit("ui:open-settings");
+        }
+
         this.app.ui.registerUIAction(this.manifest.id, {
             id: "nav-back",
             label: "Back",
             icon: <ArrowLeft size={16} />,
-            onClick: () => {},
+            onClick: () => { },
             disabled: true,
             tooltip: "Coming soon",
             region: "titlebar-left",
@@ -95,7 +110,7 @@ export class CoreUIActionsPlugin extends Plugin {
             id: "nav-forward",
             label: "Forward",
             icon: <ArrowRight size={16} />,
-            onClick: () => {},
+            onClick: () => { },
             disabled: true,
             tooltip: "Coming soon",
             region: "titlebar-left",
@@ -146,9 +161,8 @@ export class CoreUIActionsPlugin extends Plugin {
             id: "sidebar-settings",
             label: "Settings",
             icon: <Settings size={16} />,
-            onClick: () => {},
-            disabled: true,
-            tooltip: "Coming soon",
+            onClick: openSettings,
+            tooltip: "Settings",
             region: "sidebar-footer",
             order: 20,
         });
@@ -156,7 +170,7 @@ export class CoreUIActionsPlugin extends Plugin {
             id: "sidebar-trash",
             label: "Trash",
             icon: <Trash2 size={16} />,
-            onClick: () => {},
+            onClick: () => { },
             disabled: true,
             tooltip: "Coming soon",
             region: "sidebar-footer",
@@ -225,6 +239,44 @@ export class CoreUIActionsPlugin extends Plugin {
             keywords: ["search", "command"],
             icon: <Palette size={16} />,
             onTrigger: openPalette,
+        });
+        this.app.ui.registerPaletteCommand(this.manifest.id, {
+            id: "settings",
+            name: "Open Settings",
+            keywords: ["settings", "preferences"],
+            icon: <Settings size={16} />,
+            onTrigger: openSettings,
+        });
+        this.app.ui.registerSettingsTab(this.manifest.id, {
+            id: "General",
+            name: "General",
+            icon: <User size={16} />,
+            isActive: true,
+            component: <GeneralSettings />,
+        });
+        this.app.ui.registerSettingsTab(this.manifest.id, {
+            id: "Editor",
+            name: "Editor",
+            icon: <FileText size={16} />,
+            component: <EditorSettings />
+        });
+        this.app.ui.registerSettingsTab(this.manifest.id, {
+            id: "Appearance",
+            name: "Appearance",
+            icon: <Palette size={16} />,
+            component: <AppearanceSettings></AppearanceSettings>
+        });
+        this.app.ui.registerSettingsTab(this.manifest.id, {
+            id: "Shortcuts",
+            name: "Shortcuts",
+            icon: <Keyboard size={16} />,
+            component: <ShortcutsSettings></ShortcutsSettings>
+        });
+        this.app.ui.registerSettingsTab(this.manifest.id, {
+            id: "Accessibility",
+            name: "Accessibility",
+            icon: <Eye size={16} />,
+            component: <AccessibilitySettings></AccessibilitySettings>
         });
     }
 }

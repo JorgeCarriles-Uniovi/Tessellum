@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { Text } from "@codemirror/state";
 import { Link2, List, Tag } from "lucide-react";
 import { theme } from "../../styles/theme";
@@ -7,6 +7,7 @@ import { BaseSidebar } from "./BaseSidebar";
 import { cn } from "../../lib/utils";
 import { useEditorStore } from "../../stores/editorStore";
 import { useTessellumApp } from "../../plugins/TessellumApp";
+import { useResizableSidebarWidth } from "./useResizableSidebarWidth";
 import { parseFrontmatter } from "../Editor/extensions/frontmatter/frontmatter-parser";
 import { stringToColor } from "../../utils/graphUtils";
 
@@ -16,6 +17,8 @@ const SNIPPET_WORDS = 20;
 const RIGHT_SIDEBAR_WIDTH_KEY = "tessellum:right-sidebar-width";
 const RIGHT_SIDEBAR_MIN = 240;
 const RIGHT_SIDEBAR_MAX = 520;
+const SIDEBAR_ICON_SIZE = 14;
+const SIDEBAR_ICON_STYLE = { width: "0.875rem", height: "0.875rem" };
 
 interface BacklinkItem {
     path: string;
@@ -57,10 +60,6 @@ function extractSnippet(content: string): string | undefined {
     const snippet = "\"" + words.slice(0, SNIPPET_WORDS).join(" ");
     const suffix = words.length > SNIPPET_WORDS ? "\" ..." : "\"";
     return truncateSnippet(`${snippet}${suffix}`);
-}
-
-function clampWidth(value: number): number {
-    return Math.min(RIGHT_SIDEBAR_MAX, Math.max(RIGHT_SIDEBAR_MIN, value));
 }
 
 function getTagStyles(tag: string) {
@@ -164,48 +163,13 @@ function mergeSnippets(items: BacklinkItem[], snippets: Array<string | undefined
 }
 
 function useSidebarWidth() {
-    const [sidebarWidth, setSidebarWidth] = useState(() => {
-        const stored = localStorage.getItem(RIGHT_SIDEBAR_WIDTH_KEY);
-        const parsed = stored ? Number.parseInt(stored, 10) : NaN;
-        return Number.isFinite(parsed) ? clampWidth(parsed) : 288;
+    return useResizableSidebarWidth({
+        side: "right",
+        storageKey: RIGHT_SIDEBAR_WIDTH_KEY,
+        min: RIGHT_SIDEBAR_MIN,
+        max: RIGHT_SIDEBAR_MAX,
+        defaultWidth: 288,
     });
-    const [isResizing, setIsResizing] = useState(false);
-    const isResizingRef = useRef(false);
-
-    useEffect(() => {
-        const handleMove = (event: MouseEvent) => {
-            if (!isResizingRef.current) return;
-            const nextWidth = clampWidth(window.innerWidth - event.clientX);
-            setSidebarWidth(nextWidth);
-            localStorage.setItem(RIGHT_SIDEBAR_WIDTH_KEY, String(nextWidth));
-        };
-
-        const handleUp = () => {
-            if (isResizingRef.current) {
-                isResizingRef.current = false;
-                setIsResizing(false);
-                document.body.style.cursor = "";
-                document.body.style.userSelect = "";
-            }
-        };
-
-        window.addEventListener("mousemove", handleMove);
-        window.addEventListener("mouseup", handleUp);
-        return () => {
-            window.removeEventListener("mousemove", handleMove);
-            window.removeEventListener("mouseup", handleUp);
-        };
-    }, []);
-
-    const onResizeStart = (event: ReactMouseEvent<HTMLDivElement>) => {
-        event.preventDefault();
-        isResizingRef.current = true;
-        setIsResizing(true);
-        document.body.style.cursor = "col-resize";
-        document.body.style.userSelect = "none";
-    };
-
-    return { sidebarWidth, isResizing, onResizeStart };
 }
 
 function useBacklinks(
@@ -288,7 +252,7 @@ function SidebarSectionHeader({ title, icon }: { title: string; icon: ReactNode 
     return (
         <div className="flex items-center justify-between">
             <h3
-                className="text-[12px] font-semibold uppercase tracking-[0.24em]"
+                className="text-[0.75rem] font-semibold uppercase tracking-[0.24em]"
                 style={{
                     color: theme.colors.text.muted,
                     padding: "1rem",
@@ -303,7 +267,7 @@ function SidebarSectionHeader({ title, icon }: { title: string; icon: ReactNode 
 
 function EmptyState({ children }: { children: ReactNode }) {
     return (
-        <div className="text-[11px]" style={{ color: theme.colors.text.muted, paddingLeft: "1rem" }}>
+        <div className="text-[0.6875rem]" style={{ color: theme.colors.text.muted, paddingLeft: "1rem" }}>
             {children}
         </div>
     );
@@ -324,7 +288,7 @@ function BacklinksSection({
         <section className="space-y-4">
             <SidebarSectionHeader
                 title="Backlinks"
-                icon={<Link2 size={14} style={{ color: theme.colors.text.muted, marginRight: "1rem" }} />}
+                icon={<Link2 size={SIDEBAR_ICON_SIZE} style={{ ...SIDEBAR_ICON_STYLE, color: theme.colors.text.muted, marginRight: "1rem" }} />}
             />
             {isLoading ? (
                 <EmptyState>Loading backlinks</EmptyState>
@@ -346,11 +310,11 @@ function BacklinksSection({
                                 marginBottom: "1rem",
                             }}
                         >
-                            <p className="text-[13px] font-semibold" style={{ color: theme.colors.text.secondary }}>
+                            <p className="text-[0.8125rem] font-semibold" style={{ color: theme.colors.text.secondary }}>
                                 {item.label}.md
                             </p>
                             {item.snippet && (
-                                <p className="text-[11px] mt-2 leading-5" style={{ color: theme.colors.text.muted }}>
+                                <p className="text-[0.6875rem] mt-2 leading-5" style={{ color: theme.colors.text.muted }}>
                                     {item.snippet}
                                 </p>
                             )}
@@ -367,7 +331,7 @@ function TagsSection({ activeNote, tags }: { activeNote: { path: string } | null
         <section className="space-y-4">
             <SidebarSectionHeader
                 title="Tags"
-                icon={<Tag size={14} style={{ color: theme.colors.text.muted, marginRight: "1rem" }} />}
+                icon={<Tag size={SIDEBAR_ICON_SIZE} style={{ ...SIDEBAR_ICON_STYLE, color: theme.colors.text.muted, marginRight: "1rem" }} />}
             />
             {!activeNote ? (
                 <EmptyState>Select a note to see tags.</EmptyState>
@@ -378,7 +342,7 @@ function TagsSection({ activeNote, tags }: { activeNote: { path: string } | null
                     {tags.map((tag) => (
                         <span
                             key={tag}
-                            className="inline-flex gap-1.5 items-center px-3 py-1 rounded-full text-[13px] font-medium text-foreground group/pill"
+                            className="inline-flex gap-1.5 items-center px-3 py-1 rounded-full text-[0.8125rem] font-medium text-foreground group/pill"
                             style={getTagStyles(tag)}
                         >
                             {tag}
@@ -395,9 +359,9 @@ function OutlineSection() {
         <section className="space-y-4">
             <SidebarSectionHeader
                 title="Outline"
-                icon={<List size={14} style={{ color: theme.colors.text.muted, marginRight: "1rem" }} />}
+                icon={<List size={SIDEBAR_ICON_SIZE} style={{ ...SIDEBAR_ICON_STYLE, color: theme.colors.text.muted, marginRight: "1rem" }} />}
             />
-            <div className="space-y-2 text-[12px]" style={{ color: theme.colors.text.muted, padding: "1rem" }}>
+            <div className="space-y-2 text-[0.75rem]" style={{ color: theme.colors.text.muted, padding: "1rem" }}>
                 <div className="flex items-center gap-2"> Meeting Goals</div>
                 <div className="flex items-center gap-2"> Technical Specs</div>
                 <div className="flex items-center gap-2" style={{ paddingLeft: theme.spacing[2] }}> Backend Refactor</div>

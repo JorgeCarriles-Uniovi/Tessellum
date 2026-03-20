@@ -79,7 +79,7 @@ export function StatusBar() {
 
     return (
         <footer
-            className="h-8 shrink-0 flex items-center justify-between px-6 border-t text-[10px] font-bold uppercase tracking-widest"
+            className="h-8 shrink-0 flex items-center justify-between px-6 border-t text-[0.625rem] font-bold uppercase tracking-widest"
             style={{
                 backgroundColor: theme.colors.background.secondary,
                 borderColor: theme.colors.border.light,

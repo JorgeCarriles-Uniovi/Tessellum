@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { FileMetadata, TreeNode } from "./types.ts";
-import { useGraphStore, useUiStore, useVaultStore } from "./stores";
+import { useAppearanceStore, useEditorContentStore, useGraphStore, useSettingsStore, useUiStore, useVaultStore } from "./stores";
 import { listen } from "@tauri-apps/api/event";
 import { exists } from '@tauri-apps/plugin-fs';
 import { getCurrentWindow, LogicalPosition, LogicalSize } from '@tauri-apps/api/window';
@@ -19,6 +19,10 @@ import { registerBuiltinPlugins } from "./plugins/builtin";
 import { useWikiLinkNavigation } from "./components/Editor/hooks";
 import { StatusBar } from "./components/Layout/StatusBar";
 import { RightSidebar } from "./components/Layout/RightSidebar";
+import { SettingsModal } from "./components/Settings/SettingsModal.tsx";
+import { useApplyAppearanceSettings } from "./hooks/useApplyAppearanceSettings";
+import { useApplyAccessibilitySettings } from "./hooks/useApplyAccessibilitySettings";
+import { ColorFilterDefs } from "./components/Accessibility/ColorFilterDefs";
 
 const THEME_KEY = "tessellum-theme";
 const WINDOW_KEY = "tessellum-window";
@@ -37,11 +41,34 @@ function App() {
     const [isLoaded, setIsLoaded] = useState(false);
     const [workspaceRestored, setWorkspaceRestored] = useState(false);
     const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+    const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
     const [themeName, setThemeName] = useState<string>(() => localStorage.getItem(THEME_KEY) || "warm-paper");
+    const editorFontSizePx = useEditorContentStore((state) => state.editorFontSizePx);
+    const { fontFamily, editorLineHeight, editorLetterSpacing } = useSettingsStore();
+    const [layoutAppearance, setLayoutAppearance] = useState(() => {
+        const state = useAppearanceStore.getState();
+        return { sidebarPosition: state.sidebarPosition, toolbarVisible: state.toolbarVisible };
+    });
 
     const navigateToWikiLink = useWikiLinkNavigation();
+    useApplyAppearanceSettings();
+    useApplyAccessibilitySettings();
+
+    useEffect(() => {
+        const unsubscribe = useAppearanceStore.subscribe((state) => {
+            const next = { sidebarPosition: state.sidebarPosition, toolbarVisible: state.toolbarVisible };
+            setLayoutAppearance((prev) => {
+                if (prev.sidebarPosition === next.sidebarPosition && prev.toolbarVisible === next.toolbarVisible) {
+                    return prev;
+                }
+                return next;
+            });
+        });
+        return unsubscribe;
+    }, []);
 
     const closeCommandPalette = () => setIsCommandPaletteOpen(false);
+    const closeSettingsPanel = () => setIsSettingsPanelOpen(false);
 
     const app = useMemo(() => {
         const isNew = !(TessellumApp as any)._instance;
@@ -92,6 +119,13 @@ function App() {
     }, [app]);
 
     useEffect(() => {
+        const ref = app.events.on("ui:open-settings", () => {
+            setIsSettingsPanelOpen(true);
+        });
+        return () => app.events.off(ref);
+    }, [app]);
+
+    useEffect(() => {
         const ref = app.events.on("ui:set-theme", (nextTheme: string) => {
             if (typeof nextTheme === "string") {
                 setThemeName(nextTheme);
@@ -107,6 +141,21 @@ function App() {
         root.classList.add(`theme-${themeName}`);
         localStorage.setItem(THEME_KEY, themeName);
     }, [themeName]);
+
+    useEffect(() => {
+        document.documentElement.style.setProperty("--editor-font-size", `${editorFontSizePx}px`);
+    }, [editorFontSizePx]);
+
+    useEffect(() => {
+        const root = document.documentElement;
+        const fallback = "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Helvetica Neue', sans-serif";
+        const hasComma = fontFamily.includes(",");
+        const needsQuotes = fontFamily.includes(" ");
+        const family = hasComma ? fontFamily : `${needsQuotes ? `"${fontFamily}"` : fontFamily}, ${fallback}`;
+        root.style.setProperty("--font-sans", family);
+        root.style.setProperty("--editor-line-height", String(editorLineHeight));
+        root.style.setProperty("--editor-letter-spacing", `${editorLetterSpacing}em`);
+    }, [fontFamily, editorLineHeight, editorLetterSpacing]);
 
     useEffect(() => {
         const appWindow = getCurrentWindow();
@@ -270,21 +319,25 @@ function App() {
         <TessellumAppContext.Provider value={app}>
             {isLoaded ? (
                 <div
-                    className="flex flex-col h-screen w-screen overflow-hidden"
+                    className="app-root flex flex-col h-screen w-screen overflow-hidden"
                     style={{
                         backgroundColor: theme.colors.background.primary,
                         fontFamily: theme.typography.fontFamily.sans
                     }}
                 >
-                    <TitleBar />
+                    <ColorFilterDefs />
+                    {layoutAppearance.toolbarVisible && <TitleBar />}
 
-                    <div className="flex-1 flex overflow-hidden w-full relative">
+                    <div className="flex-1 flex overflow-hidden w-full relative" style={{ backgroundColor: theme.colors.background.primary }}>
                         <div className="flex w-full h-full overflow-hidden">
                             {/* Sidebar */}
-                            <Sidebar />
+                            {layoutAppearance.sidebarPosition === "left" && <Sidebar side="left" />}
 
                             {/* Main content area */}
-                            <div className="flex-1 h-full min-w-0 bg-white relative flex flex-col min-h-0 overflow-hidden">
+                            <div
+                                className="flex-1 h-full min-w-0 relative flex flex-col min-h-0 overflow-hidden"
+                                style={{ backgroundColor: theme.colors.background.primary }}
+                            >
                                 {viewMode === 'graph' ? (
                                     <div className="flex-1 h-full min-w-0 relative flex flex-col min-h-0 overflow-hidden">
                                         <GraphView />
@@ -302,12 +355,13 @@ function App() {
                                 <StatusBar />
                             </div>
 
+                            {layoutAppearance.sidebarPosition === "right" && <Sidebar side="right" />}
                             <RightSidebar />
                         </div>
                     </div>
 
                     <CommandPalette isOpen={isCommandPaletteOpen} onClose={closeCommandPalette} />
-
+                    <SettingsModal isOpen={isSettingsPanelOpen} onClose={closeSettingsPanel} />
                     <Toaster position="bottom-right" richColors />
                 </div>
             ) : null}
