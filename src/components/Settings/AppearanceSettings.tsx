@@ -28,6 +28,7 @@ export function AppearanceSettings() {
         paddingBottom: `0.5rem`,
         paddingLeft: `0.5rem`,
         paddingRight: `0.5rem`,
+
     }
     const timeInputStyle = {
         paddingTop: `0.5rem`,
