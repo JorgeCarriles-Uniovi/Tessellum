@@ -1,4 +1,4 @@
-import { X, User, Bell, Shield, Palette, FileText, Cloud, Keyboard, Moon, Sun, Monitor, ChevronRight, Check } from 'lucide-react';
+import { X, ChevronRight } from 'lucide-react';
 import { useState, isValidElement, cloneElement } from 'react';
 import { useTessellumApp } from "../../plugins/TessellumApp.ts";
 
@@ -9,13 +9,6 @@ interface SettingsModalProps {
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     const [activeTab, setActiveTab] = useState<String>('General');
-    const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('light');
-    const [fontSize, setFontSize] = useState('16');
-    const [autoSave, setAutoSave] = useState(true);
-    const [spellCheck, setSpellCheck] = useState(true);
-    const [lineNumbers, setLineNumbers] = useState(false);
-    const [notifications, setNotifications] = useState(true);
-    const [syncEnabled, setSyncEnabled] = useState(true);
     const app = useTessellumApp();
     const settingsTabs = app.ui.getSettingsTabs();
     const iconSize = 16;
