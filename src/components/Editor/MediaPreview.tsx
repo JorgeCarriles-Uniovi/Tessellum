@@ -11,7 +11,7 @@ export function MediaPreview({ path }: MediaPreviewProps) {
 
     if (isImageFile(path)) {
         return (
-            <div className="h-full w-full flex items-center justify-center p-8 overflow-auto bg-[#fafafa]">
+            <div className="h-full w-full flex items-center justify-center p-8 overflow-auto" style={{ backgroundColor: "var(--color-panel-footer)" }}>
                 <img
                     src={src}
                     alt="Preview"
@@ -23,7 +23,7 @@ export function MediaPreview({ path }: MediaPreviewProps) {
 
     if (isPdfFile(path)) {
         return (
-            <div className="h-full w-full bg-[#f0f0f0]">
+            <div className="h-full w-full" style={{ backgroundColor: "var(--color-panel-footer)" }}>
                 <iframe
                     src={`${src}#view=FitH&toolbar=1`}
                     className="w-full h-full border-none"

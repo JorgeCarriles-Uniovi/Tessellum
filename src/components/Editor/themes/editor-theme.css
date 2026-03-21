@@ -1,5 +1,3 @@
-/* editor-theme.css */
-
 /* --- 1. Base Structure (Formerly baseTheme) --- */
 .cm-editor {
     background-color: transparent;
@@ -98,21 +96,21 @@
 
 /* Broken links */
 .cm-wikilink-broken {
-    color: #ef4444 !important;
+    color: var(--destructive) !important;
     text-decoration: underline;
     text-decoration-style: wavy;
-    text-decoration-color: #ef444440;
+    text-decoration-color: color-mix(in srgb, var(--destructive) 40%, transparent);
     text-underline-offset: 2px;
 }
 
 .cm-wikilink-broken:hover {
-    color: #dc2626 !important;
-    background-color: #ef444410;
+    color: var(--destructive) !important;
+    background-color: color-mix(in srgb, var(--destructive) 10%, transparent);
 }
 
 .cm-divider-widget {
     height: 1px;
-    background-color: #9ca3af;
+    background-color: var(--color-border-medium);
     margin: 1.5rem 0;
     width: 100%;
     display: block;

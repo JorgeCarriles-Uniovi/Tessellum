@@ -234,13 +234,17 @@ const TagsInput = ({ values, onChange }: { values: string[], onChange: (v: strin
                 placeholder={values.length === 0 ? "Empty" : "..."}
             />
             {showSuggestions && suggestions.length > 0 && (
-                <div className={cn(
-                    "absolute top-full left-0 mt-2 z-50 w-64 flex flex-col overflow-hidden rounded-xl",
-                    "bg-white dark:bg-[#1a242f]",
-                    "border border-gray-200 dark:border-gray-800",
-                    "shadow-2xl shadow-black/10 ring-1 ring-black/5",
-                    "animate-in fade-in zoom-in-95 duration-150 ease-out"
-                )}>
+                <div
+                    className={cn(
+                        "absolute top-full left-0 mt-2 z-50 w-64 flex flex-col overflow-hidden rounded-xl border",
+                        "animate-in fade-in zoom-in-95 duration-150 ease-out"
+                    )}
+                    style={{
+                        backgroundColor: "var(--color-panel-bg)",
+                        borderColor: "var(--color-panel-border)",
+                        boxShadow: "var(--shadow-xl)",
+                    }}
+                >
                     <div className="overflow-y-auto px-2 py-2 max-h-48 custom-scrollbar">
                         {suggestions.slice(0, 10).map((s, idx) => {
                             const isSelected = idx === selectedIndex;
@@ -249,10 +253,9 @@ const TagsInput = ({ values, onChange }: { values: string[], onChange: (v: strin
                                     key={s}
                                     className={cn(
                                         "flex items-center gap-2 rounded-[4px] px-3 py-2 text-[13px] transition-colors duration-75 cursor-pointer text-left mb-0.5",
-                                        isSelected
-                                            ? "bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-gray-100"
-                                            : "text-gray-700 dark:text-gray-300"
+                                        isSelected ? "bg-[color:var(--color-panel-active)]" : ""
                                     )}
+                                    style={{ color: isSelected ? "var(--color-text-primary)" : "var(--color-text-secondary)" }}
                                     onMouseDown={(e) => {
                                         e.preventDefault();
                                         addTag(s);
@@ -340,13 +343,17 @@ const PropertyKeyInput = ({ value, onChange, className, existingKeys }: { value:
                 placeholder="Property"
             />
             {showSuggestions && suggestions.length > 0 && (
-                <div className={cn(
-                    "absolute top-full left-0 mt-2 z-50 w-64 flex flex-col overflow-hidden rounded-xl",
-                    "bg-white dark:bg-[#1a242f]",
-                    "border border-gray-200 dark:border-gray-800",
-                    "shadow-2xl shadow-black/10 ring-1 ring-black/5",
-                    "animate-in fade-in zoom-in-95 duration-150 ease-out"
-                )}>
+                <div
+                    className={cn(
+                        "absolute top-full left-0 mt-2 z-50 w-64 flex flex-col overflow-hidden rounded-xl border",
+                        "animate-in fade-in zoom-in-95 duration-150 ease-out"
+                    )}
+                    style={{
+                        backgroundColor: "var(--color-panel-bg)",
+                        borderColor: "var(--color-panel-border)",
+                        boxShadow: "var(--shadow-xl)",
+                    }}
+                >
                     <div className="overflow-y-auto px-2 py-2 max-h-48 custom-scrollbar">
                         {suggestions.slice(0, 10).map((s, idx) => {
                             const isSelected = idx === selectedIndex;
@@ -355,10 +362,9 @@ const PropertyKeyInput = ({ value, onChange, className, existingKeys }: { value:
                                     key={s}
                                     className={cn(
                                         "flex items-center gap-2 rounded-[4px] px-3 py-2 text-[13px] transition-colors duration-75 cursor-pointer text-left mb-0.5",
-                                        isSelected
-                                            ? "bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-gray-100"
-                                            : "text-gray-700 dark:text-gray-300"
+                                        isSelected ? "bg-[color:var(--color-panel-active)]" : ""
                                     )}
+                                    style={{ color: isSelected ? "var(--color-text-primary)" : "var(--color-text-secondary)" }}
                                     onMouseDown={(e) => {
                                         e.preventDefault();
                                         submit(s);

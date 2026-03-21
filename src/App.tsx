@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { FileMetadata, TreeNode } from "./types.ts";
-import { useAppearanceStore, useEditorContentStore, useGraphStore, useSettingsStore, useUiStore, useVaultStore } from "./stores";
+import { useAppearanceStore, useEditorContentStore, useGraphStore, useSettingsStore, useThemeStore, useUiStore, useVaultStore } from "./stores";
 import { listen } from "@tauri-apps/api/event";
 import { exists } from '@tauri-apps/plugin-fs';
 import { getCurrentWindow, LogicalPosition, LogicalSize } from '@tauri-apps/api/window';
@@ -24,7 +24,6 @@ import { useApplyAppearanceSettings } from "./hooks/useApplyAppearanceSettings";
 import { useApplyAccessibilitySettings } from "./hooks/useApplyAccessibilitySettings";
 import { ColorFilterDefs } from "./components/Accessibility/ColorFilterDefs";
 
-const THEME_KEY = "tessellum-theme";
 const WINDOW_KEY = "tessellum-window";
 
 function App() {
@@ -42,9 +41,11 @@ function App() {
     const [workspaceRestored, setWorkspaceRestored] = useState(false);
     const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
     const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
-    const [themeName, setThemeName] = useState<string>(() => localStorage.getItem(THEME_KEY) || "warm-paper");
     const editorFontSizePx = useEditorContentStore((state) => state.editorFontSizePx);
     const { fontFamily, editorLineHeight, editorLetterSpacing } = useSettingsStore();
+    const loadThemes = useThemeStore((state) => state.loadThemes);
+    const startThemeWatch = useThemeStore((state) => state.startWatching);
+    const stopThemeWatch = useThemeStore((state) => state.stopWatching);
     const [layoutAppearance, setLayoutAppearance] = useState(() => {
         const state = useAppearanceStore.getState();
         return { sidebarPosition: state.sidebarPosition, toolbarVisible: state.toolbarVisible };
@@ -53,6 +54,14 @@ function App() {
     const navigateToWikiLink = useWikiLinkNavigation();
     useApplyAppearanceSettings();
     useApplyAccessibilitySettings();
+
+    useEffect(() => {
+        loadThemes();
+        startThemeWatch();
+        return () => {
+            stopThemeWatch();
+        };
+    }, [loadThemes, startThemeWatch, stopThemeWatch]);
 
     useEffect(() => {
         const unsubscribe = useAppearanceStore.subscribe((state) => {
@@ -128,19 +137,11 @@ function App() {
     useEffect(() => {
         const ref = app.events.on("ui:set-theme", (nextTheme: string) => {
             if (typeof nextTheme === "string") {
-                setThemeName(nextTheme);
+                useThemeStore.getState().setActiveTheme(nextTheme);
             }
         });
         return () => app.events.off(ref);
     }, [app]);
-
-    useEffect(() => {
-        const root = document.documentElement;
-        const themes = ["theme-warm-paper", "theme-graphite", "theme-ocean"];
-        themes.forEach((t) => root.classList.remove(t));
-        root.classList.add(`theme-${themeName}`);
-        localStorage.setItem(THEME_KEY, themeName);
-    }, [themeName]);
 
     useEffect(() => {
         document.documentElement.style.setProperty("--editor-font-size", `${editorFontSizePx}px`);

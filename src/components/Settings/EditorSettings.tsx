@@ -21,7 +21,10 @@ export function EditorSettings() {
         paddingTop: `0.33rem`,
         paddingBottom: `0.33rem`,
         paddingLeft: `0.5rem`,
-        paddingRight: `0.5rem`
+        paddingRight: `0.5rem`,
+        borderColor: "var(--color-border-light)",
+        backgroundColor: "var(--color-panel-bg)",
+        color: "var(--color-text-primary)",
     };
 
     return (
@@ -31,7 +34,7 @@ export function EditorSettings() {
                     <select
                         value={fontFamily}
                         onChange={(e) => setFontFamily(e.target.value)}
-                        className="px-3 py-2 border border-[#e2e8f0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-blue-600)] focus:border-transparent transition-all bg-white cursor-pointer"
+                        className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)] focus:border-transparent transition-all cursor-pointer"
                         style={selectStyle}
                     >
                         <option value="Geist Sans">Geist Sans</option>
@@ -46,7 +49,7 @@ export function EditorSettings() {
                     <select
                         value={String(editorFontSizePx)}
                         onChange={(e) => setEditorFontSizePx(Number(e.target.value))}
-                        className="px-3 py-2 border border-[#e2e8f0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-blue-600)] focus:border-transparent transition-all bg-white cursor-pointer"
+                        className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)] focus:border-transparent transition-all cursor-pointer"
                         style={selectStyle}
                     >
                         <option value="14">14px - Small</option>
@@ -66,7 +69,7 @@ export function EditorSettings() {
                             onChange={(e) => setEditorLineHeight(Number(e.target.value))}
                             className="w-40"
                         />
-                        <span className="text-xs text-[#64748b] w-10">{editorLineHeight.toFixed(1)}</span>
+                        <span className="text-xs w-10" style={{ color: "var(--color-text-muted)" }}>{editorLineHeight.toFixed(1)}</span>
                     </div>
                 </SettingItem>
                 <SettingItem label="Letter Spacing">
@@ -80,7 +83,7 @@ export function EditorSettings() {
                             onChange={(e) => setEditorLetterSpacing(Number(e.target.value))}
                             className="w-40"
                         />
-                        <span className="text-xs text-[#64748b] w-10">{editorLetterSpacing.toFixed(2)}</span>
+                        <span className="text-xs w-10" style={{ color: "var(--color-text-muted)" }}>{editorLetterSpacing.toFixed(2)}</span>
                     </div>
                 </SettingItem>
             </SettingSection>

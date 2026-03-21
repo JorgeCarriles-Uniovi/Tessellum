@@ -41,15 +41,15 @@ export class ErrorBoundary extends Component<Props, State> {
                     justifyContent: 'center',
                     height: '100vh',
                     fontFamily: 'system-ui, sans-serif',
-                    color: '#c9d1d9',
-                    backgroundColor: '#0d1117',
+                    color: 'var(--color-text-primary)',
+                    backgroundColor: 'var(--color-bg-primary)',
                     padding: '2rem',
                     textAlign: 'center',
                 }}>
                     <h1 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>
                         Something went wrong
                     </h1>
-                    <p style={{ color: '#8b949e', marginBottom: '1rem', maxWidth: '400px' }}>
+                    <p style={{ color: 'var(--color-text-muted)', marginBottom: '1rem', maxWidth: '400px' }}>
                         {this.state.error?.message || 'An unexpected error occurred.'}
                     </p>
                     <button
@@ -57,9 +57,9 @@ export class ErrorBoundary extends Component<Props, State> {
                         style={{
                             padding: '0.5rem 1.5rem',
                             borderRadius: '6px',
-                            border: '1px solid #30363d',
-                            backgroundColor: '#21262d',
-                            color: '#c9d1d9',
+                            border: '1px solid var(--color-border-light)',
+                            backgroundColor: 'var(--color-panel-bg)',
+                            color: 'var(--color-text-primary)',
                             cursor: 'pointer',
                             fontSize: '0.875rem',
                         }}

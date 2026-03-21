@@ -18,7 +18,7 @@ export class CalloutHeaderWidget extends WidgetType {
 
     toDOM(view: EditorView): HTMLElement {
         const calloutType = getCalloutType(this.block.type);
-        const color = calloutType?.color || "#448aff";
+        const color = calloutType?.color || "var(--callout-info)";
         const label = this.block.title || calloutType?.label || this.block.type;
 
         // Header container

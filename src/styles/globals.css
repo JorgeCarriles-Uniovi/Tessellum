@@ -149,6 +149,22 @@ body {
     --graph-edge: var(--color-border-medium);
     --graph-edge-broken: var(--color-gray-400);
     --graph-node-active: var(--color-blue-600);
+
+    /* Terminal callout */
+    --terminal-header-bg: #0d1117;
+    --terminal-line-bg: #24292e;
+    --terminal-border: #30363d;
+    --terminal-text: #c9d1d9;
+    --terminal-muted: #959da5;
+
+    /* Syntax highlighting */
+    --syntax-comment: #a0a1a7;
+    --syntax-keyword: #a626a4;
+    --syntax-operator: #0184bc;
+    --syntax-string: #50a14f;
+    --syntax-number: #986801;
+    --syntax-variable: #e45649;
+    --syntax-function: #4078f2;
 }
 
 .dark {
@@ -496,27 +512,33 @@ body {
 
     /* --- Editor Markdown Syntax --- */
     .cm-heading1 {
-        @apply !text-[2.0em] !font-extrabold !text-[#111827] !tracking-tight !leading-tight;
+        @apply !text-[2.0em] !font-extrabold !tracking-tight !leading-tight;
+        color: var(--color-text-primary) !important;
     }
 
     .cm-heading2 {
-        @apply !text-[1.75em] !font-bold !text-[#1f2937] !tracking-tight !leading-tight;
+        @apply !text-[1.75em] !font-bold !tracking-tight !leading-tight;
+        color: var(--color-text-secondary) !important;
     }
 
     .cm-heading3 {
-        @apply !text-[1.5em] !font-semibold !text-[#374151] !tracking-tight !leading-tight;
+        @apply !text-[1.5em] !font-semibold !tracking-tight !leading-tight;
+        color: var(--color-text-tertiary) !important;
     }
 
     .cm-heading4 {
-        @apply !text-[1.25em] !font-semibold !text-[#4b5563] !tracking-tight !leading-snug;
+        @apply !text-[1.25em] !font-semibold !tracking-tight !leading-snug;
+        color: var(--color-text-tertiary) !important;
     }
 
     .cm-heading5 {
-        @apply !text-[1.125em] !font-semibold !text-[#6b7280] !tracking-tight !leading-snug;
+        @apply !text-[1.125em] !font-semibold !tracking-tight !leading-snug;
+        color: var(--color-text-muted) !important;
     }
 
     .cm-heading6 {
-        @apply !text-[1em] !font-semibold !text-[#6b7280] !tracking-tight !leading-snug;
+        @apply !text-[1em] !font-semibold !tracking-tight !leading-snug;
+        color: var(--color-text-muted) !important;
     }
 
     .cm-emphasis {
@@ -532,7 +554,8 @@ body {
     }
 
     .cm-quote-text {
-        @apply !text-[#4b5563] !italic;
+        @apply !italic;
+        color: var(--callout-quote) !important;
     }
 
     .cm-proc-inst {
@@ -541,27 +564,29 @@ body {
 
     /* --- General Syntax Palette (Global Component Layer) --- */
     .cm-comment {
-        @apply !text-[#a0a1a7] !italic;
+        @apply !italic;
+        color: var(--syntax-comment) !important;
     }
 
     .cm-keyword {
-        @apply !text-[#a626a4] !font-semibold;
+        @apply !font-semibold;
+        color: var(--syntax-keyword) !important;
     }
 
     .cm-operator {
-        @apply !text-[#0184bc];
+        color: var(--syntax-operator) !important;
     }
 
     .cm-string {
-        color: var(--cm-string) !important;
+        color: var(--syntax-string) !important;
     }
 
     .cm-number {
-        @apply !text-[#986801];
+        color: var(--syntax-number) !important;
     }
 
     .cm-variable {
-        @apply !text-[#e45649];
+        color: var(--syntax-variable) !important;
     }
 
     .cm-variable2 {
@@ -581,7 +606,7 @@ body {
     }
 
     .cm-functionName {
-        color: var(--cm-function) !important;
+        color: var(--syntax-function) !important;
     }
 
     .cm-className {
@@ -720,7 +745,10 @@ body {
 
     /* --- Terminal Callout --- */
     .cm-terminal-header {
-        @apply !bg-[#0d1117] !text-[#e1e4e8] !border-b !border-[#30363d] !flex !justify-start !items-center !relative !px-3.5 !py-2 !overflow-visible;
+        @apply !border-b !flex !justify-start !items-center !relative !px-3.5 !py-2 !overflow-visible;
+        background-color: var(--terminal-header-bg) !important;
+        color: var(--terminal-text) !important;
+        border-color: var(--terminal-border) !important;
     }
 
     .cm-terminal-dots {
@@ -744,11 +772,13 @@ body {
     }
 
     .cm-terminal-header .cm-callout-title {
-        @apply absolute left-1/2 -translate-x-1/2 h-full px-3 text-center font-mono text-[0.9em] font-medium text-[#959da5] flex items-center justify-center gap-1.5 rounded transition-colors duration-200 select-none !overflow-visible;
+        @apply absolute left-1/2 -translate-x-1/2 h-full px-3 text-center font-mono text-[0.9em] font-medium flex items-center justify-center gap-1.5 rounded transition-colors duration-200 select-none !overflow-visible;
+        color: var(--terminal-muted) !important;
     }
 
     .cm-terminal-header .cm-callout-title:hover {
-        @apply text-[#c9d1d9] bg-white/5;
+        @apply bg-white/5;
+        color: var(--terminal-text) !important;
     }
 
     /* Tooltip styling for the copy button */
@@ -769,12 +799,15 @@ body {
     }
 
     .cm-terminal-header .cm-callout-title .cm-callout-icon {
-        @apply w-3.5 h-3.5 text-[#959da5];
+        @apply w-3.5 h-3.5;
+        color: var(--terminal-muted) !important;
     }
 
     .cm-terminal-line {
         font-size: calc(var(--editor-font-size, 16px) * 0.85) !important;
-        @apply !bg-[#24292e] !text-[#c9d1d9] !font-mono !leading-[1.7] !pl-12 !pr-8 !py-0.5;
+        @apply !font-mono !leading-[1.7] !pl-12 !pr-8 !py-0.5;
+        background-color: var(--terminal-line-bg) !important;
+        color: var(--terminal-text) !important;
         padding-left: 2rem !important;
         padding-right: 2rem !important;
     }
@@ -834,7 +867,7 @@ body {
     .cm-terminal-line .cm-heading5,
     .cm-terminal-line.cm-heading6,
     .cm-terminal-line .cm-heading6 {
-        @apply !text-[#c9d1d9];
+        color: var(--terminal-text) !important;
     }
 
     .cm-terminal-editing.cm-heading1,
@@ -857,7 +890,8 @@ body {
     .cm-terminal-line .cm-strong,
     .cm-terminal-line.cm-header-mark,
     .cm-terminal-line .cm-heading-mark {
-        @apply !font-normal !text-[#c9d1d9];
+        @apply !font-normal;
+        color: var(--terminal-text) !important;
     }
 
     .cm-terminal-editing.cm-strong,
@@ -873,7 +907,8 @@ body {
     }
 
     .cm-terminal-line .cm-heading-mark {
-        @apply !font-normal !text-[#c9d1d9];
+        @apply !font-normal;
+        color: var(--terminal-text) !important;
     }
 
     .cm-terminal-line.cm-emphasis,
@@ -1118,8 +1153,8 @@ body {
 
     --primary: #8a5a3c;
 
-    --cm-string: #50a14f;
-    --cm-function: #4078f2;
+    --syntax-string: #50a14f;
+    --syntax-function: #4078f2;
     --cm-hashtag: #8a5a3c;
     --cm-hashtag-bg: rgba(138, 90, 60, 0.1);
 }
@@ -1140,8 +1175,8 @@ body {
 
     --primary: #6aa3ff;
 
-    --cm-string: #addb67;
-    --cm-function: #82aaff;
+    --syntax-string: #addb67;
+    --syntax-function: #82aaff;
     --cm-hashtag: #c792ea;
     --cm-hashtag-bg: rgba(199, 146, 234, 0.1);
 }
@@ -1162,8 +1197,8 @@ body {
 
     --primary: #2563eb;
 
-    --cm-string: #16a34a;
-    --cm-function: #2563eb;
+    --syntax-string: #16a34a;
+    --syntax-function: #2563eb;
     --cm-hashtag: #7c3aed;
     --cm-hashtag-bg: rgba(124, 58, 237, 0.1);
 }

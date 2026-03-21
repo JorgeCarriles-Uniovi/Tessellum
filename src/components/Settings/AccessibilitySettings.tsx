@@ -13,6 +13,15 @@ export function AccessibilitySettings() {
     const setUiScale = useAccessibilityStore((state) => state.setUiScale);
     const colorFilter = useAccessibilityStore((state) => state.colorFilter);
     const setColorFilter = useAccessibilityStore((state) => state.setColorFilter);
+    const inputStyle = {
+        borderColor: "var(--color-border-light)",
+        backgroundColor: "var(--color-panel-bg)",
+        color: "var(--color-text-primary)",
+        paddingTop: `0.5rem`,
+        paddingBottom: `0.5rem`,
+        paddingLeft: `0.5rem`,
+        paddingRight: `0.5rem`,
+    };
 
     return (
         <div className="space-y-6">
@@ -27,13 +36,8 @@ export function AccessibilitySettings() {
                     <select
                         value={String(uiScale)}
                         onChange={(e) => setUiScale(Number(e.target.value) as UiScale)}
-                        className="px-3 py-2 border border-[#e2e8f0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-blue-600)] focus:border-transparent transition-all bg-white cursor-pointer"
-                        style={{
-                            paddingTop: `0.5rem`,
-                            paddingBottom: `0.5rem`,
-                            paddingLeft: `0.5rem`,
-                            paddingRight: `0.5rem`,
-                        }}
+                        className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)] focus:border-transparent transition-all cursor-pointer"
+                        style={inputStyle}
                     >
                         <option value="90">90%</option>
                         <option value="100">100%</option>
@@ -58,13 +62,8 @@ export function AccessibilitySettings() {
                     <select
                         value={colorFilter}
                         onChange={(e) => setColorFilter(e.target.value as ColorFilter)}
-                        className="px-3 py-2 border border-[#e2e8f0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-blue-600)] focus:border-transparent transition-all bg-white cursor-pointer"
-                        style={{
-                            paddingTop: `0.5rem`,
-                            paddingBottom: `0.5rem`,
-                            paddingLeft: `0.5rem`,
-                            paddingRight: `0.5rem`,
-                        }}
+                        className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)] focus:border-transparent transition-all cursor-pointer"
+                        style={inputStyle}
                     >
                         <option value="none">None</option>
                         <option value="protanopia">Protanopia</option>

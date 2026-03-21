@@ -25,7 +25,6 @@ export function TableSizePicker({
     const [hoverRow, setHoverRow] = useState(MIN_SIZE);
     const [hoverCol, setHoverCol] = useState(MIN_SIZE);
 
-    // Reset on open
     useEffect(() => {
         if (isOpen) {
             setHoverRow(MIN_SIZE);
@@ -33,7 +32,6 @@ export function TableSizePicker({
         }
     }, [isOpen]);
 
-    // Click outside
     useEffect(() => {
         if (!isOpen) return;
         const handleClickOutside = (event: MouseEvent) => {
@@ -45,7 +43,6 @@ export function TableSizePicker({
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [isOpen, onClose]);
 
-    // Keyboard navigation
     useEffect(() => {
         if (!isOpen) return;
 
@@ -88,7 +85,6 @@ export function TableSizePicker({
 
     if (!isOpen) return null;
 
-    // Build the grid — show at least MIN_SIZE, expand to hoverRow/Col + 1
     const displayRows = Math.min(Math.max(hoverRow + 1, MIN_SIZE), MAX_SIZE);
     const displayCols = Math.min(Math.max(hoverCol + 1, MIN_SIZE), MAX_SIZE);
 
@@ -96,18 +92,24 @@ export function TableSizePicker({
         <div
             ref={menuRef}
             className={cn(
-                "absolute z-50 flex flex-col overflow-hidden rounded-xl",
-                "bg-white dark:bg-[#1a242f]",
-                "border border-gray-200 dark:border-gray-800",
-                "shadow-2xl shadow-black/10 ring-1 ring-black/5",
+                "absolute z-50 flex flex-col overflow-hidden rounded-xl border",
                 "animate-in fade-in zoom-in-95 duration-150 ease-out",
                 placement === "top"
                     ? "-translate-y-full mb-2 origin-bottom"
                     : "mt-2 origin-top"
             )}
-            style={{ top: y, left: x }}
+            style={{
+                top: y,
+                left: x,
+                backgroundColor: "var(--color-panel-bg)",
+                borderColor: "var(--color-panel-border)",
+                boxShadow: "var(--shadow-xl)",
+            }}
         >
-            <div className="px-5 py-3 text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider select-none">
+            <div
+                className="px-5 py-3 text-[11px] font-semibold uppercase tracking-wider select-none"
+                style={{ color: "var(--color-text-muted)" }}
+            >
                 Insert table
             </div>
 
@@ -132,12 +134,13 @@ export function TableSizePicker({
                                         setHoverCol(c);
                                     }}
                                     onClick={handleCellClick}
-                                    className={cn(
-                                        "w-6 h-6 rounded-[3px] border cursor-pointer transition-all duration-75",
-                                        isHighlighted
-                                            ? "bg-blue-500/20 border-blue-400 dark:bg-blue-400/25 dark:border-blue-500"
-                                            : "bg-gray-50 border-gray-200 dark:bg-gray-800 dark:border-gray-700"
-                                    )}
+                                    className="w-6 h-6 rounded-[3px] border cursor-pointer transition-all duration-75"
+                                    style={{
+                                        backgroundColor: isHighlighted
+                                            ? "color-mix(in srgb, var(--primary) 20%, transparent)"
+                                            : "var(--color-panel-footer)",
+                                        borderColor: isHighlighted ? "var(--primary)" : "var(--color-panel-border)",
+                                    }}
                                 />
                             );
                         })
@@ -145,11 +148,24 @@ export function TableSizePicker({
                 </div>
             </div>
 
-            <div className="px-5 py-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30 flex items-center justify-between">
-                <span className="text-[12px] font-medium text-gray-600 dark:text-gray-300 select-none tabular-nums">
+            <div
+                className="px-5 py-3 border-t flex items-center justify-between"
+                style={{
+                    borderColor: "var(--color-border-light)",
+                    backgroundColor: "var(--color-panel-footer)",
+                }}
+            >
+                <span className="text-[12px] font-medium select-none tabular-nums" style={{ color: "var(--color-text-secondary)" }}>
                     {hoverCol} × {hoverRow}
                 </span>
-                <kbd className="inline-flex items-center justify-center rounded bg-gray-200/50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-700 px-1.5 py-0.5 text-[10px] font-mono font-medium text-gray-500 dark:text-gray-400 min-w-[20px] select-none">
+                <kbd
+                    className="inline-flex items-center justify-center rounded border px-1.5 py-0.5 text-[10px] font-mono font-medium min-w-[20px] select-none"
+                    style={{
+                        backgroundColor: "var(--color-kbd-bg)",
+                        borderColor: "var(--color-kbd-border)",
+                        color: "var(--color-kbd-text)",
+                    }}
+                >
                     esc
                 </kbd>
             </div>

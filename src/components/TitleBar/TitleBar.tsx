@@ -64,9 +64,9 @@ export function TitleBar() {
             data-tauri-drag-region
             className={cn(
                 "h-10 shrink-0 flex items-center justify-between select-none z-50",
-                "border-b border-gray-200 dark:border-gray-800 text-gray-500"
+                "border-b text-[color:var(--color-text-muted)]"
             )}
-            style={{ backgroundColor: theme.colors.background.primary }}
+            style={{ backgroundColor: theme.colors.background.primary, borderColor: "var(--color-panel-border)" }}
         >
             {/* --- LEFT SECTION: Navigation & Sidebar --- */}
             <div className="flex items-center px-2 gap-1 h-full"
@@ -92,7 +92,8 @@ export function TitleBar() {
 
             {/* --- TITLE SECTION: Path --- */}
             <div
-                className="flex items-center gap-2 px-4 text-[0.75rem] font-medium text-gray-700 dark:text-gray-300 pointer-events-none opacity-80"
+                className="flex items-center gap-2 px-4 text-[0.75rem] font-medium pointer-events-none opacity-80"
+                style={{ color: "var(--color-text-secondary)" }}
                 data-tauri-drag-region
             >
                 {crumbs.length === 0 ? (
@@ -105,7 +106,7 @@ export function TitleBar() {
                             )}
                             <span
                                 className="inline-flex items-center gap-1"
-                                style={{ color: idx === crumbs.length - 1 ? theme.colors.blue[600] : undefined }}
+                                style={{ color: idx === crumbs.length - 1 ? theme.colors.blue[600] : "var(--color-text-secondary)" }}
                             >
                                 {idx === crumbs.length - 1 && (
                                     <FileText size={smallIconSize} style={smallIconStyle} />
@@ -146,13 +147,24 @@ export function TitleBar() {
                 <div className="w-2" />
 
                 {/* "EDITING" Status Badge */}
-                <div className="hidden sm:flex items-center gap-1.5 px-3 mr-2 text-[0.625rem] font-bold text-gray-400 tracking-wider"
-                     style={{ paddingLeft: "1rem", paddingRight: "1rem", paddingTop: "1px", paddingBottom: "1px" }}>
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-500/50"></span>
+                <div
+                    className="hidden sm:flex items-center gap-1.5 px-3 mr-2 text-[0.625rem] font-bold tracking-wider"
+                    style={{
+                        color: "var(--color-text-muted)",
+                        paddingLeft: "1rem",
+                        paddingRight: "1rem",
+                        paddingTop: "1px",
+                        paddingBottom: "1px",
+                    }}
+                >
+                    <span
+                        className="w-1.5 h-1.5 rounded-full"
+                        style={{ backgroundColor: "var(--color-highlight-text)" }}
+                    ></span>
                     EDITING
                 </div>
 
-                <div className="h-4 w-[1px] bg-gray-200 dark:bg-gray-700 mx-1" />
+                <div className="h-4 w-[1px] mx-1" style={{ backgroundColor: "var(--color-panel-border)" }} />
 
                 {/* Window Controls */}
                 <WindowButton onClick={handleMinimize}>
@@ -191,8 +203,8 @@ function NavButton({ onClick, children, active, tooltip, disabled }: NavButtonPr
                 "h-7 w-7 flex items-center justify-center rounded-md transition-colors",
                 disabled
                     ? "opacity-40 cursor-not-allowed"
-                    : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400",
-                active && "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+                    : "hover:bg-[color:var(--color-panel-hover)] text-[color:var(--color-text-muted)]",
+                active && "bg-[color:var(--color-panel-active)] text-[color:var(--color-text-primary)]"
             )}
             style={disabled ? { color: theme.colors.gray[400] } : undefined}
         >
@@ -215,8 +227,8 @@ function WindowButton({ onClick, children, isClose }: WindowButtonProps) {
             className={cn(
                 "h-full w-11 flex items-center justify-center transition-colors focus:outline-none",
                 isClose
-                    ? "hover:bg-[#e81123] hover:text-white text-gray-500"
-                    : "hover:bg-gray-100 dark:hover:bg-white/5 text-gray-500"
+                    ? "hover:bg-[color:var(--destructive)] hover:text-[color:var(--destructive-foreground)] text-[color:var(--color-text-muted)]"
+                    : "hover:bg-[color:var(--color-panel-hover)] text-[color:var(--color-text-muted)]"
             )}
         >
             {children}

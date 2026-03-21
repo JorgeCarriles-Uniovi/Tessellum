@@ -172,13 +172,71 @@ function applyAccentPalette(accentColor: string) {
     setCssVars(vars);
 }
 
+export function applyAccentPaletteFromColor(accentColor: string) {
+    applyAccentPalette(accentColor);
+}
+
 type AppearanceSnapshot = {
     accentColor: string;
+    accentSource: "theme" | "custom";
     density: "compact" | "comfortable";
     radius: "6" | "10" | "16";
     shadow: "subtle" | "medium" | "strong";
     iconStyle: "outline" | "filled";
+    terminalCustom: boolean;
+    terminalHeaderBg: string;
+    terminalLineBg: string;
+    terminalBorder: string;
+    terminalText: string;
+    terminalMuted: string;
+    syntaxComment: string;
+    syntaxKeyword: string;
+    syntaxOperator: string;
+    syntaxString: string;
+    syntaxNumber: string;
+    syntaxVariable: string;
+    syntaxFunction: string;
+    syntaxCustom: boolean;
 };
+
+function setOrClearCssVars(vars: Record<string, string>, enabled: boolean) {
+    const root = document.documentElement;
+    Object.entries(vars).forEach(([key, value]) => {
+        if (enabled) {
+            root.style.setProperty(key, value);
+        } else {
+            root.style.removeProperty(key);
+        }
+    });
+}
+
+function applyTerminalColors(snapshot: Pick<
+    AppearanceSnapshot,
+    "terminalHeaderBg" | "terminalLineBg" | "terminalBorder" | "terminalText" | "terminalMuted" | "terminalCustom"
+>) {
+    setOrClearCssVars({
+        "--terminal-header-bg": snapshot.terminalHeaderBg,
+        "--terminal-line-bg": snapshot.terminalLineBg,
+        "--terminal-border": snapshot.terminalBorder,
+        "--terminal-text": snapshot.terminalText,
+        "--terminal-muted": snapshot.terminalMuted,
+    }, snapshot.terminalCustom);
+}
+
+function applySyntaxColors(snapshot: Pick<
+    AppearanceSnapshot,
+    "syntaxComment" | "syntaxKeyword" | "syntaxOperator" | "syntaxString" | "syntaxNumber" | "syntaxVariable" | "syntaxFunction" | "syntaxCustom"
+>) {
+    setOrClearCssVars({
+        "--syntax-comment": snapshot.syntaxComment,
+        "--syntax-keyword": snapshot.syntaxKeyword,
+        "--syntax-operator": snapshot.syntaxOperator,
+        "--syntax-string": snapshot.syntaxString,
+        "--syntax-number": snapshot.syntaxNumber,
+        "--syntax-variable": snapshot.syntaxVariable,
+        "--syntax-function": snapshot.syntaxFunction,
+    }, snapshot.syntaxCustom);
+}
 
 function applyAppearance(snapshot: AppearanceSnapshot) {
     const root = document.documentElement;
@@ -187,17 +245,36 @@ function applyAppearance(snapshot: AppearanceSnapshot) {
     applySpacing(snapshot.density);
     applyRadius(snapshot.radius);
     applyShadows(snapshot.shadow);
-    applyAccentPalette(snapshot.accentColor);
+    applyTerminalColors(snapshot);
+    applySyntaxColors(snapshot);
+    if (snapshot.accentSource === "custom") {
+        applyAccentPalette(snapshot.accentColor);
+    }
 }
 
 function isSameAppearance(a: AppearanceSnapshot | null, b: AppearanceSnapshot): boolean {
     if (!a) return false;
     return (
         a.accentColor === b.accentColor &&
+        a.accentSource === b.accentSource &&
         a.density === b.density &&
         a.radius === b.radius &&
         a.shadow === b.shadow &&
-        a.iconStyle === b.iconStyle
+        a.iconStyle === b.iconStyle &&
+        a.terminalCustom === b.terminalCustom &&
+        a.terminalHeaderBg === b.terminalHeaderBg &&
+        a.terminalLineBg === b.terminalLineBg &&
+        a.terminalBorder === b.terminalBorder &&
+        a.terminalText === b.terminalText &&
+        a.terminalMuted === b.terminalMuted &&
+        a.syntaxComment === b.syntaxComment &&
+        a.syntaxKeyword === b.syntaxKeyword &&
+        a.syntaxOperator === b.syntaxOperator &&
+        a.syntaxString === b.syntaxString &&
+        a.syntaxNumber === b.syntaxNumber &&
+        a.syntaxVariable === b.syntaxVariable &&
+        a.syntaxFunction === b.syntaxFunction &&
+        a.syntaxCustom === b.syntaxCustom
     );
 }
 
@@ -215,10 +292,25 @@ export function useApplyAppearanceSettings() {
         const unsubscribe = useAppearanceStore.subscribe((state) => {
             applyIfChanged({
                 accentColor: state.accentColor,
+                accentSource: state.accentSource,
                 density: state.density,
                 radius: state.radius,
                 shadow: state.shadow,
                 iconStyle: state.iconStyle,
+                terminalCustom: state.terminalCustom,
+                terminalHeaderBg: state.terminalHeaderBg,
+                terminalLineBg: state.terminalLineBg,
+                terminalBorder: state.terminalBorder,
+                terminalText: state.terminalText,
+                terminalMuted: state.terminalMuted,
+                syntaxComment: state.syntaxComment,
+                syntaxKeyword: state.syntaxKeyword,
+                syntaxOperator: state.syntaxOperator,
+                syntaxString: state.syntaxString,
+                syntaxNumber: state.syntaxNumber,
+                syntaxVariable: state.syntaxVariable,
+                syntaxFunction: state.syntaxFunction,
+                syntaxCustom: state.syntaxCustom,
             });
         });
 

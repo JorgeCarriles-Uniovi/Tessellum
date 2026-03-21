@@ -68,7 +68,7 @@ const actionSectionStyle: CSSProperties = {
 };
 
 const footerStyle: CSSProperties = {
-    borderTop: `1px solid ${theme.colors.gray[100]}`,
+    borderTop: `1px solid ${theme.colors.border.light}`,
     padding: `${theme.spacing[2]} 0`,
     backgroundColor: theme.colors.background.primary,
 };
@@ -100,7 +100,7 @@ const headerActionStyle = (disabled?: boolean): CSSProperties => ({
     borderRadius: theme.borderRadius.md,
     border: "none",
     cursor: disabled ? "not-allowed" : "pointer",
-    color: disabled ? theme.colors.gray[300] : theme.colors.gray[600],
+    color: disabled ? "color-mix(in srgb, var(--color-text-muted) 60%, transparent)" : theme.colors.text.secondary,
     backgroundColor: "transparent",
 });
 
@@ -110,11 +110,11 @@ const actionButtonStyle = (isHovered: boolean, disabled?: boolean): CSSPropertie
     gap: theme.spacing[3],
     width: "100%",
     padding: `${theme.spacing[2]} ${theme.spacing[3]}`,
-    background: isHovered ? theme.colors.gray[50] : "transparent",
+    background: isHovered ? "color-mix(in srgb, var(--color-text-primary) 6%, transparent)" : "transparent",
     border: `1px solid ${theme.colors.border.light}`,
     borderRadius: theme.borderRadius.lg,
     cursor: disabled ? "not-allowed" : "pointer",
-    color: disabled ? theme.colors.gray[400] : theme.colors.gray[700],
+    color: disabled ? theme.colors.text.muted : theme.colors.text.secondary,
     transition: theme.transitions.fast,
     textAlign: "left",
     opacity: disabled ? 0.6 : 1,
@@ -126,10 +126,10 @@ const footerButtonStyle = (isHovered: boolean, disabled?: boolean): CSSPropertie
     gap: theme.spacing[3],
     width: "100%",
     padding: `${theme.spacing[2]} ${theme.spacing[4]}`,
-    background: isHovered ? theme.colors.gray[50] : "transparent",
+    background: isHovered ? "color-mix(in srgb, var(--color-text-primary) 6%, transparent)" : "transparent",
     border: "none",
     cursor: disabled ? "not-allowed" : "pointer",
-    color: disabled ? theme.colors.gray[400] : theme.colors.gray[600],
+    color: disabled ? theme.colors.text.muted : theme.colors.text.secondary,
     transition: theme.transitions.fast,
     textAlign: "left",
     opacity: disabled ? 0.6 : 1,
@@ -152,7 +152,7 @@ const emptyStateStyle: CSSProperties = {
     justifyContent: "center",
     gap: theme.spacing[3],
     padding: theme.spacing[4],
-    color: theme.colors.gray[400],
+    color: theme.colors.text.muted,
     fontSize: theme.typography.fontSize.sm,
     textAlign: "center",
 };
@@ -161,17 +161,17 @@ const emptyStateIconStyle: CSSProperties = {
     width: 52,
     height: 52,
     borderRadius: theme.borderRadius.full,
-    backgroundColor: theme.colors.gray[50],
+    backgroundColor: "color-mix(in srgb, var(--color-text-primary) 6%, transparent)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    color: theme.colors.gray[300],
+    color: theme.colors.text.muted,
 };
 
 const emptyStateTitleStyle: CSSProperties = {
     fontSize: theme.typography.fontSize.base,
     fontWeight: theme.typography.fontWeight.semibold,
-    color: theme.colors.gray[600],
+    color: theme.colors.text.secondary,
 };
 
 const emptyStateTextStyle: CSSProperties = {
@@ -277,7 +277,7 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
                 >
                     <div className={cn(
                         "w-[2px] h-full transition-colors",
-                        isResizing ? "bg-blue-500" : "bg-transparent group-hover:bg-gray-200"
+                        isResizing ? "bg-blue-500" : "bg-transparent group-hover:bg-[color:var(--color-border-medium)]"
                     )} />
                 </div>
                 <div
@@ -398,7 +398,7 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
                                     display: "flex",
                                     alignItems: "center",
                                     justifyContent: "center",
-                                    color: theme.colors.gray[600],
+                                    color: theme.colors.text.secondary,
                                     backgroundColor: theme.colors.background.primary,
                                     cursor: settingsAction.disabled ? "not-allowed" : "pointer",
                                     opacity: settingsAction.disabled ? 0.6 : 1,
@@ -468,7 +468,7 @@ function VaultSwitcher({ vaultName, onOpenVault }: { vaultName: string; onOpenVa
                 <div style={{ ...logoStyle, ...vaultBadgeStyle }}>{vaultName.charAt(0).toUpperCase()}</div>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
                     <span style={{ fontSize: theme.typography.fontSize.sm, fontWeight: 600 }}>{vaultName}</span>
-                    <span style={{ fontSize: theme.typography.fontSize.xs, color: theme.colors.gray[400] }}>Open vault</span>
+                    <span style={{ fontSize: theme.typography.fontSize.xs, color: theme.colors.text.muted }}>Open vault</span>
                 </div>
             </div>
         </button>

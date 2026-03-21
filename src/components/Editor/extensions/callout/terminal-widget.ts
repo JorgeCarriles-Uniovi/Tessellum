@@ -24,7 +24,7 @@ export class TerminalHeaderWidget extends WidgetType {
         header.className = "cm-callout-header cm-terminal-header";
 
         // Use a generic color base in case we need it, though terminal CSS overrides this
-        header.style.setProperty("--callout-color", "#e1e4e8");
+        header.style.setProperty("--callout-color", "var(--callout-terminal)");
 
         // Add dots on the left
         const dots = document.createElement("div");

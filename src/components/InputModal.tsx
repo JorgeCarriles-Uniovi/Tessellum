@@ -252,7 +252,7 @@ export function InputModal({
                                         submitHovered && value.trim()
                                             ? theme.colors.blue[700]
                                             : theme.colors.blue[600],
-                                    color: "#ffffff",
+                                    color: "var(--primary-foreground)",
                                     border: "none",
                                     borderRadius: theme.borderRadius.lg,
                                     fontWeight: theme.typography.fontWeight.medium,

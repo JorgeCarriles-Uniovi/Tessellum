@@ -11,6 +11,8 @@ export type { SettingsActions, SettingsState, SettingsStore } from "./settingsSt
 export { useAppearanceStore } from "./appearanceStore";
 export type { AppearanceActions, AppearanceState, AppearanceStore } from "./appearanceStore";
 
+export { useThemeStore } from "./themeStore";
+
 export { useAccessibilityStore } from "./accessibilityStore";
 export type { AccessibilityActions, AccessibilityState, AccessibilityStore } from "./accessibilityStore";
 
