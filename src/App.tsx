@@ -22,6 +22,7 @@ import { RightSidebar } from "./components/Layout/RightSidebar";
 import { SettingsModal } from "./components/Settings/SettingsModal.tsx";
 import { useApplyAppearanceSettings } from "./hooks/useApplyAppearanceSettings";
 import { useApplyAccessibilitySettings } from "./hooks/useApplyAccessibilitySettings";
+import { useApplyThemeSchedule } from "./hooks/useApplyThemeSchedule";
 import { ColorFilterDefs } from "./components/Accessibility/ColorFilterDefs";
 
 const WINDOW_KEY = "tessellum-window";
@@ -53,6 +54,7 @@ function App() {
 
     const navigateToWikiLink = useWikiLinkNavigation();
     useApplyAppearanceSettings();
+    useApplyThemeSchedule();
     useApplyAccessibilitySettings();
 
     useEffect(() => {

@@ -18,7 +18,6 @@ function resolveToken(theme: ThemeDefinition, key: keyof ThemeDefinition["tokens
 export function ThemePreview({ theme, size = "md" }: ThemePreviewProps) {
     const { width, height } = SIZE_MAP[size];
     const background = resolveToken(theme, "background.primary", "var(--color-bg-primary)");
-    resolveToken(theme, "panel.background", "var(--color-panel-bg)");
     const border = resolveToken(theme, "border.light", "var(--color-border-light)");
     const accent = resolveToken(theme, "accent.default", "var(--primary)");
 

@@ -22,6 +22,11 @@ const SYNTAX_NUMBER_KEY = "tessellum:appearance:syntaxNumber";
 const SYNTAX_VARIABLE_KEY = "tessellum:appearance:syntaxVariable";
 const SYNTAX_FUNCTION_KEY = "tessellum:appearance:syntaxFunction";
 const SYNTAX_CUSTOM_KEY = "tessellum:appearance:syntaxCustom";
+const THEME_SCHEDULE_MODE_KEY = "tessellum:appearance:themeScheduleMode";
+const THEME_SCHEDULE_LIGHT_START_KEY = "tessellum:appearance:themeScheduleLightStart";
+const THEME_SCHEDULE_DARK_START_KEY = "tessellum:appearance:themeScheduleDarkStart";
+const THEME_SCHEDULE_LAT_KEY = "tessellum:appearance:themeScheduleLat";
+const THEME_SCHEDULE_LON_KEY = "tessellum:appearance:themeScheduleLon";
 
 export type Density = "compact" | "comfortable";
 export type ShadowStrength = "subtle" | "medium" | "strong";
@@ -51,6 +56,11 @@ export interface AppearanceState {
     syntaxVariable: string;
     syntaxFunction: string;
     syntaxCustom: boolean;
+    themeScheduleMode: "off" | "system" | "sun" | "custom";
+    themeScheduleLightStart: string;
+    themeScheduleDarkStart: string;
+    themeScheduleLat: number | null;
+    themeScheduleLon: number | null;
 }
 
 export interface AppearanceActions {
@@ -76,6 +86,10 @@ export interface AppearanceActions {
     setSyntaxVariable: (value: string) => void;
     setSyntaxFunction: (value: string) => void;
     setSyntaxCustom: (value: boolean) => void;
+    setThemeScheduleMode: (value: "off" | "system" | "sun" | "custom") => void;
+    setThemeScheduleLightStart: (value: string) => void;
+    setThemeScheduleDarkStart: (value: string) => void;
+    setThemeScheduleLocation: (lat: number | null, lon: number | null) => void;
 }
 
 export type AppearanceStore = AppearanceState & AppearanceActions;
@@ -93,6 +107,9 @@ const DEFAULT_SYNTAX_STRING = "#50a14f";
 const DEFAULT_SYNTAX_NUMBER = "#986801";
 const DEFAULT_SYNTAX_VARIABLE = "#e45649";
 const DEFAULT_SYNTAX_FUNCTION = "#4078f2";
+const DEFAULT_THEME_SCHEDULE_MODE: AppearanceState["themeScheduleMode"] = "off";
+const DEFAULT_THEME_SCHEDULE_LIGHT_START = "08:00";
+const DEFAULT_THEME_SCHEDULE_DARK_START = "20:00";
 
 function readString(key: string, fallback: string): string {
     const raw = localStorage.getItem(key);
@@ -109,6 +126,13 @@ function readBoolean(key: string, fallback: boolean): boolean {
     const raw = localStorage.getItem(key);
     if (raw === null) return fallback;
     return raw === "true";
+}
+
+function readOptionalNumber(key: string): number | null {
+    const raw = localStorage.getItem(key);
+    if (raw === null || raw === "") return null;
+    const value = Number(raw);
+    return Number.isFinite(value) ? value : null;
 }
 
 export const useAppearanceStore = create<AppearanceStore>((set) => ({
@@ -134,6 +158,11 @@ export const useAppearanceStore = create<AppearanceStore>((set) => ({
     syntaxVariable: readString(SYNTAX_VARIABLE_KEY, DEFAULT_SYNTAX_VARIABLE),
     syntaxFunction: readString(SYNTAX_FUNCTION_KEY, DEFAULT_SYNTAX_FUNCTION),
     syntaxCustom: readBoolean(SYNTAX_CUSTOM_KEY, false),
+    themeScheduleMode: readString(THEME_SCHEDULE_MODE_KEY, DEFAULT_THEME_SCHEDULE_MODE) as AppearanceState["themeScheduleMode"],
+    themeScheduleLightStart: readString(THEME_SCHEDULE_LIGHT_START_KEY, DEFAULT_THEME_SCHEDULE_LIGHT_START),
+    themeScheduleDarkStart: readString(THEME_SCHEDULE_DARK_START_KEY, DEFAULT_THEME_SCHEDULE_DARK_START),
+    themeScheduleLat: readOptionalNumber(THEME_SCHEDULE_LAT_KEY),
+    themeScheduleLon: readOptionalNumber(THEME_SCHEDULE_LON_KEY),
 
     setAccentColor: (accentColor) => set(() => {
         localStorage.setItem(ACCENT_COLOR_KEY, accentColor);
@@ -236,5 +265,27 @@ export const useAppearanceStore = create<AppearanceStore>((set) => ({
     setSyntaxCustom: (syntaxCustom) => set(() => {
         localStorage.setItem(SYNTAX_CUSTOM_KEY, String(syntaxCustom));
         return { syntaxCustom };
+    }),
+    setThemeScheduleMode: (themeScheduleMode) => set(() => {
+        localStorage.setItem(THEME_SCHEDULE_MODE_KEY, themeScheduleMode);
+        return { themeScheduleMode };
+    }),
+    setThemeScheduleLightStart: (themeScheduleLightStart) => set(() => {
+        localStorage.setItem(THEME_SCHEDULE_LIGHT_START_KEY, themeScheduleLightStart);
+        return { themeScheduleLightStart };
+    }),
+    setThemeScheduleDarkStart: (themeScheduleDarkStart) => set(() => {
+        localStorage.setItem(THEME_SCHEDULE_DARK_START_KEY, themeScheduleDarkStart);
+        return { themeScheduleDarkStart };
+    }),
+    setThemeScheduleLocation: (lat, lon) => set(() => {
+        if (lat === null || lon === null) {
+            localStorage.removeItem(THEME_SCHEDULE_LAT_KEY);
+            localStorage.removeItem(THEME_SCHEDULE_LON_KEY);
+            return { themeScheduleLat: null, themeScheduleLon: null };
+        }
+        localStorage.setItem(THEME_SCHEDULE_LAT_KEY, String(lat));
+        localStorage.setItem(THEME_SCHEDULE_LON_KEY, String(lon));
+        return { themeScheduleLat: lat, themeScheduleLon: lon };
     }),
 }));

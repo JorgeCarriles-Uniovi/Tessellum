@@ -3,11 +3,10 @@ import { ToggleSetting } from "./items/ToggleSetting.tsx";
 import { SettingItem } from "./items/SettingItem.tsx";
 import { ThemePreview } from "./ThemePreview.tsx";
 import { Check } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useAppearanceStore, useThemeStore } from "../../stores";
 
 export function AppearanceSettings() {
-    const [themeSchedule, setThemeSchedule] = useState<'system' | 'sun' | 'custom'>('system');
     const themes = useThemeStore((state) => state.themes);
     const activeThemeName = useThemeStore((state) => state.activeThemeName);
     const setActiveTheme = useThemeStore((state) => state.setActiveTheme);
@@ -53,6 +52,12 @@ export function AppearanceSettings() {
     const setSyntaxFunction = useAppearanceStore((state) => state.setSyntaxFunction);
     const syntaxCustom = useAppearanceStore((state) => state.syntaxCustom);
     const setSyntaxCustom = useAppearanceStore((state) => state.setSyntaxCustom);
+    const themeScheduleMode = useAppearanceStore((state) => state.themeScheduleMode);
+    const setThemeScheduleMode = useAppearanceStore((state) => state.setThemeScheduleMode);
+    const themeScheduleLightStart = useAppearanceStore((state) => state.themeScheduleLightStart);
+    const setThemeScheduleLightStart = useAppearanceStore((state) => state.setThemeScheduleLightStart);
+    const themeScheduleDarkStart = useAppearanceStore((state) => state.themeScheduleDarkStart);
+    const setThemeScheduleDarkStart = useAppearanceStore((state) => state.setThemeScheduleDarkStart);
 
     const pillStyle = {
         paddingTop: `0.5rem`,
@@ -181,39 +186,49 @@ export function AppearanceSettings() {
             </SettingSection>
 
             <SettingSection title="Theme Schedule" description="Automatically switch themes">
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-4 gap-3">
                     <button
-                        onClick={() => setThemeSchedule('system')}
+                        onClick={() => setThemeScheduleMode('off')}
                         className="px-3 py-2 rounded-lg border text-xs font-semibold transition-all hover:bg-[color:var(--color-panel-hover)]"
                         style={{
                             ...pillStyle,
-                            ...(themeSchedule === "system" ? selectedScheduleStyle : idleScheduleStyle),
+                            ...(themeScheduleMode === "off" ? selectedScheduleStyle : idleScheduleStyle),
+                        }}
+                    >
+                        Off
+                    </button>
+                    <button
+                        onClick={() => setThemeScheduleMode('system')}
+                        className="px-3 py-2 rounded-lg border text-xs font-semibold transition-all hover:bg-[color:var(--color-panel-hover)]"
+                        style={{
+                            ...pillStyle,
+                            ...(themeScheduleMode === "system" ? selectedScheduleStyle : idleScheduleStyle),
                         }}
                     >
                         System
                     </button>
                     <button
-                        onClick={() => setThemeSchedule('sun')}
+                        onClick={() => setThemeScheduleMode('sun')}
                         className="px-3 py-2 rounded-lg border text-xs font-semibold transition-all hover:bg-[color:var(--color-panel-hover)]"
                         style={{
                             ...pillStyle,
-                            ...(themeSchedule === "sun" ? selectedScheduleStyle : idleScheduleStyle),
+                            ...(themeScheduleMode === "sun" ? selectedScheduleStyle : idleScheduleStyle),
                         }}
                     >
                         Sunrise / Sunset
                     </button>
                     <button
-                        onClick={() => setThemeSchedule('custom')}
+                        onClick={() => setThemeScheduleMode('custom')}
                         className="px-3 py-2 rounded-lg border text-xs font-semibold transition-all hover:bg-[color:var(--color-panel-hover)]"
                         style={{
                             ...pillStyle,
-                            ...(themeSchedule === "custom" ? selectedScheduleStyle : idleScheduleStyle),
+                            ...(themeScheduleMode === "custom" ? selectedScheduleStyle : idleScheduleStyle),
                         }}
                     >
                         Custom
                     </button>
                 </div>
-                {themeSchedule === 'custom' && (
+                {themeScheduleMode === 'custom' && (
                     <div
                         className="mt-4 grid grid-cols-2 gap-3 rounded-lg"
                         style={{
@@ -228,7 +243,8 @@ export function AppearanceSettings() {
                             <label className="text-xs" style={mutedLabelStyle}>Light start</label>
                             <input
                                 type="time"
-                                defaultValue="08:00"
+                                value={themeScheduleLightStart}
+                                onChange={(e) => setThemeScheduleLightStart(e.target.value)}
                                 className="px-2 py-1 border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)] focus:border-transparent transition-all"
                                 style={timeInputStyle}
                             />
@@ -237,7 +253,8 @@ export function AppearanceSettings() {
                             <label className="text-xs" style={mutedLabelStyle}>Dark start</label>
                             <input
                                 type="time"
-                                defaultValue="20:00"
+                                value={themeScheduleDarkStart}
+                                onChange={(e) => setThemeScheduleDarkStart(e.target.value)}
                                 className="px-2 py-1 border rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)] focus:border-transparent transition-all"
                                 style={timeInputStyle}
                             />
