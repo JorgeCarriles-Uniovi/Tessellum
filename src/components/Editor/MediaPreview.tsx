@@ -1,6 +1,7 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { isImageFile, isPdfFile } from "../../utils/fileType";
 import { theme } from "../../styles/theme";
+import { ImageWithFallback } from "../ImageWithFallback";
 
 interface MediaPreviewProps {
     path: string;
@@ -12,7 +13,7 @@ export function MediaPreview({ path }: MediaPreviewProps) {
     if (isImageFile(path)) {
         return (
             <div className="h-full w-full flex items-center justify-center p-8 overflow-auto" style={{ backgroundColor: "var(--color-panel-footer)" }}>
-                <img
+                <ImageWithFallback
                     src={src}
                     alt="Preview"
                     className="max-w-full max-h-full object-contain shadow-lg rounded-sm"

@@ -17,18 +17,21 @@ const mermaidViews = new Set<EditorView>();
 class MermaidWidget extends WidgetType {
     private id: string;
     private panzoomInstance?: any;
+    private themeKey: "light" | "dark";
 
     constructor(
         readonly code: string,
         readonly startPos: number,
-        readonly endPos: number
+        readonly endPos: number,
+        themeKey: "light" | "dark"
     ) {
         super();
         this.id = `mermaid-${++mermaidIdCounter}`;
+        this.themeKey = themeKey;
     }
 
     eq(other: MermaidWidget) {
-        return this.code === other.code && this.startPos === other.startPos;
+        return this.code === other.code && this.startPos === other.startPos && this.themeKey === other.themeKey;
     }
 
     toDOM(view: EditorView) {
@@ -129,6 +132,11 @@ function buildMermaidDecorations(state: EditorState) {
     const builder = new RangeSetBuilder<Decoration>();
     const selection = state.selection.main;
     const blocks = parseCodeBlocks(state);
+    const themeKey: "light" | "dark" = typeof document !== "undefined"
+        ? document.documentElement.classList.contains("dark")
+            ? "dark"
+            : "light"
+        : "light";
 
     // CodeBlocks returned by parseCodeBlocks are sorted by `from` natively by the syntaxTree.
     for (const block of blocks) {
@@ -147,7 +155,7 @@ function buildMermaidDecorations(state: EditorState) {
                             block.from,
                             block.to,
                             Decoration.replace({
-                                widget: new MermaidWidget(codeContent, block.from, block.to),
+                                widget: new MermaidWidget(codeContent, block.from, block.to, themeKey),
                                 block: true,
                             })
                         );

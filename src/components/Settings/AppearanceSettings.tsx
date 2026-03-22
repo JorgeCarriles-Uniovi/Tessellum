@@ -1,6 +1,7 @@
 import { SettingSection } from "./items/SettingSection.tsx";
-import { ThemeOption } from "./items/ThemeOption.tsx";
 import { ToggleSetting } from "./items/ToggleSetting.tsx";
+import { SettingItem } from "./items/SettingItem.tsx";
+import { ThemePreview } from "./ThemePreview.tsx";
 import { Check } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useAppearanceStore, useThemeStore } from "../../stores";
@@ -58,8 +59,7 @@ export function AppearanceSettings() {
         paddingBottom: `0.5rem`,
         paddingLeft: `0.5rem`,
         paddingRight: `0.5rem`,
-
-    }
+    };
     const mutedLabelStyle = {
         color: "var(--color-text-muted)",
     };
@@ -76,7 +76,18 @@ export function AppearanceSettings() {
         borderColor: "var(--color-border-light)",
         backgroundColor: "var(--color-panel-bg)",
         color: "var(--color-text-primary)",
-    }
+    };
+    const isThemeActive = (name: string) => name.toLowerCase() === activeThemeName.toLowerCase();
+    const selectedScheduleStyle = {
+        borderColor: "var(--primary)",
+        backgroundColor: "color-mix(in srgb, var(--primary) 10%, transparent)",
+        color: "var(--primary)",
+    };
+    const idleScheduleStyle = {
+        borderColor: "var(--color-border-light)",
+        backgroundColor: "var(--color-panel-bg)",
+        color: "var(--color-text-secondary)",
+    };
 
     const orderedThemes = useMemo(() => {
         return [...themes].sort((a, b) => a.name.localeCompare(b.name));
@@ -128,15 +139,44 @@ export function AppearanceSettings() {
     return (
         <div className="space-y-6">
             <SettingSection title="Theme" description="Choose your preferred theme">
-                <div className="grid grid-cols-2 gap-3">
-                    {orderedThemes.map((theme) => (
-                        <ThemeOption
-                            key={theme.name}
-                            label={theme.name}
-                            selected={theme.name.toLowerCase() === activeThemeName.toLowerCase()}
-                            onClick={() => setActiveTheme(theme.name)}
-                        />
-                    ))}
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                    {orderedThemes.map((theme) => {
+                        const isActive = isThemeActive(theme.name);
+                        return (
+                            <button
+                                key={theme.name}
+                                onClick={() => setActiveTheme(theme.name)}
+                                className="p-3 rounded-xl border-2 transition-all group"
+                                style={{
+                                    borderColor: isActive ? "var(--primary)" : "var(--color-border-light)",
+                                    backgroundColor: isActive
+                                        ? "color-mix(in srgb, var(--primary) 2%, transparent)"
+                                        : "var(--color-panel-bg)",
+                                }}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <ThemePreview theme={theme} size="sm" />
+                                    <div className="flex-1 text-left min-w-0">
+                                        <p className="text-sm font-bold truncate" style={{ color: "var(--color-text-primary)" }}>
+                                            {theme.name}
+                                        </p>
+                                        <p className="text-[10px] truncate" style={{ color: "var(--color-text-muted)" }}>
+                                            {theme.variant === "light" ? "Light mode" : theme.variant === "dark" ? "Dark mode" : "Custom theme"}
+                                        </p>
+                                    </div>
+                                    <div
+                                        className="flex-shrink-0 size-4 rounded-full border-2 flex items-center justify-center transition-all"
+                                        style={{
+                                            borderColor: isActive ? "var(--primary)" : "var(--color-border-light)",
+                                            backgroundColor: isActive ? "var(--primary)" : "transparent",
+                                        }}
+                                    >
+                                        {isActive && <Check className="size-2.5 text-[color:var(--primary-foreground)]" />}
+                                    </div>
+                                </div>
+                            </button>
+                        );
+                    })}
                 </div>
             </SettingSection>
 
@@ -147,9 +187,7 @@ export function AppearanceSettings() {
                         className="px-3 py-2 rounded-lg border text-xs font-semibold transition-all hover:bg-[color:var(--color-panel-hover)]"
                         style={{
                             ...pillStyle,
-                            borderColor: themeSchedule === 'system' ? "var(--primary)" : "var(--color-border-light)",
-                            backgroundColor: themeSchedule === 'system' ? "color-mix(in srgb, var(--primary) 10%, transparent)" : "var(--color-panel-bg)",
-                            color: themeSchedule === 'system' ? "var(--primary)" : "var(--color-text-secondary)",
+                            ...(themeSchedule === "system" ? selectedScheduleStyle : idleScheduleStyle),
                         }}
                     >
                         System
@@ -159,9 +197,7 @@ export function AppearanceSettings() {
                         className="px-3 py-2 rounded-lg border text-xs font-semibold transition-all hover:bg-[color:var(--color-panel-hover)]"
                         style={{
                             ...pillStyle,
-                            borderColor: themeSchedule === 'sun' ? "var(--primary)" : "var(--color-border-light)",
-                            backgroundColor: themeSchedule === 'sun' ? "color-mix(in srgb, var(--primary) 10%, transparent)" : "var(--color-panel-bg)",
-                            color: themeSchedule === 'sun' ? "var(--primary)" : "var(--color-text-secondary)",
+                            ...(themeSchedule === "sun" ? selectedScheduleStyle : idleScheduleStyle),
                         }}
                     >
                         Sunrise / Sunset
@@ -171,21 +207,23 @@ export function AppearanceSettings() {
                         className="px-3 py-2 rounded-lg border text-xs font-semibold transition-all hover:bg-[color:var(--color-panel-hover)]"
                         style={{
                             ...pillStyle,
-                            borderColor: themeSchedule === 'custom' ? "var(--primary)" : "var(--color-border-light)",
-                            backgroundColor: themeSchedule === 'custom' ? "color-mix(in srgb, var(--primary) 10%, transparent)" : "var(--color-panel-bg)",
-                            color: themeSchedule === 'custom' ? "var(--primary)" : "var(--color-text-secondary)",
+                            ...(themeSchedule === "custom" ? selectedScheduleStyle : idleScheduleStyle),
                         }}
                     >
                         Custom
                     </button>
                 </div>
                 {themeSchedule === 'custom' && (
-                    <div className="mt-4 grid grid-cols-2 gap-3"
-                         style={{
-                             paddingTop: `1rem`,
-                             paddingLeft: `1rem`,
-                             paddingRight: `1rem`,
-                         }}>
+                    <div
+                        className="mt-4 grid grid-cols-2 gap-3 rounded-lg"
+                        style={{
+                            paddingTop: `1rem`,
+                            paddingBottom: `1rem`,
+                            paddingLeft: `1rem`,
+                            paddingRight: `1rem`,
+                            backgroundColor: "var(--color-panel-hover)",
+                        }}
+                    >
                         <div className="flex items-center justify-between">
                             <label className="text-xs" style={mutedLabelStyle}>Light start</label>
                             <input
@@ -296,8 +334,7 @@ export function AppearanceSettings() {
 
             <SettingSection title="Visual Style" description="Adjust density and styling">
                 <div className="grid grid-cols-2 gap-4">
-                    <div className="flex items-center justify-between">
-                        <label className="text-sm" style={mutedLabelStyle}>Density</label>
+                    <SettingItem label="Density">
                         <select
                             value={density}
                             onChange={(e) => setDensity(e.target.value as 'compact' | 'comfortable')}
@@ -307,9 +344,8 @@ export function AppearanceSettings() {
                             <option value="compact">Compact</option>
                             <option value="comfortable">Comfortable</option>
                         </select>
-                    </div>
-                    <div className="flex items-center justify-between">
-                        <label className="text-sm" style={mutedLabelStyle}>Corner radius</label>
+                    </SettingItem>
+                    <SettingItem label="Corner radius">
                         <select
                             value={radius}
                             onChange={(e) => setRadius(e.target.value as '6' | '10' | '16')}
@@ -320,9 +356,8 @@ export function AppearanceSettings() {
                             <option value="10">Balanced</option>
                             <option value="16">Soft</option>
                         </select>
-                    </div>
-                    <div className="flex items-center justify-between">
-                        <label className="text-sm" style={mutedLabelStyle}>Shadows</label>
+                    </SettingItem>
+                    <SettingItem label="Shadows">
                         <select
                             value={shadow}
                             onChange={(e) => setShadow(e.target.value as 'subtle' | 'medium' | 'strong')}
@@ -333,9 +368,8 @@ export function AppearanceSettings() {
                             <option value="medium">Medium</option>
                             <option value="strong">Strong</option>
                         </select>
-                    </div>
-                    <div className="flex items-center justify-between">
-                        <label className="text-sm" style={mutedLabelStyle}>Icon style</label>
+                    </SettingItem>
+                    <SettingItem label="Icon style">
                         <select
                             value={iconStyle}
                             onChange={(e) => setIconStyle(e.target.value as 'outline' | 'filled')}
@@ -345,14 +379,13 @@ export function AppearanceSettings() {
                             <option value="outline">Outline</option>
                             <option value="filled">Filled</option>
                         </select>
-                    </div>
+                    </SettingItem>
                 </div>
             </SettingSection>
 
             <SettingSection title="Layout" description="Adjust workspace layout options">
                 <div className="grid grid-cols-2 gap-4">
-                    <div className="flex items-center justify-between">
-                        <label className="text-sm" style={mutedLabelStyle}>Sidebar position</label>
+                    <SettingItem label="Sidebar position">
                         <select
                             value={sidebarPosition}
                             onChange={(e) => setSidebarPosition(e.target.value as 'left' | 'right')}
@@ -362,7 +395,7 @@ export function AppearanceSettings() {
                             <option value="left">Left</option>
                             <option value="right">Right</option>
                         </select>
-                    </div>
+                    </SettingItem>
                     <ToggleSetting
                         label="Toolbar"
                         description="Show the top toolbar"
