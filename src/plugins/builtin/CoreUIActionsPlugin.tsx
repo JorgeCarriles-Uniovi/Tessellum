@@ -11,7 +11,7 @@ import {
     Settings,
     Trash2,
     Palette,
-    Paintbrush, User, FileText, Keyboard, Eye,
+    User, FileText, Keyboard, Eye,
 } from "lucide-react";
 import { Plugin } from "../Plugin";
 import type { PluginManifest } from "../types";
@@ -86,10 +86,6 @@ export class CoreUIActionsPlugin extends Plugin {
 
         const openGraph = () => {
             this.app.workspace.setViewMode("graph");
-        };
-
-        const setTheme = (themeName: string) => {
-            this.app.events.emit("ui:set-theme", themeName);
         };
 
         const openSettings = () => {
@@ -211,34 +207,6 @@ export class CoreUIActionsPlugin extends Plugin {
             keywords: ["template", "note"],
             icon: <Plus size={16} />,
             onTrigger: openTemplatePicker,
-        });
-        this.app.ui.registerPaletteCommand(this.manifest.id, {
-            id: "theme-warm-paper",
-            name: "Theme: Warm Paper",
-            keywords: ["theme", "warm", "paper"],
-            icon: <Paintbrush size={16} />,
-            onTrigger: () => setTheme("warm-paper"),
-        });
-        this.app.ui.registerPaletteCommand(this.manifest.id, {
-            id: "theme-graphite",
-            name: "Theme: Graphite",
-            keywords: ["theme", "graphite", "dark"],
-            icon: <Paintbrush size={16} />,
-            onTrigger: () => setTheme("graphite"),
-        });
-        this.app.ui.registerPaletteCommand(this.manifest.id, {
-            id: "theme-ocean",
-            name: "Theme: Ocean",
-            keywords: ["theme", "ocean", "blue"],
-            icon: <Paintbrush size={16} />,
-            onTrigger: () => setTheme("ocean"),
-        });
-        this.app.ui.registerPaletteCommand(this.manifest.id, {
-            id: "command-palette",
-            name: "Open Command Palette",
-            keywords: ["search", "command"],
-            icon: <Palette size={16} />,
-            onTrigger: openPalette,
         });
         this.app.ui.registerPaletteCommand(this.manifest.id, {
             id: "settings",
