@@ -2,6 +2,7 @@ pub mod commands;
 mod db;
 pub mod error;
 mod indexer;
+mod search;
 pub mod models;
 mod utils;
 
@@ -9,6 +10,7 @@ use db::Database;
 use tauri::Manager;
 use tauri_plugin_window_state::Builder as WindowStateBuilder;
 pub use models::*;
+use search::SearchIndex;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -36,7 +38,16 @@ pub fn run() {
                 })
             });
             
-            app.manage(models::AppState::new(db_instance));
+            let search_dir = app_handle
+                .path()
+                .app_data_dir()
+                .expect("failed to get app data directory")
+                .join("search_index");
+            
+            let search_index = SearchIndex::open_or_create(&search_dir)
+                .unwrap_or_else(|e| panic!("Failed to init search index: {}", e));
+            
+            app.manage(models::AppState::new(db_instance, search_index));
             log::info!("Database initialized successfully");
             
             Ok(())
@@ -69,6 +80,9 @@ pub fn run() {
             commands::indexer::sync_vault,
             commands::graph::get_graph_data,
             commands::vault::set_vault_path,
+            commands::search::search_full_text,
+            commands::search::search_tags,
+            commands::search::rebuild_search_index,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

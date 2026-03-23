@@ -1,7 +1,9 @@
 import { Search, X, File, Folder, Clock, Hash, ArrowRight, History } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import { theme } from "../../styles/theme";
+import { invoke } from "@tauri-apps/api/core";
+import { useVaultStore } from "../../stores";
 
 interface SearchPanelProps {
     onClose: () => void;
@@ -15,7 +17,7 @@ type SearchResult =
     title: string;
     path: string;
     preview: string;
-    modified: string;
+    modified?: string;
     tags: string[];
 }
     | {
@@ -30,10 +32,50 @@ type SearchResult =
     noteCount: number;
 };
 
+interface TagFilter {
+    tags: string[];
+    match_mode: "All" | "Any";
+}
+
+interface FullTextSearchRequest {
+    query: string;
+    limit?: number;
+    offset?: number;
+    include_snippets?: boolean;
+    tag_filter?: TagFilter;
+}
+
+interface TagSearchRequest {
+    tags: string[];
+    match_mode: "All" | "Any";
+    limit?: number;
+    offset?: number;
+}
+
+interface SearchHit {
+    path: string;
+    relative_path: string;
+    title: string;
+    score: number;
+    snippet?: string | null;
+    tags: string[];
+}
+
+interface FullTextSearchResponse {
+    total: number;
+    hits: SearchHit[];
+}
+
+interface TagSearchResponse {
+    total: number;
+    hits: SearchHit[];
+}
+
 const panelStyle: CSSProperties = {
     width: "100%",
     minWidth: 256,
     flex: 1,
+    minHeight: 0,
     display: "flex",
     flexDirection: "column",
     borderRight: `1px solid ${theme.colors.border.light}`,
@@ -110,8 +152,10 @@ const filterRowStyle: CSSProperties = {
 
 const resultsContainerStyle: CSSProperties = {
     flex: 1,
+    minHeight: 0,
     overflowY: "auto",
     padding: theme.spacing[2],
+    scrollbarGutter: "stable",
 };
 
 const sectionLabelStyle: CSSProperties = {
@@ -138,47 +182,6 @@ const recentSearches = [
     "Sprint planning",
     "Backend refactor",
     "Quarterly goals",
-];
-
-const mockResults: SearchResult[] = [
-    {
-        type: "note",
-        title: "11.md",
-        path: "Daily / 2026 / 03",
-        preview:
-            "Meeting notes about DPPI architecture and sprint planning. Discussed the backend refactor and implementation timeline...",
-        modified: "2 hours ago",
-        tags: ["#daily", "#project-tessellum"],
-    },
-    {
-        type: "note",
-        title: "Quarterly Planning.md",
-        path: "Projects / Q1 Planning",
-        preview:
-            "Q1 goals and objectives for the Tessellum project. Key deliverables include the new graph view and improved search...",
-        modified: "1 day ago",
-        tags: ["#planning", "#quarterly"],
-    },
-    {
-        type: "folder",
-        title: "DPPI",
-        path: "Root",
-        itemCount: 12,
-    },
-    {
-        type: "note",
-        title: "Sprint Goals.md",
-        path: "Projects / Q1 Planning",
-        preview:
-            "Sprint objectives and user stories for the current iteration. Focus on performance improvements and UI polish...",
-        modified: "3 days ago",
-        tags: ["#sprint", "#planning"],
-    },
-    {
-        type: "tag",
-        title: "#project-tessellum",
-        noteCount: 24,
-    },
 ];
 
 function createFilterButtonStyle(isActive: boolean): CSSProperties {
@@ -229,25 +232,139 @@ function clampTwoLinesStyle(): CSSProperties {
     };
 }
 
+function normalizeTag(tag: string): string {
+    return tag.trim().replace(/^#/, "").toLowerCase();
+}
+
+function splitQuery(query: string) {
+    const parts = query.split(/\s+/).filter(Boolean);
+    const tags: string[] = [];
+    const terms: string[] = [];
+    const pathTerms: string[] = [];
+    parts.forEach((part) => {
+        if (part.startsWith("#")) {
+            const normalized = normalizeTag(part);
+            if (normalized) tags.push(normalized);
+            return;
+        }
+        if (part.startsWith("content:")) {
+            const raw = part.slice("content:".length);
+            if (raw) terms.push(raw);
+            return;
+        }
+        if (part.startsWith("path:")) {
+            const raw = part.slice("path:".length);
+            if (raw) pathTerms.push(raw.toLowerCase());
+            return;
+        }
+        terms.push(part);
+    });
+    return { terms, tags, pathTerms };
+}
+
+function mapHitToResult(hit: SearchHit): SearchResult {
+    const tags = hit.tags?.map((tag) => `#${tag}`) ?? [];
+    return {
+        type: "note",
+        title: hit.title,
+        path: hit.relative_path,
+        preview: hit.snippet ?? "",
+        modified: "",
+        tags,
+    };
+}
+
 export function SearchPanel({ onClose }: SearchPanelProps) {
     const [searchQuery, setSearchQuery] = useState("");
     const [activeFilter, setActiveFilter] = useState<SearchFilter>("all");
     const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+    const [results, setResults] = useState<SearchResult[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [hasPrimedIndex, setHasPrimedIndex] = useState(false);
+    const { vaultPath } = useVaultStore();
 
-    const searchResults = useMemo(() => {
-        if (searchQuery.trim().length === 0) return [];
-        return mockResults;
-    }, [searchQuery]);
+    useEffect(() => {
+        if (!vaultPath) {
+            setResults([]);
+            return;
+        }
+
+        const trimmed = searchQuery.trim();
+        if (!trimmed) {
+            setResults([]);
+            setError(null);
+            return;
+        }
+
+        const handle = setTimeout(async () => {
+            setIsLoading(true);
+            setError(null);
+            try {
+                if (!hasPrimedIndex) {
+                    await invoke("sync_vault", { vaultPath });
+                    await invoke("rebuild_search_index", { vaultPath });
+                    setHasPrimedIndex(true);
+                }
+                const { terms, tags, pathTerms } = splitQuery(trimmed);
+                const query = terms.join(" ");
+
+                if (activeFilter === "tags") {
+                    const tagRequest: TagSearchRequest = {
+                        tags: tags.length ? tags : [normalizeTag(trimmed)],
+                        match_mode: "Any",
+                        limit: 50,
+                        offset: 0,
+                    };
+                    const response = await invoke<TagSearchResponse>("search_tags", { vaultPath, request: tagRequest });
+                    setResults(response.hits.map(mapHitToResult));
+                    return;
+                }
+
+                if (activeFilter === "folders") {
+                    setResults([]);
+                    return;
+                }
+
+                const payload: FullTextSearchRequest = {
+                    query,
+                    limit: 50,
+                    offset: 0,
+                    include_snippets: true,
+                    tag_filter: tags.length
+                        ? { tags, match_mode: "All" }
+                        : undefined,
+                };
+
+                const response = await invoke<FullTextSearchResponse>("search_full_text", { vaultPath, request: payload });
+                let mapped = response.hits.map(mapHitToResult);
+                if (pathTerms.length > 0) {
+                    mapped = mapped.filter((item) => {
+                        const haystack = item.path.toLowerCase();
+                        return pathTerms.every((term) => haystack.includes(term));
+                    });
+                }
+                setResults(mapped);
+            } catch (e) {
+                console.error(e);
+                setError("Search failed");
+            } finally {
+                setIsLoading(false);
+            }
+        }, 200);
+
+        return () => clearTimeout(handle);
+    }, [activeFilter, searchQuery, vaultPath]);
 
     const filteredResults = useMemo(() => {
-        return searchResults.filter((result) => {
+        return results.filter((result) => {
             if (activeFilter === "all") return true;
             if (activeFilter === "notes") return result.type === "note";
             if (activeFilter === "folders") return result.type === "folder";
-            if (activeFilter === "tags") return result.type === "tag";
+            if (activeFilter === "tags") return result.type === "tag" || result.type === "note";
             return true;
         });
-    }, [activeFilter, searchResults]);
+    }, [activeFilter, results]);
 
     return (
         <div style={panelStyle}>
@@ -321,7 +438,7 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
                             <span style={sectionLabelStyle}>Recent Searches</span>
                         </div>
                         <div style={{ display: "flex", flexDirection: "column", gap: "0.125rem" }}>
-                            {recentSearches.map((search, idx) => (
+                            {recentSearches.map((search) => (
                                 <button
                                     key={search}
                                     onClick={() => setSearchQuery(search)}
@@ -356,8 +473,13 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
                     <div>
                         <div style={{ padding: "0.5rem 0.75rem" }}>
                             <span style={sectionLabelStyle}>
-                                {filteredResults.length} {filteredResults.length === 1 ? "Result" : "Results"}
+                                {isLoading ? "Searching" : `${filteredResults.length} ${filteredResults.length === 1 ? "Result" : "Results"}`}
                             </span>
+                            {error && (
+                                <div style={{ marginTop: theme.spacing[1], fontSize: "0.625rem", color: theme.colors.text.muted }}>
+                                    {error}
+                                </div>
+                            )}
                         </div>
                         <div style={{ display: "flex", flexDirection: "column", gap: theme.spacing[2] }}>
                             {filteredResults.map((result, idx) => {
@@ -419,18 +541,20 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
                                                             </span>
                                                         ))}
                                                     </div>
-                                                    <div
-                                                        style={{
-                                                            display: "flex",
-                                                            alignItems: "center",
-                                                            gap: "0.25rem",
-                                                            fontSize: "0.5625rem",
-                                                            color: theme.colors.text.muted,
-                                                        }}
-                                                    >
-                                                        <Clock style={{ width: "0.625rem", height: "0.625rem" }} />
-                                                        <span>{result.modified}</span>
-                                                    </div>
+                                                    {result.modified ? (
+                                                        <div
+                                                            style={{
+                                                                display: "flex",
+                                                                alignItems: "center",
+                                                                gap: "0.25rem",
+                                                                fontSize: "0.5625rem",
+                                                                color: theme.colors.text.muted,
+                                                            }}
+                                                        >
+                                                            <Clock style={{ width: "0.625rem", height: "0.625rem" }} />
+                                                            <span>{result.modified}</span>
+                                                        </div>
+                                                    ) : null}
                                                 </div>
                                             </>
                                         )}

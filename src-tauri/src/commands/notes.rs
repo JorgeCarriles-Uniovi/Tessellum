@@ -1,16 +1,17 @@
 use chrono::Local;
-use regex::Regex;
 use std::fs;
 use std::path::{Component, Path};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::State;
+use tauri::async_runtime;
 
 use crate::commands::extract_wikilinks;
 use crate::commands::templates::{apply_placeholders, templates_dir};
 use crate::error::TessellumError;
 use crate::models::{AppState, FileIndex, FileMetadata};
+use crate::search::SearchDoc;
 use crate::utils::config::load_or_init_config;
-use crate::utils::{sanitize_string, validate_path_in_vault};
+use crate::utils::{extract_tags, sanitize_string, validate_path_in_vault};
 
 fn build_daily_note_relative_path(template: &str, now: chrono::DateTime<Local>) -> String {
     let year = now.format("%Y").to_string();
@@ -85,13 +86,7 @@ async fn index_note_content(
         }
     }
     
-    let tag_regex = Regex::new(r"(?:^|\s)#([a-zA-Z0-9_\-]+)").unwrap();
-    let mut inline_tags = Vec::new();
-    for cap in tag_regex.captures_iter(body_content) {
-        if let Some(tag_match) = cap.get(1) {
-            inline_tags.push(tag_match.as_str().to_string());
-        }
-    }
+    let inline_tags = extract_tags(content);
     
     let inline_tags_json_str = if inline_tags.is_empty() {
         None
@@ -137,6 +132,36 @@ async fn index_note_content(
         )
         .await
         .map_err(TessellumError::from)?;
+    
+    db_guard
+        .set_note_tags(&path, &inline_tags)
+        .await
+        .map_err(TessellumError::from)?;
+    db_guard
+        .upsert_search_file(&path, modified, true)
+        .await
+        .map_err(TessellumError::from)?;
+    
+    let title = Path::new(path)
+        .file_name()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_string()
+        .trim_end_matches(".md")
+        .to_string();
+    
+    let doc = SearchDoc {
+        path: crate::utils::normalize_path(path),
+        title,
+        body: body_content.to_string(),
+        tags: inline_tags,
+    };
+    
+    let search_index = state.search_index.clone();
+    async_runtime::spawn_blocking(move || {
+        let guard = async_runtime::block_on(search_index.lock());
+        guard.index_batch(&[doc], &[]).ok();
+    });
     
     log::debug!(
         "Indexed file: {} with {} resolved links",
@@ -200,12 +225,39 @@ pub async fn create_note(
         .index_file(&path_str, 0, 0, None, None, &[])
         .await
         .unwrap_or_else(|e| log::warn!("Failed to index new file: {}", e));
+    db_guard
+        .set_note_tags(&path_str, &[])
+        .await
+        .unwrap_or_else(|e| log::warn!("Failed to index new tags: {}", e));
+    db_guard
+        .upsert_search_file(&path_str, 0, true)
+        .await
+        .unwrap_or_else(|e| log::warn!("Failed to index search file: {}", e));
     
     // Invalidate the cache since a new file exists
     let mut idx_guard = state.file_index.lock().await;
     *idx_guard = None;
     let mut asset_guard = state.asset_index.lock().await;
     *asset_guard = None;
+    
+    let search_index = state.search_index.clone();
+    let title = Path::new(&path_str)
+        .file_name()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_string()
+        .trim_end_matches(".md")
+        .to_string();
+    let doc = SearchDoc {
+        path: path_str.clone(),
+        title,
+        body: String::new(),
+        tags: Vec::new(),
+    };
+    async_runtime::spawn_blocking(move || {
+        let guard = async_runtime::block_on(search_index.lock());
+        guard.index_batch(&[doc], &[]).ok();
+    });
     
     Ok(path_str)
 }
@@ -347,6 +399,17 @@ pub async fn trash_item(
         .delete_file(&item_path)
         .await
         .map_err(TessellumError::from)?;
+    db_guard
+        .delete_search_files(&[item_path.clone()])
+        .await
+        .map_err(TessellumError::from)?;
+    
+    let search_index = state.search_index.clone();
+    let path = item_path.clone();
+    async_runtime::spawn_blocking(move || {
+        let guard = async_runtime::block_on(search_index.lock());
+        guard.delete_path(&path).ok();
+    });
     
     // Invalidate the cache
     let mut idx_guard = state.file_index.lock().await;

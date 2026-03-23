@@ -7,6 +7,7 @@ pub mod notes;
 pub mod templates;
 pub mod vault;
 pub mod watcher;
+pub mod search;
 
 pub use assets::{resolve_asset, save_asset};
 pub use folders::create_folder;
@@ -21,3 +22,4 @@ pub use notes::{
 pub use templates::{create_note_from_template, list_templates};
 pub use vault::{list_files, list_files_tree, move_items, rename_file, set_vault_path};
 pub use watcher::watch_vault;
+pub use search::{search_full_text, search_tags, rebuild_search_index};

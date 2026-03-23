@@ -38,6 +38,29 @@ impl Database {
             .execute(&pool)
             .await;
         
+        // Create tags table for normalized tags
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS note_tags (
+                path TEXT NOT NULL,
+                tag TEXT NOT NULL,
+                PRIMARY KEY (path, tag),
+                FOREIGN KEY(path) REFERENCES notes(path) ON DELETE CASCADE
+            );",
+        )
+            .execute(&pool)
+            .await?;
+        
+        // Track all files indexed for search (markdown + non-markdown)
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS search_files (
+                path TEXT PRIMARY KEY,
+                modified_at INTEGER,
+                is_markdown INTEGER
+            );",
+        )
+            .execute(&pool)
+            .await?;
+        
         // Create links table with RESOLVED target paths
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS links (
@@ -117,6 +140,27 @@ impl Database {
             sqlx::query("INSERT INTO links (source_path, target_path) VALUES (?, ?)")
                 .bind(path)
                 .bind(target_path)
+                .execute(&mut *tx)
+                .await?;
+        }
+        
+        tx.commit().await?;
+        Ok(())
+    }
+    
+    /// Replace tags for a file (normalized tags).
+    pub async fn set_note_tags(&self, path: &str, tags: &[String]) -> Result<(), sqlx::Error> {
+        let mut tx = self.pool.begin().await?;
+        
+        sqlx::query("DELETE FROM note_tags WHERE path = ?")
+            .bind(path)
+            .execute(&mut *tx)
+            .await?;
+        
+        for tag in tags {
+            sqlx::query("INSERT OR IGNORE INTO note_tags (path, tag) VALUES (?, ?)")
+                .bind(path)
+                .bind(tag)
                 .execute(&mut *tx)
                 .await?;
         }
@@ -333,6 +377,93 @@ impl Database {
         Ok(rows)
     }
     
+    /// Get all indexed search files (markdown and non-markdown).
+    pub async fn get_all_search_files(&self) -> Result<Vec<(String, i64, i64)>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, (String, i64, i64)>(
+            "SELECT path, modified_at, is_markdown FROM search_files",
+        )
+            .fetch_all(&self.pool)
+            .await?;
+        
+        Ok(rows)
+    }
+    
+    /// Upsert search file metadata.
+    pub async fn upsert_search_file(
+        &self,
+        path: &str,
+        modified: i64,
+        is_markdown: bool,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            "INSERT INTO search_files (path, modified_at, is_markdown) VALUES (?, ?, ?)
+             ON CONFLICT(path) DO UPDATE SET modified_at = ?, is_markdown = ?",
+        )
+            .bind(path)
+            .bind(modified)
+            .bind(if is_markdown { 1 } else { 0 })
+            .bind(modified)
+            .bind(if is_markdown { 1 } else { 0 })
+            .execute(&self.pool)
+            .await?;
+        
+        Ok(())
+    }
+    
+    /// Delete search files by paths.
+    pub async fn delete_search_files(&self, paths: &[String]) -> Result<usize, sqlx::Error> {
+        if paths.is_empty() {
+            return Ok(0);
+        }
+        
+        let mut tx = self.pool.begin().await?;
+        let mut deleted = 0;
+        for path in paths {
+            let result = sqlx::query("DELETE FROM search_files WHERE path = ?")
+                .bind(path)
+                .execute(&mut *tx)
+                .await?;
+            deleted += result.rows_affected() as usize;
+        }
+        tx.commit().await?;
+        Ok(deleted)
+    }
+    
+    /// Update search file paths when a file or folder is renamed/moved.
+    pub async fn update_search_file_path(
+        &self,
+        old_path: &str,
+        new_path: &str,
+    ) -> Result<(), sqlx::Error> {
+        let mut tx = self.pool.begin().await?;
+        
+        sqlx::query("UPDATE OR REPLACE search_files SET path = ? WHERE path = ?")
+            .bind(new_path)
+            .bind(old_path)
+            .execute(&mut *tx)
+            .await?;
+        
+        let old_prefix = format!("{}/%", old_path.replace('\\', "/"));
+        sqlx::query(
+            "UPDATE OR REPLACE search_files SET path = ? || substr(path, length(?) + 1)
+             WHERE path LIKE ?",
+        )
+            .bind(new_path)
+            .bind(old_path)
+            .bind(&old_prefix)
+            .execute(&mut *tx)
+            .await?;
+        
+        sqlx::query("DELETE FROM search_files WHERE path = ? OR path LIKE ?")
+            .bind(old_path)
+            .bind(&old_prefix)
+            .execute(&mut *tx)
+            .await?;
+        
+        tx.commit().await?;
+        Ok(())
+    }
+    
     /// Delete multiple files from the index in a single transaction.
     ///
     /// More efficient than calling delete_file multiple times.
@@ -354,6 +485,107 @@ impl Database {
         
         tx.commit().await?;
         Ok(deleted)
+    }
+    
+    /// Search notes by tags.
+    ///
+    /// match_all = true requires all tags, otherwise any tag.
+    pub async fn search_notes_by_tags(
+        &self,
+        tags: &[String],
+        match_all: bool,
+        limit: u32,
+        offset: u32,
+    ) -> Result<(Vec<String>, u32), sqlx::Error> {
+        if tags.is_empty() {
+            return Ok((Vec::new(), 0));
+        }
+        
+        let limit_i64 = limit as i64;
+        let offset_i64 = offset as i64;
+        
+        if match_all {
+            let mut tag_params = String::new();
+            for i in 0..tags.len() {
+                if i > 0 {
+                    tag_params.push_str(", ");
+                }
+                tag_params.push('?');
+            }
+            
+            let count_query = format!(
+                "SELECT COUNT(*) FROM (
+                    SELECT path FROM note_tags
+                    WHERE tag IN ({})
+                    GROUP BY path
+                    HAVING COUNT(DISTINCT tag) = ?
+                )",
+                tag_params
+            );
+            
+            let mut count_q = sqlx::query_scalar::<_, i64>(&count_query);
+            for tag in tags {
+                count_q = count_q.bind(tag);
+            }
+            count_q = count_q.bind(tags.len() as i64);
+            let total = count_q.fetch_one(&self.pool).await? as u32;
+            
+            let data_query = format!(
+                "SELECT path FROM note_tags
+                 WHERE tag IN ({})
+                 GROUP BY path
+                 HAVING COUNT(DISTINCT tag) = ?
+                 ORDER BY path
+                 LIMIT ? OFFSET ?",
+                tag_params
+            );
+            
+            let mut data_q = sqlx::query_as::<_, (String,)>(&data_query);
+            for tag in tags {
+                data_q = data_q.bind(tag);
+            }
+            data_q = data_q
+                .bind(tags.len() as i64)
+                .bind(limit_i64)
+                .bind(offset_i64);
+            
+            let rows = data_q.fetch_all(&self.pool).await?;
+            Ok((rows.into_iter().map(|(p,)| p).collect(), total))
+        } else {
+            let mut tag_params = String::new();
+            for i in 0..tags.len() {
+                if i > 0 {
+                    tag_params.push_str(", ");
+                }
+                tag_params.push('?');
+            }
+            
+            let count_query = format!(
+                "SELECT COUNT(DISTINCT path) FROM note_tags WHERE tag IN ({})",
+                tag_params
+            );
+            let mut count_q = sqlx::query_scalar::<_, i64>(&count_query);
+            for tag in tags {
+                count_q = count_q.bind(tag);
+            }
+            let total = count_q.fetch_one(&self.pool).await? as u32;
+            
+            let data_query = format!(
+                "SELECT DISTINCT path FROM note_tags
+                 WHERE tag IN ({})
+                 ORDER BY path
+                 LIMIT ? OFFSET ?",
+                tag_params
+            );
+            let mut data_q = sqlx::query_as::<_, (String,)>(&data_query);
+            for tag in tags {
+                data_q = data_q.bind(tag);
+            }
+            data_q = data_q.bind(limit_i64).bind(offset_i64);
+            
+            let rows = data_q.fetch_all(&self.pool).await?;
+            Ok((rows.into_iter().map(|(p,)| p).collect(), total))
+        }
     }
     
     /// Get frontmatter JSON for a specific file.

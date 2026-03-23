@@ -250,8 +250,14 @@ function App() {
     }, [vaultPath]);
 
     useEffect(() => {
+        let syncTimer: number | null = null;
         const unlistenPromise = listen('file-changed', () => {
-            if (vaultPath) refreshFiles(vaultPath, false);
+            if (!vaultPath) return;
+            refreshFiles(vaultPath, false);
+            if (syncTimer) window.clearTimeout(syncTimer);
+            syncTimer = window.setTimeout(() => {
+                invoke('sync_vault', { vaultPath }).catch(console.error);
+            }, 400);
         });
         return () => { unlistenPromise.then(unlisten => unlisten()); };
     }, [vaultPath]);
