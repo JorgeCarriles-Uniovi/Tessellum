@@ -7,8 +7,8 @@ export function SettingSection({ title, description, children }: { title: string
                  paddingLeft: `1rem`,
                  paddingRight: `1rem`
              }}>
-            <h4 className="text-sm font-bold text-[#0f172a] mb-1">{title}</h4>
-            <p className="text-xs text-[#94a3b8]">{description}</p>
+            <h4 className="text-sm font-bold mb-1" style={{ color: "var(--color-text-primary)" }}>{title}</h4>
+            <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>{description}</p>
         </div>
         <div className="space-y-4"
              style={{

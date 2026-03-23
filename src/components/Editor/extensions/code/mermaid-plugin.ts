@@ -2,36 +2,44 @@ import {
     Decoration,
     DecorationSet,
     EditorView,
+    ViewPlugin,
     WidgetType,
 } from "@codemirror/view";
-import { StateField, Extension, RangeSetBuilder, EditorState } from "@codemirror/state";
+import { StateField, Extension, RangeSetBuilder, EditorState, StateEffect } from "@codemirror/state";
 import mermaid from "mermaid";
 import panzoom from "panzoom";
 import { parseCodeBlocks } from "./code-parser";
 
 let mermaidIdCounter = 0;
+const mermaidThemeEffect = StateEffect.define<null>();
+const mermaidViews = new Set<EditorView>();
 
 class MermaidWidget extends WidgetType {
     private id: string;
     private panzoomInstance?: any;
+    private themeKey: "light" | "dark";
 
     constructor(
         readonly code: string,
         readonly startPos: number,
-        readonly endPos: number
+        readonly endPos: number,
+        themeKey: "light" | "dark"
     ) {
         super();
         this.id = `mermaid-${++mermaidIdCounter}`;
+        this.themeKey = themeKey;
     }
 
     eq(other: MermaidWidget) {
-        return this.code === other.code && this.startPos === other.startPos;
+        return this.code === other.code && this.startPos === other.startPos && this.themeKey === other.themeKey;
     }
 
     toDOM(view: EditorView) {
         const wrapper = document.createElement("div");
-        wrapper.className = "cm-mermaid-block group relative flex justify-center my-4 border border-transparent hover:border-gray-200 dark:hover:border-gray-700 rounded-md overflow-visible bg-gray-50 dark:bg-gray-800/50";
+        wrapper.className = "cm-mermaid-block group relative flex justify-center my-4 border rounded-md overflow-visible";
         wrapper.style.minHeight = "150px";
+        wrapper.style.backgroundColor = "var(--color-panel-footer)";
+        wrapper.style.borderColor = "var(--color-panel-border)";
 
         const container = document.createElement("div");
         container.style.width = "100%";
@@ -90,11 +98,11 @@ class MermaidWidget extends WidgetType {
         }).catch((err) => {
             container.innerHTML = "";
             const errorDiv = document.createElement("div");
-            errorDiv.style.color = "red";
-            errorDiv.style.border = "1px solid red";
+            errorDiv.style.color = "var(--color-alert-text)";
+            errorDiv.style.border = "1px solid var(--color-alert-border)";
             errorDiv.style.padding = "10px";
             errorDiv.style.borderRadius = "4px";
-            errorDiv.style.background = "rgba(255,0,0,0.1)";
+            errorDiv.style.background = "var(--color-alert-bg)";
             errorDiv.textContent = `Mermaid Error: ${err.message || err}`;
             container.appendChild(errorDiv);
         });
@@ -124,6 +132,11 @@ function buildMermaidDecorations(state: EditorState) {
     const builder = new RangeSetBuilder<Decoration>();
     const selection = state.selection.main;
     const blocks = parseCodeBlocks(state);
+    const themeKey: "light" | "dark" = typeof document !== "undefined"
+        ? document.documentElement.classList.contains("dark")
+            ? "dark"
+            : "light"
+        : "light";
 
     // CodeBlocks returned by parseCodeBlocks are sorted by `from` natively by the syntaxTree.
     for (const block of blocks) {
@@ -142,7 +155,7 @@ function buildMermaidDecorations(state: EditorState) {
                             block.from,
                             block.to,
                             Decoration.replace({
-                                widget: new MermaidWidget(codeContent, block.from, block.to),
+                                widget: new MermaidWidget(codeContent, block.from, block.to, themeKey),
                                 block: true,
                             })
                         );
@@ -159,7 +172,8 @@ const mermaidStateField = StateField.define<DecorationSet>({
         return buildMermaidDecorations(state);
     },
     update(oldState, transaction) {
-        if (transaction.docChanged || transaction.selection) {
+        const themeChanged = transaction.effects.some((effect) => effect.is(mermaidThemeEffect));
+        if (transaction.docChanged || transaction.selection || themeChanged) {
             return buildMermaidDecorations(transaction.state);
         }
         return oldState;
@@ -168,6 +182,26 @@ const mermaidStateField = StateField.define<DecorationSet>({
 });
 
 let mermaidInitialized = false;
+let mermaidObserverInitialized = false;
+
+const mermaidViewPlugin = ViewPlugin.fromClass(class {
+    private view: EditorView;
+
+    constructor(view: EditorView) {
+        this.view = view;
+        mermaidViews.add(view);
+    }
+
+    destroy() {
+        mermaidViews.delete(this.view);
+    }
+});
+
+function notifyMermaidThemeChanged() {
+    mermaidViews.forEach((view) => {
+        view.dispatch({ effects: mermaidThemeEffect.of(null) });
+    });
+}
 
 export function createMermaidPlugin(): Extension {
     if (!mermaidInitialized && typeof document !== "undefined") {
@@ -179,20 +213,27 @@ export function createMermaidPlugin(): Extension {
                 startOnLoad: false,
                 theme: isDark ? "dark" : "default",
             });
+            notifyMermaidThemeChanged();
         };
 
         updateMermaidTheme();
 
-        const observer = new MutationObserver((mutations) => {
-            for (const mutation of mutations) {
-                if (mutation.attributeName === "class") {
-                    updateMermaidTheme();
+        if (!mermaidObserverInitialized) {
+            mermaidObserverInitialized = true;
+            const observer = new MutationObserver((mutations) => {
+                for (const mutation of mutations) {
+                    if (mutation.attributeName === "class" || mutation.attributeName === "data-theme-name") {
+                        updateMermaidTheme();
+                    }
                 }
-            }
-        });
+            });
 
-        observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+            observer.observe(document.documentElement, {
+                attributes: true,
+                attributeFilter: ["class", "data-theme-name"],
+            });
+        }
     }
 
-    return [mermaidStateField];
+    return [mermaidStateField, mermaidViewPlugin];
 }

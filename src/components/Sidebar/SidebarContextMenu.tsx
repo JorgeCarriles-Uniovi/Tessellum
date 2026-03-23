@@ -37,7 +37,7 @@ export function SidebarContextMenu({
     return (
         <div
             ref={menuRef}
-            className="fixed bg-white border border-gray-200 py-1 w-48 z-50 text-sm animate-in fade-in zoom-in-95 duration-100"
+            className="fixed border py-1 w-48 z-50 text-sm animate-in fade-in zoom-in-95 duration-100"
             style={{
                 top: y,
                 left: x,
@@ -47,32 +47,40 @@ export function SidebarContextMenu({
                 paddingRight: "1rem",
                 borderRadius: "var(--radius-lg)",
                 boxShadow: "var(--shadow-xl)",
+                backgroundColor: "var(--color-panel-bg)",
+                borderColor: "var(--color-panel-border)",
             }}
             onClick={function(e) { return e.stopPropagation() }} // Prevent bubbling
         >
             {/* Header: File Name */}
-            <div className="px-3 py-2 text-xs font-semibold text-gray-400 border-b border-gray-100 mb-1 truncate">
+            <div
+                className="px-3 py-2 text-xs font-semibold border-b mb-1 truncate"
+                style={{
+                    color: "var(--color-text-muted)",
+                    borderColor: "var(--color-border-light)",
+                }}
+            >
                 {target.filename}
             </div>
 
             {/* Rename */}
             <button
                 onClick={function() { onRename(); onClose(); }}
-                className="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2 text-gray-700"
-                style={{ marginBottom: "2px", marginTop: "2px" }}
+                className="w-full text-left px-4 py-2 flex items-center gap-2 hover:bg-[color:var(--color-panel-hover)]"
+                style={{ color: "var(--color-text-secondary)", marginBottom: "2px", marginTop: "2px" }}
             >
                 <Edit2 size={14} /> Rename
             </button>
 
             {/* Divider */}
-            <div className="h-px bg-gray-100 my-1" />
+            <div className="h-px my-1" style={{ backgroundColor: "var(--color-border-light)" }} />
 
             {/* Create Actions (Optional) */}
             {onNewNote && (
                 <button
                     onClick={function() { onNewNote(); onClose(); }}
-                    className="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2 text-gray-700"
-                    style={{ marginBottom: "2px", marginTop: "2px" }}
+                    className="w-full text-left px-4 py-2 flex items-center gap-2 hover:bg-[color:var(--color-panel-hover)]"
+                    style={{ color: "var(--color-text-secondary)", marginBottom: "2px", marginTop: "2px" }}
                 >
                     <FilePlus size={14} /> New Note
                 </button>
@@ -81,8 +89,8 @@ export function SidebarContextMenu({
             {onNewNoteFromTemplate && (
                 <button
                     onClick={function() { onNewNoteFromTemplate(); onClose(); }}
-                    className="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2 text-gray-700"
-                    style={{ marginBottom: "2px", marginTop: "2px" }}
+                    className="w-full text-left px-4 py-2 flex items-center gap-2 hover:bg-[color:var(--color-panel-hover)]"
+                    style={{ color: "var(--color-text-secondary)", marginBottom: "2px", marginTop: "2px" }}
                 >
                     <FilePlus size={14} /> New Note From Template
                 </button>
@@ -91,21 +99,21 @@ export function SidebarContextMenu({
             {onNewFolder && (
                 <button
                     onClick={function() { onNewFolder(); }}
-                    className="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2 text-gray-700"
-                    style={{ marginBottom: "2px", marginTop: "2px" }}
+                    className="w-full text-left px-4 py-2 flex items-center gap-2 hover:bg-[color:var(--color-panel-hover)]"
+                    style={{ color: "var(--color-text-secondary)", marginBottom: "2px", marginTop: "2px" }}
                 >
                     <FolderPlus size={14} /> New Folder
                 </button>
             )}
 
             {/* Divider */}
-            <div className="h-px bg-gray-100 my-1" />
+            <div className="h-px my-1" style={{ backgroundColor: "var(--color-border-light)" }} />
 
             {/* Delete */}
             <button
                 onClick={() => { onDelete(); onClose(); }}
-                className="w-full text-left px-4 py-2 hover:bg-red-50 text-red-600 flex items-center gap-2"
-                style={{ marginBottom: "2px", marginTop: "2px" }}
+                className="w-full text-left px-4 py-2 flex items-center gap-2 hover:bg-[color:var(--color-alert-bg)]"
+                style={{ color: "var(--color-alert-text)", marginBottom: "2px", marginTop: "2px" }}
             >
                 <Trash2 size={14} /> Delete
             </button>

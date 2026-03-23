@@ -99,18 +99,28 @@ export function CalloutPicker({
         <div
             ref={menuRef}
             className={cn(
-                "absolute z-50 w-80 flex flex-col overflow-hidden rounded-xl",
-                "bg-white dark:bg-[#1a242f]",
-                "border border-gray-200 dark:border-gray-800",
-                "shadow-2xl shadow-black/10 ring-1 ring-black/5",
+                "absolute z-50 w-80 flex flex-col overflow-hidden rounded-xl border",
                 "animate-in fade-in zoom-in-95 duration-150 ease-out",
                 placement === "top"
                     ? "-translate-y-full mb-2 origin-bottom"
                     : "mt-2 origin-top"
             )}
-            style={{ top: y, left: x, maxHeight: "440px" }}
+            style={{
+                top: y,
+                left: x,
+                maxHeight: "440px",
+                backgroundColor: "var(--color-panel-bg)",
+                borderColor: "var(--color-panel-border)",
+                boxShadow: "var(--shadow-xl)",
+            }}
         >
-            <div className="px-5 py-4 text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider select-none bg-white dark:bg-[#1a242f] shrink-0">
+            <div
+                className="px-5 py-4 text-[11px] font-semibold uppercase tracking-wider select-none shrink-0"
+                style={{
+                    color: "var(--color-text-muted)",
+                    backgroundColor: "var(--color-panel-bg)",
+                }}
+            >
                 Choose callout type
             </div>
 
@@ -124,7 +134,10 @@ export function CalloutPicker({
 
                     return (
                         <div key={category} className="mb-2">
-                            <div className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider select-none">
+                            <div
+                                className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider select-none"
+                                style={{ color: "var(--color-text-muted)" }}
+                            >
                                 {category}
                             </div>
                             {types.map((ct) => {
@@ -140,27 +153,22 @@ export function CalloutPicker({
                                         data-selected={isSelected}
                                         className={cn(
                                             "flex w-full items-center gap-3 rounded-[4px] px-3 py-2 text-sm transition-colors duration-75 text-left mb-0.5 cursor-pointer",
-                                            isSelected
-                                                ? "bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-gray-100"
-                                                : "text-gray-700 dark:text-gray-300"
+                                            isSelected ? "bg-[color:var(--color-panel-active)]" : ""
                                         )}
+                                        style={{ color: isSelected ? "var(--color-text-primary)" : "var(--color-text-secondary)" }}
                                     >
                                         <div
                                             className="flex h-7 w-7 shrink-0 items-center justify-center rounded"
                                             style={{
                                                 color: ct.color,
-                                                backgroundColor: `${ct.color}15`,
+                                                backgroundColor: `color-mix(in srgb, ${ct.color} 18%, transparent)`,
                                             }}
                                         >
                                             {createElement(ct.icon, { size: 14 })}
                                         </div>
                                         <span
-                                            className={cn(
-                                                "font-medium",
-                                                isSelected
-                                                    ? "text-gray-900 dark:text-gray-100"
-                                                    : "text-gray-700 dark:text-gray-300"
-                                            )}
+                                            className="font-medium"
+                                            style={{ color: isSelected ? "var(--color-text-primary)" : "var(--color-text-secondary)" }}
                                         >
                                             {ct.label}
                                         </span>
@@ -174,12 +182,23 @@ export function CalloutPicker({
 
             <div
                 onClick={onClose}
-                className="shrink-0 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30 px-5 py-4 flex items-center justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                className="shrink-0 border-t px-5 py-4 flex items-center justify-between cursor-pointer transition-colors hover:bg-[color:var(--color-panel-hover)]"
+                style={{
+                    borderColor: "var(--color-border-light)",
+                    backgroundColor: "var(--color-panel-footer)",
+                }}
             >
-                <span className="text-[11px] text-gray-400 dark:text-gray-500 font-medium select-none">
+                <span className="text-[11px] font-medium select-none" style={{ color: "var(--color-text-muted)" }}>
                     Back
                 </span>
-                <kbd className="inline-flex items-center justify-center rounded bg-gray-200/50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-700 px-1.5 py-0.5 text-[10px] font-mono font-medium text-gray-500 dark:text-gray-400 min-w-[20px] select-none">
+                <kbd
+                    className="inline-flex items-center justify-center rounded border px-1.5 py-0.5 text-[10px] font-mono font-medium min-w-[20px] select-none"
+                    style={{
+                        backgroundColor: "var(--color-kbd-bg)",
+                        borderColor: "var(--color-kbd-border)",
+                        color: "var(--color-kbd-text)",
+                    }}
+                >
                     esc
                 </kbd>
             </div>

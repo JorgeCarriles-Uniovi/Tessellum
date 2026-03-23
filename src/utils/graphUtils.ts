@@ -94,13 +94,13 @@ export function getCytoscapeStylesheet(): any[] {
     const root = document.documentElement;
     const style = getComputedStyle(root);
 
-    const graphBg = style.getPropertyValue('--graph-node').trim() || '#3b82f6';
-    const graphOrphan = style.getPropertyValue('--graph-node-orphan').trim() || '#9ca3af';
-    const graphMissing = style.getPropertyValue('--graph-node-missing').trim() || '#d1d5db';
-    const graphLabel = style.getPropertyValue('--graph-node-label').trim() || '#111827';
-    const graphEdge = style.getPropertyValue('--graph-edge').trim() || '#d1d5db';
-    const graphEdgeBroken = style.getPropertyValue('--graph-edge-broken').trim() || '#9ca3af';
-    const graphNodeActive = style.getPropertyValue('--graph-node-active').trim() || '#2563eb';
+    const graphBg = style.getPropertyValue('--graph-node').trim() || style.getPropertyValue('--color-blue-500').trim();
+    const graphOrphan = style.getPropertyValue('--graph-node-orphan').trim() || style.getPropertyValue('--color-gray-400').trim();
+    const graphMissing = style.getPropertyValue('--graph-node-missing').trim() || style.getPropertyValue('--color-gray-300').trim();
+    const graphLabel = style.getPropertyValue('--graph-node-label').trim() || style.getPropertyValue('--color-text-primary').trim();
+    const graphEdge = style.getPropertyValue('--graph-edge').trim() || style.getPropertyValue('--color-border-medium').trim();
+    const graphEdgeBroken = style.getPropertyValue('--graph-edge-broken').trim() || style.getPropertyValue('--color-gray-400').trim();
+    const graphNodeActive = style.getPropertyValue('--graph-node-active').trim() || style.getPropertyValue('--color-blue-600').trim();
 
     return [
         {

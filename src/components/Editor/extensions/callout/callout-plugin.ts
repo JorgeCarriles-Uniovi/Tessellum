@@ -55,7 +55,7 @@ function buildDecorations(view: EditorView, filePath: string): DecorationSet {
 
         // Resolve color for this block
         const calloutType = getCalloutType(block.type);
-        const color = calloutType?.color || "#448aff";
+        const color = calloutType?.color || "var(--callout-info)";
 
         // Determine collapsed state
         const key = calloutKey(filePath, `${block.type}:${block.title}`, block.headerLineNumber);

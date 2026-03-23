@@ -7,7 +7,7 @@ export function SettingItem({ label, children }: { label: string; children: Reac
                  paddingLeft: `1rem`,
                  paddingRight: `1rem`
              }}>
-            <label className="text-sm text-[#475569]">{label}</label>
+            <label className="text-sm" style={{ color: "var(--color-text-muted)" }}>{label}</label>
             {children}
         </div>
     );

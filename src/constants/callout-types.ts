@@ -20,29 +20,29 @@ export type CalloutCategory = "Informational" | "Warning" | "Status" | "Other";
 
 export const CALLOUT_TYPES: CalloutType[] = [
     // Informational
-    { id: "note", label: "Note", icon: FileText, color: "#448aff", category: "Informational" },
-    { id: "info", label: "Info", icon: Info, color: "#448aff", category: "Informational" },
-    { id: "tip", label: "Tip", icon: Flame, color: "#00bfa5", category: "Informational" },
-    { id: "abstract", label: "Abstract", icon: BookOpen, color: "#00b8d4", category: "Informational" },
+    { id: "note", label: "Note", icon: FileText, color: "var(--callout-info)", category: "Informational" },
+    { id: "info", label: "Info", icon: Info, color: "var(--callout-info)", category: "Informational" },
+    { id: "tip", label: "Tip", icon: Flame, color: "var(--callout-tip)", category: "Informational" },
+    { id: "abstract", label: "Abstract", icon: BookOpen, color: "var(--callout-tip)", category: "Informational" },
 
     // Warning
-    { id: "warning", label: "Warning", icon: AlertTriangle, color: "#ff9100", category: "Warning" },
-    { id: "caution", label: "Caution", icon: ShieldAlert, color: "#ff9100", category: "Warning" },
-    { id: "important", label: "Important", icon: AlertCircle, color: "#ff5252", category: "Warning" },
-    { id: "danger", label: "Danger", icon: Skull, color: "#ff1744", category: "Warning" },
+    { id: "warning", label: "Warning", icon: AlertTriangle, color: "var(--callout-warning)", category: "Warning" },
+    { id: "caution", label: "Caution", icon: ShieldAlert, color: "var(--callout-warning)", category: "Warning" },
+    { id: "important", label: "Important", icon: AlertCircle, color: "var(--callout-danger)", category: "Warning" },
+    { id: "danger", label: "Danger", icon: Skull, color: "var(--callout-danger)", category: "Warning" },
 
     // Status
-    { id: "success", label: "Success", icon: CheckCircle2, color: "#00c853", category: "Status" },
-    { id: "failure", label: "Failure", icon: XCircle, color: "#ff5252", category: "Status" },
-    { id: "todo", label: "Todo", icon: ClipboardList, color: "#448aff", category: "Status" },
-    { id: "bug", label: "Bug", icon: Bug, color: "#ff1744", category: "Status" },
-    { id: "question", label: "Question", icon: HelpCircle, color: "#ff9100", category: "Status" },
+    { id: "success", label: "Success", icon: CheckCircle2, color: "var(--callout-success)", category: "Status" },
+    { id: "failure", label: "Failure", icon: XCircle, color: "var(--callout-danger)", category: "Status" },
+    { id: "todo", label: "Todo", icon: ClipboardList, color: "var(--callout-info)", category: "Status" },
+    { id: "bug", label: "Bug", icon: Bug, color: "var(--callout-danger)", category: "Status" },
+    { id: "question", label: "Question", icon: HelpCircle, color: "var(--callout-warning)", category: "Status" },
 
     // Other
-    { id: "example", label: "Example", icon: FlaskConical, color: "#7c4dff", category: "Other" },
-    { id: "quote", label: "Quote", icon: Quote, color: "#9e9e9e", category: "Other" },
-    { id: "cite", label: "Cite", icon: Quote, color: "#9e9e9e", category: "Other" },
-    { id: "terminal", label: "Terminal", icon: Terminal, color: "#24292e", category: "Other" },
+    { id: "example", label: "Example", icon: FlaskConical, color: "var(--callout-example)", category: "Other" },
+    { id: "quote", label: "Quote", icon: Quote, color: "var(--callout-quote)", category: "Other" },
+    { id: "cite", label: "Cite", icon: Quote, color: "var(--callout-quote)", category: "Other" },
+    { id: "terminal", label: "Terminal", icon: Terminal, color: "var(--callout-terminal)", category: "Other" },
 ];
 
 // ─── Lookup Helpers ───────────────────────────────────────────────────────────

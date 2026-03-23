@@ -6,6 +6,15 @@ import { useState } from "react";
 export function GeneralSettings() {
     const [autoSave, setAutoSave] = useState(true);
     const [spellCheck, setSpellCheck] = useState(true);
+    const inputStyle = {
+        paddingTop: `0.5rem`,
+        paddingBottom: `0.5rem`,
+        paddingLeft: `1rem`,
+        paddingRight: `1rem`,
+        borderColor: "var(--color-border-light)",
+        backgroundColor: "var(--color-panel-bg)",
+        color: "var(--color-text-primary)",
+    };
 
     return (
         <div className="space-y-6">
@@ -14,26 +23,16 @@ export function GeneralSettings() {
                     <input
                         type="text"
                         defaultValue="DevAdmin"
-                        className="px-3 py-2 border border-[#e2e8f0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-blue-600)] focus:border-transparent transition-all"
-                        style={{
-                            paddingTop: `0.5rem`,
-                            paddingBottom: `0.5rem`,
-                            paddingLeft: `1rem`,
-                            paddingRight: `1rem`
-                        }}
+                        className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)] focus:border-transparent transition-all"
+                        style={inputStyle}
                     />
                 </SettingItem>
                 <SettingItem label="Email">
                     <input
                         type="email"
                         defaultValue="admin@workspace.com"
-                        className="px-3 py-2 border border-[#e2e8f0] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-blue-600)] focus:border-transparent transition-all"
-                        style={{
-                            paddingTop: `0.5rem`,
-                            paddingBottom: `0.5rem`,
-                            paddingLeft: `1rem`,
-                            paddingRight: `1rem`
-                        }}
+                        className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)] focus:border-transparent transition-all"
+                        style={inputStyle}
                     />
                 </SettingItem>
             </SettingSection>
