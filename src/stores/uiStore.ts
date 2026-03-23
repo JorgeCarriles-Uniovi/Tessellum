@@ -4,6 +4,7 @@ export interface UiState {
     expandedFolders: Record<string, boolean>;
     isSidebarOpen: boolean;
     isRightSidebarOpen: boolean;
+    isSearchOpen: boolean;
 }
 
 export interface UiActions {
@@ -11,6 +12,8 @@ export interface UiActions {
     toggleSidebar: () => void;
     toggleRightSidebar: () => void;
     toggleFolder: (path: string, expand?: boolean) => void;
+    openSearch: () => void;
+    closeSearch: () => void;
 }
 
 export type UiStore = UiState & UiActions;
@@ -19,6 +22,7 @@ export const useUiStore = create<UiStore>((set) => ({
     expandedFolders: {},
     isSidebarOpen: true,
     isRightSidebarOpen: true,
+    isSearchOpen: false,
 
     setExpandedFolders: (folders) => set({ expandedFolders: folders }),
     toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
@@ -32,4 +36,6 @@ export const useUiStore = create<UiStore>((set) => ({
             expandedFolders: { ...state.expandedFolders, [path]: nextState },
         };
     }),
+    openSearch: () => set({ isSearchOpen: true }),
+    closeSearch: () => set({ isSearchOpen: false }),
 }));

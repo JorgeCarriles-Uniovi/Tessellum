@@ -14,6 +14,7 @@ import { getParentFromTarget } from "../../utils/pathUtils";
 import { useFileSync } from "../FileTree/hooks/useFileSync";
 import { cn } from "../../lib/utils";
 import { useResizableSidebarWidth } from "../Layout/useResizableSidebarWidth";
+import { SearchPanel } from "../Search/SearchPanel";
 
 const LEFT_SIDEBAR_WIDTH_KEY = "tessellum:left-sidebar-width";
 const LEFT_SIDEBAR_MIN = 220;
@@ -182,7 +183,7 @@ const emptyStateTextStyle: CSSProperties = {
 export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
     useFileSync();
     const { vaultPath } = useVaultStore();
-    const { isSidebarOpen } = useUiStore();
+    const { isSidebarOpen, isSearchOpen, closeSearch } = useUiStore();
     const sidebarContentRef = useRef<HTMLDivElement>(null);
     const { sidebarWidth, isResizing, onResizeStart } = useResizableSidebarWidth({
         side,
@@ -250,6 +251,26 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
         return () => app.events.off(ref);
     }, [app]);
 
+    const sidebarChrome = (
+        <div
+            className={cn(
+                "absolute top-0 h-full cursor-col-resize group z-50",
+                side === "left" ? "right-0" : "left-0"
+            )}
+            onMouseDown={onResizeStart}
+            style={{
+                width: "6px",
+                marginRight: side === "left" ? "-3px" : undefined,
+                marginLeft: side === "right" ? "-3px" : undefined,
+            }}
+        >
+            <div className={cn(
+                "w-[2px] h-full transition-colors",
+                isResizing ? "bg-blue-500" : "bg-transparent group-hover:bg-[color:var(--color-border-medium)]"
+            )} />
+        </div>
+    );
+
     return (
         <>
             <BaseSidebar
@@ -263,23 +284,7 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
                     borderColor: theme.colors.border.light,
                 }}
             >
-                <div
-                    className={cn(
-                        "absolute top-0 h-full cursor-col-resize group z-50",
-                        side === "left" ? "right-0" : "left-0"
-                    )}
-                    onMouseDown={onResizeStart}
-                    style={{
-                        width: "6px",
-                        marginRight: side === "left" ? "-3px" : undefined,
-                        marginLeft: side === "right" ? "-3px" : undefined,
-                    }}
-                >
-                    <div className={cn(
-                        "w-[2px] h-full transition-colors",
-                        isResizing ? "bg-blue-500" : "bg-transparent group-hover:bg-[color:var(--color-border-medium)]"
-                    )} />
-                </div>
+                {sidebarChrome}
                 <div
                     ref={sidebarContentRef}
                     className="flex flex-col transition-all duration-300 ease-in-out"
@@ -295,120 +300,158 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
                                 : "translateX(8px)",
                     }}
                 >
-                    <div style={headerStyle}>
-                        <div style={headerLeftStyle}>
-                            <div style={logoStyle}>T</div>
-                            <span style={{ fontWeight: 600, fontSize: theme.typography.fontSize.sm }}>Tessellum</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                            {headerActions.map((action) => {
-                                const disabled = action.disabled || (!vaultPath && action.id !== "sidebar-open-vault");
-                                return (
-                                    <button
-                                        key={action.id}
-                                        title={action.tooltip || action.label}
-                                        style={headerActionStyle(disabled)}
-                                        onClick={disabled ? undefined : action.onClick}
-                                        disabled={disabled}
-                                    >
-                                        {action.icon || <FolderOpen size={SIDEBAR_ICON_SIZE} style={SIDEBAR_ICON_STYLE} />}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-
-                    <div style={fileTreeStyle}>
-                        {files.length === 0 ? (
-                            <div style={emptyStateStyle}>
-                                <div style={emptyStateIconStyle}>
-                                    <FolderOpen size={SIDEBAR_EMPTY_ICON_SIZE} style={SIDEBAR_EMPTY_ICON_STYLE} />
-                                </div>
-                                <div style={emptyStateTitleStyle}>No notes yet</div>
-                                <div style={emptyStateTextStyle}>Create your first note or folder to get started.</div>
-                            </div>
-                        ) : (
-                            <FileTree data={treeData} onContextMenu={handleContextMenu} />
-                        )}
-                    </div>
-
-                    {sidebarActions.length > 0 && (
-                        <div style={actionSectionStyle}>
-                            {sidebarActions.map((action) => {
-                                const isHovered = hoveredActionId === action.id;
-                                return (
-                                    <button
-                                        key={action.id}
-                                        style={actionButtonStyle(isHovered)}
-                                        onClick={action.onClick}
-                                        onMouseEnter={() => setHoveredActionId(action.id)}
-                                        onMouseLeave={() => setHoveredActionId(null)}
-                                    >
-                                        <span style={actionButtonContentStyle}>
-                                            {action.icon}
-                                            <span style={actionLabelStyle}>{action.label}</span>
-                                        </span>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    )}
-
-                    <div style={footerStyle}>
-                        {footerActions.map((action) => {
-                            const isHovered = hoveredActionId === action.id;
-                            return (
-                                <button
-                                    key={action.id}
-                                    style={footerButtonStyle(isHovered, action.disabled)}
-                                    onClick={action.disabled ? undefined : action.onClick}
-                                    onMouseEnter={() => setHoveredActionId(action.id)}
-                                    onMouseLeave={() => setHoveredActionId(null)}
-                                    title={action.tooltip || action.label}
-                                >
-                                    {action.icon || (
-                                        action.id === "sidebar-graph"
-                                            ? <Network size={SIDEBAR_ACTION_ICON_SIZE} style={SIDEBAR_ACTION_ICON_STYLE} />
-                                            : action.id === "sidebar-settings"
-                                                ? <Settings size={SIDEBAR_ACTION_ICON_SIZE} style={SIDEBAR_ACTION_ICON_STYLE} />
-                                                : <Trash2 size={SIDEBAR_ACTION_ICON_SIZE} style={SIDEBAR_ACTION_ICON_STYLE} />
-                                    )}
-                                    <span>{action.label}</span>
-                                </button>
-                            );
-                        })}
-                    </div>
-
-                    <div
-                        className="flex items-center border-t"
-                        style={{ borderColor: theme.colors.border.light, backgroundColor: theme.colors.background.primary }}
-                    >
-                        <div className="flex-1 overflow-hidden">
-                            <VaultSwitcher vaultName={vaultName} onOpenVault={openVaultAction?.onClick} />
-                        </div>
-                        {settingsAction && (
-                            <button
-                                onClick={settingsAction.onClick}
-                                title={settingsAction.tooltip || settingsAction.label}
-                                className="rounded-md transition-colors"
-                                style={{
-                                    marginRight: theme.spacing[2],
-                                    width: "32px",
-                                    height: "32px",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    color: theme.colors.text.secondary,
-                                    backgroundColor: theme.colors.background.primary,
-                                    cursor: settingsAction.disabled ? "not-allowed" : "pointer",
-                                    opacity: settingsAction.disabled ? 0.6 : 1,
-                                }}
-                                disabled={settingsAction.disabled}
+                    {isSearchOpen ? (
+                        <div className="flex flex-col min-h-0" style={{ flex: 1 }}>
+                            <SearchPanel onClose={closeSearch} />
+                            <div
+                                className="flex items-center border-t"
+                                style={{ borderColor: theme.colors.border.light, backgroundColor: theme.colors.background.primary }}
                             >
-                                <Settings size={SIDEBAR_ACTION_ICON_SIZE} style={SIDEBAR_ACTION_ICON_STYLE} />
-                            </button>
-                        )}
-                    </div>
+                                <div className="flex-1 overflow-hidden">
+                                    <VaultSwitcher vaultName={vaultName} onOpenVault={openVaultAction?.onClick} />
+                                </div>
+                                {settingsAction && (
+                                    <button
+                                        onClick={settingsAction.onClick}
+                                        title={settingsAction.tooltip || settingsAction.label}
+                                        className="rounded-md transition-colors"
+                                        style={{
+                                            marginRight: theme.spacing[2],
+                                            width: "32px",
+                                            height: "32px",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            color: theme.colors.text.secondary,
+                                            backgroundColor: theme.colors.background.primary,
+                                            cursor: settingsAction.disabled ? "not-allowed" : "pointer",
+                                            opacity: settingsAction.disabled ? 0.6 : 1,
+                                        }}
+                                        disabled={settingsAction.disabled}
+                                    >
+                                        <Settings size={SIDEBAR_ACTION_ICON_SIZE} style={SIDEBAR_ACTION_ICON_STYLE} />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    ) : (
+                        <>
+                            <div style={headerStyle}>
+                                <div style={headerLeftStyle}>
+                                    <div style={logoStyle}>T</div>
+                                    <span style={{ fontWeight: 600, fontSize: theme.typography.fontSize.sm }}>Tessellum</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    {headerActions.map((action) => {
+                                        const disabled = action.disabled || (!vaultPath && action.id !== "sidebar-open-vault");
+                                        return (
+                                            <button
+                                                key={action.id}
+                                                title={action.tooltip || action.label}
+                                                style={headerActionStyle(disabled)}
+                                                onClick={disabled ? undefined : action.onClick}
+                                                disabled={disabled}
+                                            >
+                                                {action.icon || <FolderOpen size={SIDEBAR_ICON_SIZE} style={SIDEBAR_ICON_STYLE} />}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            <div style={fileTreeStyle}>
+                                {files.length === 0 ? (
+                                    <div style={emptyStateStyle}>
+                                        <div style={emptyStateIconStyle}>
+                                            <FolderOpen size={SIDEBAR_EMPTY_ICON_SIZE} style={SIDEBAR_EMPTY_ICON_STYLE} />
+                                        </div>
+                                        <div style={emptyStateTitleStyle}>No notes yet</div>
+                                        <div style={emptyStateTextStyle}>Create your first note or folder to get started.</div>
+                                    </div>
+                                ) : (
+                                    <FileTree data={treeData} onContextMenu={handleContextMenu} />
+                                )}
+                            </div>
+
+                            {sidebarActions.length > 0 && (
+                                <div style={actionSectionStyle}>
+                                    {sidebarActions.map((action) => {
+                                        const isHovered = hoveredActionId === action.id;
+                                        return (
+                                            <button
+                                                key={action.id}
+                                                style={actionButtonStyle(isHovered)}
+                                                onClick={action.onClick}
+                                                onMouseEnter={() => setHoveredActionId(action.id)}
+                                                onMouseLeave={() => setHoveredActionId(null)}
+                                            >
+                                                <span style={actionButtonContentStyle}>
+                                                    {action.icon}
+                                                    <span style={actionLabelStyle}>{action.label}</span>
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
+                            <div style={footerStyle}>
+                                {footerActions.map((action) => {
+                                    const isHovered = hoveredActionId === action.id;
+                                    return (
+                                        <button
+                                            key={action.id}
+                                            style={footerButtonStyle(isHovered, action.disabled)}
+                                            onClick={action.disabled ? undefined : action.onClick}
+                                            onMouseEnter={() => setHoveredActionId(action.id)}
+                                            onMouseLeave={() => setHoveredActionId(null)}
+                                            title={action.tooltip || action.label}
+                                        >
+                                            {action.icon || (
+                                                action.id === "sidebar-graph"
+                                                    ? <Network size={SIDEBAR_ACTION_ICON_SIZE} style={SIDEBAR_ACTION_ICON_STYLE} />
+                                                    : action.id === "sidebar-settings"
+                                                        ? <Settings size={SIDEBAR_ACTION_ICON_SIZE} style={SIDEBAR_ACTION_ICON_STYLE} />
+                                                        : <Trash2 size={SIDEBAR_ACTION_ICON_SIZE} style={SIDEBAR_ACTION_ICON_STYLE} />
+                                            )}
+                                            <span>{action.label}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            <div
+                                className="flex items-center border-t"
+                                style={{ borderColor: theme.colors.border.light, backgroundColor: theme.colors.background.primary }}
+                            >
+                                <div className="flex-1 overflow-hidden">
+                                    <VaultSwitcher vaultName={vaultName} onOpenVault={openVaultAction?.onClick} />
+                                </div>
+                                {settingsAction && (
+                                    <button
+                                        onClick={settingsAction.onClick}
+                                        title={settingsAction.tooltip || settingsAction.label}
+                                        className="rounded-md transition-colors"
+                                        style={{
+                                            marginRight: theme.spacing[2],
+                                            width: "32px",
+                                            height: "32px",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            color: theme.colors.text.secondary,
+                                            backgroundColor: theme.colors.background.primary,
+                                            cursor: settingsAction.disabled ? "not-allowed" : "pointer",
+                                            opacity: settingsAction.disabled ? 0.6 : 1,
+                                        }}
+                                        disabled={settingsAction.disabled}
+                                    >
+                                        <Settings size={SIDEBAR_ACTION_ICON_SIZE} style={SIDEBAR_ACTION_ICON_STYLE} />
+                                    </button>
+                                )}
+                            </div>
+                        </>
+                    )}
                 </div>
             </BaseSidebar>
 

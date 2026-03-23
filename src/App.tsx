@@ -36,7 +36,7 @@ function App() {
         activeNote,
         setActiveNote,
     } = useVaultStore();
-    const { expandedFolders, setExpandedFolders } = useUiStore();
+    const { expandedFolders, setExpandedFolders, openSearch, closeSearch } = useUiStore();
     const { viewMode, isLocalGraphOpen, setViewMode } = useGraphStore();
     const [isLoaded, setIsLoaded] = useState(false);
     const [workspaceRestored, setWorkspaceRestored] = useState(false);
@@ -128,6 +128,19 @@ function App() {
         });
         return () => app.events.off(ref);
     }, [app]);
+
+    useEffect(() => {
+        const openRef = app.events.on("ui:open-search", () => {
+            openSearch();
+        });
+        const closeRef = app.events.on("ui:close-search", () => {
+            closeSearch();
+        });
+        return () => {
+            app.events.off(openRef);
+            app.events.off(closeRef);
+        };
+    }, [app, closeSearch, openSearch]);
 
     useEffect(() => {
         const ref = app.events.on("ui:open-settings", () => {

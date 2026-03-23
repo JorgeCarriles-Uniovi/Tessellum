@@ -6,12 +6,14 @@ import {
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useEditorStore } from '../../stores/editorStore';
+import { useUiStore } from '../../stores';
 import { useTessellumApp } from '../../plugins/TessellumApp';
 import { theme } from '../../styles/theme';
 
 export function TitleBar() {
     const [isMaximized, setIsMaximized] = useState(false);
     const { toggleSidebar, isSidebarOpen, toggleRightSidebar, isRightSidebarOpen, activeNote, toggleLocalGraph, isLocalGraphOpen, vaultPath } = useEditorStore();
+    const { isSearchOpen, closeSearch, openSearch } = useUiStore();
     const app = useTessellumApp();
     const leftActions = app.ui.getUIActions('titlebar-left');
     const rightActions = app.ui.getUIActions('titlebar-right');
@@ -78,16 +80,36 @@ export function TitleBar() {
 
                 <div className="w-2" />
 
-                {leftActions.map((action) => (
-                    <NavButton
-                        key={action.id}
-                        onClick={action.onClick}
-                        tooltip={action.tooltip || action.label}
-                        disabled={action.disabled}
-                    >
-                        {renderTitlebarIcon(action.icon)}
-                    </NavButton>
-                ))}
+                {leftActions.map((action) => {
+                    if (action.id !== "open-palette") {
+                        return (
+                            <NavButton
+                                key={action.id}
+                                onClick={action.onClick}
+                                tooltip={action.tooltip || action.label}
+                                disabled={action.disabled}
+                            >
+                                {renderTitlebarIcon(action.icon)}
+                            </NavButton>
+                        );
+                    }
+
+                    const handleClick = isSearchOpen ? closeSearch : openSearch;
+                    const tooltip = isSearchOpen ? "Back to files" : action.tooltip || action.label;
+                    const icon = isSearchOpen ? <Folder size={iconSize} style={iconStyle} /> : action.icon;
+
+                    return (
+                        <NavButton
+                            key={action.id}
+                            onClick={handleClick}
+                            tooltip={tooltip}
+                            disabled={action.disabled}
+                            active={isSearchOpen}
+                        >
+                            {renderTitlebarIcon(icon)}
+                        </NavButton>
+                    );
+                })}
             </div>
 
             {/* --- TITLE SECTION: Path --- */}
