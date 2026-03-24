@@ -67,6 +67,10 @@
     border-left-color: var(--foreground);
 }
 
+.dark .cm-cursor {
+    border-left-color: #ffffff;
+}
+
 /* --- 2. Markdown Elements --- */
 .cm-quote {
     border-left: 4px solid var(--color-border-medium);

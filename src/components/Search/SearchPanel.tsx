@@ -1,21 +1,21 @@
 import { Search, X, File, Folder, Clock, Hash, ArrowRight, History } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import { theme } from "../../styles/theme";
 import { invoke } from "@tauri-apps/api/core";
-import { useVaultStore } from "../../stores";
+import { useSearchStore, useVaultStore } from "../../stores";
+import { useTessellumApp } from "../../plugins/TessellumApp";
 
 interface SearchPanelProps {
     onClose: () => void;
 }
-
-type SearchFilter = "all" | "notes" | "folders" | "tags";
 
 type SearchResult =
     | {
     type: "note";
     title: string;
     path: string;
+    fullPath: string;
     preview: string;
     modified?: string;
     tags: string[];
@@ -45,13 +45,6 @@ interface FullTextSearchRequest {
     tag_filter?: TagFilter;
 }
 
-interface TagSearchRequest {
-    tags: string[];
-    match_mode: "All" | "Any";
-    limit?: number;
-    offset?: number;
-}
-
 interface SearchHit {
     path: string;
     relative_path: string;
@@ -62,11 +55,6 @@ interface SearchHit {
 }
 
 interface FullTextSearchResponse {
-    total: number;
-    hits: SearchHit[];
-}
-
-interface TagSearchResponse {
     total: number;
     hits: SearchHit[];
 }
@@ -144,12 +132,6 @@ const inputStyle: CSSProperties = {
     transition: theme.transitions.base,
 };
 
-const filterRowStyle: CSSProperties = {
-    display: "flex",
-    gap: theme.spacing[1],
-    padding: `${theme.spacing[3]} ${theme.spacing[4]}`,
-};
-
 const resultsContainerStyle: CSSProperties = {
     flex: 1,
     minHeight: 0,
@@ -176,29 +158,6 @@ const tipTextStyle: CSSProperties = {
     fontSize: "0.625rem",
     color: theme.colors.text.muted,
 };
-
-const recentSearches = [
-    "DPPI architecture",
-    "Sprint planning",
-    "Backend refactor",
-    "Quarterly goals",
-];
-
-function createFilterButtonStyle(isActive: boolean): CSSProperties {
-    return {
-        padding: "0.25rem 0.625rem",
-        borderRadius: theme.borderRadius.md,
-        fontSize: "0.625rem",
-        fontWeight: theme.typography.fontWeight.bold,
-        letterSpacing: "0.08em",
-        textTransform: "uppercase",
-        border: "none",
-        cursor: "pointer",
-        transition: theme.transitions.fast,
-        backgroundColor: isActive ? theme.colors.blue[600] : "transparent",
-        color: isActive ? "#fff" : theme.colors.text.muted,
-    };
-}
 
 function createResultCardStyle(isHovered: boolean): CSSProperties {
     return {
@@ -240,7 +199,6 @@ function splitQuery(query: string) {
     const parts = query.split(/\s+/).filter(Boolean);
     const tags: string[] = [];
     const terms: string[] = [];
-    const pathTerms: string[] = [];
     parts.forEach((part) => {
         if (part.startsWith("#")) {
             const normalized = normalizeTag(part);
@@ -252,14 +210,9 @@ function splitQuery(query: string) {
             if (raw) terms.push(raw);
             return;
         }
-        if (part.startsWith("path:")) {
-            const raw = part.slice("path:".length);
-            if (raw) pathTerms.push(raw.toLowerCase());
-            return;
-        }
         terms.push(part);
     });
-    return { terms, tags, pathTerms };
+    return { terms, tags };
 }
 
 function mapHitToResult(hit: SearchHit): SearchResult {
@@ -268,6 +221,7 @@ function mapHitToResult(hit: SearchHit): SearchResult {
         type: "note",
         title: hit.title,
         path: hit.relative_path,
+        fullPath: hit.path,
         preview: hit.snippet ?? "",
         modified: "",
         tags,
@@ -276,13 +230,18 @@ function mapHitToResult(hit: SearchHit): SearchResult {
 
 export function SearchPanel({ onClose }: SearchPanelProps) {
     const [searchQuery, setSearchQuery] = useState("");
-    const [activeFilter, setActiveFilter] = useState<SearchFilter>("all");
     const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
     const [results, setResults] = useState<SearchResult[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [hasPrimedIndex, setHasPrimedIndex] = useState(false);
     const { vaultPath } = useVaultStore();
+    const { recentSearches, addRecentSearch, loadRecentSearches } = useSearchStore();
+    const app = useTessellumApp();
+
+    useEffect(() => {
+        loadRecentSearches(vaultPath ?? undefined);
+    }, [loadRecentSearches, vaultPath]);
 
     useEffect(() => {
         if (!vaultPath) {
@@ -306,25 +265,8 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
                     await invoke("rebuild_search_index", { vaultPath });
                     setHasPrimedIndex(true);
                 }
-                const { terms, tags, pathTerms } = splitQuery(trimmed);
+                const { terms, tags } = splitQuery(trimmed);
                 const query = terms.join(" ");
-
-                if (activeFilter === "tags") {
-                    const tagRequest: TagSearchRequest = {
-                        tags: tags.length ? tags : [normalizeTag(trimmed)],
-                        match_mode: "Any",
-                        limit: 50,
-                        offset: 0,
-                    };
-                    const response = await invoke<TagSearchResponse>("search_tags", { vaultPath, request: tagRequest });
-                    setResults(response.hits.map(mapHitToResult));
-                    return;
-                }
-
-                if (activeFilter === "folders") {
-                    setResults([]);
-                    return;
-                }
 
                 const payload: FullTextSearchRequest = {
                     query,
@@ -337,14 +279,8 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
                 };
 
                 const response = await invoke<FullTextSearchResponse>("search_full_text", { vaultPath, request: payload });
-                let mapped = response.hits.map(mapHitToResult);
-                if (pathTerms.length > 0) {
-                    mapped = mapped.filter((item) => {
-                        const haystack = item.path.toLowerCase();
-                        return pathTerms.every((term) => haystack.includes(term));
-                    });
-                }
-                setResults(mapped);
+                setResults(response.hits.map(mapHitToResult));
+                addRecentSearch(trimmed, vaultPath);
             } catch (e) {
                 console.error(e);
                 setError("Search failed");
@@ -354,17 +290,7 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
         }, 200);
 
         return () => clearTimeout(handle);
-    }, [activeFilter, searchQuery, vaultPath]);
-
-    const filteredResults = useMemo(() => {
-        return results.filter((result) => {
-            if (activeFilter === "all") return true;
-            if (activeFilter === "notes") return result.type === "note";
-            if (activeFilter === "folders") return result.type === "folder";
-            if (activeFilter === "tags") return result.type === "tag" || result.type === "note";
-            return true;
-        });
-    }, [activeFilter, results]);
+    }, [searchQuery, vaultPath]);
 
     return (
         <div style={panelStyle}>
@@ -418,18 +344,6 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
                 </div>
             </div>
 
-            <div style={{ ...sectionDividerStyle, ...filterRowStyle }}>
-                {(["all", "notes", "folders", "tags"] as SearchFilter[]).map((filter) => (
-                    <button
-                        key={filter}
-                        onClick={() => setActiveFilter(filter)}
-                        style={createFilterButtonStyle(activeFilter === filter)}
-                    >
-                        {filter}
-                    </button>
-                ))}
-            </div>
-
             <div style={resultsContainerStyle}>
                 {searchQuery.trim().length === 0 ? (
                     <div>
@@ -473,7 +387,7 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
                     <div>
                         <div style={{ padding: "0.5rem 0.75rem" }}>
                             <span style={sectionLabelStyle}>
-                                {isLoading ? "Searching" : `${filteredResults.length} ${filteredResults.length === 1 ? "Result" : "Results"}`}
+                                {isLoading ? "Searching" : `${results.length} ${results.length === 1 ? "Result" : "Results"}`}
                             </span>
                             {error && (
                                 <div style={{ marginTop: theme.spacing[1], fontSize: "0.625rem", color: theme.colors.text.muted }}>
@@ -482,7 +396,7 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
                             )}
                         </div>
                         <div style={{ display: "flex", flexDirection: "column", gap: theme.spacing[2] }}>
-                            {filteredResults.map((result, idx) => {
+                            {results.map((result, idx) => {
                                 const isHovered = hoveredIndex === idx;
                                 return (
                                     <div
@@ -490,6 +404,11 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
                                         style={createResultCardStyle(isHovered)}
                                         onMouseEnter={() => setHoveredIndex(idx)}
                                         onMouseLeave={() => setHoveredIndex(null)}
+                                        onClick={() => {
+                                            if (result.type === "note") {
+                                                app.workspace.openNote(result.fullPath);
+                                            }
+                                        }}
                                     >
                                         {result.type === "note" && (
                                             <>
@@ -630,12 +549,6 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
                             #tag
                         </span>{" "}
                         - Search by tag
-                    </p>
-                    <p>
-                        <span style={{ fontFamily: theme.typography.fontFamily.mono, fontWeight: theme.typography.fontWeight.bold, color: theme.colors.text.secondary }}>
-                            path:
-                        </span>{" "}
-                        - Search in path
                     </p>
                     <p>
                         <span style={{ fontFamily: theme.typography.fontFamily.mono, fontWeight: theme.typography.fontWeight.bold, color: theme.colors.text.secondary }}>

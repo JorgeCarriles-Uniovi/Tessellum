@@ -24,3 +24,6 @@ export type { GraphActions, GraphState, GraphStore } from "./graphStore";
 
 export { useSelectionStore } from "./selectionStore";
 export type { SelectionActions, SelectionState, SelectionStore } from "./selectionStore";
+
+export { useSearchStore } from "./searchStore";
+export type { SearchActions, SearchState, SearchStore } from "./searchStore";
