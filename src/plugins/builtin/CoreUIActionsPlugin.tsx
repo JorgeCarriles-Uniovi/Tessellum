@@ -76,8 +76,8 @@ export class CoreUIActionsPlugin extends Plugin {
             this.app.events.emit("ui:open-new-folder");
         };
 
-        const openPalette = () => {
-            this.app.events.emit("ui:open-command-palette");
+        const openSearch = () => {
+            this.app.events.emit("ui:open-search");
         };
 
         const openTemplatePicker = () => {
@@ -116,7 +116,7 @@ export class CoreUIActionsPlugin extends Plugin {
             id: "open-palette",
             label: "Search",
             icon: <Search size={16} />,
-            onClick: openPalette,
+            onClick: openSearch,
             region: "titlebar-left",
             order: 30,
         });

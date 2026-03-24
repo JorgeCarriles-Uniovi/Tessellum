@@ -6,7 +6,8 @@ use walkdir::WalkDir;
 
 use crate::error::TessellumError;
 use crate::models::FileMetadata;
-use crate::utils::{is_hidden_or_special, sanitize_string, validate_path_in_vault};
+use crate::search::SearchDoc;
+use crate::utils::{extract_tags, is_hidden_or_special, sanitize_string, validate_path_in_vault};
 
 /// Rewrite `[[OldStem]]` and `[[OldStem|alias]]` to `[[NewStem]]` / `[[NewStem|alias]]`
 /// in all files whose paths are listed in `backlinks`.
@@ -223,12 +224,48 @@ pub async fn rename_file(
         .update_file_path(&old_path, &new_path.to_string_lossy())
         .await
         .map_err(TessellumError::from)?;
+    db_guard
+        .update_search_file_path(&old_path, &new_path.to_string_lossy())
+        .await
+        .map_err(TessellumError::from)?;
     
     // Invalidate the cache since path has changed
     let mut idx_guard = state.file_index.lock().await;
     *idx_guard = None;
     let mut asset_guard = state.asset_index.lock().await;
     *asset_guard = None;
+    
+    if is_file {
+        let search_index = state.search_index.clone();
+        let old_path = old_path.clone();
+        let new_path = new_path.to_string_lossy().to_string();
+        tauri::async_runtime::spawn_blocking(move || {
+            let guard = tauri::async_runtime::block_on(search_index.lock());
+            let _ = guard.delete_path(&old_path);
+            if let Ok(content) = std::fs::read_to_string(&new_path) {
+                let title = Path::new(&new_path)
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string()
+                    .trim_end_matches(".md")
+                    .to_string();
+                let tags = extract_tags(&content);
+                let body = if let Some((_, _)) = crate::utils::frontmatter::parse_frontmatter(&content) {
+                    crate::utils::frontmatter::strip_frontmatter(&content).to_string()
+                } else {
+                    content
+                };
+                let doc = SearchDoc {
+                    path: crate::utils::normalize_path(&new_path),
+                    title,
+                    body,
+                    tags,
+                };
+                let _ = guard.index_batch(&[doc], &[]);
+            }
+        });
+    }
     
     Ok(new_path.to_string_lossy().to_string())
 }
@@ -312,7 +349,45 @@ pub async fn move_items(
             .update_file_path(old_path, new_path)
             .await
             .map_err(TessellumError::from)?;
+        db_guard
+            .update_search_file_path(old_path, new_path)
+            .await
+            .map_err(TessellumError::from)?;
     }
+    
+    let search_index = state.search_index.clone();
+    let planned_files = planned.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let guard = tauri::async_runtime::block_on(search_index.lock());
+        for (old_path, new_path) in planned_files {
+            let _ = guard.delete_path(&old_path);
+            if !Path::new(&new_path).is_file() {
+                continue;
+            }
+            if let Ok(content) = std::fs::read_to_string(&new_path) {
+                let title = Path::new(&new_path)
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string()
+                    .trim_end_matches(".md")
+                    .to_string();
+                let tags = extract_tags(&content);
+                let body = if let Some((_, _)) = crate::utils::frontmatter::parse_frontmatter(&content) {
+                    crate::utils::frontmatter::strip_frontmatter(&content).to_string()
+                } else {
+                    content
+                };
+                let doc = SearchDoc {
+                    path: crate::utils::normalize_path(&new_path),
+                    title,
+                    body,
+                    tags,
+                };
+                let _ = guard.index_batch(&[doc], &[]);
+            }
+        }
+    });
     
     let mut idx_guard = state.file_index.lock().await;
     *idx_guard = None;

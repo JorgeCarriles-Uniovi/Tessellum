@@ -1,4 +1,3 @@
-use regex::Regex;
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
@@ -8,7 +7,9 @@ use walkdir::WalkDir;
 use crate::commands::extract_wikilinks;
 use crate::db::Database;
 use crate::models::FileIndex;
-use crate::utils::is_hidden_or_special;
+use crate::search::SearchDoc;
+use crate::search::SearchIndex;
+use crate::utils::{extract_tags, is_hidden_or_special};
 
 /// Statistics about the indexing operation.
 #[derive(Debug, Clone)]
@@ -30,7 +31,11 @@ impl VaultIndexer {
     /// 2. Compares with the database to find new/modified/deleted files
     /// 3. Indexes new and modified files
     /// 4. Removes deleted files from the database
-    pub async fn full_sync(db: &Database, vault_path: &str) -> Result<IndexStats, String> {
+    pub async fn full_sync(
+        db: &Database,
+        search_index: std::sync::Arc<tokio::sync::Mutex<SearchIndex>>,
+        vault_path: &str,
+    ) -> Result<IndexStats, String> {
         let start = Instant::now();
         
         let mut files_indexed = 0;
@@ -39,16 +44,17 @@ impl VaultIndexer {
         
         log::info!("Starting vault sync for: {}", vault_path);
         
-        // 1. Get all .md files from filesystem with their modified times
+        // 1. Get all files from filesystem with their modified times
         let fs_files = Self::collect_filesystem_files(vault_path)?;
         log::debug!("Found {} files in filesystem", fs_files.len());
         
-        // 2. Get all indexed files from database
-        let db_files: HashMap<String, i64> = db
-            .get_all_indexed_files()
+        // 2. Get all indexed search files from database
+        let db_files: HashMap<String, (i64, bool)> = db
+            .get_all_search_files()
             .await
             .map_err(|e| format!("Failed to get indexed files: {}", e))?
             .into_iter()
+            .map(|(path, modified, is_markdown)| (path, (modified, is_markdown != 0)))
             .collect();
         log::debug!("Found {} files in database", db_files.len());
         
@@ -57,18 +63,38 @@ impl VaultIndexer {
             .map_err(|e| format!("Failed to build file index: {}", e))?;
         
         // 4. Process each filesystem file
-        for (path, modified_time) in &fs_files {
+        let mut docs_to_index: Vec<SearchDoc> = Vec::new();
+        
+        for (path, (modified_time, is_markdown)) in &fs_files {
             let needs_index = match db_files.get(path) {
-                None => true,                                       // New file
-                Some(&db_modified) => *modified_time > db_modified, // Modified file
+                None => true,                                                 // New file
+                Some((db_modified, _)) => *modified_time > *db_modified, // Modified file
             };
             
             if needs_index {
-                match Self::index_single_file(db, vault_path, path, &file_index).await {
-                    Ok(_) => files_indexed += 1,
-                    Err(e) => {
-                        log::warn!("Failed to index {}: {}", path, e);
+                if *is_markdown {
+                    match Self::index_single_file(db, vault_path, path, &file_index, &mut docs_to_index).await {
+                        Ok(_) => files_indexed += 1,
+                        Err(e) => {
+                            log::warn!("Failed to index {}: {}", path, e);
+                        }
                     }
+                } else {
+                    let title = Path::new(path)
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .to_string();
+                    docs_to_index.push(SearchDoc {
+                        path: path.clone(),
+                        title,
+                        body: String::new(),
+                        tags: Vec::new(),
+                    });
+                    db.upsert_search_file(path, *modified_time, false)
+                        .await
+                        .map_err(|e| format!("Failed to update search file: {}", e))?;
+                    files_indexed += 1;
                 }
             } else {
                 files_skipped += 1;
@@ -85,10 +111,37 @@ impl VaultIndexer {
         
         if !deleted_paths.is_empty() {
             log::debug!("Removing {} deleted files from index", deleted_paths.len());
-            files_deleted = db
-                .batch_delete_files(&deleted_paths)
+            let mut markdown_deleted: Vec<String> = Vec::new();
+            for path in &deleted_paths {
+                if let Some((_, is_md)) = db_files.get(path) {
+                    if *is_md {
+                        markdown_deleted.push(path.clone());
+                    }
+                }
+            }
+            if !markdown_deleted.is_empty() {
+                files_deleted = db
+                    .batch_delete_files(&markdown_deleted)
+                    .await
+                    .map_err(|e| format!("Failed to delete files: {}", e))?;
+            }
+            db.delete_search_files(&deleted_paths)
                 .await
-                .map_err(|e| format!("Failed to delete files: {}", e))?;
+                .map_err(|e| format!("Failed to delete search files: {}", e))?;
+        }
+        
+        // Update search index in batch
+        if !docs_to_index.is_empty() || !deleted_paths.is_empty() {
+            let docs = docs_to_index.clone();
+            let deletes = deleted_paths.clone();
+            tauri::async_runtime::spawn_blocking(move || {
+                let guard = tauri::async_runtime::block_on(search_index.lock());
+                guard
+                    .index_batch(&docs, &deletes)
+                    .map_err(|e| format!("Failed to update search index: {}", e))
+            })
+                .await
+                .map_err(|e| format!("Search index task failed: {}", e))??;
         }
         
         let duration_ms = start.elapsed().as_millis();
@@ -109,8 +162,10 @@ impl VaultIndexer {
         })
     }
     
-    /// Collect all .md files from the filesystem with their modified times.
-    fn collect_filesystem_files(vault_path: &str) -> Result<HashMap<String, i64>, String> {
+    /// Collect all files from the filesystem with their modified times.
+    fn collect_filesystem_files(
+        vault_path: &str,
+    ) -> Result<HashMap<String, (i64, bool)>, String> {
         let mut files = HashMap::new();
         
         if !Path::new(vault_path).exists() {
@@ -127,8 +182,8 @@ impl VaultIndexer {
                 continue;
             }
             
-            // Only process .md files
-            if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("md") {
+            if path.is_file() {
+                let is_markdown = path.extension().and_then(|s| s.to_str()) == Some("md");
                 if let Ok(metadata) = fs::metadata(path) {
                     let modified_time = metadata
                         .modified()
@@ -137,7 +192,7 @@ impl VaultIndexer {
                         .unwrap_or_default()
                         .as_secs() as i64;
                     
-                    files.insert(crate::utils::normalize_path(&path_str), modified_time);
+                    files.insert(crate::utils::normalize_path(&path_str), (modified_time, is_markdown));
                 }
             }
         }
@@ -151,6 +206,7 @@ impl VaultIndexer {
         vault_path: &str,
         file_path: &str,
         file_index: &FileIndex,
+        docs_to_index: &mut Vec<SearchDoc>,
     ) -> Result<(), String> {
         // Read file content
         let content =
@@ -179,16 +235,7 @@ impl VaultIndexer {
             }
         }
         
-        // Extract inline tags
-        // obsidian tags allow alphanumeric and underscore/hyphen, must have at least one non-number char, but we'll stick to a simple match
-        // and avoid catching `#` inside URLs usually by space boundaries
-        let tag_regex = Regex::new(r"(?:^|\s)#([a-zA-Z0-9_\-]+)").unwrap();
-        let mut inline_tags = Vec::new();
-        for cap in tag_regex.captures_iter(body_content) {
-            if let Some(tag_match) = cap.get(1) {
-                inline_tags.push(tag_match.as_str().to_string());
-            }
-        }
+        let inline_tags = extract_tags(&content);
         
         let inline_tags_json_str = if inline_tags.is_empty() {
             None
@@ -220,6 +267,29 @@ impl VaultIndexer {
         )
             .await
             .map_err(|e| format!("Failed to index file: {}", e))?;
+        
+        db.set_note_tags(&normalized_path, &inline_tags)
+            .await
+            .map_err(|e| format!("Failed to update note tags: {}", e))?;
+        
+        db.upsert_search_file(&normalized_path, modified, true)
+            .await
+            .map_err(|e| format!("Failed to update search file: {}", e))?;
+        
+        let title = Path::new(file_path)
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string()
+            .trim_end_matches(".md")
+            .to_string();
+        
+        docs_to_index.push(SearchDoc {
+            path: normalized_path,
+            title,
+            body: body_content.to_string(),
+            tags: inline_tags,
+        });
         
         Ok(())
     }

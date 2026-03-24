@@ -4,6 +4,7 @@ use tokio::sync::Mutex;
 
 use crate::db::Database;
 use crate::models::{AssetIndex, FileIndex};
+use crate::search::SearchIndex;
 
 /// Represents the application state that contains shared resources such as
 /// a file watcher and a database connection.
@@ -25,15 +26,17 @@ pub struct AppState {
     pub db: Arc<Mutex<Database>>,
     pub file_index: Arc<Mutex<Option<FileIndex>>>,
     pub asset_index: Arc<Mutex<Option<AssetIndex>>>,
+    pub search_index: Arc<Mutex<SearchIndex>>,
 }
 
 impl AppState {
-    pub fn new(db: Database) -> Self {
+    pub fn new(db: Database, search_index: SearchIndex) -> Self {
         Self {
             db: Arc::new(Mutex::new(db)),
             watcher: tokio::sync::Mutex::new(None),
             file_index: Arc::new(Mutex::new(None)),
             asset_index: Arc::new(Mutex::new(None)),
+            search_index: Arc::new(Mutex::new(search_index)),
         }
     }
 }

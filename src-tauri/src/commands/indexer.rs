@@ -39,8 +39,9 @@ pub async fn sync_vault(
     vault_path: String,
 ) -> Result<SyncResult, TessellumError> {
     let db_guard = state.db.lock().await;
+    let search_index = state.search_index.clone();
     
-    match VaultIndexer::full_sync(&*db_guard, &vault_path).await {
+    match VaultIndexer::full_sync(&*db_guard, search_index, &vault_path).await {
         Ok(stats) => {
             let mut idx_guard = state.file_index.lock().await;
             *idx_guard = None;
