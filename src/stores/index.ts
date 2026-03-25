@@ -30,3 +30,6 @@ export type { SelectionActions, SelectionState, SelectionStore } from "./selecti
 
 export { useSearchStore } from "./searchStore";
 export type { SearchActions, SearchState, SearchStore } from "./searchStore";
+
+export { usePluginsStore } from "./pluginsStore";
+export type { PluginsActions, PluginsState, PluginsStore } from "./pluginsStore";

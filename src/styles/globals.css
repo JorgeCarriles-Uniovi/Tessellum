@@ -1230,6 +1230,7 @@ body {
     transform: translateX(-50%);
 }
 
+
 @keyframes titlebar-menu-out {
     0% {
         opacity: 1;

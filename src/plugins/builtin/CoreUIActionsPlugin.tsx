@@ -12,6 +12,7 @@ import {
     Trash2,
     Palette,
     User, FileText, Keyboard, Eye,
+    Puzzle,
 } from "lucide-react";
 import { Plugin } from "../Plugin";
 import type { PluginManifest } from "../types";
@@ -27,6 +28,7 @@ import {
 import {
     AccessibilitySettings
 } from "../../components/Settings/AccessibilitySettings.tsx";
+import { PluginsSettings } from "../../components/Settings/PluginsSettings.tsx";
 
 export class CoreUIActionsPlugin extends Plugin {
     static manifest: PluginManifest = {
@@ -245,6 +247,12 @@ export class CoreUIActionsPlugin extends Plugin {
             name: "Accessibility",
             icon: <Eye size={16} />,
             component: <AccessibilitySettings></AccessibilitySettings>
+        });
+        this.app.ui.registerSettingsTab(this.manifest.id, {
+            id: "Plugins",
+            name: "Plugins",
+            icon: <Puzzle size={16} />,
+            component: <PluginsSettings />
         });
     }
 }
