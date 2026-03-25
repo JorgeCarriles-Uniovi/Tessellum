@@ -26,6 +26,7 @@ import { TitleBar } from "./components/TitleBar/TitleBar";
 import { CommandPalette } from "./components/CommandPalette/CommandPalette";
 import { TessellumApp, TessellumAppContext } from "./plugins/TessellumApp";
 import { registerBuiltinPlugins } from "./plugins/builtin";
+import { readDisabledPluginIds } from "./plugins/pluginPreferences";
 import { useWikiLinkNavigation } from "./components/Editor/hooks";
 import { StatusBar } from "./components/Layout/StatusBar";
 import { RightSidebar } from "./components/Layout/RightSidebar";
@@ -98,6 +99,8 @@ function App() {
         const instance = TessellumApp.create();
         if (isNew) {
             registerBuiltinPlugins(instance);
+            const disabledIds = readDisabledPluginIds();
+            instance.plugins.initializeDisabled(disabledIds);
         }
         return instance;
     }, []);

@@ -1,4 +1,4 @@
-export function ToggleSetting({ label, description, checked, onChange }: { label: string; description: string; checked: boolean; onChange: (value: boolean) => void }) {
+export function ToggleSetting({ label, description, checked, onChange, disabled }: { label: string; description: string; checked: boolean; onChange: (value: boolean) => void; disabled?: boolean }) {
     return (
         <div className="flex items-start justify-between"
              style={{
@@ -13,8 +13,13 @@ export function ToggleSetting({ label, description, checked, onChange }: { label
             </div>
             <button
                 onClick={() => onChange(!checked)}
+                disabled={disabled}
                 className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
-                style={{ backgroundColor: checked ? "var(--primary)" : "var(--color-border-medium)" }}
+                style={{
+                    backgroundColor: checked ? "var(--primary)" : "var(--color-border-medium)",
+                    opacity: disabled ? 0.6 : 1,
+                    cursor: disabled ? "not-allowed" : "pointer",
+                }}
             >
                 <span
                     className={`inline-block size-4 transform rounded-full transition-transform shadow-sm ${checked ? 'translate-x-6' : 'translate-x-1'

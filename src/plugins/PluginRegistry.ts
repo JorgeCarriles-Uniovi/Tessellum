@@ -30,6 +30,9 @@ export class PluginRegistry {
     loadAll(): void {
         let loaded = 0;
         for (const [id, plugin] of this.plugins) {
+            if (this.disabled.has(id)) {
+                continue;
+            }
             try {
                 plugin.onload();
                 loaded++;
@@ -90,5 +93,38 @@ export class PluginRegistry {
     // Check if plugin is disabled
     isDisabled(id: string): boolean {
         return this.disabled.has(id);
+    }
+
+    // List all registered plugins with enabled state
+    list(): { manifest: PluginManifest; enabled: boolean }[] {
+        const result: { manifest: PluginManifest; enabled: boolean }[] = [];
+        for (const [id, plugin] of this.plugins) {
+            result.push({ manifest: plugin.manifest, enabled: !this.disabled.has(id) });
+        }
+        return result;
+    }
+
+    // Seed disabled plugins before loadAll()
+    initializeDisabled(ids: string[]): void {
+        const known = ids.filter((id) => this.plugins.has(id));
+        this.disabled = new Set(known);
+    }
+
+    // Toggle a plugin with status result
+    setEnabled(id: string, enabled: boolean): { ok: boolean; error?: string } {
+        try {
+            if (enabled) {
+                this.enable(id);
+                if (this.disabled.has(id)) {
+                    return { ok: false, error: "Plugin failed to enable" };
+                }
+            } else {
+                this.disable(id);
+            }
+            return { ok: true };
+        } catch (e) {
+            console.error("[PluginRegistry] Failed to set plugin state:", id, e);
+            return { ok: false, error: String(e) };
+        }
     }
 }
