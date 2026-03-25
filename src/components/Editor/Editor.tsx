@@ -28,6 +28,9 @@ import { Calendar, Clock } from "lucide-react";
 import { theme } from "../../styles/theme";
 import { isMediaFile } from "../../utils/fileType";
 import { MediaPreview } from "./MediaPreview";
+import { EDITOR_MODES } from "../../constants/editorModes";
+import { useEditorModeStore } from "../../stores/editorModeStore";
+import { markdownPreviewForceHideFacet } from "./extensions/markdown-preview-plugin";
 
 function normalizeTimestampSeconds(value: number): number {
     if (value > 1_000_000_000_000) {
@@ -274,6 +277,7 @@ function EditorHeader({
                           editedAt,
                           lastModified,
                           titleFontSizePx,
+                          readOnly,
                       }: {
     title: string;
     onTitleChange: (value: string) => void;
@@ -281,6 +285,7 @@ function EditorHeader({
     editedAt: string;
     lastModified: number;
     titleFontSizePx: number;
+    readOnly: boolean;
 }) {
     return (
         <div className="w-full mx-auto px-12 pt-20 pb-16 flex-shrink-0" style={{ borderColor: theme.colors.border.light }}>
@@ -293,11 +298,14 @@ function EditorHeader({
                         fontSize: `calc(${titleFontSizePx}px * var(--ui-scale, 1))`,
                         textAlign: "left",
                         paddingTop: 8,
+                        opacity: readOnly ? 0.7 : 1,
                     }}
                     value={title}
                     onChange={(e) => onTitleChange(e.target.value)}
                     onBlur={onTitleBlur}
                     placeholder="Untitled"
+                    readOnly={readOnly}
+                    disabled={readOnly}
                 />
                 <div className="flex items-center gap-3 text-[0.6875rem] mt-5" style={{ color: theme.colors.text.muted, paddingBottom: 20 }}>
                     <span className="flex items-center gap-1">
@@ -330,6 +338,8 @@ function EditorBody({
                         pluginExtensions,
                         slashExtension,
                         wikiLinkSuggestionsExtension,
+                        editableExtension,
+                        previewForceHideExtension,
                         handleContentChange,
                         slashProps,
                         wikiLinkSuggestionsProps,
@@ -352,6 +362,8 @@ function EditorBody({
     pluginExtensions: Extension[];
     slashExtension: Extension;
     wikiLinkSuggestionsExtension: Extension;
+    editableExtension: Extension;
+    previewForceHideExtension: Extension;
     handleContentChange: (value: string) => void;
     slashProps: ReturnType<typeof useSlashCommand>["slashProps"];
     wikiLinkSuggestionsProps: ReturnType<typeof useWikiLinkSuggestions>["wikiLinkSuggestionsProps"];
@@ -379,6 +391,8 @@ function EditorBody({
                     value={content}
                     extensions={[
                         ...pluginExtensions,
+                        editableExtension,
+                        previewForceHideExtension,
                         slashExtension,
                         wikiLinkSuggestionsExtension,
                         lightTheme,
@@ -458,6 +472,7 @@ function EditorBody({
 
 export function Editor() {
     const { activeNote, vaultPath, editorFontSizePx } = useEditorStore();
+    const editorMode = useEditorModeStore((state) => state.editorMode);
     const { content, isLoading, handleContentChange } = useFileSynchronization(activeNote);
     const editorRef = useRef<ReactCodeMirrorRef>(null);
     useEditorFontZoom(editorRef);
@@ -503,6 +518,19 @@ export function Editor() {
     );
 
     const titleFontSizePx = useMemo(() => Math.round(28 * editorFontSizePx / 16), [editorFontSizePx]);
+    const isEditable = EDITOR_MODES[editorMode].editable;
+    const editableExtension = useMemo(() => EditorView.editable.of(isEditable), [isEditable]);
+    const previewForceHideExtension = useMemo(
+        () => markdownPreviewForceHideFacet.of(!isEditable),
+        [isEditable]
+    );
+    const handleContentChangeGuarded = useCallback(
+        (value: string) => {
+            if (!isEditable) return;
+            handleContentChange(value);
+        },
+        [handleContentChange, isEditable]
+    );
 
     if (!activeNote) {
         const primaryAction = getPrimaryAction(vaultPath, newNoteCommand, openVaultCommand);
@@ -529,6 +557,7 @@ export function Editor() {
                             editedAt={editedAt}
                             titleFontSizePx={titleFontSizePx}
                             lastModified={activeNote.last_modified}
+                            readOnly={!isEditable}
                         />
                         <div className="w-full border-b" style={dividerStyle} />
                         <EditorBody
@@ -538,7 +567,9 @@ export function Editor() {
                             pluginExtensions={pluginExtensions}
                             slashExtension={slashExtension}
                             wikiLinkSuggestionsExtension={wikiLinkSuggestionsExtension}
-                            handleContentChange={handleContentChange}
+                            editableExtension={editableExtension}
+                            previewForceHideExtension={previewForceHideExtension}
+                            handleContentChange={handleContentChangeGuarded}
                             slashProps={slashProps}
                             wikiLinkSuggestionsProps={wikiLinkSuggestionsProps}
                             editorFontSizePx={editorFontSizePx}

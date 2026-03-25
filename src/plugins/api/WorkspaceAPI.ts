@@ -2,7 +2,8 @@ import { invoke } from "@tauri-apps/api/core";
 import type { TessellumApp } from "../TessellumApp";
 import type { EventRef } from "../types";
 import type { FileMetadata } from "../../types";
-import { useGraphStore, useUiStore, useVaultStore } from "../../stores";
+import { useEditorModeStore, useGraphStore, useUiStore, useVaultStore } from "../../stores";
+import type { EditorMode } from "../../constants/editorModes";
 
 /**
  * Wraps the editor store for workspace-level operations.
@@ -41,6 +42,23 @@ export class WorkspaceAPI {
     setViewMode(mode: 'editor' | 'graph'): void {
         const state = useGraphStore.getState();
         state.setViewMode(mode);
+    }
+
+    /** Get the current editor mode. */
+    getEditorMode(): EditorMode {
+        return useEditorModeStore.getState().editorMode;
+    }
+
+    /** Set the current editor mode. */
+    setEditorMode(mode: EditorMode): void {
+        const state = useEditorModeStore.getState();
+        state.setEditorMode(mode);
+        this.app.events.emit("workspace:editor-mode-change", mode);
+    }
+
+    /** Subscribe to editor mode changes. */
+    onEditorModeChange(cb: (mode: EditorMode) => void): EventRef {
+        return this.app.events.on("workspace:editor-mode-change", cb);
     }
 
     /** Replace expanded folders map. */

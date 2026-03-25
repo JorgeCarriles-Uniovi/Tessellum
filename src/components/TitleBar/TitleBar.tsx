@@ -1,23 +1,30 @@
-import { useState, useEffect, useMemo, isValidElement, cloneElement } from 'react';
+import { useState, useEffect, useMemo, useRef, isValidElement, cloneElement } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import {
     Minus, Square, X, Copy,
-    PanelLeft, PanelRight, GitFork, FileText, Folder
+    PanelLeft, PanelRight, GitFork, FileText, Folder, ChevronDown
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useEditorStore } from '../../stores/editorStore';
+import { useEditorModeStore } from '../../stores/editorModeStore';
 import { useUiStore } from '../../stores';
 import { useTessellumApp } from '../../plugins/TessellumApp';
 import { theme } from '../../styles/theme';
+import { EDITOR_MODES, type EditorMode } from '../../constants/editorModes';
 
 export function TitleBar() {
     const [isMaximized, setIsMaximized] = useState(false);
     const { toggleSidebar, isSidebarOpen, toggleRightSidebar, isRightSidebarOpen, activeNote, toggleLocalGraph, isLocalGraphOpen, vaultPath } = useEditorStore();
     const { isSearchOpen, closeSearch, openSearch } = useUiStore();
+    const editorMode = useEditorModeStore((state) => state.editorMode);
     const app = useTessellumApp();
     const leftActions = app.ui.getUIActions('titlebar-left');
     const rightActions = app.ui.getUIActions('titlebar-right');
     const appWindow = getCurrentWindow();
+    const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
+    const [isModeMenuClosing, setIsModeMenuClosing] = useState(false);
+    const modeMenuRef = useRef<HTMLDivElement | null>(null);
+    const modeMenuCloseTimer = useRef<number | null>(null);
     const crumbs = useMemo(() => {
         if (!activeNote || !vaultPath) return [] as string[];
         const normalizedVault = vaultPath.replace(/\\/g, "/");
@@ -40,6 +47,33 @@ export function TitleBar() {
         return () => { unlisten.then(f => f()); }
     }, []);
 
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (!isModeMenuOpen || isModeMenuClosing) return;
+            const target = event.target as Node;
+            if (modeMenuRef.current && !modeMenuRef.current.contains(target)) {
+                setIsModeMenuClosing(true);
+                if (modeMenuCloseTimer.current) {
+                    window.clearTimeout(modeMenuCloseTimer.current);
+                }
+                modeMenuCloseTimer.current = window.setTimeout(() => {
+                    setIsModeMenuOpen(false);
+                    setIsModeMenuClosing(false);
+                }, 160);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [isModeMenuOpen, isModeMenuClosing]);
+
+    useEffect(() => {
+        return () => {
+            if (modeMenuCloseTimer.current) {
+                window.clearTimeout(modeMenuCloseTimer.current);
+            }
+        };
+    }, []);
+
     const handleMinimize = () => appWindow.minimize();
     const handleMaximize = async () => {
         await appWindow.toggleMaximize();
@@ -59,6 +93,32 @@ export function TitleBar() {
             return cloneElement(icon as React.ReactElement, { size: iconSize, style: nextStyle });
         }
         return icon;
+    };
+
+    const activeModeConfig = EDITOR_MODES[editorMode];
+
+    const handleModeSelect = (mode: EditorMode) => {
+        const config = EDITOR_MODES[mode];
+        if (config.disabled || mode === editorMode) {
+            setIsModeMenuClosing(true);
+            if (modeMenuCloseTimer.current) {
+                window.clearTimeout(modeMenuCloseTimer.current);
+            }
+            modeMenuCloseTimer.current = window.setTimeout(() => {
+                setIsModeMenuOpen(false);
+                setIsModeMenuClosing(false);
+            }, 160);
+            return;
+        }
+        app.workspace.setEditorMode(mode);
+        setIsModeMenuClosing(true);
+        if (modeMenuCloseTimer.current) {
+            window.clearTimeout(modeMenuCloseTimer.current);
+        }
+        modeMenuCloseTimer.current = window.setTimeout(() => {
+            setIsModeMenuOpen(false);
+            setIsModeMenuClosing(false);
+        }, 160);
     };
 
     return (
@@ -168,22 +228,108 @@ export function TitleBar() {
 
                 <div className="w-2" />
 
-                {/* "EDITING" Status Badge */}
-                <div
-                    className="hidden sm:flex items-center gap-1.5 px-3 mr-2 text-[0.625rem] font-bold tracking-wider"
-                    style={{
-                        color: "var(--color-text-muted)",
-                        paddingLeft: "1rem",
-                        paddingRight: "1rem",
-                        paddingTop: "1px",
-                        paddingBottom: "1px",
-                    }}
-                >
-                    <span
-                        className="w-1.5 h-1.5 rounded-full"
-                        style={{ backgroundColor: "var(--color-highlight-text)" }}
-                    ></span>
-                    EDITING
+                {/* Editor Mode Badge */}
+                <div className="relative hidden sm:flex" ref={modeMenuRef}>
+                    <button
+                        className={cn(
+                            "flex items-center gap-2 px-3 mr-2 text-[0.7rem] font-bold tracking-wider rounded",
+                            "transition-colors hover:bg-[color:var(--color-panel-hover)]"
+                        )}
+                        style={{
+                            color: "var(--color-text-muted)",
+                            paddingLeft: "0.9rem",
+                            paddingRight: "0.9rem",
+                            paddingTop: "2px",
+                            paddingBottom: "2px",
+                            border: "1px solid var(--color-panel-border)",
+                            backgroundColor: "var(--color-panel-bg)",
+                        }}
+                        onClick={() => {
+                            if (isModeMenuOpen) {
+                                if (isModeMenuClosing) return;
+                                setIsModeMenuClosing(true);
+                                if (modeMenuCloseTimer.current) {
+                                    window.clearTimeout(modeMenuCloseTimer.current);
+                                }
+                                modeMenuCloseTimer.current = window.setTimeout(() => {
+                                    setIsModeMenuOpen(false);
+                                    setIsModeMenuClosing(false);
+                                }, 160);
+                                return;
+                            }
+                            setIsModeMenuOpen(true);
+                            setIsModeMenuClosing(false);
+                        }}
+                        title="Change editor mode"
+                    >
+                        <span className="flex items-center gap-1.5">
+                            {activeModeConfig.icon}
+                            {activeModeConfig.statusLabel}
+                        </span>
+                        <ChevronDown size={12} />
+                    </button>
+
+                    {isModeMenuOpen && (
+                        <div
+                            className={cn(
+                                "absolute left-1/2 top-full mt-2 min-w-[200px] rounded-md border shadow-lg z-50 overflow-hidden",
+                                isModeMenuClosing ? "titlebar-menu-exit" : "titlebar-menu-animate"
+                            )}
+                            style={{
+                                backgroundColor: "var(--color-panel-bg)",
+                                borderColor: "var(--color-panel-border)",
+                                color: "var(--color-text-primary)",
+                                paddingTop: "0.5rem",
+                                paddingBottom: "0.5rem",
+                                paddingLeft: "0.8rem",
+                                paddingRight: "0.8rem",
+                                gap: "0.5rem"
+                            }}
+                        >
+                            <div
+                                className="px-3 py-2 text-[0.65rem] font-bold tracking-widest uppercase"
+                                style={{ color: "var(--color-text-muted)", borderBottom: "1px solid var(--color-panel-border)" }}
+                            >
+                                Editor Mode
+                            </div>
+                            {Object.entries(EDITOR_MODES).map(([mode, config]) => {
+                                const isDisabled = !!config.disabled;
+                                const isActive = mode === editorMode;
+                                return (
+                                    <button
+                                        key={mode}
+                                        className={cn(
+                                            "w-full flex items-center gap-2 px-3 py-2 text-[0.8rem] font-semibold text-left",
+                                            isDisabled
+                                                ? "opacity-50 cursor-not-allowed"
+                                                : "hover:bg-[color:var(--color-panel-hover)]",
+                                            isActive && "bg-[color:var(--color-panel-active)]"
+                                        )}
+                                        style={{
+                                            padding: "0.3rem",
+                                            gap: "0.5rem"
+                                        }}
+                                        onClick={() => handleModeSelect(mode as EditorMode)}
+                                        disabled={isDisabled}
+                                        title={isDisabled ? "Coming soon" : config.label}
+                                    >
+                                        <span className="flex items-center gap-2">
+                                            {config.icon}
+                                            {config.label}
+                                        </span>
+                                        {isDisabled && (
+                                            <span
+                                                className="ml-auto text-[0.5rem] uppercase tracking-widest"
+                                                style={{ color: "var(--color-text-muted)" }}
+                                            >
+                                                Soon
+                                            </span>
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
 
                 <div className="h-4 w-[1px] mx-1" style={{ backgroundColor: "var(--color-panel-border)" }} />

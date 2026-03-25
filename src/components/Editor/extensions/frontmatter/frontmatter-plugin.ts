@@ -2,13 +2,19 @@ import { Decoration, DecorationSet, EditorView } from "@codemirror/view";
 import { Extension, RangeSetBuilder, StateField, Transaction, Text } from "@codemirror/state";
 import { parseFrontmatter } from "./frontmatter-parser";
 import { FrontmatterWidget } from "./frontmatter-widget";
+import { markdownPreviewForceHideFacet } from "../markdown-preview-plugin";
 
-function buildDecorations(doc: Text): DecorationSet {
+type FrontmatterDecorationsState = {
+    decorations: DecorationSet;
+    forceHide: boolean;
+};
+
+function buildDecorations(doc: Text, forceHide: boolean): DecorationSet {
     const builder = new RangeSetBuilder<Decoration>();
     const block = parseFrontmatter(doc);
 
     if (block) {
-        const widget = new FrontmatterWidget(block);
+        const widget = new FrontmatterWidget(block, forceHide);
 
         builder.add(
             block.from,
@@ -24,17 +30,19 @@ function buildDecorations(doc: Text): DecorationSet {
     return builder.finish();
 }
 
-const frontmatterDecorations = StateField.define<DecorationSet>({
+const frontmatterDecorations = StateField.define<FrontmatterDecorationsState>({
     create(state) {
-        return buildDecorations(state.doc);
+        const forceHide = state.facet(markdownPreviewForceHideFacet);
+        return { decorations: buildDecorations(state.doc, forceHide), forceHide };
     },
     update(decorations, tr: Transaction) {
-        if (tr.docChanged) {
-            return buildDecorations(tr.state.doc);
+        const nextForceHide = tr.state.facet(markdownPreviewForceHideFacet);
+        if (tr.docChanged || nextForceHide !== decorations.forceHide) {
+            return { decorations: buildDecorations(tr.state.doc, nextForceHide), forceHide: nextForceHide };
         }
         return decorations;
     },
-    provide: (f) => EditorView.decorations.from(f)
+    provide: (f) => EditorView.decorations.from(f, (value) => value.decorations)
 });
 
 export function createFrontmatterPlugin(): Extension {

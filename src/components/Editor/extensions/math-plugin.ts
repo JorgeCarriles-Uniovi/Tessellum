@@ -7,6 +7,7 @@ import {
 import { StateField, EditorState, Extension, RangeSetBuilder } from "@codemirror/state";
 import katex from "katex";
 import { findLatexExpressions } from "./shared-latex-utils";
+import { markdownPreviewForceHideFacet } from "./markdown-preview-plugin";
 
 // ─── Widget ───────────────────────────────────────────────────────────────────
 
@@ -90,6 +91,7 @@ class MathWidget extends WidgetType {
 function buildMathDecorations(state: EditorState) {
     const builder = new RangeSetBuilder<Decoration>();
     const selection = state.selection.main;
+    const forceHide = state.facet(markdownPreviewForceHideFacet);
     const docText = state.doc.toString();
 
     const matches = findLatexExpressions(docText);
@@ -101,7 +103,7 @@ function buildMathDecorations(state: EditorState) {
         // Check if cursor overlaps ANY line that the math expression occupies
         const isFocused = selection.from <= endLine.to && selection.to >= startLine.from;
 
-        if (!isFocused) {
+        if (!isFocused || forceHide) {
             builder.add(
                 m.start,
                 m.end,
@@ -129,17 +131,24 @@ function buildMathDecorations(state: EditorState) {
 
 // ─── CM6 StateField + Click Handler ───────────────────────────────────────────
 
-const mathStateField = StateField.define<DecorationSet>({
+type MathDecorationsState = {
+    decorations: DecorationSet;
+    forceHide: boolean;
+};
+
+const mathStateField = StateField.define<MathDecorationsState>({
     create(state) {
-        return buildMathDecorations(state);
+        const forceHide = state.facet(markdownPreviewForceHideFacet);
+        return { decorations: buildMathDecorations(state), forceHide };
     },
     update(oldState, transaction) {
-        if (transaction.docChanged || transaction.selection) {
-            return buildMathDecorations(transaction.state);
+        const nextForceHide = transaction.state.facet(markdownPreviewForceHideFacet);
+        if (transaction.docChanged || transaction.selection || nextForceHide !== oldState.forceHide) {
+            return { decorations: buildMathDecorations(transaction.state), forceHide: nextForceHide };
         }
         return oldState;
     },
-    provide: (field) => EditorView.decorations.from(field),
+    provide: (field) => EditorView.decorations.from(field, (value) => value.decorations),
 });
 
 const mathClickHandlerExtension = EditorView.domEventHandlers({

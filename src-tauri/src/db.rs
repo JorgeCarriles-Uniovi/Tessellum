@@ -44,7 +44,8 @@ impl Database {
                 path TEXT NOT NULL,
                 tag TEXT NOT NULL,
                 PRIMARY KEY (path, tag),
-                FOREIGN KEY(path) REFERENCES notes(path) ON DELETE CASCADE
+                FOREIGN KEY(path) REFERENCES notes(path) ON DELETE CASCADE ON
+                 UPDATE CASCADE
             );",
         )
             .execute(&pool)

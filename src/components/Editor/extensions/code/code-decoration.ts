@@ -2,6 +2,7 @@ import { Decoration, DecorationSet, EditorView, WidgetType } from "@codemirror/v
 import { RangeSetBuilder } from "@codemirror/state";
 import { CodeBlock } from "./code-parser";
 import { toast } from "sonner";
+import { markdownPreviewForceHideFacet } from "../markdown-preview-plugin";
 
 /**
  * Widget for the interactive language badge in code blocks.
@@ -63,6 +64,7 @@ class CodeBlockBadgeWidget extends WidgetType {
 export function buildCodeDecorations(view: EditorView, blocks: CodeBlock[]): DecorationSet {
     const builder = new RangeSetBuilder<Decoration>();
     const selection = view.state.selection.main;
+    const forceHide = view.state.facet(markdownPreviewForceHideFacet);
 
     for (const block of blocks) {
         const { from, to, language } = block;
@@ -72,6 +74,7 @@ export function buildCodeDecorations(view: EditorView, blocks: CodeBlock[]): Dec
 
         // Check if cursor is inside the block
         const cursorInside = selection.from >= from && selection.to <= to;
+        const hideDelimiters = forceHide || !cursorInside;
 
         // 1. Find the range of lines with non-whitespace text
         let firstTextLine = -1;
@@ -105,7 +108,7 @@ export function buildCodeDecorations(view: EditorView, blocks: CodeBlock[]): Dec
             }
 
             // If not inside, add a class to delimiters
-            if (!cursorInside && (line.number === firstLine.number || line.number === lastLine.number)) {
+            if (hideDelimiters && (line.number === firstLine.number || line.number === lastLine.number)) {
                 cls += " cm-codeblock-hidden-delimiter";
             }
 
@@ -143,7 +146,7 @@ export function buildCodeDecorations(view: EditorView, blocks: CodeBlock[]): Dec
             }));
 
             // Hide the actual Markdown characters when not editing
-            if (!cursorInside) {
+            if (hideDelimiters) {
                 if (line.number === firstLine.number) {
                     // Calculate code content (all rows between delimiters)
                     const contentStart = firstLine.to + 1;
