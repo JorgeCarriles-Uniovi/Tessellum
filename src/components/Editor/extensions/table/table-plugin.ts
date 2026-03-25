@@ -1,5 +1,6 @@
 import { Decoration, DecorationSet, EditorView, ViewPlugin, ViewUpdate } from "@codemirror/view";
 import { Extension, RangeSetBuilder } from "@codemirror/state";
+import { markdownPreviewForceHideFacet } from "../markdown-preview-plugin";
 import { parseTables } from "./table-parser";
 import { TableWidget } from "./table-widget";
 import { tableKeymap } from "./table-navigation";
@@ -26,6 +27,7 @@ const tableViewPlugin = ViewPlugin.fromClass(
             const builder = new RangeSetBuilder<Decoration>();
             const { state } = view;
             const selection = state.selection.main;
+            const forceHide = state.facet(markdownPreviewForceHideFacet);
 
             for (const { from, to } of view.visibleRanges) {
                 const tables = parseTables(state.doc as any, from, to);
@@ -36,7 +38,7 @@ const tableViewPlugin = ViewPlugin.fromClass(
                         selection.from >= table.from &&
                         selection.from <= table.to;
 
-                    if (!cursorInside) {
+                    if (!cursorInside || forceHide) {
                         const rawText = state.doc.sliceString(table.from, table.to);
                         const tableWidget = new TableWidget(table, rawText);
 

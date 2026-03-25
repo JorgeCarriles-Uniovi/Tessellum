@@ -5,6 +5,9 @@ export { useEditorContentStore } from "./editorContentStore";
 export type { EditorContentActions, EditorContentState, EditorContentStore } from "./editorContentStore";
 export { DEFAULT_EDITOR_FONT_SIZE_PX, clampEditorFontSizePx, nextEditorFontSizePx } from "./editorContentStore";
 
+export { useEditorModeStore } from "./editorModeStore";
+export type { EditorModeActions, EditorModeState, EditorModeStore } from "./editorModeStore";
+
 export { useSettingsStore } from "./settingsStore";
 export type { SettingsActions, SettingsState, SettingsStore } from "./settingsStore";
 

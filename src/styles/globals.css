@@ -1212,3 +1212,37 @@ body {
     fill: currentColor;
     stroke-width: 1.25;
 }
+
+@keyframes titlebar-menu-in {
+    0% {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-6px) scale(0.98);
+    }
+    100% {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0) scale(1);
+    }
+}
+
+.titlebar-menu-animate {
+    animation: titlebar-menu-in 160ms ease-out;
+    transform-origin: top center;
+    transform: translateX(-50%);
+}
+
+@keyframes titlebar-menu-out {
+    0% {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0) scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-6px) scale(0.98);
+    }
+}
+
+.titlebar-menu-exit {
+    animation: titlebar-menu-out 160ms ease-in;
+    transform-origin: top center;
+    transform: translateX(-50%);
+}

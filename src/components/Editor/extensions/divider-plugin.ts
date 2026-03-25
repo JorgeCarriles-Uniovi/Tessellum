@@ -7,6 +7,7 @@ import {
     WidgetType,
 } from "@codemirror/view";
 import { Extension, RangeSetBuilder } from "@codemirror/state";
+import { markdownPreviewForceHideFacet } from "./markdown-preview-plugin";
 
 // ─── Widget ───────────────────────────────────────────────────────────────────
 
@@ -56,6 +57,7 @@ const dividerViewPlugin = ViewPlugin.fromClass(
             const builder = new RangeSetBuilder<Decoration>();
             const { state } = view;
             const selection = state.selection.main;
+            const forceHide = state.facet(markdownPreviewForceHideFacet);
 
             for (const { from, to } of view.visibleRanges) {
                 let pos = from;
@@ -64,7 +66,7 @@ const dividerViewPlugin = ViewPlugin.fromClass(
                     if (line.text === "---") {
                         const cursorOverlaps =
                             selection.from >= line.from && selection.to <= line.to;
-                        if (!cursorOverlaps) {
+                        if (!cursorOverlaps || forceHide) {
                             builder.add(
                                 line.from,
                                 line.to,

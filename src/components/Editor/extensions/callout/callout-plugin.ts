@@ -10,6 +10,7 @@ import { languages } from "@codemirror/language-data";
 import { terminalHighlighter } from "../code/code-plugin";
 import { LanguageDescription } from "@codemirror/language";
 import { highlightTree } from "@lezer/highlight";
+import { markdownPreviewForceHideFacet } from "../markdown-preview-plugin";
 
 // ─── Line Decoration Factories ────────────────────────────────────────────────
 
@@ -47,6 +48,7 @@ function buildDecorations(view: EditorView, filePath: string): DecorationSet {
     const blocks = parseCalloutBlocks(view);
     const state = view.state;
     const selection = state.selection.main;
+    const forceHide = state.facet(markdownPreviewForceHideFacet);
 
     for (const block of blocks) {
         // Determine the full extent of the callout block
@@ -66,7 +68,7 @@ function buildDecorations(view: EditorView, filePath: string): DecorationSet {
         // show raw markdown so the user can edit.
         // For collapsed callouts, ALWAYS render decorations so the
         // toggle button stays visible and the content stays hidden.
-        if (!collapsed) {
+        if (!collapsed && !forceHide) {
             const cursorOverlaps = selection.from <= blockTo && selection.to >= blockFrom;
             if (cursorOverlaps) {
                 if (block.type === "terminal") {

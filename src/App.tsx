@@ -1,7 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { FileMetadata, TreeNode } from "./types.ts";
-import { useAppearanceStore, useEditorContentStore, useGraphStore, useSettingsStore, useThemeStore, useUiStore, useVaultStore } from "./stores";
+import {
+    useAppearanceStore,
+    useEditorContentStore,
+    useEditorModeStore,
+    useGraphStore,
+    useSettingsStore,
+    useThemeStore,
+    useUiStore,
+    useVaultStore
+} from "./stores";
+import { DEFAULT_EDITOR_MODE, isEditorMode } from "./constants/editorModes";
 import { listen } from "@tauri-apps/api/event";
 import { exists } from '@tauri-apps/plugin-fs';
 import { getCurrentWindow, LogicalPosition, LogicalSize } from '@tauri-apps/api/window';
@@ -38,6 +48,8 @@ function App() {
     } = useVaultStore();
     const { expandedFolders, setExpandedFolders, openSearch, closeSearch } = useUiStore();
     const { viewMode, isLocalGraphOpen, setViewMode } = useGraphStore();
+    const editorMode = useEditorModeStore((state) => state.editorMode);
+    const setEditorMode = useEditorModeStore((state) => state.setEditorMode);
     const [isLoaded, setIsLoaded] = useState(false);
     const [workspaceRestored, setWorkspaceRestored] = useState(false);
     const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
@@ -280,10 +292,11 @@ function App() {
         const keyPrefix = `tessellum:${vaultPath}`;
         localStorage.setItem(`${keyPrefix}:expandedFolders`, JSON.stringify(expandedFolders));
         localStorage.setItem(`${keyPrefix}:viewMode`, viewMode);
+        localStorage.setItem(`${keyPrefix}:editorMode`, editorMode);
         if (activeNote?.path) {
             localStorage.setItem(`${keyPrefix}:lastNote`, activeNote.path);
         }
-    }, [vaultPath, expandedFolders, viewMode, activeNote, workspaceRestored]);
+    }, [vaultPath, expandedFolders, viewMode, editorMode, activeNote, workspaceRestored]);
 
     async function refreshFiles(vaultPath: string, restoreState: boolean): Promise<void> {
         try {
@@ -298,6 +311,7 @@ function App() {
                 const keyPrefix = `tessellum:${vaultPath}`;
                 const storedExpanded = localStorage.getItem(`${keyPrefix}:expandedFolders`);
                 const storedViewMode = localStorage.getItem(`${keyPrefix}:viewMode`);
+                const storedEditorMode = localStorage.getItem(`${keyPrefix}:editorMode`);
                 const storedLastNote = localStorage.getItem(`${keyPrefix}:lastNote`);
 
                 if (storedExpanded) {
@@ -305,6 +319,11 @@ function App() {
                 }
                 if (storedViewMode === 'graph' || storedViewMode === 'editor') {
                     setViewMode(storedViewMode);
+                }
+                if (isEditorMode(storedEditorMode)) {
+                    setEditorMode(storedEditorMode);
+                } else {
+                    setEditorMode(DEFAULT_EDITOR_MODE);
                 }
                 if (storedLastNote) {
                     const note = flatFiles.find((f) => f.path === storedLastNote) || null;

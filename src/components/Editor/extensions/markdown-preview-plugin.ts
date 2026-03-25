@@ -7,8 +7,9 @@ import {
     WidgetType,
 } from "@codemirror/view";
 import { syntaxTree, syntaxTreeAvailable } from "@codemirror/language";
-import { Extension, RangeSetBuilder } from "@codemirror/state";
+import { Extension, Facet, RangeSetBuilder } from "@codemirror/state";
 import { getCalloutLinePositions } from "./callout/callout-plugin";
+import { CALLOUT_HEADER_RE } from "./callout/callout-parser";
 import { getTableLinePositions } from "./table/table-plugin";
 
 // Set of mark types we want to hide
@@ -20,8 +21,13 @@ const HIDDEN_MARKS = new Set([
     "LinkMark",
     "URL",
     "ImageMark",
-    "StrikethroughMark"
+    "StrikethroughMark",
+    "CodeMark",
 ]);
+
+export const markdownPreviewForceHideFacet = Facet.define<boolean, boolean>({
+    combine: (values) => values.some(Boolean),
+});
 
 /**
  * Widget to render a list marker (dot or number) in preview mode.
@@ -51,7 +57,7 @@ class ListMarkWidget extends WidgetType {
 /**
  * Builds decorations to hide markdown syntax markers when not focused.
  */
-function buildDecorations(view: EditorView): DecorationSet {
+function buildDecorations(view: EditorView, forceHide: boolean): DecorationSet {
     const builder = new RangeSetBuilder<Decoration>();
     const selection = view.state.selection.main;
     const selectionLine = view.state.doc.lineAt(selection.from);
@@ -91,18 +97,25 @@ function buildDecorations(view: EditorView): DecorationSet {
                 return;
             }
 
-            // Skip hiding markdown marks inside tables to prevent layout shifting
             const line = view.state.doc.lineAt(from);
-            if (shouldSkipForTable(line.from)) {
+            if (forceHide && CALLOUT_HEADER_RE.test(line.text)) {
                 return;
             }
+            if (!forceHide) {
+                // Skip hiding markdown marks inside tables to prevent layout shifting
+                if (shouldSkipForTable(line.from)) {
+                    return;
+                }
+            }
 
-            // If cursor is on an embed line, keep raw syntax visible
-            if (
-                line.from === selectionLine.from &&
-                /!\[\[[^\]]+\]\]|!\[[^\]]*\]\([^)]+\)/.test(line.text)
-            ) {
-                return;
+            if (!forceHide) {
+                // If cursor is on an embed line, keep raw syntax visible
+                if (
+                    line.from === selectionLine.from &&
+                    /!\[\[[^\]]+\]\]|!\[[^\]]*\]\([^)]+\)/.test(line.text)
+                ) {
+                    return;
+                }
             }
 
             const parent = node.node.parent;
@@ -110,29 +123,33 @@ function buildDecorations(view: EditorView): DecorationSet {
                 return;
             }
 
-            // Skip hiding any mark inside a terminal callout
-            if (isInTerminalCallout(line.from)) {
-                return;
+            if (!forceHide) {
+                // Skip hiding any mark inside a terminal callout
+                if (isInTerminalCallout(line.from)) {
+                    return;
+                }
+
+                // Skip QuoteMark nodes on lines owned by the callout plugin
+                if (name === "QuoteMark" && isCalloutOwnedLine(line.from)) {
+                    return;
+                }
+
+                // Skip LinkMark/URL nodes that aren't inside a standard Link or Image
+                if (isLinkLike(name) && !isLinkParent(parent.name)) {
+                    return;
+                }
             }
 
-            // Skip QuoteMark nodes on lines owned by the callout plugin
-            if (name === "QuoteMark" && isCalloutOwnedLine(line.from)) {
-                return;
-            }
+            if (!forceHide) {
+                // If cursor is on the same line as an image, show full raw syntax
+                if (parent.name === "Image" && isCursorLine(parent.from)) {
+                    return;
+                }
 
-            // Skip LinkMark/URL nodes that aren't inside a standard Link or Image
-            if (isLinkLike(name) && !isLinkParent(parent.name)) {
-                return;
-            }
-
-            // If cursor is on the same line as an image, show full raw syntax
-            if (parent.name === "Image" && isCursorLine(parent.from)) {
-                return;
-            }
-
-            // Check if cursor overlaps with the parent container
-            if (cursorOverlapsParent(parent.from, parent.to)) {
-                return;
+                // Check if cursor overlaps with the parent container
+                if (cursorOverlapsParent(parent.from, parent.to)) {
+                    return;
+                }
             }
 
             if (name === "ListMark") {
@@ -153,24 +170,32 @@ const markdownLivePreviewPlugin = ViewPlugin.fromClass(
     class {
         decorations: DecorationSet;
         private treeAvailable: boolean;
+        private forceHide: boolean;
 
         constructor(view: EditorView) {
             this.treeAvailable = syntaxTreeAvailable(view.state);
-            this.decorations = buildDecorations(view);
+            this.forceHide = view.state.facet(markdownPreviewForceHideFacet);
+            this.decorations = buildDecorations(view, this.forceHide);
         }
 
         update(update: ViewUpdate) {
             const nowAvailable = syntaxTreeAvailable(update.state);
             const treeJustBecameReady = nowAvailable && !this.treeAvailable;
             this.treeAvailable = nowAvailable;
+            const nextForceHide = update.state.facet(markdownPreviewForceHideFacet);
+            const forceHideChanged = nextForceHide !== this.forceHide;
+            if (forceHideChanged) {
+                this.forceHide = nextForceHide;
+            }
 
             if (
                 update.docChanged ||
                 update.viewportChanged ||
                 update.selectionSet ||
-                treeJustBecameReady
+                treeJustBecameReady ||
+                forceHideChanged
             ) {
-                this.decorations = buildDecorations(update.view);
+                this.decorations = buildDecorations(update.view, this.forceHide);
             }
         }
     },
@@ -187,5 +212,5 @@ const markdownLivePreviewPlugin = ViewPlugin.fromClass(
  * syntax are hidden when the cursor is not on the parent element.
  */
 export function createMarkdownPreviewPlugin(): Extension {
-    return markdownLivePreviewPlugin;
+    return [markdownPreviewForceHideFacet.of(false), markdownLivePreviewPlugin];
 }
