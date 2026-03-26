@@ -145,7 +145,7 @@ export function GraphQueryPanel({
                 <textarea
                     value={query}
                     onChange={handleChange}
-                    placeholder='MATCH (n) WHERE "rust" IN n.tags RETURN n.id AS id, n.title AS title'
+                    placeholder='MATCH (n) WHERE "rust" IN n.tags RETURN n'
                     rows={5}
                     style={{
                         width: "100%",
