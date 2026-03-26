@@ -89,6 +89,7 @@ pub fn run() {
             commands::search::search_full_text,
             commands::search::search_tags,
             commands::search::rebuild_search_index,
+            commands::graph::execute_graph_query,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
