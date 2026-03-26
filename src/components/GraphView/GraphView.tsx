@@ -1,20 +1,46 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { useGraphStore, useVaultStore } from "../../stores";
 import { GraphCanvas } from './GraphCanvas';
 import { NodeInfoPanel } from './NodeInfoPanel';
+import { GraphQueryPanel } from './GraphQueryPanel';
 import { ArrowLeft } from 'lucide-react';
 import cytoscape from 'cytoscape';
 import { mapGraphDataToElements, GraphData } from "../../utils/graphUtils.ts";
 import { createNoteInDir } from "../../utils/noteUtils";
+import { useDebouncedValue } from "../../hooks/useDebouncedValue";
+import { normalizeCypherQuery } from "../../lib/cypherQueryNormalizer";
+
+type QueryRow = Record<string, unknown>;
+
+function extractMatchingNodeIds(rows: QueryRow[], graphData: GraphData): Set<string> {
+    const idsFromColumns = new Set<string>();
+    const graphNodeIds = new Set(graphData.nodes.map((node) => node.id));
+
+    for (const row of rows) {
+        for (const cell of Object.values(row)) {
+            if (typeof cell === "string" && graphNodeIds.has(cell)) {
+                idsFromColumns.add(cell);
+            }
+        }
+    }
+
+    return idsFromColumns;
+}
 
 export function GraphView() {
     const { vaultPath, files, setActiveNote, addFileIfMissing } = useVaultStore();
     const { setViewMode, selectedGraphNode, setSelectedGraphNode } = useGraphStore();
 
+    const [graphData, setGraphData] = useState<GraphData | null>(null);
     const [elements, setElements] = useState<cytoscape.ElementDefinition[]>([]);
     const [loading, setLoading] = useState(true);
+    const [query, setQuery] = useState('');
+    const [queryError, setQueryError] = useState<string | null>(null);
+    const [isCypherRunning, setIsCypherRunning] = useState(false);
+    const debouncedQuery = useDebouncedValue(query, 250);
+    const latestQueryRequestIdRef = useRef(0);
 
     const fetchGraphData = useCallback(async () => {
         if (!vaultPath) {
@@ -24,7 +50,7 @@ export function GraphView() {
         }
         try {
             const data = await invoke<GraphData>('get_graph_data', { vaultPath });
-            setElements(mapGraphDataToElements(data));
+            setGraphData(data);
         } catch (e) {
             console.error('Failed to fetch graph data:', e);
         } finally {
@@ -79,12 +105,72 @@ export function GraphView() {
         [files, vaultPath, setActiveNote, setViewMode, addFileIfMissing]
     );
 
+    useEffect(() => {
+        if (!graphData) {
+            setElements([]);
+            return;
+        }
+
+        const trimmed = debouncedQuery.trim();
+        if (!trimmed) {
+            setElements(mapGraphDataToElements(graphData));
+            setQueryError(null);
+            setIsCypherRunning(false);
+            return;
+        }
+
+        const requestId = latestQueryRequestIdRef.current + 1;
+        latestQueryRequestIdRef.current = requestId;
+
+        const executeQuery = async (): Promise<void> => {
+            setIsCypherRunning(true);
+            try {
+                const normalizedQuery = normalizeCypherQuery(trimmed);
+                const rows = await invoke<QueryRow[]>("execute_graph_query", { cypher: normalizedQuery });
+                if (latestQueryRequestIdRef.current !== requestId) {
+                    return;
+                }
+
+                const normalizedRows = Array.isArray(rows) ? rows : [];
+                const matchingNodeIds = extractMatchingNodeIds(normalizedRows, graphData);
+
+                if (matchingNodeIds.size === 0) {
+                    setElements([]);
+                    setQueryError("Query returned no matching graph nodes.");
+                    return;
+                }
+
+                const filteredNodes = graphData.nodes.filter((node) => matchingNodeIds.has(node.id));
+                const filteredEdges = graphData.edges.filter(
+                    (edge) => matchingNodeIds.has(edge.source) && matchingNodeIds.has(edge.target)
+                );
+                setElements(mapGraphDataToElements({ nodes: filteredNodes, edges: filteredEdges }));
+                setQueryError(null);
+            } catch (error) {
+                if (latestQueryRequestIdRef.current !== requestId) {
+                    return;
+                }
+                setElements([]);
+                setQueryError(error instanceof Error ? error.message : String(error));
+            } finally {
+                if (latestQueryRequestIdRef.current === requestId) {
+                    setIsCypherRunning(false);
+                }
+            }
+        };
+
+        executeQuery();
+    }, [debouncedQuery, graphData]);
+
     return (
         <div className="w-full h-full relative flex flex-col">
             <div className="flex items-center gap-2 px-4 py-2 border-b border-[var(--color-border-light)] bg-[var(--color-bg-primary)] shrink-0">
                 <button
                     onClick={() => setViewMode('editor')}
                     className="flex items-center gap-1.5 bg-transparent border-none cursor-pointer text-[var(--color-text-muted)] text-[13px] px-2 py-1 rounded-[var(--radius-md)] transition-colors duration-200 hover:bg-[var(--color-bg-tertiary)] hover:text-[var(--color-text-primary)]"
+                    style={{
+                        padding: "0.5rem 1rem"
+                    }}
                 >
                     <ArrowLeft size={14} />
                     Back to Editor
@@ -107,10 +193,18 @@ export function GraphView() {
                     <GraphCanvas
                         elements={elements}
                         mode="global"
+                        selectedNodeId={selectedGraphNode ?? undefined}
                         onNodeClick={handleNodeClick}
                         onNodeDoubleClick={handleNodeDoubleClick}
                     />
                 )}
+
+                <GraphQueryPanel
+                    query={query}
+                    onChange={setQuery}
+                    error={queryError}
+                    isRunning={isCypherRunning}
+                />
 
                 {selectedGraphNode && (() => {
                     const nodeElement = elements.find(e => e.data?.id === selectedGraphNode);

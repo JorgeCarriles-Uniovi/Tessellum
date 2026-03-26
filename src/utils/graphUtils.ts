@@ -101,6 +101,10 @@ export function getCytoscapeStylesheet(): any[] {
     const graphEdge = style.getPropertyValue('--graph-edge').trim() || style.getPropertyValue('--color-border-medium').trim();
     const graphEdgeBroken = style.getPropertyValue('--graph-edge-broken').trim() || style.getPropertyValue('--color-gray-400').trim();
     const graphNodeActive = style.getPropertyValue('--graph-node-active').trim() || style.getPropertyValue('--color-blue-600').trim();
+    const accentColor =
+        style.getPropertyValue('--color-accent-default').trim() ||
+        style.getPropertyValue('--color-accent').trim() ||
+        style.getPropertyValue('--color-blue-600').trim();
 
     return [
         {
@@ -156,6 +160,15 @@ export function getCytoscapeStylesheet(): any[] {
             },
         },
         {
+            selector: 'node.query-highlighted',
+            style: {
+                'border-color': accentColor,
+                'border-width': 4,
+                'width': 28,
+                'height': 28,
+            },
+        },
+        {
             selector: 'node.orphan:selected, node.orphan.highlighted',
             style: {
                 'background-color': (ele: any) => ele.data('baseColor') || graphOrphan,
@@ -186,6 +199,21 @@ export function getCytoscapeStylesheet(): any[] {
                 'line-color': graphEdgeBroken,
                 'target-arrow-color': graphEdgeBroken,
                 'line-dash-pattern': [6, 3],
+            },
+        },
+        {
+            selector: 'edge.link-highlighted, edge[?broken].link-highlighted',
+            style: {
+                'line-color': accentColor,
+                'target-arrow-color': accentColor,
+                'width': 3.5,
+                'opacity': 1,
+            },
+        },
+        {
+            selector: '.filtered-out',
+            style: {
+                display: 'none',
             },
         },
         {
