@@ -21,6 +21,7 @@ interface EditorState {
     files: FileMetadata[]; // Flat list used for fast lookups
     fileTree: TreeNode[]; // Hierarchical tree from backend
     activeNote: FileMetadata | null;
+    openTabPaths: string[];
     activeNoteContent: string;
     isDirty: boolean;
     expandedFolders: Record<string, boolean>;
@@ -39,6 +40,10 @@ interface EditorState {
     setFiles: (files: FileMetadata[]) => void;
     setFileTree: (tree: TreeNode[]) => void;
     setActiveNote: (file: FileMetadata | null) => void;
+    reorderOpenTabs: (sourcePath: string, targetPath: string) => void;
+    closeTab: (path: string) => void;
+    closeOtherTabs: (path: string) => void;
+    closeAllTabs: () => void;
     setActiveNoteContent: (content: string) => void;
     setIsDirty: (isDirty: boolean) => void;
     setExpandedFolders: (folders: Record<string, boolean>) => void;
@@ -74,6 +79,7 @@ export const useEditorStore = create<EditorState>(() => {
         files: vault.files,
         fileTree: vault.fileTree,
         activeNote: vault.activeNote,
+        openTabPaths: vault.openTabPaths,
         activeNoteContent: editorContent.activeNoteContent,
         isDirty: editorContent.isDirty,
         expandedFolders: ui.expandedFolders,
@@ -92,6 +98,10 @@ export const useEditorStore = create<EditorState>(() => {
         setFiles: (files) => useVaultStore.getState().setFiles(files),
         setFileTree: (tree) => useVaultStore.getState().setFileTree(tree),
         setActiveNote: (file) => useVaultStore.getState().setActiveNote(file),
+        reorderOpenTabs: (sourcePath, targetPath) => useVaultStore.getState().reorderOpenTabs(sourcePath, targetPath),
+        closeTab: (path) => useVaultStore.getState().closeTab(path),
+        closeOtherTabs: (path) => useVaultStore.getState().closeOtherTabs(path),
+        closeAllTabs: () => useVaultStore.getState().closeAllTabs(),
         setActiveNoteContent: (content) => useEditorContentStore.getState().setActiveNoteContent(content),
         setIsDirty: (isDirty) => useEditorContentStore.getState().setIsDirty(isDirty),
         setExpandedFolders: (folders) => useUiStore.getState().setExpandedFolders(folders),
@@ -121,14 +131,7 @@ useVaultStore.subscribe((state) => {
         files: state.files,
         fileTree: state.fileTree,
         activeNote: state.activeNote,
-    });
-});
-
-useEditorContentStore.subscribe((state) => {
-    useEditorStore.setState({
-        activeNoteContent: state.activeNoteContent,
-        isDirty: state.isDirty,
-        editorFontSizePx: state.editorFontSizePx,
+        openTabPaths: state.openTabPaths,
     });
 });
 
