@@ -256,6 +256,7 @@ function EmptyEditorState({
                             color: "#fff",
                             border: "none",
                             cursor: "pointer",
+                            padding: "0.5rem 1rem"
                         }}
                     >
                         {vaultPath ? "Create New Note" : "Open Vault"}

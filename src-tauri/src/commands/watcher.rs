@@ -55,7 +55,6 @@ pub async fn watch_vault(
                             let mut asset_guard = ai.lock().await;
                             *asset_guard = None;
                         });
-                        
                         let _ = app_handle_clone.emit("file-changed", ());
                     }
                 }

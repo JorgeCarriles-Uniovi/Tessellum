@@ -1,8 +1,10 @@
 use serde::Serialize;
+use std::sync::Mutex;
 use tauri::State;
 
 use crate::error::TessellumError;
 use crate::indexer::{IndexStats, VaultIndexer};
+use crate::kuzu_projection::{sync_full, ManagedKuzuConnection};
 use crate::models::AppState;
 
 /// Response from the sync_vault command.
@@ -36,6 +38,7 @@ impl From<IndexStats> for SyncResult {
 #[tauri::command]
 pub async fn sync_vault(
     state: State<'_, AppState>,
+    kuzu_state: State<'_, Mutex<ManagedKuzuConnection>>,
     vault_path: String,
 ) -> Result<SyncResult, TessellumError> {
     let db_guard = state.db.lock().await;
@@ -43,6 +46,9 @@ pub async fn sync_vault(
     
     match VaultIndexer::full_sync(&*db_guard, search_index, &vault_path).await {
         Ok(stats) => {
+            if let Err(err) = sync_full(kuzu_state.inner(), &db_guard).await {
+                eprintln!("Kuzu sync_full failed after vault sync: {}", err);
+            }
             let mut idx_guard = state.file_index.lock().await;
             *idx_guard = None;
             let mut asset_guard = state.asset_index.lock().await;

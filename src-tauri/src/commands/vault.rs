@@ -1,10 +1,12 @@
 use std::fs::metadata;
 use std::path::Path;
+use std::sync::Mutex;
 use std::time::UNIX_EPOCH;
 use tauri_plugin_fs::FsExt;
 use walkdir::WalkDir;
 
 use crate::error::TessellumError;
+use crate::kuzu_projection::{sync_full, ManagedKuzuConnection};
 use crate::models::FileMetadata;
 use crate::search::SearchDoc;
 use crate::utils::{extract_tags, is_hidden_or_special, sanitize_string, validate_path_in_vault};
@@ -134,6 +136,7 @@ pub fn list_files(vault_path: String) -> Result<Vec<FileMetadata>, TessellumErro
 #[tauri::command]
 pub async fn rename_file(
     state: tauri::State<'_, crate::models::AppState>,
+    kuzu_state: tauri::State<'_, Mutex<ManagedKuzuConnection>>,
     vault_path: String,
     old_path: String,
     new_name: String,
@@ -229,6 +232,10 @@ pub async fn rename_file(
         .await
         .map_err(TessellumError::from)?;
     
+    if let Err(err) = sync_full(kuzu_state.inner(), &db_guard).await {
+        eprintln!("Kuzu sync_full failed after rename '{}': {}", old_path, err);
+    }
+    
     // Invalidate the cache since path has changed
     let mut idx_guard = state.file_index.lock().await;
     *idx_guard = None;
@@ -273,6 +280,7 @@ pub async fn rename_file(
 #[tauri::command]
 pub async fn move_items(
     state: tauri::State<'_, crate::models::AppState>,
+    kuzu_state: tauri::State<'_, Mutex<ManagedKuzuConnection>>,
     vault_path: String,
     item_paths: Vec<String>,
     dest_dir: String,
@@ -353,6 +361,10 @@ pub async fn move_items(
             .update_search_file_path(old_path, new_path)
             .await
             .map_err(TessellumError::from)?;
+    }
+    
+    if let Err(err) = sync_full(kuzu_state.inner(), &db_guard).await {
+        eprintln!("Kuzu sync_full failed after move_items: {}", err);
     }
     
     let search_index = state.search_index.clone();

@@ -4,17 +4,27 @@ import { listen } from '@tauri-apps/api/event';
 import { useGraphStore, useVaultStore } from "../../stores";
 import { GraphCanvas } from './GraphCanvas';
 import { NodeInfoPanel } from './NodeInfoPanel';
+import { GraphQueryPanel } from './GraphQueryPanel';
 import { mapGraphDataToElements, GraphData } from '../../utils/graphUtils';
 import { X } from 'lucide-react';
 import cytoscape from 'cytoscape';
 import { createNoteInDir } from "../../utils/noteUtils";
+import { applyFilterToGraphData } from '../../lib/cypherGraphFilter';
+import { runCypherGraphFilter } from '../../lib/cypherGraphFilter';
+import { useDebouncedValue } from "../../hooks/useDebouncedValue";
+import { normalizeCypherQuery } from "../../lib/cypherQueryNormalizer";
 
 export function LocalGraphPanel({ isOpen }: { isOpen: boolean }) {
     const { vaultPath, activeNote, setActiveNote, files, addFileIfMissing } = useVaultStore();
     const { selectedGraphNode, setSelectedGraphNode, toggleLocalGraph } = useGraphStore();
 
+    const [graphData, setGraphData] = useState<GraphData | null>(null);
     const [elements, setElements] = useState<cytoscape.ElementDefinition[]>([]);
     const [loading, setLoading] = useState(true);
+    const [query, setQuery] = useState('');
+    const [queryError, setQueryError] = useState<string | null>(null);
+    const [isCypherRunning, setIsCypherRunning] = useState(false);
+    const debouncedQuery = useDebouncedValue(query, 250);
     const [panelWidth, setPanelWidth] = useState(320);
     const isDragging = useRef(false);
     const dragStartX = useRef(0);
@@ -67,13 +77,13 @@ export function LocalGraphPanel({ isOpen }: { isOpen: boolean }) {
 
             const localNodes = data.nodes.filter(node => connectedNodeIds.has(node.id));
 
-            setElements(mapGraphDataToElements({ nodes: localNodes, edges: localEdges }));
+            setGraphData({ nodes: localNodes, edges: localEdges });
         } catch (e) {
             console.error('Failed to fetch local graph data:', e);
         } finally {
             setLoading(false);
         }
-    }, [vaultPath, activeNote, files, isOpen]);
+    }, [vaultPath, activeNote, isOpen]);
 
     // Fetch when active note changes or panel opens
     useEffect(() => {
@@ -82,6 +92,36 @@ export function LocalGraphPanel({ isOpen }: { isOpen: boolean }) {
             fetchLocalGraph();
         }
     }, [fetchLocalGraph, isOpen]);
+
+    useEffect(() => {
+        if (!graphData) {
+            setElements([]);
+            setIsCypherRunning(false);
+            return;
+        }
+
+        const trimmed = debouncedQuery.trim();
+        if (!trimmed) {
+            setElements(mapGraphDataToElements(graphData));
+            setQueryError(null);
+            setIsCypherRunning(false);
+            return;
+        }
+
+        setIsCypherRunning(true);
+        try {
+            const normalizedQuery = normalizeCypherQuery(trimmed);
+            const filter = runCypherGraphFilter(normalizedQuery, graphData);
+            const filteredData = applyFilterToGraphData(graphData, filter);
+            setElements(mapGraphDataToElements(filteredData));
+            setQueryError(null);
+        } catch (error) {
+            setElements([]);
+            setQueryError(error instanceof Error ? error.message : String(error));
+        } finally {
+            setIsCypherRunning(false);
+        }
+    }, [debouncedQuery, graphData]);
 
     // Real-time updates
     useEffect(() => {
@@ -258,10 +298,18 @@ export function LocalGraphPanel({ isOpen }: { isOpen: boolean }) {
                             elements={elements}
                             mode="local"
                             focusNodeId={activeNote.path.replace(/\\/g, '/')}
+                            selectedNodeId={selectedGraphNode ?? undefined}
                             onNodeClick={handleNodeClick}
                             onNodeDoubleClick={handleNodeDoubleClick}
                         />
                     )}
+
+                    <GraphQueryPanel
+                        query={query}
+                        onChange={setQuery}
+                        error={queryError}
+                        isRunning={isCypherRunning}
+                    />
 
                     {/* Info panel */}
                     {selectedGraphNode && (() => {

@@ -1,6 +1,8 @@
 use chrono::Local;
+use std::collections::HashSet;
 use std::fs;
 use std::path::{Component, Path};
+use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::State;
 use tauri::async_runtime;
@@ -8,10 +10,20 @@ use tauri::async_runtime;
 use crate::commands::extract_wikilinks;
 use crate::commands::templates::{apply_placeholders, templates_dir};
 use crate::error::TessellumError;
+use crate::kuzu_projection::{
+    sync_full, sync_link_create, sync_link_delete, sync_note_delete, sync_note_upsert,
+    ManagedKuzuConnection,
+};
 use crate::models::{AppState, FileIndex, FileMetadata};
 use crate::search::SearchDoc;
 use crate::utils::config::load_or_init_config;
 use crate::utils::{extract_tags, sanitize_string, validate_path_in_vault};
+
+struct NoteSyncDelta {
+    note_id: String,
+    previous_links: Vec<String>,
+    current_links: Vec<String>,
+}
 
 fn build_daily_note_relative_path(template: &str, now: chrono::DateTime<Local>) -> String {
     let year = now.format("%Y").to_string();
@@ -53,8 +65,12 @@ async fn index_note_content(
     vault_path: &str,
     path: &str,
     content: &str,
-) -> Result<(), TessellumError> {
+) -> Result<NoteSyncDelta, TessellumError> {
     let db_guard = state.db.lock().await;
+    let previous_links = db_guard
+        .get_outgoing_links(path)
+        .await
+        .map_err(TessellumError::from)?;
     
     let metadata = tokio::fs::metadata(&path).await.map_err(|e| {
         TessellumError::Io(std::io::Error::new(
@@ -120,6 +136,9 @@ async fn index_note_content(
             )
         })
         .collect();
+    let mut deduped_links = resolved_links.clone();
+    deduped_links.sort();
+    deduped_links.dedup();
     
     db_guard
         .index_file(
@@ -169,7 +188,55 @@ async fn index_note_content(
         resolved_links.len()
     );
     
-    Ok(())
+    Ok(NoteSyncDelta {
+        note_id: crate::utils::normalize_path(path),
+        previous_links,
+        current_links: deduped_links,
+    })
+}
+
+async fn sync_note_delta_non_critical(
+    state: &State<'_, AppState>,
+    kuzu_state: &State<'_, Mutex<ManagedKuzuConnection>>,
+    delta: NoteSyncDelta,
+) {
+    let db_guard = state.db.lock().await;
+    if let Err(err) = sync_note_upsert(kuzu_state.inner(), &db_guard, &delta.note_id).await {
+        eprintln!("Kuzu sync_note_upsert failed for '{}': {}", delta.note_id, err);
+        return;
+    }
+    
+    let previous: HashSet<String> = delta.previous_links.into_iter().collect();
+    let current: HashSet<String> = delta.current_links.into_iter().collect();
+    
+    let conn = match kuzu_state.lock() {
+        Ok(guard) => guard,
+        Err(_) => {
+            eprintln!(
+                "Kuzu sync lock failed while syncing links for '{}'",
+                delta.note_id
+            );
+            return;
+        }
+    };
+    
+    for to_id in current.difference(&previous) {
+        if let Err(err) = sync_link_create(&conn, &delta.note_id, to_id) {
+            eprintln!(
+                "Kuzu sync_link_create failed for '{} -> {}': {}",
+                delta.note_id, to_id, err
+            );
+        }
+    }
+    
+    for to_id in previous.difference(&current) {
+        if let Err(err) = sync_link_delete(&conn, &delta.note_id, to_id) {
+            eprintln!(
+                "Kuzu sync_link_delete failed for '{} -> {}': {}",
+                delta.note_id, to_id, err
+            );
+        }
+    }
 }
 
 /// Creates a new note file in the specified vault directory with a unique name.
@@ -182,6 +249,7 @@ async fn index_note_content(
 #[tauri::command]
 pub async fn create_note(
     state: State<'_, AppState>,
+    kuzu_state: State<'_, Mutex<ManagedKuzuConnection>>,
     vault_path: String,
     title: String,
 ) -> Result<String, TessellumError> {
@@ -259,12 +327,18 @@ pub async fn create_note(
         guard.index_batch(&[doc], &[]).ok();
     });
     
+    let db_guard = state.db.lock().await;
+    if let Err(err) = sync_note_upsert(kuzu_state.inner(), &db_guard, &path_str).await {
+        eprintln!("Kuzu sync_note_upsert failed for '{}': {}", path_str, err);
+    }
+    
     Ok(path_str)
 }
 
 #[tauri::command]
 pub async fn get_or_create_daily_note(
     state: State<'_, AppState>,
+    kuzu_state: State<'_, Mutex<ManagedKuzuConnection>>,
     vault_path: String,
 ) -> Result<FileMetadata, TessellumError> {
     validate_path_in_vault(&vault_path, &vault_path).map_err(|e| TessellumError::Validation(e))?;
@@ -312,7 +386,8 @@ pub async fn get_or_create_daily_note(
             .await
             .map_err(TessellumError::from)?;
         
-        index_note_content(&state, &vault_path, &full_path_str, &content).await?;
+        let delta = index_note_content(&state, &vault_path, &full_path_str, &content).await?;
+        sync_note_delta_non_critical(&state, &kuzu_state, delta).await;
         
         let mut idx_guard = state.file_index.lock().await;
         *idx_guard = None;
@@ -360,6 +435,7 @@ pub async fn get_or_create_daily_note(
 #[tauri::command]
 pub async fn trash_item(
     state: State<'_, AppState>,
+    kuzu_state: State<'_, Mutex<ManagedKuzuConnection>>,
     item_path: String,
     vault_path: String,
 ) -> Result<(), TessellumError> {
@@ -369,6 +445,7 @@ pub async fn trash_item(
     if !item.exists() {
         return Err(TessellumError::NotFound("Item does not exist".to_string()));
     }
+    let was_file = item.is_file();
     
     let vault_root = Path::new(&vault_path);
     let trash_dir = vault_root.join(".trash");
@@ -417,6 +494,21 @@ pub async fn trash_item(
     let mut asset_guard = state.asset_index.lock().await;
     *asset_guard = None;
     
+    if was_file {
+        if let Ok(conn) = kuzu_state.lock() {
+            if let Err(err) = sync_note_delete(&conn, &crate::utils::normalize_path(&item_path)) {
+                eprintln!("Kuzu sync_note_delete failed for '{}': {}", item_path, err);
+            }
+        } else {
+            eprintln!("Kuzu sync lock failed for note delete '{}'", item_path);
+        }
+    } else {
+        let db_guard = state.db.lock().await;
+        if let Err(err) = sync_full(kuzu_state.inner(), &db_guard).await {
+            eprintln!("Kuzu sync_full failed after trashing '{}': {}", item_path, err);
+        }
+    }
+    
     Ok(())
 }
 
@@ -437,6 +529,7 @@ pub async fn read_file(vault_path: String, path: String) -> Result<String, Tesse
 #[tauri::command]
 pub async fn write_file(
     state: State<'_, AppState>,
+    kuzu_state: State<'_, Mutex<ManagedKuzuConnection>>,
     vault_path: String,
     path: String,
     content: String,
@@ -449,7 +542,8 @@ pub async fn write_file(
         .await
         .map_err(TessellumError::from)?;
     
-    index_note_content(&state, &vault_path, &path, &content).await?;
+    let delta = index_note_content(&state, &vault_path, &path, &content).await?;
+    sync_note_delta_non_critical(&state, &kuzu_state, delta).await;
     
     Ok(())
 }

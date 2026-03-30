@@ -1,11 +1,14 @@
 use serde::Serialize;
+use serde_json::Value;
 use std::collections::HashSet;
+use std::sync::Mutex;
 use tauri::State;
 
 use crate::error::TessellumError;
+use crate::kuzu_projection::{execute_graph_query_inner, lock_connection, ManagedKuzuConnection};
 use crate::models::AppState;
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct GraphNode {
 	pub id: String,
 	pub label: String,
@@ -14,14 +17,14 @@ pub struct GraphNode {
 	pub tags: Vec<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct GraphEdge {
 	pub source: String,
 	pub target: String,
 	pub broken: bool,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct GraphData {
 	pub nodes: Vec<GraphNode>,
 	pub edges: Vec<GraphEdge>,
@@ -52,6 +55,22 @@ fn path_to_label(path: &str, vault_path: &str) -> String {
 pub async fn get_graph_data(
 	state: State<'_, AppState>,
 	vault_path: String,
+) -> Result<GraphData, TessellumError> {
+	build_graph_data(&state, &vault_path).await
+}
+
+#[tauri::command]
+pub fn execute_graph_query(
+	cypher: String,
+	state: State<'_, Mutex<ManagedKuzuConnection>>,
+) -> Result<Value, String> {
+	let conn = lock_connection(&state)?;
+	execute_graph_query_inner(&conn, &cypher)
+}
+
+pub async fn build_graph_data(
+	state: &AppState,
+	vault_path: &str,
 ) -> Result<GraphData, TessellumError> {
 	let db_guard = state.db.lock().await;
 	
@@ -103,7 +122,7 @@ pub async fn get_graph_data(
 		
 		nodes.push(GraphNode {
 			id: normalized.clone(),
-			label: path_to_label(&path, &vault_path),
+			label: path_to_label(&path, vault_path),
 			exists: true,
 			orphan: orphaned_files.contains(&normalized),
 			tags,
@@ -123,7 +142,7 @@ pub async fn get_graph_data(
 			if !already_added {
 				nodes.push(GraphNode {
 					id: normalized_target.clone(),
-					label: path_to_label(&target, &vault_path),
+					label: path_to_label(&target, vault_path),
 					exists: false,
 					orphan: false,
 					tags: Vec::new(),

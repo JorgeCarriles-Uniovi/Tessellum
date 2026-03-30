@@ -770,5 +770,46 @@ impl Database {
         sorted_keys.sort();
         Ok(sorted_keys)
     }
+    
+    /// Read a single note projection for Kuzu sync.
+    /// Returns (id, title, tags) where id is the note path.
+    pub async fn get_note_projection(
+        &self,
+        note_id: &str,
+    ) -> Result<Option<(String, String, Vec<String>)>, sqlx::Error> {
+        let exists = sqlx::query_scalar::<_, i64>("SELECT COUNT(1) FROM notes WHERE path = ?")
+            .bind(note_id)
+            .fetch_one(&self.pool)
+            .await?
+            > 0;
+        
+        if !exists {
+            return Ok(None);
+        }
+        
+        let tags = self.get_file_tags(note_id).await?;
+        let title = crate::kuzu_projection::title_from_note_id(note_id);
+        Ok(Some((note_id.to_string(), title, tags)))
+    }
+    
+    /// Read all note projections for Kuzu full sync.
+    /// Returns (id, title, tags) where id is the note path.
+    pub async fn get_note_projection_rows(
+        &self,
+    ) -> Result<Vec<(String, String, Vec<String>)>, sqlx::Error> {
+        let notes = self.get_all_indexed_files().await?;
+        let file_tags = self.get_files_tags().await?;
+        
+        let projections = notes
+            .into_iter()
+            .map(|(path, _)| {
+                let title = crate::kuzu_projection::title_from_note_id(&path);
+                let tags = file_tags.get(&path).cloned().unwrap_or_default();
+                (path, title, tags)
+            })
+            .collect();
+        
+        Ok(projections)
+    }
 }
 

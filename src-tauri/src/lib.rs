@@ -2,11 +2,13 @@ pub mod commands;
 mod db;
 pub mod error;
 mod indexer;
+mod kuzu_projection;
 mod search;
 pub mod models;
 mod utils;
 
 use db::Database;
+use std::sync::Mutex;
 use tauri::Manager;
 use tauri_plugin_window_state::Builder as WindowStateBuilder;
 pub use models::*;
@@ -47,6 +49,10 @@ pub fn run() {
             let search_index = SearchIndex::open_or_create(&search_dir)
                 .unwrap_or_else(|e| panic!("Failed to init search index: {}", e));
             
+            let kuzu_conn = kuzu_projection::init_managed_connection(&app_handle, &db_instance)
+                .unwrap_or_else(|e| panic!("Failed to initialize Kuzu projection: {}", e));
+            
+            app.manage(Mutex::new(kuzu_conn));
             app.manage(models::AppState::new(db_instance, search_index));
             log::info!("Database initialized successfully");
             
@@ -83,6 +89,7 @@ pub fn run() {
             commands::search::search_full_text,
             commands::search::search_tags,
             commands::search::rebuild_search_index,
+            commands::graph::execute_graph_query,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
