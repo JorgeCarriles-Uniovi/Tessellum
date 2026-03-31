@@ -46,6 +46,9 @@ function App() {
         setFileTree,
         activeNote,
         setActiveNote,
+        closeTab,
+        openTabPaths,
+        restoreWorkspaceTabs,
     } = useVaultStore();
     const { expandedFolders, setExpandedFolders, openSearch, closeSearch } = useUiStore();
     const { viewMode, isLocalGraphOpen, setViewMode } = useGraphStore();
@@ -130,12 +133,18 @@ function App() {
             if (modifier && event.key.toLowerCase() === "k") {
                 event.preventDefault();
                 setIsCommandPaletteOpen((prev) => !prev);
+                return;
+            }
+
+            if (modifier && event.key.toLowerCase() === "w" && activeNote?.path) {
+                event.preventDefault();
+                closeTab(activeNote.path);
             }
         };
 
         window.addEventListener("keydown", onKeyDown);
         return () => window.removeEventListener("keydown", onKeyDown);
-    }, []);
+    }, [activeNote, closeTab]);
 
     useEffect(() => {
         const ref = app.events.on("ui:open-command-palette", () => {
@@ -296,10 +305,12 @@ function App() {
         localStorage.setItem(`${keyPrefix}:expandedFolders`, JSON.stringify(expandedFolders));
         localStorage.setItem(`${keyPrefix}:viewMode`, viewMode);
         localStorage.setItem(`${keyPrefix}:editorMode`, editorMode);
+        localStorage.setItem(`${keyPrefix}:openTabs`, JSON.stringify(openTabPaths));
         if (activeNote?.path) {
             localStorage.setItem(`${keyPrefix}:lastNote`, activeNote.path);
+            localStorage.setItem(`${keyPrefix}:activeTabPath`, activeNote.path);
         }
-    }, [vaultPath, expandedFolders, viewMode, editorMode, activeNote, workspaceRestored]);
+    }, [vaultPath, expandedFolders, viewMode, editorMode, openTabPaths, activeNote, workspaceRestored]);
 
     async function refreshFiles(vaultPath: string, restoreState: boolean): Promise<void> {
         try {
@@ -315,6 +326,8 @@ function App() {
                 const storedExpanded = localStorage.getItem(`${keyPrefix}:expandedFolders`);
                 const storedViewMode = localStorage.getItem(`${keyPrefix}:viewMode`);
                 const storedEditorMode = localStorage.getItem(`${keyPrefix}:editorMode`);
+                const storedOpenTabs = localStorage.getItem(`${keyPrefix}:openTabs`);
+                const storedActiveTabPath = localStorage.getItem(`${keyPrefix}:activeTabPath`);
                 const storedLastNote = localStorage.getItem(`${keyPrefix}:lastNote`);
 
                 if (storedExpanded) {
@@ -328,7 +341,22 @@ function App() {
                 } else {
                     setEditorMode(DEFAULT_EDITOR_MODE);
                 }
-                if (storedLastNote) {
+
+                let restoredTabs = false;
+                if (storedOpenTabs) {
+                    try {
+                        const parsedTabs = JSON.parse(storedOpenTabs);
+                        if (Array.isArray(parsedTabs)) {
+                            const tabPaths = parsedTabs.filter((tabPath): tabPath is string => typeof tabPath === "string");
+                            restoreWorkspaceTabs(tabPaths, storedActiveTabPath ?? storedLastNote);
+                            restoredTabs = true;
+                        }
+                    } catch (e) {
+                        console.error(e);
+                    }
+                }
+
+                if (!restoredTabs && storedLastNote) {
                     const note = flatFiles.find((f) => f.path === storedLastNote) || null;
                     setActiveNote(note);
                 }

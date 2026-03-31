@@ -1,4 +1,5 @@
 import CodeMirror, { ReactCodeMirrorRef } from "@uiw/react-codemirror";
+import { invoke } from "@tauri-apps/api/core";
 import {
     useRef,
     useState,
@@ -31,6 +32,120 @@ import { MediaPreview } from "./MediaPreview";
 import { EDITOR_MODES } from "../../constants/editorModes";
 import { useEditorModeStore } from "../../stores/editorModeStore";
 import { markdownPreviewForceHideFacet } from "./extensions/markdown-preview-plugin";
+import { TabStrip, type Tab } from "./TabStrip";
+import { useAccessibilityStore } from "../../stores";
+import { WorkspaceOverview } from "./workspaceOverview/WorkspaceOverview";
+import type { HeroProjection, WorkspaceCardItem } from "./workspaceOverview/types";
+
+const EMPTY_PREVIEW_TEXT = "No text preview available";
+
+interface NoteCardMetadata {
+    contentPreview: string;
+    tags: string[];
+}
+
+function extractFrontmatter(rawContent: string): { frontmatter: string; body: string } {
+    const normalized = rawContent.replace(/\r\n/g, "\n");
+    if (!normalized.startsWith("---\n")) {
+        return { frontmatter: "", body: normalized };
+    }
+
+    const endIndex = normalized.indexOf("\n---\n", 4);
+    if (endIndex === -1) {
+        return { frontmatter: "", body: normalized };
+    }
+
+    return {
+        frontmatter: normalized.slice(4, endIndex),
+        body: normalized.slice(endIndex + 5),
+    };
+}
+
+function parseFrontmatterTags(frontmatter: string): string[] {
+    if (!frontmatter.trim()) {
+        return [];
+    }
+
+    const inlineTagsMatch = frontmatter.match(/^\s*tags\s*:\s*\[(.*?)\]\s*$/m);
+    if (inlineTagsMatch) {
+        const inner = inlineTagsMatch[1].trim();
+        if (!inner) return [];
+        return inner
+            .split(",")
+            .map((value) => value.trim().replace(/^['"]|['"]$/g, ""))
+            .filter(Boolean);
+    }
+
+    const lineMatch = frontmatter.match(/^\s*tags\s*:\s*(.+)\s*$/m);
+    if (lineMatch && !lineMatch[1].startsWith("[")) {
+        const inlineValue = lineMatch[1].trim().replace(/^['"]|['"]$/g, "");
+        if (inlineValue) {
+            return [inlineValue];
+        }
+    }
+
+    const blockMatch = frontmatter.match(/^\s*tags\s*:\s*\n((?:\s*-\s*.+\n?)*)/m);
+    if (!blockMatch) {
+        return [];
+    }
+
+    return blockMatch[1]
+        .split("\n")
+        .map((line) => line.match(/^\s*-\s*(.+)\s*$/)?.[1] ?? "")
+        .map((value) => value.trim().replace(/^['"]|['"]$/g, ""))
+        .filter(Boolean);
+}
+
+function stripMarkdownSyntax(rawText: string): string {
+    return rawText
+        .replace(/`{1,3}[^`]*`{1,3}/g, " ")
+        .replace(/!\[([^\]]*)\]\([^)]+\)/g, "$1")
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1")
+        .replace(/(^|\s)(#{1,6}\s*)/g, "$1")
+        .replace(/^[-*_]{3,}\s*$/gm, " ")
+        .replace(/^\s*>\s?/gm, "")
+        .replace(/^\s*[-*]\s+/gm, "")
+        .replace(/\*\*([^*]+)\*\*/g, "$1")
+        .replace(/\*([^*]+)\*/g, "$1")
+        .replace(/~~([^~]+)~~/g, "$1")
+        .replace(/[*_~`>#-]/g, " ");
+}
+
+function buildContentPreview(rawContent: string): NoteCardMetadata {
+    const { frontmatter, body } = extractFrontmatter(rawContent);
+    const tags = parseFrontmatterTags(frontmatter);
+    const plainText = stripMarkdownSyntax(body);
+    const collapsed = plainText
+        .replace(/\r\n/g, "\n")
+        .replace(/\t/g, " ")
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .join(" ");
+
+    if (!collapsed) {
+        return { contentPreview: EMPTY_PREVIEW_TEXT, tags };
+    }
+
+    return {
+        contentPreview: collapsed.slice(0, 180),
+        tags,
+    };
+}
+
+function buildShortPath(path: string, minSegments = 2, maxSegments = 3): string {
+    const segments = path
+        .split(/[\\/]+/)
+        .map((segment) => segment.trim())
+        .filter(Boolean);
+
+    if (segments.length <= maxSegments) {
+        return segments.join(" / ");
+    }
+
+    const takeCount = Math.max(minSegments, maxSegments);
+    return segments.slice(-takeCount).join(" / ");
+}
 
 function normalizeTimestampSeconds(value: number): number {
     if (value > 1_000_000_000_000) {
@@ -267,8 +382,17 @@ function EmptyEditorState({
     );
 }
 
-function EditorLoadingState() {
-    return <div className="p-10">Loading...</div>;
+function buildTabsFromPaths(openTabPaths: string[], files: { path: string; filename: string }[]): Tab[] {
+    const fileByPath = new Map(files.map((file) => [file.path, file]));
+
+    return openTabPaths.map((path) => {
+        const file = fileByPath.get(path);
+        return {
+            id: path,
+            title: file?.filename ?? path.split(/[\\/]/).pop() ?? path,
+            path,
+        };
+    });
 }
 
 function EditorHeader({
@@ -335,12 +459,7 @@ function EditorBody({
                         editorRef,
                         editorFontSizePx,
                         content,
-                        activeNotePath,
-                        pluginExtensions,
-                        slashExtension,
-                        wikiLinkSuggestionsExtension,
-                        editableExtension,
-                        previewForceHideExtension,
+                        editorExtensions,
                         handleContentChange,
                         slashProps,
                         wikiLinkSuggestionsProps,
@@ -359,12 +478,7 @@ function EditorBody({
     editorRef: RefObject<ReactCodeMirrorRef>;
     editorFontSizePx: number;
     content: string;
-    activeNotePath: string;
-    pluginExtensions: Extension[];
-    slashExtension: Extension;
-    wikiLinkSuggestionsExtension: Extension;
-    editableExtension: Extension;
-    previewForceHideExtension: Extension;
+    editorExtensions: Extension[];
     handleContentChange: (value: string) => void;
     slashProps: ReturnType<typeof useSlashCommand>["slashProps"];
     wikiLinkSuggestionsProps: ReturnType<typeof useWikiLinkSuggestions>["wikiLinkSuggestionsProps"];
@@ -388,16 +502,8 @@ function EditorBody({
             <div className="relative w-full">
                 <CodeMirror
                     ref={editorRef}
-                    key={activeNotePath}
                     value={content}
-                    extensions={[
-                        ...pluginExtensions,
-                        editableExtension,
-                        previewForceHideExtension,
-                        slashExtension,
-                        wikiLinkSuggestionsExtension,
-                        lightTheme,
-                    ]}
+                    extensions={editorExtensions}
                     onChange={handleContentChange}
                     height="auto"
                     className={cn(
@@ -472,13 +578,31 @@ function EditorBody({
 }
 
 export function Editor() {
-    const { activeNote, vaultPath, editorFontSizePx } = useEditorStore();
+    const OVERVIEW_DURATION_MS = 460;
+    const {
+        activeNote,
+        vaultPath,
+        files,
+        openTabPaths,
+        setActiveNote,
+        reorderOpenTabs,
+        closeTab,
+        editorFontSizePx,
+    } = useEditorStore();
     const editorMode = useEditorModeStore((state) => state.editorMode);
+    const reducedMotion = useAccessibilityStore((state) => state.reducedMotion);
     const { content, isLoading, handleContentChange } = useFileSynchronization(activeNote);
     const editorRef = useRef<ReactCodeMirrorRef>(null);
+    const editorContainerRef = useRef<HTMLDivElement | null>(null);
     useEditorFontZoom(editorRef);
     const { noteRenaming } = useEditorActions();
     const app = useTessellumApp();
+    const [isOverviewOpen, setIsOverviewOpen] = useState(false);
+    const [isOverviewMounted, setIsOverviewMounted] = useState(false);
+    const [heroProjection] = useState<HeroProjection | null>(null);
+    const [reducedMotionFade, setReducedMotionFade] = useState(false);
+    const [tabMetadataByPath, setTabMetadataByPath] = useState<Record<string, NoteCardMetadata>>({});
+    const transitionTimersRef = useRef<number[]>([]);
 
     const handleSlashSelectRef = useRef<(cmd: Command, view?: EditorView) => void>();
     const { slashExtension, slashProps } = useSlashCommand((cmd, view) => {
@@ -487,7 +611,6 @@ export function Editor() {
 
     const pluginExtensions = useEditorExtensions();
     const { wikiLinkSuggestionsExtension, wikiLinkSuggestionsProps } = useWikiLinkSuggestions(vaultPath || "");
-
     const {
         handleSlashSelect,
         calloutPickerOpen,
@@ -503,6 +626,108 @@ export function Editor() {
     } = useSlashInsertions(editorRef, slashProps);
 
     useEditorViewRegistration(editorRef);
+
+    const queueTimer = useCallback((fn: () => void, delay: number) => {
+        const id = window.setTimeout(() => {
+            transitionTimersRef.current = transitionTimersRef.current.filter((timerId) => timerId !== id);
+            fn();
+        }, delay);
+        transitionTimersRef.current.push(id);
+    }, []);
+
+    const closeOverview = useCallback(() => {
+        setIsOverviewOpen(false);
+        if (reducedMotion) {
+            queueTimer(() => setIsOverviewMounted(false), 160);
+            return;
+        }
+        queueTimer(() => setIsOverviewMounted(false), OVERVIEW_DURATION_MS);
+    }, [OVERVIEW_DURATION_MS, queueTimer, reducedMotion]);
+
+    const openOverview = useCallback(() => {
+        setIsOverviewMounted(true);
+        requestAnimationFrame(() => setIsOverviewOpen(true));
+    }, []);
+
+    useEffect(() => {
+        if (!isOverviewOpen || !vaultPath || openTabPaths.length === 0) {
+            return;
+        }
+
+        const missingPaths = openTabPaths.filter((path) => tabMetadataByPath[path] === undefined);
+        if (missingPaths.length === 0) {
+            return;
+        }
+
+        let cancelled = false;
+
+        const loadPreviews = async () => {
+            const previews = await Promise.all(
+                missingPaths.map(async (path) => {
+                    if (isMediaFile(path)) {
+                        const metadata: NoteCardMetadata = { contentPreview: EMPTY_PREVIEW_TEXT, tags: [] };
+                        return [path, metadata] as const;
+                    }
+                    try {
+                        const content = await invoke<string>("read_file", { vaultPath, path });
+                        return [path, buildContentPreview(content)] as const;
+                    } catch (error) {
+                        console.error(`Failed to load preview for ${path}:`, error);
+                        const metadata: NoteCardMetadata = { contentPreview: EMPTY_PREVIEW_TEXT, tags: [] };
+                        return [path, metadata] as const;
+                    }
+                })
+            );
+
+            if (cancelled) {
+                return;
+            }
+
+            setTabMetadataByPath((current) => {
+                const next = { ...current };
+                for (const [path, metadata] of previews) {
+                    next[path] = metadata;
+                }
+                return next;
+            });
+        };
+
+        loadPreviews();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [isOverviewOpen, openTabPaths, tabMetadataByPath, vaultPath]);
+
+    useEffect(() => {
+        if (!vaultPath) {
+            setTabMetadataByPath({});
+            return;
+        }
+
+        setTabMetadataByPath((current) => {
+            const openPaths = new Set(openTabPaths);
+            let changed = false;
+            const next: Record<string, NoteCardMetadata> = {};
+
+            for (const path of Object.keys(current)) {
+                if (openPaths.has(path)) {
+                    next[path] = current[path];
+                } else {
+                    changed = true;
+                }
+            }
+
+            return changed ? next : current;
+        });
+    }, [openTabPaths, vaultPath]);
+
+    useEffect(() => {
+        return () => {
+            transitionTimersRef.current.forEach((id) => window.clearTimeout(id));
+            transitionTimersRef.current = [];
+        };
+    }, []);
 
     useEffect(() => {
         handleSlashSelectRef.current = handleSlashSelect;
@@ -525,6 +750,23 @@ export function Editor() {
         () => markdownPreviewForceHideFacet.of(!isEditable),
         [isEditable]
     );
+    const editorExtensions = useMemo(
+        () => [
+            ...pluginExtensions,
+            editableExtension,
+            previewForceHideExtension,
+            slashExtension,
+            wikiLinkSuggestionsExtension,
+            lightTheme,
+        ],
+        [
+            pluginExtensions,
+            editableExtension,
+            previewForceHideExtension,
+            slashExtension,
+            wikiLinkSuggestionsExtension,
+        ]
+    );
     const handleContentChangeGuarded = useCallback(
         (value: string) => {
             if (!isEditable) return;
@@ -533,66 +775,237 @@ export function Editor() {
         [handleContentChange, isEditable]
     );
 
+    useEffect(() => {
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (!event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) {
+                return;
+            }
+
+            const isOverviewShortcut = event.code === "Space" || event.key === " ";
+            if (isOverviewShortcut) {
+                const target = event.target as HTMLElement | null;
+                if (target) {
+                    const tag = target.tagName;
+                    const isEditor = target.closest(".cm-editor");
+                    if ((tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable) && !isEditor) {
+                        return;
+                    }
+                }
+
+                event.preventDefault();
+                if (isOverviewOpen) {
+                    closeOverview();
+                } else {
+                    openOverview();
+                }
+                return;
+            }
+
+            if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
+                return;
+            }
+
+            const target = event.target as HTMLElement | null;
+            if (target) {
+                const tag = target.tagName;
+                const isEditor = target.closest(".cm-editor");
+                if ((tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable) && !isEditor) {
+                    return;
+                }
+            }
+
+            const activePath = activeNote?.path;
+            if (!activePath) return;
+
+            const activeIndex = openTabPaths.indexOf(activePath);
+            if (activeIndex === -1) return;
+
+            const delta = event.key === "ArrowLeft" ? -1 : 1;
+            const targetIndex = activeIndex + delta;
+            if (targetIndex < 0 || targetIndex >= openTabPaths.length) {
+                return;
+            }
+
+            const targetPath = openTabPaths[targetIndex];
+            const targetFile = files.find((file) => file.path === targetPath);
+            if (!targetFile) return;
+
+            event.preventDefault();
+            setActiveNote(targetFile);
+        };
+
+        window.addEventListener("keydown", onKeyDown);
+        return () => window.removeEventListener("keydown", onKeyDown);
+    }, [activeNote?.path, closeOverview, files, isOverviewOpen, openOverview, openTabPaths, setActiveNote]);
+
     if (!activeNote) {
         const primaryAction = getPrimaryAction(vaultPath, newNoteCommand, openVaultCommand);
         return <EmptyEditorState vaultPath={vaultPath} primaryAction={primaryAction} />;
     }
 
-    if (isLoading) {
-        return <EditorLoadingState />;
-    }
-
     const editedAt = activeNote.last_modified ? formatRelativeTime(activeNote.last_modified) : "";
 
-    const isMedia = activeNote ? isMediaFile(activeNote.path) : false;
+    const isMedia = isMediaFile(activeNote.path);
+    const tabs = buildTabsFromPaths(openTabPaths, files);
+    const filesByPath = new Map(files.map((file) => [file.path, file]));
+    const overviewCards: WorkspaceCardItem[] = tabs.map((tab, order) => {
+        const file = filesByPath.get(tab.path);
+        return {
+            id: tab.id,
+            title: tab.title,
+            path: tab.path,
+            shortPath: buildShortPath(tab.path),
+            contentPreview: tabMetadataByPath[tab.path]?.contentPreview ?? EMPTY_PREVIEW_TEXT,
+            tags: tabMetadataByPath[tab.path]?.tags ?? [],
+            lastModified: file?.last_modified ?? 0,
+            isActive: tab.id === activeNote.path,
+            order,
+        };
+    });
+
+    const handleTabChange = (id: string) => {
+        const target = files.find((file) => file.path === id);
+        if (!target) return;
+        setActiveNote(target);
+    };
+
+    const handleTabClose = (id: string) => {
+        closeTab(id);
+    };
+
+    const handleTabReorder = (sourceId: string, targetIndex: number) => {
+        reorderOpenTabs(sourceId, targetIndex);
+    };
+
+    const handleOverviewToggle = () => {
+        if (isOverviewOpen) {
+            closeOverview();
+        } else {
+            openOverview();
+        }
+    };
+
+    const handleOverviewSelect = (id: string) => {
+        const target = filesByPath.get(id);
+        if (!target) return;
+
+        if (reducedMotion) {
+            setReducedMotionFade(true);
+            setActiveNote(target);
+            closeOverview();
+            queueTimer(() => setReducedMotionFade(false), 180);
+            return;
+        }
+
+        const editorRect = editorContainerRef.current?.getBoundingClientRect();
+
+        if (!editorRect) {
+            setActiveNote(target);
+            closeOverview();
+            return;
+        }
+
+        queueTimer(() => setActiveNote(target), 0);
+        queueTimer(() => {
+            setIsOverviewMounted(false);
+        }, OVERVIEW_DURATION_MS);
+        setIsOverviewOpen(false);
+    };
+
+    const editorSurface = (
+        <div
+            className="min-h-full overflow-hidden"
+            style={{
+                backgroundColor: theme.colors.background.primary,
+                border: `0.5px solid ${theme.colors.border.light}`,
+            }}
+        >
+            <EditorHeader
+                title={noteRenaming.titleInput}
+                onTitleChange={noteRenaming.setTitleInput}
+                onTitleBlur={noteRenaming.handleRename}
+                editedAt={editedAt}
+                titleFontSizePx={titleFontSizePx}
+                lastModified={activeNote.last_modified}
+                readOnly={!isEditable}
+            />
+            <div className="w-full border-b" style={dividerStyle} />
+            <EditorBody
+                editorRef={editorRef}
+                content={content}
+                editorExtensions={editorExtensions}
+                handleContentChange={handleContentChangeGuarded}
+                slashProps={slashProps}
+                wikiLinkSuggestionsProps={wikiLinkSuggestionsProps}
+                editorFontSizePx={editorFontSizePx}
+                calloutPickerOpen={calloutPickerOpen}
+                calloutPickerPos={calloutPickerPos}
+                calloutPickerIndex={calloutPickerIndex}
+                setCalloutPickerIndex={setCalloutPickerIndex}
+                handleCalloutSelect={handleCalloutSelect}
+                closeCalloutPicker={closeCalloutPicker}
+                tablePickerOpen={tablePickerOpen}
+                tablePickerPos={tablePickerPos}
+                handleTableSelect={handleTableSelect}
+                closeTablePicker={closeTablePicker}
+                handleSlashSelect={handleSlashSelect}
+            />
+            {isLoading && (
+                <div className="pointer-events-none px-12 py-3 text-xs" style={{ color: theme.colors.text.muted }}>
+                    Loading note...
+                </div>
+            )}
+        </div>
+    );
 
     return (
-        <div className="h-full w-full flex flex-col overflow-hidden">
-            <div className="flex-1 min-h-0 overflow-y-auto editor-scroll-shell">
+        <div className="h-full w-full flex flex-col overflow-hidden pt-1">
+            <TabStrip
+                tabs={tabs}
+                activeTabId={activeNote.path}
+                onTabChange={handleTabChange}
+                onTabClose={handleTabClose}
+                onTabReorder={handleTabReorder}
+                onOverviewToggle={handleOverviewToggle}
+                isOverviewOpen={isOverviewOpen}
+                editorFontSizePx={editorFontSizePx}
+            />
+            <div className="flex-1 min-h-0 relative" ref={editorContainerRef}>
                 {!isMedia && (
-                    <>
-                        <EditorHeader
-                            title={noteRenaming.titleInput}
-                            onTitleChange={noteRenaming.setTitleInput}
-                            onTitleBlur={noteRenaming.handleRename}
-                            editedAt={editedAt}
-                            titleFontSizePx={titleFontSizePx}
-                            lastModified={activeNote.last_modified}
-                            readOnly={!isEditable}
-                        />
-                        <div className="w-full border-b" style={dividerStyle} />
-                        <EditorBody
-                            editorRef={editorRef}
-                            content={content}
-                            activeNotePath={activeNote.path}
-                            pluginExtensions={pluginExtensions}
-                            slashExtension={slashExtension}
-                            wikiLinkSuggestionsExtension={wikiLinkSuggestionsExtension}
-                            editableExtension={editableExtension}
-                            previewForceHideExtension={previewForceHideExtension}
-                            handleContentChange={handleContentChangeGuarded}
-                            slashProps={slashProps}
-                            wikiLinkSuggestionsProps={wikiLinkSuggestionsProps}
-                            editorFontSizePx={editorFontSizePx}
-                            calloutPickerOpen={calloutPickerOpen}
-                            calloutPickerPos={calloutPickerPos}
-                            calloutPickerIndex={calloutPickerIndex}
-                            setCalloutPickerIndex={setCalloutPickerIndex}
-                            handleCalloutSelect={handleCalloutSelect}
-                            closeCalloutPicker={closeCalloutPicker}
-                            tablePickerOpen={tablePickerOpen}
-                            tablePickerPos={tablePickerPos}
-                            handleTableSelect={handleTableSelect}
-                            closeTablePicker={closeTablePicker}
-                            handleSlashSelect={handleSlashSelect}
-                        />
-                    </>
+                    <div className="flex h-full px-3 py-3 gap-2">
+                        <div
+                            className="flex-1 min-w-0 h-full overflow-y-auto editor-scroll-shell"
+                            style={{
+                                transform: isOverviewOpen && !reducedMotion ? "scale(0.85)" : "scale(1)",
+                                transformOrigin: "center center",
+                                borderRadius: isOverviewOpen && !reducedMotion ? "0.5rem" : "0.25rem",
+                                boxShadow: isOverviewOpen && !reducedMotion ? "0 26px 54px rgba(0,0,0,0.35)" : "0 0 0 rgba(0,0,0,0)",
+                                opacity: reducedMotionFade ? 0.7 : 1,
+                                transition: reducedMotion
+                                    ? "opacity 170ms linear"
+                                    : `transform ${OVERVIEW_DURATION_MS}ms cubic-bezier(0.4, 0, 0.2, 1), border-radius ${OVERVIEW_DURATION_MS}ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow ${OVERVIEW_DURATION_MS}ms cubic-bezier(0.4, 0, 0.2, 1), opacity 170ms linear`,
+                                willChange: "transform, opacity",
+                            }}
+                        >
+                            {editorSurface}
+                        </div>
+                    </div>
                 )}
                 {isMedia && (
                     <div className="h-full w-full">
                         <MediaPreview path={activeNote.path} />
                     </div>
                 )}
+                <WorkspaceOverview
+                    cards={overviewCards}
+                    isOpen={isOverviewOpen}
+                    isMounted={isOverviewMounted}
+                    reducedMotion={reducedMotion}
+                    durationMs={OVERVIEW_DURATION_MS}
+                    heroProjection={heroProjection}
+                    onClose={closeOverview}
+                    onSelectCard={handleOverviewSelect}
+                />
             </div>
         </div>
     );

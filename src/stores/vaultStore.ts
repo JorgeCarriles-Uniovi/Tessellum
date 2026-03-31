@@ -6,6 +6,7 @@ export interface VaultState {
     files: FileMetadata[];
     fileTree: TreeNode[];
     activeNote: FileMetadata | null;
+    openTabPaths: string[];
 }
 
 export interface VaultActions {
@@ -13,6 +14,11 @@ export interface VaultActions {
     setFiles: (files: FileMetadata[]) => void;
     setFileTree: (tree: TreeNode[]) => void;
     setActiveNote: (file: FileMetadata | null) => void;
+    restoreWorkspaceTabs: (tabPaths: string[], activePath?: string | null) => void;
+    reorderOpenTabs: (sourcePath: string, targetIndex: number) => void;
+    closeTab: (path: string) => void;
+    closeOtherTabs: (path: string) => void;
+    closeAllTabs: () => void;
     renameFile: (oldPath: string, newPath: string, newName: string) => void;
     addFile: (file: FileMetadata) => void;
     addFileIfMissing: (file: FileMetadata) => void;
@@ -25,6 +31,7 @@ export const useVaultStore = create<VaultStore>((set) => ({
     files: [],
     fileTree: [],
     activeNote: null,
+    openTabPaths: [],
 
     setVaultPath: (path) => {
         if (path) {
@@ -32,18 +39,99 @@ export const useVaultStore = create<VaultStore>((set) => ({
         } else {
             localStorage.removeItem("vaultPath");
         }
-        set({ vaultPath: path });
+        // Reset per-vault volatile state when changing vault scope.
+        set({ vaultPath: path, activeNote: null, openTabPaths: [] });
     },
-    setFiles: (files) => set({ files }),
+    setFiles: (files) => set((state) => {
+        const fileByPath = new Map(files.map((file) => [file.path, file]));
+        const nextOpenTabs = state.openTabPaths.filter((path) => fileByPath.has(path));
+        const nextActiveNote = state.activeNote ? fileByPath.get(state.activeNote.path) ?? null : null;
+
+        return {
+            files,
+            openTabPaths: nextOpenTabs,
+            activeNote: nextActiveNote,
+        };
+    }),
     setFileTree: (fileTree) => set({ fileTree }),
-    setActiveNote: (activeNote) => set(() => {
+    setActiveNote: (activeNote) => set((state) => {
         if (!activeNote) {
             return { activeNote: null };
         }
         return {
             activeNote,
+            openTabPaths: state.openTabPaths.includes(activeNote.path)
+                ? state.openTabPaths
+                : [...state.openTabPaths, activeNote.path],
         };
     }),
+    restoreWorkspaceTabs: (tabPaths, activePath) => set((state) => {
+        const fileByPath = new Map(state.files.map((file) => [file.path, file]));
+        // Restore only existing files and keep tab order stable without duplicates.
+        const validUniqueTabs = Array.from(
+            new Set(tabPaths.filter((path) => fileByPath.has(path)))
+        );
+
+        const nextActivePath = activePath && fileByPath.has(activePath)
+            ? activePath
+            : validUniqueTabs[0] ?? null;
+
+        return {
+            openTabPaths: validUniqueTabs,
+            activeNote: nextActivePath ? fileByPath.get(nextActivePath) ?? null : null,
+        };
+    }),
+    reorderOpenTabs: (sourcePath, targetIndex) => set((state) => {
+        const sourceIndex = state.openTabPaths.indexOf(sourcePath);
+        if (sourceIndex < 0) {
+            return state;
+        }
+
+        const boundedIndex = Math.max(0, Math.min(targetIndex, state.openTabPaths.length - 1));
+        if (boundedIndex === sourceIndex) {
+            return state;
+        }
+
+        const reorderedTabs = [...state.openTabPaths];
+        const [moved] = reorderedTabs.splice(sourceIndex, 1);
+        reorderedTabs.splice(Math.min(boundedIndex, reorderedTabs.length), 0, moved);
+        return { openTabPaths: reorderedTabs };
+    }),
+    closeTab: (path) => set((state) => {
+        if (!state.openTabPaths.includes(path)) {
+            return state;
+        }
+
+        const closingIndex = state.openTabPaths.indexOf(path);
+        const nextOpenTabs = state.openTabPaths.filter((item) => item !== path);
+
+        if (state.activeNote?.path !== path) {
+            return { openTabPaths: nextOpenTabs };
+        }
+
+        if (nextOpenTabs.length === 0) {
+            return { openTabPaths: [], activeNote: null };
+        }
+
+        const fallbackPath = nextOpenTabs[Math.min(closingIndex, nextOpenTabs.length - 1)];
+        const fallbackNote = state.files.find((file) => file.path === fallbackPath) ?? null;
+
+        return { openTabPaths: nextOpenTabs, activeNote: fallbackNote };
+    }),
+    closeOtherTabs: (path) => set((state) => {
+        if (!state.openTabPaths.includes(path)) {
+            return state;
+        }
+        const active = state.files.find((file) => file.path === path) ?? state.activeNote;
+        return {
+            openTabPaths: [path],
+            activeNote: active,
+        };
+    }),
+    closeAllTabs: () => set(() => ({
+        openTabPaths: [],
+        activeNote: null,
+    })),
     addFile: (newFile) => set((state) => ({
         files: [...state.files, newFile],
         // Note: The tree refresh happens via backend file-changed event
@@ -68,10 +156,12 @@ export const useVaultStore = create<VaultStore>((set) => ({
         const updatedActiveNote = shouldUpdateActive
             ? { ...state.activeNote!, path: newPath, filename: newFilename }
             : state.activeNote;
+        const updatedTabs = state.openTabPaths.map((path) => (path === oldPath ? newPath : path));
 
         return {
             files: updatedFiles,
             activeNote: updatedActiveNote,
+            openTabPaths: updatedTabs,
         };
     }),
 }));

@@ -301,6 +301,13 @@ body {
         font-feature-settings: 'kern' 1, 'liga' 1;
     }
 
+    html,
+    body,
+    #root {
+        height: 100%;
+        overflow: hidden;
+    }
+
     h1,
     h2,
     h3,
@@ -1116,6 +1123,16 @@ body {
 
 :root[data-color-filter="tritanopia"] .app-root {
     filter: url(#color-filter-tritanopia);
+}
+
+/* Utility: keep scroll behavior while hiding the scrollbar visuals. */
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
 }
 
 /* Scrollbar styling */
