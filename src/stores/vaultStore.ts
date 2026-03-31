@@ -15,7 +15,7 @@ export interface VaultActions {
     setFileTree: (tree: TreeNode[]) => void;
     setActiveNote: (file: FileMetadata | null) => void;
     restoreWorkspaceTabs: (tabPaths: string[], activePath?: string | null) => void;
-    reorderOpenTabs: (sourcePath: string, targetPath: string) => void;
+    reorderOpenTabs: (sourcePath: string, targetIndex: number) => void;
     closeTab: (path: string) => void;
     closeOtherTabs: (path: string) => void;
     closeAllTabs: () => void;
@@ -81,20 +81,20 @@ export const useVaultStore = create<VaultStore>((set) => ({
             activeNote: nextActivePath ? fileByPath.get(nextActivePath) ?? null : null,
         };
     }),
-    reorderOpenTabs: (sourcePath, targetPath) => set((state) => {
-        if (sourcePath === targetPath) {
+    reorderOpenTabs: (sourcePath, targetIndex) => set((state) => {
+        const sourceIndex = state.openTabPaths.indexOf(sourcePath);
+        if (sourceIndex < 0) {
             return state;
         }
 
-        const sourceIndex = state.openTabPaths.indexOf(sourcePath);
-        const targetIndex = state.openTabPaths.indexOf(targetPath);
-        if (sourceIndex < 0 || targetIndex < 0) {
+        const boundedIndex = Math.max(0, Math.min(targetIndex, state.openTabPaths.length - 1));
+        if (boundedIndex === sourceIndex) {
             return state;
         }
 
         const reorderedTabs = [...state.openTabPaths];
         const [moved] = reorderedTabs.splice(sourceIndex, 1);
-        reorderedTabs.splice(targetIndex, 0, moved);
+        reorderedTabs.splice(Math.min(boundedIndex, reorderedTabs.length), 0, moved);
         return { openTabPaths: reorderedTabs };
     }),
     closeTab: (path) => set((state) => {

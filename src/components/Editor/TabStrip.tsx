@@ -13,7 +13,7 @@ interface TabStripProps {
     activeTabId?: string;
     onTabChange?: (id: string) => void;
     onTabClose?: (id: string) => void;
-    onTabReorder?: (sourceId: string, targetId: string) => void;
+    onTabReorder?: (sourceId: string, targetIndex: number) => void;
     onOverviewToggle?: () => void;
     isOverviewOpen?: boolean;
     editorFontSizePx?: number;
@@ -24,7 +24,7 @@ type TabDragState = {
     startX: number;
     startY: number;
     active: boolean;
-    lastTargetId: string | null;
+    lastInsertionIndex: number | null;
     move?: (event: MouseEvent) => void;
     up?: () => void;
 };
@@ -38,6 +38,37 @@ function shouldActivateDrag(state: TabDragState, event: MouseEvent): boolean {
 function setDraggingUi(active: boolean) {
     document.body.style.userSelect = active ? "none" : "";
     document.body.style.cursor = active ? "grabbing" : "";
+}
+
+function computeInsertionIndex(
+    pointerX: number,
+    tabs: Tab[],
+    sourceId: string,
+    tabsRef: React.MutableRefObject<Record<string, HTMLDivElement | null>>
+): number | null {
+    const otherTabIds = tabs.map((tab) => tab.id).filter((id) => id !== sourceId);
+    if (otherTabIds.length === 0) {
+        return 0;
+    }
+
+    const tabRects = otherTabIds
+        .map((id) => tabsRef.current[id])
+        .filter((element): element is HTMLDivElement => Boolean(element))
+        .map((element) => element.getBoundingClientRect());
+
+    if (tabRects.length === 0) {
+        return null;
+    }
+
+    for (let i = 0; i < tabRects.length; i += 1) {
+        const rect = tabRects[i];
+        const midpoint = rect.left + rect.width / 2;
+        if (pointerX < midpoint) {
+            return i;
+        }
+    }
+
+    return tabRects.length;
 }
 
 const DEFAULT_TABS: Tab[] = [
@@ -60,8 +91,13 @@ export function TabStrip({
     const [hoveredTabId, setHoveredTabId] = useState<string | null>(null);
     const [draggedTabId, setDraggedTabId] = useState<string | null>(null);
     const tabsRef = useRef<Record<string, HTMLDivElement | null>>({});
+    const tabsOrderRef = useRef<Tab[]>(tabs);
     const dragStateRef = useRef<TabDragState | null>(null);
     const tabFontSizePx = (11 * editorFontSizePx) / 16;
+
+    useEffect(() => {
+        tabsOrderRef.current = tabs;
+    }, [tabs]);
 
     // Keep the active tab reachable when it changes without exposing scrollbars.
     useEffect(() => {
@@ -102,12 +138,14 @@ export function TabStrip({
             startX: event.clientX,
             startY: event.clientY,
             active: false,
-            lastTargetId: null,
+            lastInsertionIndex: null,
         };
 
         const handleMove = (moveEvent: MouseEvent) => {
             const state = dragStateRef.current;
             if (!state) return;
+
+            const currentTabs = tabsOrderRef.current;
 
             if (!state.active && !shouldActivateDrag(state, moveEvent)) {
                 return;
@@ -119,16 +157,19 @@ export function TabStrip({
                 setDraggingUi(true);
             }
 
-            const target = document.elementFromPoint(moveEvent.clientX, moveEvent.clientY) as HTMLElement | null;
-            const tabElement = target?.closest("[data-tab-id]") as HTMLElement | null;
-            const targetId = tabElement?.dataset.tabId ?? null;
-
-            if (!targetId || targetId === state.sourceId || targetId === state.lastTargetId) {
+            const insertionIndex = computeInsertionIndex(moveEvent.clientX, currentTabs, state.sourceId, tabsRef);
+            if (insertionIndex === null || insertionIndex === state.lastInsertionIndex) {
                 return;
             }
 
-            onTabReorder?.(state.sourceId, targetId);
-            state.lastTargetId = targetId;
+            const sourceIndex = currentTabs.findIndex((tab) => tab.id === state.sourceId);
+            const nextIndex = Math.max(0, Math.min(insertionIndex, currentTabs.length - 1));
+            if (sourceIndex < 0 || sourceIndex === nextIndex) {
+                return;
+            }
+
+            onTabReorder?.(state.sourceId, nextIndex);
+            state.lastInsertionIndex = insertionIndex;
         };
 
         const handleUp = () => {

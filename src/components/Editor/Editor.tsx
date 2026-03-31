@@ -873,8 +873,8 @@ export function Editor() {
         closeTab(id);
     };
 
-    const handleTabReorder = (sourceId: string, targetId: string) => {
-        reorderOpenTabs(sourceId, targetId);
+    const handleTabReorder = (sourceId: string, targetIndex: number) => {
+        reorderOpenTabs(sourceId, targetIndex);
     };
 
     const handleOverviewToggle = () => {
