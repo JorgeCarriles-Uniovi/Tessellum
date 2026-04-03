@@ -1,4 +1,5 @@
 use chrono::Local;
+use serde::Serialize;
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Component, Path};
@@ -6,16 +7,17 @@ use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::State;
 use tauri::async_runtime;
-
+use tokio::time::{Duration, timeout};
 use crate::commands::extract_wikilinks;
 use crate::commands::templates::{apply_placeholders, templates_dir};
 use crate::error::TessellumError;
 use crate::kuzu_projection::{
-    sync_full, sync_link_create, sync_link_delete, sync_note_delete, sync_note_upsert,
-    ManagedKuzuConnection,
+    ManagedKuzuConnection, sync_full, sync_link_create, sync_link_delete, sync_note_delete,
+    sync_note_upsert,
 };
 use crate::models::{AppState, FileIndex, FileMetadata};
 use crate::search::SearchDoc;
+use crate::trash::{generate_unique_trash_path, rename_recursively};
 use crate::utils::config::load_or_init_config;
 use crate::utils::{extract_tags, sanitize_string, validate_path_in_vault};
 
@@ -23,6 +25,18 @@ struct NoteSyncDelta {
     note_id: String,
     previous_links: Vec<String>,
     current_links: Vec<String>,
+}
+
+#[derive(Serialize)]
+pub struct TrashItemsResult {
+    deleted_paths: Vec<String>,
+    failed: Vec<TrashItemFailure>,
+}
+
+#[derive(Serialize)]
+pub struct TrashItemFailure {
+    item_path: String,
+    message: String,
 }
 
 fn build_daily_note_relative_path(template: &str, now: chrono::DateTime<Local>) -> String {
@@ -66,8 +80,8 @@ async fn index_note_content(
     path: &str,
     content: &str,
 ) -> Result<NoteSyncDelta, TessellumError> {
-    let db_guard = state.db.lock().await;
-    let previous_links = db_guard
+    let db = state.db.clone();
+    let previous_links = db
         .get_outgoing_links(path)
         .await
         .map_err(TessellumError::from)?;
@@ -140,7 +154,7 @@ async fn index_note_content(
     deduped_links.sort();
     deduped_links.dedup();
     
-    db_guard
+    db
         .index_file(
             &path,
             modified,
@@ -152,11 +166,11 @@ async fn index_note_content(
         .await
         .map_err(TessellumError::from)?;
     
-    db_guard
+    db
         .set_note_tags(&path, &inline_tags)
         .await
         .map_err(TessellumError::from)?;
-    db_guard
+    db
         .upsert_search_file(&path, modified, true)
         .await
         .map_err(TessellumError::from)?;
@@ -200,9 +214,12 @@ async fn sync_note_delta_non_critical(
     kuzu_state: &State<'_, Mutex<ManagedKuzuConnection>>,
     delta: NoteSyncDelta,
 ) {
-    let db_guard = state.db.lock().await;
-    if let Err(err) = sync_note_upsert(kuzu_state.inner(), &db_guard, &delta.note_id).await {
-        eprintln!("Kuzu sync_note_upsert failed for '{}': {}", delta.note_id, err);
+    let db = state.db.clone();
+    if let Err(err) = sync_note_upsert(kuzu_state.inner(), db.as_ref(), &delta.note_id).await {
+        eprintln!(
+            "Kuzu sync_note_upsert failed for '{}': {}",
+            delta.note_id, err
+        );
         return;
     }
     
@@ -288,16 +305,16 @@ pub async fn create_note(
     let path_str = crate::utils::normalize_path(&file_path.to_string_lossy());
     
     // Update the index immediately if DB is ready
-    let db_guard = state.db.lock().await;
-    db_guard
+    let db = state.db.clone();
+    db
         .index_file(&path_str, 0, 0, None, None, &[])
         .await
         .unwrap_or_else(|e| log::warn!("Failed to index new file: {}", e));
-    db_guard
+    db
         .set_note_tags(&path_str, &[])
         .await
         .unwrap_or_else(|e| log::warn!("Failed to index new tags: {}", e));
-    db_guard
+    db
         .upsert_search_file(&path_str, 0, true)
         .await
         .unwrap_or_else(|e| log::warn!("Failed to index search file: {}", e));
@@ -327,8 +344,8 @@ pub async fn create_note(
         guard.index_batch(&[doc], &[]).ok();
     });
     
-    let db_guard = state.db.lock().await;
-    if let Err(err) = sync_note_upsert(kuzu_state.inner(), &db_guard, &path_str).await {
+    let db = state.db.clone();
+    if let Err(err) = sync_note_upsert(kuzu_state.inner(), db.as_ref(), &path_str).await {
         eprintln!("Kuzu sync_note_upsert failed for '{}': {}", path_str, err);
     }
     
@@ -432,8 +449,7 @@ pub async fn get_or_create_daily_note(
 /// This function is useful for "soft-deleting" items by moving them to a `.trash`
 /// subdirectory within a vault, while ensuring that the filenames are unique
 /// using a timestamp.
-#[tauri::command]
-pub async fn trash_item(
+async fn trash_item_internal(
     state: State<'_, AppState>,
     kuzu_state: State<'_, Mutex<ManagedKuzuConnection>>,
     item_path: String,
@@ -443,6 +459,7 @@ pub async fn trash_item(
     
     let item = Path::new(&item_path);
     if !item.exists() {
+
         return Err(TessellumError::NotFound("Item does not exist".to_string()));
     }
     let was_file = item.is_file();
@@ -451,7 +468,8 @@ pub async fn trash_item(
     let trash_dir = vault_root.join(".trash");
     
     if !trash_dir.exists() {
-        fs::create_dir_all(&trash_dir).map_err(TessellumError::Io)?;
+        fs::create_dir_all(&trash_dir)
+            .map_err(TessellumError::Io)?;
     }
     
     let timestamp = SystemTime::now()
@@ -459,27 +477,40 @@ pub async fn trash_item(
         .unwrap()
         .as_millis();
     
-    let trash_name = generate_trash_name(item, timestamp)
+    let trash_path = generate_unique_trash_path(&trash_dir, item, timestamp)
         .ok_or_else(|| TessellumError::Validation("Failed to generate trash name".to_string()))?;
     
-    let trash_path = trash_dir.join(&trash_name);
-    
-    fs::rename(item, &trash_path).map_err(TessellumError::Io)?;
+    tokio::fs::rename(item, &trash_path)
+        .await
+        .map_err(TessellumError::Io)?;
     
     // Recursively rename contents if it's a directory
     if trash_path.is_dir() {
         rename_recursively(&trash_path, timestamp).map_err(TessellumError::Io)?;
     }
     
-    let db_guard = state.db.lock().await;
-    db_guard
-        .delete_file(&item_path)
+    // Database/index cleanup is best-effort. The file is already moved to trash,
+    // so we avoid blocking the entire bulk operation on long-running DB operations.
+    let db = state.db.clone();
+    
+    match timeout(Duration::from_secs(5), db.delete_file(&item_path)).await {
+        Ok(Ok(())) => {}
+        Ok(Err(_)) => {},
+        Err(_) => todo!()
+    }
+    
+    match timeout(
+        Duration::from_secs(5),
+        db.delete_search_files(&[item_path.clone()]),
+    )
         .await
-        .map_err(TessellumError::from)?;
-    db_guard
-        .delete_search_files(&[item_path.clone()])
-        .await
-        .map_err(TessellumError::from)?;
+    {
+        Ok(Ok(_)) => {}
+        Err(_) => {
+        }
+        _ => {}
+    }
+
     
     let search_index = state.search_index.clone();
     let path = item_path.clone();
@@ -503,13 +534,69 @@ pub async fn trash_item(
             eprintln!("Kuzu sync lock failed for note delete '{}'", item_path);
         }
     } else {
-        let db_guard = state.db.lock().await;
-        if let Err(err) = sync_full(kuzu_state.inner(), &db_guard).await {
-            eprintln!("Kuzu sync_full failed after trashing '{}': {}", item_path, err);
+        match timeout(Duration::from_secs(5), sync_full(kuzu_state.inner(), db.as_ref())).await {
+            Ok(Ok(())) => {}
+            Ok(Err(err)) => {
+                eprintln!(
+                    "Kuzu sync_full failed after trashing '{}': {}",
+                    item_path, err
+                );
+            }
+            Err(_) => {
+            }
         }
     }
     
     Ok(())
+}
+
+#[tauri::command]
+pub async fn trash_item(
+    state: State<'_, AppState>,
+    kuzu_state: State<'_, Mutex<ManagedKuzuConnection>>,
+    item_path: String,
+    vault_path: String,
+) -> Result<(), TessellumError> {
+    trash_item_internal(state, kuzu_state, item_path, vault_path).await
+}
+
+#[tauri::command]
+pub async fn trash_items(
+    state: State<'_, AppState>,
+    kuzu_state: State<'_, Mutex<ManagedKuzuConnection>>,
+    item_paths: Vec<String>,
+    vault_path: String,
+) -> Result<TrashItemsResult, TessellumError> {
+
+    let mut deleted_paths = Vec::new();
+    let mut failed = Vec::new();
+    
+    for (_index, item_path) in item_paths.into_iter().enumerate() {
+
+        match trash_item_internal(
+            state.clone(),
+            kuzu_state.clone(),
+            item_path.clone(),
+            vault_path.clone(),
+        )
+            .await
+        {
+            Ok(()) => {
+
+                deleted_paths.push(item_path);
+            }
+            Err(error) => {
+                let message = error.to_string();
+
+                failed.push(TrashItemFailure { item_path, message });
+            }
+        }
+    }
+    
+    Ok(TrashItemsResult {
+        deleted_paths,
+        failed,
+    })
 }
 
 /// Reads the contents of a file at the given path and returns it as a `String`.
@@ -548,71 +635,16 @@ pub async fn write_file(
     Ok(())
 }
 
-/// Generates a "trash name" for the provided path, incorporating a cleaned-up parent directory name
-/// and a timestamp for unique identification.
-fn generate_trash_name(path: &Path, timestamp: u128) -> Option<String> {
-    let filename = path.file_name()?.to_string_lossy();
-    
-    // Get parent name, but clean it up
-    let raw_parent = path
-        .parent()
-        .and_then(|p| p.file_name())
-        .map(|n| n.to_string_lossy())
-        .unwrap_or_else(|| "root".into());
-    
-    // Simple parser: Stop at the first " (" to strip previous timestamps
-    let clean_parent = raw_parent.split(" (").next().unwrap_or(&raw_parent);
-    
-    if path.is_dir() {
-        Some(format!("{} ({}) {}", filename, clean_parent, timestamp))
-    } else {
-        let stem = filename.trim_end_matches(".md");
-        Some(format!("{} ({}) {}.md", stem, clean_parent, timestamp))
-    }
-}
-
-/// Recursively renames files and directories within a given directory, appending a timestamp-based
-/// identifier to their names.
-fn rename_recursively(dir: &Path, timestamp: u128) -> std::io::Result<()> {
-    use std::path::PathBuf;
-    
-    if !dir.is_dir() {
-        return Ok(());
-    }
-    
-    // Collect paths first to avoid issues while modifying the directory
-    let entries: Vec<PathBuf> = fs::read_dir(dir)?
-        .filter_map(|e| e.ok().map(|entry| entry.path()))
-        .collect();
-    
-    for path in entries {
-        if let Some(new_name) = generate_trash_name(&path, timestamp) {
-            let new_path = path.parent().unwrap().join(new_name);
-            
-            // Rename the current item
-            fs::rename(&path, &new_path)?;
-            
-            // If it is a directory, we must recurse into the NEW path
-            if new_path.is_dir() {
-                rename_recursively(&new_path, timestamp)?;
-            }
-        }
-    }
-    Ok(())
-}
-
 #[tauri::command]
 pub async fn get_all_notes(
     state: State<'_, AppState>,
 ) -> Result<Vec<(String, i64)>, TessellumError> {
-    let db_guard = state.db.lock().await;
-    db_guard
+    let db = state.db.clone();
+    db
         .get_all_indexed_files()
         .await
         .map_err(TessellumError::from)
 }
-
-use serde::Serialize;
 
 #[derive(Serialize)]
 pub struct NoteSuggestion {
@@ -629,8 +661,8 @@ pub async fn search_notes(
     vault_path: String,
     query: String,
 ) -> Result<Vec<NoteSuggestion>, TessellumError> {
-    let db_guard = state.db.lock().await;
-    let files = db_guard
+    let db = state.db.clone();
+    let files = db
         .get_all_indexed_files()
         .await
         .map_err(TessellumError::from)?;
@@ -677,17 +709,17 @@ pub async fn search_notes(
 
 #[tauri::command]
 pub async fn get_all_tags(state: State<'_, AppState>) -> Result<Vec<String>, TessellumError> {
-    let db_guard = state.db.lock().await;
-    db_guard.get_all_tags().await.map_err(TessellumError::from)
+    let db = state.db.clone();
+    db.get_all_tags().await.map_err(TessellumError::from)
 }
 #[tauri::command]
 pub async fn get_file_tags(
     state: State<'_, AppState>,
     path: String,
 ) -> Result<Vec<String>, TessellumError> {
-    let db_guard = state.db.lock().await;
+    let db = state.db.clone();
     let normalized = crate::utils::normalize_path(&path);
-    db_guard
+    db
         .get_file_tags(&normalized)
         .await
         .map_err(TessellumError::from)
@@ -697,8 +729,8 @@ pub async fn get_file_tags(
 pub async fn get_all_property_keys(
     state: State<'_, AppState>,
 ) -> Result<Vec<String>, TessellumError> {
-    let db_guard = state.db.lock().await;
-    db_guard
+    let db = state.db.clone();
+    db
         .get_all_property_keys()
         .await
         .map_err(TessellumError::from)

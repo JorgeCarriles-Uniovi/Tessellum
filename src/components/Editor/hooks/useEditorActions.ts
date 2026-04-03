@@ -12,6 +12,7 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
     const [content, setContent] = useState<string>("");
     const [isLoading, setIsLoading] = useState(false);
     const saveTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
+    const loadRequestIdRef = useRef(0);
     const { vaultPath, setActiveNoteContent, setIsDirty, setActiveNote } = useEditorStore();
     const activeNoteRef = useRef(activeNote);
     const vaultPathRef = useRef(vaultPath);
@@ -22,15 +23,28 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
     }, [activeNote, vaultPath]);
 
     useEffect(() => {
-        if (!activeNote) return;
+        if (!activeNote) {
+            loadRequestIdRef.current += 1;
+            setContent("");
+            setActiveNoteContent("");
+            setIsDirty(false);
+            setIsLoading(false);
+            return;
+        }
 
         if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+        const requestId = loadRequestIdRef.current + 1;
+        loadRequestIdRef.current = requestId;
+        let cancelled = false;
 
         const load = async () => {
             try {
                 setIsLoading(true);
 
                 if (isMediaFile(activeNote.path)) {
+                    if (cancelled || loadRequestIdRef.current !== requestId) {
+                        return;
+                    }
                     setContent("");
                     setActiveNoteContent("");
                     setIsDirty(false);
@@ -38,21 +52,33 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
                 }
 
                 const text = await invoke<string>('read_file', { vaultPath, path: activeNote.path });
+                if (cancelled || loadRequestIdRef.current !== requestId) {
+                    return;
+                }
                 setContent(text);
                 setActiveNoteContent(text);
                 setIsDirty(false);
             } catch (error) {
+                if (cancelled || loadRequestIdRef.current !== requestId) {
+                    return;
+                }
                 console.error("Failed to read file:", error);
                 const errorText = `Error loading file: ${activeNote.path}`;
                 setContent(errorText);
                 setActiveNoteContent(errorText);
                 setIsDirty(false);
             } finally {
-                setIsLoading(false);
+                if (!cancelled && loadRequestIdRef.current === requestId) {
+                    setIsLoading(false);
+                }
             }
         };
         load();
-    }, [activeNote?.path]);
+
+        return () => {
+            cancelled = true;
+        };
+    }, [activeNote?.path, setActiveNoteContent, setIsDirty, vaultPath]);
 
     const handleContentChange = useCallback((val: string) => {
         setContent(val);

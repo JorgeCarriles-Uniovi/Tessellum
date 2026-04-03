@@ -4,6 +4,7 @@ pub mod error;
 mod indexer;
 mod kuzu_projection;
 mod search;
+mod trash;
 pub mod models;
 mod utils;
 
@@ -62,6 +63,7 @@ pub fn run() {
             commands::notes::create_note,
             commands::notes::get_or_create_daily_note,
             commands::notes::trash_item,
+            commands::notes::trash_items,
             commands::notes::read_file,
             commands::notes::write_file,
             commands::notes::search_notes,

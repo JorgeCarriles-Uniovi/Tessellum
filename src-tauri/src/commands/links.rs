@@ -47,9 +47,9 @@ pub async fn get_backlinks(
     state: State<'_, AppState>,
     path: String,
 ) -> Result<Vec<String>, TessellumError> {
-    let db_guard = state.db.lock().await;
+    let db = state.db.clone();
     let normalized = crate::utils::normalize_path(&path);
-    db_guard
+    db
         .get_backlinks(&normalized)
         .await
         .map_err(TessellumError::from)
@@ -61,9 +61,9 @@ pub async fn get_outgoing_links(
     state: State<'_, AppState>,
     path: String,
 ) -> Result<Vec<String>, TessellumError> {
-    let db_guard = state.db.lock().await;
+    let db = state.db.clone();
     let normalized = crate::utils::normalize_path(&path);
-    db_guard
+    db
         .get_outgoing_links(&normalized)
         .await
         .map_err(TessellumError::from)
@@ -75,8 +75,8 @@ pub async fn get_outgoing_links(
 pub async fn get_all_links(
     state: State<'_, AppState>,
 ) -> Result<Vec<(String, String)>, TessellumError> {
-    let db_guard = state.db.lock().await;
-    db_guard.get_all_links().await.map_err(TessellumError::from)
+    let db = state.db.clone();
+    db.get_all_links().await.map_err(TessellumError::from)
 }
 
 /// Resolves a wikilink target to its full path.

@@ -72,17 +72,17 @@ pub async fn build_graph_data(
 	state: &AppState,
 	vault_path: &str,
 ) -> Result<GraphData, TessellumError> {
-	let db_guard = state.db.lock().await;
+	let db = state.db.clone();
 	
-	let notes = db_guard
+	let notes = db
 		.get_all_indexed_files()
 		.await
 		.map_err(TessellumError::from)?;
-	let links = db_guard
+	let links = db
 		.get_all_links()
 		.await
 		.map_err(TessellumError::from)?;
-	let broken_links: HashSet<(String, String)> = db_guard
+	let broken_links: HashSet<(String, String)> = db
 		.get_broken_links()
 		.await
 		.map_err(TessellumError::from)?
@@ -95,7 +95,7 @@ pub async fn build_graph_data(
 		})
 		.collect();
 	
-	let orphaned_files: HashSet<String> = db_guard
+	let orphaned_files: HashSet<String> = db
 		.get_orphaned_files()
 		.await
 		.map_err(TessellumError::from)?
@@ -103,7 +103,7 @@ pub async fn build_graph_data(
 		.map(|p| crate::utils::normalize_path(&p))
 		.collect();
 	
-	let file_tags = db_guard
+	let file_tags = db
 		.get_files_tags()
 		.await
 		.map_err(TessellumError::from)?;
