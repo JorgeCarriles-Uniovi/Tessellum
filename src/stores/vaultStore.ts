@@ -14,6 +14,7 @@ export interface VaultActions {
     setFiles: (files: FileMetadata[]) => void;
     setFileTree: (tree: TreeNode[]) => void;
     setActiveNote: (file: FileMetadata | null) => void;
+    removeFiles: (pathsToRemove: string[], nextActivePath?: string | null) => void;
     restoreWorkspaceTabs: (tabPaths: string[], activePath?: string | null) => void;
     reorderOpenTabs: (sourcePath: string, targetIndex: number) => void;
     closeTab: (path: string) => void;
@@ -25,6 +26,28 @@ export interface VaultActions {
 }
 
 export type VaultStore = VaultState & VaultActions;
+
+function findPreviousRemainingTab(
+    previousTabs: string[],
+    nextTabs: string[],
+    activePath: string | null,
+): string | null {
+    if (!activePath) {
+        return nextTabs[0] ?? null;
+    }
+
+    const activeIndex = previousTabs.indexOf(activePath);
+    if (activeIndex !== -1) {
+        for (let index = activeIndex - 1; index >= 0; index -= 1) {
+            const candidatePath = previousTabs[index];
+            if (nextTabs.includes(candidatePath)) {
+                return candidatePath;
+            }
+        }
+    }
+
+    return nextTabs[0] ?? null;
+}
 
 export const useVaultStore = create<VaultStore>((set) => ({
     vaultPath: localStorage.getItem("vaultPath"),
@@ -45,7 +68,10 @@ export const useVaultStore = create<VaultStore>((set) => ({
     setFiles: (files) => set((state) => {
         const fileByPath = new Map(files.map((file) => [file.path, file]));
         const nextOpenTabs = state.openTabPaths.filter((path) => fileByPath.has(path));
-        const nextActiveNote = state.activeNote ? fileByPath.get(state.activeNote.path) ?? null : null;
+        const preservedActivePath = state.activeNote?.path && fileByPath.has(state.activeNote.path)
+            ? state.activeNote.path
+            : findPreviousRemainingTab(state.openTabPaths, nextOpenTabs, state.activeNote?.path ?? null);
+        const nextActiveNote = preservedActivePath ? fileByPath.get(preservedActivePath) ?? null : null;
 
         return {
             files,
@@ -63,6 +89,21 @@ export const useVaultStore = create<VaultStore>((set) => ({
             openTabPaths: state.openTabPaths.includes(activeNote.path)
                 ? state.openTabPaths
                 : [...state.openTabPaths, activeNote.path],
+        };
+    }),
+    removeFiles: (pathsToRemove, nextActivePath) => set((state) => {
+        const removedPaths = new Set(pathsToRemove);
+        const nextFiles = state.files.filter((file) => !removedPaths.has(file.path));
+        const fileByPath = new Map(nextFiles.map((file) => [file.path, file]));
+        const nextOpenTabs = state.openTabPaths.filter((path) => fileByPath.has(path));
+        const resolvedActivePath = nextActivePath && fileByPath.has(nextActivePath)
+            ? nextActivePath
+            : null;
+
+        return {
+            files: nextFiles,
+            openTabPaths: nextOpenTabs,
+            activeNote: resolvedActivePath ? fileByPath.get(resolvedActivePath) ?? null : null,
         };
     }),
     restoreWorkspaceTabs: (tabPaths, activePath) => set((state) => {

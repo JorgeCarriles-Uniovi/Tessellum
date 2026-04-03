@@ -134,8 +134,8 @@ pub async fn search_tags(
 	let offset = request.offset.unwrap_or(0);
 	let match_all = request.match_mode == TagMatchMode::All;
 	
-	let db_guard = state.db.lock().await;
-	let (paths, total) = db_guard
+	let db = state.db.clone();
+	let (paths, total) = db
 		.search_notes_by_tags(&request.tags, match_all, limit, offset)
 		.await
 		.map_err(TessellumError::from)?;
@@ -237,8 +237,8 @@ pub async fn rebuild_search_index(
 		.map_err(|e| TessellumError::Internal(e))?;
 	
 	let (indexed_count, seen_paths) = result;
-	let db_guard = state.db.lock().await;
-	let existing = db_guard
+	let db = state.db.clone();
+	let existing = db
 		.get_all_search_files()
 		.await
 		.map_err(TessellumError::from)?;
@@ -251,13 +251,13 @@ pub async fn rebuild_search_index(
 		.cloned()
 		.collect();
 	if !deleted.is_empty() {
-		db_guard
+		db
 			.delete_search_files(&deleted)
 			.await
 			.map_err(TessellumError::from)?;
 	}
 	for (path, modified, is_md) in seen_paths {
-		db_guard
+		db
 			.upsert_search_file(&path, modified, is_md)
 			.await
 			.map_err(TessellumError::from)?;

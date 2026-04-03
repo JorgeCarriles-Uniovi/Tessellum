@@ -40,6 +40,7 @@ interface EditorState {
     setFiles: (files: FileMetadata[]) => void;
     setFileTree: (tree: TreeNode[]) => void;
     setActiveNote: (file: FileMetadata | null) => void;
+    removeFiles: (pathsToRemove: string[], nextActivePath?: string | null) => void;
     reorderOpenTabs: (sourcePath: string, targetIndex: number) => void;
     closeTab: (path: string) => void;
     closeOtherTabs: (path: string) => void;
@@ -98,6 +99,7 @@ export const useEditorStore = create<EditorState>(() => {
         setFiles: (files) => useVaultStore.getState().setFiles(files),
         setFileTree: (tree) => useVaultStore.getState().setFileTree(tree),
         setActiveNote: (file) => useVaultStore.getState().setActiveNote(file),
+        removeFiles: (pathsToRemove, nextActivePath) => useVaultStore.getState().removeFiles(pathsToRemove, nextActivePath),
         reorderOpenTabs: (sourcePath, targetIndex) => useVaultStore.getState().reorderOpenTabs(sourcePath, targetIndex),
         closeTab: (path) => useVaultStore.getState().closeTab(path),
         closeOtherTabs: (path) => useVaultStore.getState().closeOtherTabs(path),
@@ -157,11 +159,3 @@ useGraphStore.subscribe((state) => {
         selectedGraphNode: state.selectedGraphNode,
     });
 });
-
-useEditorContentStore.subscribe((state) => {
-    useEditorStore.setState({
-        activeNoteContent: state.activeNoteContent,
-        isDirty: state.isDirty,
-        editorFontSizePx: state.editorFontSizePx,
-    })
-})

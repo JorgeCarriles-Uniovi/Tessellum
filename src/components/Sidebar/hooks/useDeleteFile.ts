@@ -1,50 +1,240 @@
-import { useCallback } from 'react';
-import { useEditorStore } from '../../../stores/editorStore.ts';
+import { useCallback, useState } from 'react';
+import { useVaultStore } from '../../../stores/vaultStore.ts';
+import { useSelectionStore } from '../../../stores/selectionStore.ts';
 import { invoke } from "@tauri-apps/api/core";
-import { ask } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
-import { FileMetadata } from "../../../types.ts";
+import { FileMetadata, TreeNode } from "../../../types.ts";
+
+interface TrashItemsResult {
+    deleted_paths: string[];
+    failed: Array<{
+        item_path: string;
+        message: string;
+    }>;
+}
+
+function isDescendantPath(path: string, parentPath: string): boolean {
+    const separator = parentPath.includes('\\') ? '\\' : '/';
+    const childPrefix = parentPath + separator;
+    return path.startsWith(childPrefix);
+}
+
+function normalizeDeleteTargets(candidates: FileMetadata[]): FileMetadata[] {
+    const uniqueByPath = new Map<string, FileMetadata>();
+    candidates.forEach((candidate) => {
+        uniqueByPath.set(candidate.path, candidate);
+    });
+
+    const uniqueTargets = Array.from(uniqueByPath.values());
+
+    // If a folder is selected, there is no need to delete its descendants explicitly.
+    return uniqueTargets.filter((target) => !uniqueTargets.some((other) =>
+        other.path !== target.path &&
+        other.is_dir &&
+        isDescendantPath(target.path, other.path)
+    ));
+}
+
+function shouldRemovePath(path: string, targets: FileMetadata[]): boolean {
+    return targets.some((target) =>
+        path === target.path || (target.is_dir && isDescendantPath(path, target.path))
+    );
+}
+
+function findPreviousOpenNote(
+    activeNotePath: string,
+    openTabPaths: string[],
+    files: FileMetadata[],
+    targets: FileMetadata[],
+): FileMetadata | null {
+    const activeIndex = openTabPaths.indexOf(activeNotePath);
+    if (activeIndex <= 0) {
+        return null;
+    }
+
+    for (let index = activeIndex - 1; index >= 0; index -= 1) {
+        const candidatePath = openTabPaths[index];
+        if (shouldRemovePath(candidatePath, targets)) {
+            continue;
+        }
+
+        const candidate = files.find((file) => file.path === candidatePath);
+        if (candidate) {
+            return candidate;
+        }
+    }
+
+    return null;
+}
+
+function pruneTreeByTargets(nodes: TreeNode[], targets: FileMetadata[]): TreeNode[] {
+    return nodes
+        .filter((node) => !shouldRemovePath(node.id, targets))
+        .map((node) => ({
+            ...node,
+            children: pruneTreeByTargets(node.children ?? [], targets),
+        }));
+}
+
+function getDeleteErrorMessage(error: unknown): string {
+    if (typeof error === "string" && error.trim()) {
+        return error;
+    }
+
+    if (error && typeof error === "object") {
+        const message = Reflect.get(error, "message");
+        if (typeof message === "string" && message.trim()) {
+            return message;
+        }
+    }
+
+    return "Failed to trash item";
+}
+
+function summarizeFailedTargets(failedTargets: FileMetadata[]): string {
+    const previewNames = failedTargets.slice(0, 3).map((target) => target.filename);
+    const remainingCount = failedTargets.length - previewNames.length;
+    const preview = previewNames.join(", ");
+
+    return remainingCount > 0 ? `${preview} and ${remainingCount} more` : preview;
+}
 
 export function useDeleteFile() {
-    const { files, setFiles, activeNote, setActiveNote, vaultPath } = useEditorStore();
+    const {
+        removeFiles,
+        setFileTree,
+    } = useVaultStore();
+    const { clearSelection } = useSelectionStore();
+    const [targets, setTargets] = useState<FileMetadata[]>([]);
 
-    return useCallback(async (target: FileMetadata) => {
-        const yes = await ask("Are you sure you want to move \""+target.filename+"\" to trash?", {
-            title: 'Move to Trash',
-            kind: 'warning',
-            okLabel: 'Move to Trash',
-            cancelLabel: 'Cancel'
+    const requestDelete = useCallback((candidate: FileMetadata) => {
+        const { files } = useVaultStore.getState();
+        const { selectedFilePaths } = useSelectionStore.getState();
+        console.info("[bulk-delete] requestDelete:start", {
+            candidatePath: candidate.path,
+            selectedFilePaths,
+            filesCount: files.length,
         });
 
-        if (!yes) return;
+        const selectedTargets = selectedFilePaths
+            .map((selectedPath) => files.find((file) => file.path === selectedPath))
+            .filter((file): file is FileMetadata => Boolean(file));
 
-        try {
-            await invoke('trash_item', { itemPath: target.path, vaultPath: vaultPath });
+        const shouldDeleteSelection = selectedTargets.some((selected) => selected.path === candidate.path);
+        const candidates = shouldDeleteSelection && selectedTargets.length > 1
+            ? selectedTargets
+            : [candidate];
 
-            // Determine path separator based on the target path (supports Windows and POSIX)
-            const separator = target.path.includes('\\') ? '\\' : '/';
-            const childPrefix = target.path + separator;
-            // Remove item AND its children from store
-            const updatedFiles = files.filter(f =>
-                // Always remove the target itself
-                f.path !== target.path &&
-                // If target is a directory, remove its descendants with a proper boundary
-                !(target.is_dir && (f.path.startsWith(childPrefix)))
-            );
-            setFiles(updatedFiles);
-            if (activeNote) {
-                const activeIsTarget = activeNote.path === target.path;
-                const activeIsDescendant =
-                    target.is_dir && activeNote.path.startsWith(childPrefix);
-                if (activeIsTarget || activeIsDescendant) {
-                    setActiveNote(null);
-                }
-            }
+        const normalizedTargets = normalizeDeleteTargets(candidates);
+        console.info("[bulk-delete] requestDelete:resolvedTargets", {
+            shouldDeleteSelection,
+            selectedTargets: selectedTargets.map((target) => target.path),
+            candidateTargets: candidates.map((target) => target.path),
+            normalizedTargets: normalizedTargets.map((target) => target.path),
+            normalizedCount: normalizedTargets.length,
+        });
+        setTargets(normalizedTargets);
+    }, []);
 
-            toast.success("Moved to trash");
-        } catch (e) {
-            console.error(e);
-            toast.error("Failed to trash item");
+    const cancelDelete = useCallback(() => {
+        console.info("[bulk-delete] cancelDelete");
+        setTargets([]);
+    }, []);
+
+    const confirmDelete = useCallback(async () => {
+        if (targets.length === 0) {
+            console.info("[bulk-delete] confirmDelete:skippedNoTargets");
+            return;
         }
-    }, [files, activeNote, vaultPath, setFiles, setActiveNote]);
+
+        const pendingTargets = [...targets];
+        const {
+            files,
+            fileTree,
+            activeNote,
+            openTabPaths,
+            vaultPath,
+        } = useVaultStore.getState();
+        console.info("[bulk-delete] confirmDelete:start", {
+            pendingTargets: pendingTargets.map((target) => target.path),
+            vaultPath,
+            activeNotePath: activeNote?.path ?? null,
+            openTabPaths,
+        });
+
+        // Close the modal immediately so UI feedback is instant.
+        setTargets([]);
+        let result: TrashItemsResult;
+        try {
+            const itemPaths = pendingTargets.map((target) => target.path);
+            console.info("[bulk-delete] confirmDelete:invokeTrashItems", { itemPaths, vaultPath });
+            result = await invoke<TrashItemsResult>('trash_items', {
+                itemPaths,
+                vaultPath,
+            });
+            console.info("[bulk-delete] confirmDelete:invokeResult", result);
+        } catch (error) {
+            console.error(error);
+            console.error("[bulk-delete] confirmDelete:invokeError", error);
+            toast.error(getDeleteErrorMessage(error));
+            return;
+        }
+        const deletedTargetPaths = new Set(result.deleted_paths);
+        const deletedTargets = pendingTargets.filter((target) => deletedTargetPaths.has(target.path));
+        const failedTargets = pendingTargets.filter((target) =>
+            result.failed.some((failure) => failure.item_path === target.path)
+        );
+        const lastFailure = result.failed.length > 0 ? result.failed[result.failed.length - 1] : null;
+        const lastError = lastFailure?.message ?? null;
+        console.info("[bulk-delete] confirmDelete:classifiedResult", {
+            deletedTargetPaths: deletedTargets.map((target) => target.path),
+            failedTargets: failedTargets.map((target) => target.path),
+            failedDetails: result.failed,
+        });
+
+        if (deletedTargets.length > 0) {
+            const updatedTree = pruneTreeByTargets(fileTree, deletedTargets);
+            const removedPaths = files
+                .filter((file) => shouldRemovePath(file.path, deletedTargets))
+                .map((file) => file.path);
+            const fallbackNote = activeNote
+                ? findPreviousOpenNote(activeNote.path, openTabPaths, files, deletedTargets)
+                : null;
+            const nextActivePath = activeNote && !shouldRemovePath(activeNote.path, deletedTargets)
+                ? activeNote.path
+                : fallbackNote?.path ?? null;
+            console.info("[bulk-delete] confirmDelete:storeUpdate", {
+                removedPaths,
+                nextActivePath,
+            });
+
+            setFileTree(updatedTree);
+            removeFiles(removedPaths, nextActivePath);
+            clearSelection();
+        }
+
+        if (deletedTargets.length > 0) {
+            toast.success(deletedTargets.length > 1 ? "Items moved to trash" : "Moved to trash");
+        }
+
+        if (failedTargets.length > 0) {
+            const summary = summarizeFailedTargets(failedTargets);
+            toast.error(`${getDeleteErrorMessage(lastError)}: ${summary}`);
+        }
+        if (deletedTargets.length === 0 && failedTargets.length === 0) {
+            toast.error("No items were moved to trash");
+        }
+        console.info("[bulk-delete] confirmDelete:done", {
+            deletedCount: deletedTargets.length,
+            failedCount: failedTargets.length,
+        });
+    }, [targets, removeFiles, setFileTree, clearSelection]);
+
+    return {
+        requestDelete,
+        cancelDelete,
+        confirmDelete,
+        isDeleteModalOpen: targets.length > 0,
+        deleteTargets: targets,
+    };
 }

@@ -5,6 +5,7 @@ import { useUiStore, useVaultStore } from "../../stores";
 import { FileTree } from "../FileTree/FileTree";
 import { SidebarContextMenu } from "./SidebarContextMenu";
 import { InputModal } from "../InputModal";
+import { DeleteConfirmModal } from "../DeleteConfirmModal";
 import { useFileTree } from "../FileTree/hooks/useFileTree";
 import { useTessellumApp } from "../../plugins/TessellumApp";
 import { theme } from "../../styles/theme";
@@ -212,7 +213,11 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
         menuState,
         handleContextMenu,
         closeMenu,
-        deleteFile,
+        requestDelete,
+        cancelDelete,
+        confirmDelete,
+        isDeleteModalOpen,
+        deleteTargets,
         isFolderModalOpen,
         closeFolderModal,
         handleHeaderNewFolder,
@@ -462,7 +467,7 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
                     target={menuState.target}
                     onClose={closeMenu}
                     onRename={handleContextRename}
-                    onDelete={() => deleteFile(menuState.target)}
+                    onDelete={() => requestDelete(menuState.target)}
                     onNewNote={handleContextCreateNote}
                     onNewNoteFromTemplate={() => {
                         openTemplatePicker(getParentFromTarget(menuState.target));
@@ -495,6 +500,14 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
                 placeholder="Enter new name..."
                 defaultValue={getRenameInitialValue()}
                 submitLabel="Rename"
+            />
+
+            <DeleteConfirmModal
+                isOpen={isDeleteModalOpen}
+                targetNames={deleteTargets.map((target) => target.filename)}
+                hasDirectory={deleteTargets.some((target) => target.is_dir)}
+                onClose={cancelDelete}
+                onConfirm={confirmDelete}
             />
         </>
     );

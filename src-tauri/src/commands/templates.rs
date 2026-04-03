@@ -126,8 +126,8 @@ pub async fn create_note_from_template(
 	
 	let path_str = normalize_path(&file_path.to_string_lossy());
 	
-	let db_guard = state.db.lock().await;
-	db_guard
+	let db = state.db.clone();
+	db
 		.index_file(&path_str, 0, 0, None, None, &[])
 		.await
 		.unwrap_or_else(|e| log::warn!("Failed to index new file: {}", e));

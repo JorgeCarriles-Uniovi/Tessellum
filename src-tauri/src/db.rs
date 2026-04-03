@@ -1,5 +1,6 @@
+use std::time::Duration;
 use sqlx::Pool;
-use sqlx::sqlite::{Sqlite, SqliteConnectOptions, SqlitePoolOptions};
+use sqlx::sqlite::{Sqlite, SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions};
 
 pub struct Database {
     pool: Pool<Sqlite>,
@@ -10,7 +11,11 @@ impl Database {
     pub async fn init(db_path: &str) -> Result<Self, sqlx::Error> {
         let options = SqliteConnectOptions::new()
             .filename(db_path)
-            .create_if_missing(true);
+            .create_if_missing(true)
+            // Allow concurrent readers while writes are happening.
+            .journal_mode(SqliteJournalMode::Wal)
+            // Give SQLite write contention enough time to resolve.
+            .busy_timeout(Duration::from_secs(15));
         
         let pool = SqlitePoolOptions::new()
             .max_connections(5)

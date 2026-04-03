@@ -43,6 +43,21 @@ interface MenuCoords {
     placement: 'bottom' | 'top';
 }
 
+function getSafeCursorCoords(view: EditorView, cursorPos: number) {
+    const boundedPos = Math.max(0, Math.min(cursorPos, view.state.doc.length));
+    try {
+        return view.coordsAtPos(boundedPos);
+    } catch (error) {
+        console.warn("[editor-slash] coordsAtPos failed", {
+            cursorPos,
+            boundedPos,
+            docLength: view.state.doc.length,
+            error,
+        });
+        return null;
+    }
+}
+
 function useSlashTrigger(isOpenRef: RefObject<boolean>, openMenu: (coords: MenuCoords) => void) {
     return useMemo(() => EditorView.domEventHandlers({
         keydown: (event, view) => {
@@ -51,7 +66,7 @@ function useSlashTrigger(isOpenRef: RefObject<boolean>, openMenu: (coords: MenuC
                 const cursorPos = state.selection.main.from;
                 if (state.selection.main.empty && canTriggerSlash(state, cursorPos)) {
 
-                    const cursorCoords = view.coordsAtPos(cursorPos);
+                    const cursorCoords = getSafeCursorCoords(view, cursorPos);
                     const editorRect = view.dom.getBoundingClientRect();
 
                     if (cursorCoords && editorRect) {

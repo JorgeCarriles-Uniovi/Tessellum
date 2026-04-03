@@ -28,6 +28,21 @@ interface WikiLinkContext {
     bracketPos: number;     // Absolute position of [[
 }
 
+function getSafeCursorCoords(view: EditorView, cursorPos: number) {
+    const boundedPos = Math.max(0, Math.min(cursorPos, view.state.doc.length));
+    try {
+        return view.coordsAtPos(boundedPos);
+    } catch (error) {
+        console.warn("[editor-wikilink] coordsAtPos failed", {
+            cursorPos,
+            boundedPos,
+            docLength: view.state.doc.length,
+            error,
+        });
+        return null;
+    }
+}
+
 // ============================================================================
 // PURE UTILITIES
 // ============================================================================
@@ -195,7 +210,7 @@ function useWikiLinkTrigger(
                     const prevChar = state.doc.sliceString(cursorPos - 1, cursorPos);
                     if (prevChar === '[') {
                         // We have [[, open the menu
-                        const cursorCoords = view.coordsAtPos(cursorPos);
+                        const cursorCoords = getSafeCursorCoords(view, cursorPos);
                         const editorRect = view.dom.getBoundingClientRect();
 
                         if (cursorCoords && editorRect) {

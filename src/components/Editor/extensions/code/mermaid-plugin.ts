@@ -14,6 +14,18 @@ let mermaidIdCounter = 0;
 const mermaidThemeEffect = StateEffect.define<null>();
 const mermaidViews = new Set<EditorView>();
 
+function renderMermaidError(container: HTMLElement, error: unknown) {
+    container.innerHTML = "";
+    const errorDiv = document.createElement("div");
+    errorDiv.style.color = "var(--color-alert-text)";
+    errorDiv.style.border = "1px solid var(--color-alert-border)";
+    errorDiv.style.padding = "10px";
+    errorDiv.style.borderRadius = "4px";
+    errorDiv.style.background = "var(--color-alert-bg)";
+    errorDiv.textContent = `Mermaid Error: ${error instanceof Error ? error.message : String(error)}`;
+    container.appendChild(errorDiv);
+}
+
 class MermaidWidget extends WidgetType {
     private id: string;
     private panzoomInstance?: any;
@@ -83,29 +95,24 @@ class MermaidWidget extends WidgetType {
         wrapper.appendChild(container);
 
         // Render mermaid
-        mermaid.render(this.id, this.code).then(({ svg }) => {
-            container.innerHTML = svg;
-            const svgElement = container.querySelector("svg");
-            if (svgElement) {
-                // Initialize panzoom
-                this.panzoomInstance = panzoom(svgElement, {
-                    maxZoom: 15,
-                    minZoom: 0.1,
-                    bounds: true,
-                    boundsPadding: 0.1,
-                });
-            }
-        }).catch((err) => {
-            container.innerHTML = "";
-            const errorDiv = document.createElement("div");
-            errorDiv.style.color = "var(--color-alert-text)";
-            errorDiv.style.border = "1px solid var(--color-alert-border)";
-            errorDiv.style.padding = "10px";
-            errorDiv.style.borderRadius = "4px";
-            errorDiv.style.background = "var(--color-alert-bg)";
-            errorDiv.textContent = `Mermaid Error: ${err.message || err}`;
-            container.appendChild(errorDiv);
-        });
+        Promise.resolve()
+            .then(() => mermaid.render(this.id, this.code))
+            .then(({ svg }) => {
+                container.innerHTML = svg;
+                const svgElement = container.querySelector("svg");
+                if (svgElement) {
+                    // Initialize panzoom
+                    this.panzoomInstance = panzoom(svgElement, {
+                        maxZoom: 15,
+                        minZoom: 0.1,
+                        bounds: true,
+                        boundsPadding: 0.1,
+                    });
+                }
+            })
+            .catch((error) => {
+                renderMermaidError(container, error);
+            });
 
         return wrapper;
     }

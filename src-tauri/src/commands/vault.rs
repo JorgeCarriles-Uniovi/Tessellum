@@ -9,6 +9,7 @@ use crate::error::TessellumError;
 use crate::kuzu_projection::{sync_full, ManagedKuzuConnection};
 use crate::models::FileMetadata;
 use crate::search::SearchDoc;
+use crate::trash::purge_expired_trash;
 use crate::utils::{extract_tags, is_hidden_or_special, sanitize_string, validate_path_in_vault};
 
 /// Rewrite `[[OldStem]]` and `[[OldStem|alias]]` to `[[NewStem]]` / `[[NewStem|alias]]`
@@ -206,13 +207,13 @@ pub async fn rename_file(
         .await
         .map_err(TessellumError::from)?;
     
-    let db_guard = state.db.lock().await;
+    let db = state.db.clone();
     
     // Rewrite [[OldStem]] -> [[NewStem]] in all files that link to this note
     if is_file {
         if let (Some(os), Some(ns)) = (&old_stem, &new_stem) {
             if os != ns {
-                let backlinks = db_guard
+                let backlinks = db
                     .get_backlinks(&old_path)
                     .await
                     .map_err(TessellumError::from)?;
@@ -223,16 +224,16 @@ pub async fn rename_file(
     }
     
     // Update the DB index so backlinks and graph stay correct
-    db_guard
+    db
         .update_file_path(&old_path, &new_path.to_string_lossy())
         .await
         .map_err(TessellumError::from)?;
-    db_guard
+    db
         .update_search_file_path(&old_path, &new_path.to_string_lossy())
         .await
         .map_err(TessellumError::from)?;
     
-    if let Err(err) = sync_full(kuzu_state.inner(), &db_guard).await {
+    if let Err(err) = sync_full(kuzu_state.inner(), db.as_ref()).await {
         eprintln!("Kuzu sync_full failed after rename '{}': {}", old_path, err);
     }
     
@@ -351,19 +352,19 @@ pub async fn move_items(
             .map_err(TessellumError::from)?;
     }
     
-    let db_guard = state.db.lock().await;
+    let db = state.db.clone();
     for (old_path, new_path) in planned.iter() {
-        db_guard
+        db
             .update_file_path(old_path, new_path)
             .await
             .map_err(TessellumError::from)?;
-        db_guard
+        db
             .update_search_file_path(old_path, new_path)
             .await
             .map_err(TessellumError::from)?;
     }
     
-    if let Err(err) = sync_full(kuzu_state.inner(), &db_guard).await {
+    if let Err(err) = sync_full(kuzu_state.inner(), db.as_ref()).await {
         eprintln!("Kuzu sync_full failed after move_items: {}", err);
     }
     
@@ -499,7 +500,64 @@ pub fn set_vault_path(app: tauri::AppHandle, path: String) -> Result<(), String>
         .allow_directory(&path, true)
         .map_err(|e| e.to_string())?;
     
+    spawn_trash_retention_cleanup(path);
+    
     Ok(())
+}
+
+fn spawn_trash_retention_cleanup(vault_path: std::path::PathBuf) {
+    tauri::async_runtime::spawn_blocking(move || {
+        let report = purge_expired_trash(&vault_path.to_string_lossy(), 30);
+        if report.deleted > 0 || report.skipped_invalid_name > 0 || report.errors > 0 {
+            log::info!(
+                "Trash retention cleanup for '{}': deleted={}, skipped_invalid_name={}, errors={}",
+                vault_path.display(),
+                report.deleted,
+                report.skipped_invalid_name,
+                report.errors
+            );
+        }
+    });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::spawn_trash_retention_cleanup;
+    use std::fs;
+    use std::thread;
+    use std::time::Duration;
+    use std::time::{SystemTime, UNIX_EPOCH};
+    use tempfile::tempdir;
+    
+    #[test]
+    fn startup_cleanup_task_deletes_expired_top_level_trash_entry() {
+        let temp = tempdir().unwrap();
+        let vault = temp.path().to_path_buf();
+        let trash = vault.join(".trash");
+        fs::create_dir_all(&trash).unwrap();
+        
+        let now_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis();
+        let expired_ts = now_ms.saturating_sub(31_u128 * 24 * 60 * 60 * 1000);
+        let expired_file = trash.join(format!("Expired (Root) {}.md", expired_ts));
+        fs::write(&expired_file, "old").unwrap();
+        
+        spawn_trash_retention_cleanup(vault);
+        
+        // The cleanup task is async; poll briefly for completion.
+        let mut deleted = false;
+        for _ in 0..20 {
+            if !expired_file.exists() {
+                deleted = true;
+                break;
+            }
+            thread::sleep(Duration::from_millis(25));
+        }
+        
+        assert!(deleted, "expected startup cleanup to remove expired trash file");
+    }
 }
 
 

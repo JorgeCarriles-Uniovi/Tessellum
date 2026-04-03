@@ -457,6 +457,7 @@ const dividerStyle: CSSProperties = {
 
 function EditorBody({
                         editorRef,
+                        activeNotePath,
                         editorFontSizePx,
                         content,
                         editorExtensions,
@@ -476,6 +477,7 @@ function EditorBody({
                         handleSlashSelect,
                     }: {
     editorRef: RefObject<ReactCodeMirrorRef>;
+    activeNotePath: string;
     editorFontSizePx: number;
     content: string;
     editorExtensions: Extension[];
@@ -501,6 +503,7 @@ function EditorBody({
         >
             <div className="relative w-full">
                 <CodeMirror
+                    key={activeNotePath}
                     ref={editorRef}
                     value={content}
                     extensions={editorExtensions}
@@ -932,6 +935,7 @@ export function Editor() {
             <div className="w-full border-b" style={dividerStyle} />
             <EditorBody
                 editorRef={editorRef}
+                activeNotePath={activeNote.path}
                 content={content}
                 editorExtensions={editorExtensions}
                 handleContentChange={handleContentChangeGuarded}

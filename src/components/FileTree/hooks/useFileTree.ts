@@ -22,7 +22,11 @@ export function useFileTree() {
         closeMenu: actions.closeMenu,
         createNote: actions.createNote,
         createNoteFromTemplate: actions.createNoteFromTemplate,
-        deleteFile: actions.deleteFile,
+        requestDelete: actions.requestDelete,
+        cancelDelete: actions.cancelDelete,
+        confirmDelete: actions.confirmDelete,
+        isDeleteModalOpen: actions.isDeleteModalOpen,
+        deleteTargets: actions.deleteTargets,
 
         // Folder modal - map to expected names in Sidebar
         isFolderModalOpen: folderCreation.isOpen,
