@@ -11,6 +11,7 @@ import { useUiStore } from '../../stores';
 import { useTessellumApp } from '../../plugins/TessellumApp';
 import { theme } from '../../styles/theme';
 import { EDITOR_MODES, type EditorMode } from '../../constants/editorModes';
+import { useNavigationHistoryStore } from '../../stores/navigationHistoryStore';
 
 export function TitleBar() {
     const [isMaximized, setIsMaximized] = useState(false);
@@ -20,6 +21,8 @@ export function TitleBar() {
     const app = useTessellumApp();
     const leftActions = app.ui.getUIActions('titlebar-left');
     const rightActions = app.ui.getUIActions('titlebar-right');
+    const canGoBack = useNavigationHistoryStore((state) => state.canGoBack);
+    const canGoForward = useNavigationHistoryStore((state) => state.canGoForward);
     const appWindow = getCurrentWindow();
     const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
     const [isModeMenuClosing, setIsModeMenuClosing] = useState(false);
@@ -141,6 +144,26 @@ export function TitleBar() {
                 <div className="w-2" />
 
                 {leftActions.map((action) => {
+                    if (action.id === "nav-back" || action.id === "nav-forward") {
+                        const isBack = action.id === "nav-back";
+                        const enabled = isBack ? canGoBack : canGoForward;
+                        const tooltip = isBack
+                            ? (enabled ? "Back" : "No previous note")
+                            : (enabled ? "Forward" : "No next note");
+
+                        return (
+                            <NavButton
+                                key={action.id}
+                                onClick={action.onClick}
+                                tooltip={tooltip}
+                                disabled={!enabled}
+                                className={!enabled ? undefined : "hover:text-[color:var(--primary)] hover:shadow-[inset_0_0_0_1px_var(--primary)]"}
+                            >
+                                {renderTitlebarIcon(action.icon)}
+                            </NavButton>
+                        );
+                    }
+
                     if (action.id !== "open-palette") {
                         return (
                             <NavButton
@@ -359,9 +382,10 @@ interface NavButtonProps {
     active?: boolean;
     tooltip?: string;
     disabled?: boolean;
+    className?: string;
 }
 
-function NavButton({ onClick, children, active, tooltip, disabled }: NavButtonProps) {
+function NavButton({ onClick, children, active, tooltip, disabled, className }: NavButtonProps) {
     return (
         <button
             onClick={onClick}
@@ -372,7 +396,8 @@ function NavButton({ onClick, children, active, tooltip, disabled }: NavButtonPr
                 disabled
                     ? "opacity-40 cursor-not-allowed"
                     : "hover:bg-[color:var(--color-panel-hover)] text-[color:var(--color-text-muted)]",
-                active && "bg-[color:var(--color-panel-active)] text-[color:var(--color-text-primary)]"
+                active && "bg-[color:var(--color-panel-active)] text-[color:var(--color-text-primary)]",
+                className
             )}
             style={disabled ? { color: theme.colors.gray[400] } : undefined}
         >

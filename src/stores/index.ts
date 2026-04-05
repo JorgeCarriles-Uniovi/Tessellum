@@ -33,3 +33,13 @@ export type { SearchActions, SearchState, SearchStore } from "./searchStore";
 
 export { usePluginsStore } from "./pluginsStore";
 export type { PluginsActions, PluginsState, PluginsStore } from "./pluginsStore";
+
+export { useNavigationHistoryStore, selectCanGoBack, selectCanGoForward } from "./navigationHistoryStore";
+export type {
+    EditorHistoryEntry,
+    GraphHistoryEntry,
+    HistoryEntry,
+    NavigationHistoryState,
+    NavigationHistoryActions,
+    NavigationHistoryStore,
+} from "./navigationHistoryStore";
