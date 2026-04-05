@@ -4,6 +4,13 @@ import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
 import { TessellumApp } from "../../../plugins/TessellumApp";
 
+const markdownCloseBracketsExtension = markdownLanguage.data.of({
+    closeBrackets: {
+        // Reuse CodeMirror's native bracket behavior for markdown markers too.
+        brackets: ["(", "[", "{", "'", "\"", "`", "*", "$", "~"],
+    },
+});
+
 /**
  * Assembles the full CodeMirror extension array by combining:
  * 1. Base markdown language support
@@ -17,6 +24,7 @@ export function useEditorExtensions() {
         const app = TessellumApp.instance;
         return [
             markdown({ base: markdownLanguage, codeLanguages: languages }),
+            markdownCloseBracketsExtension,
             EditorView.lineWrapping,
             ...app.editor.getInitialExtensions(),
         ];
