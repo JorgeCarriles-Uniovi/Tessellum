@@ -18,6 +18,7 @@ export interface NavigationHistoryActions {
     record: (entry: HistoryEntry) => void;
     goBack: () => void;
     goForward: () => void;
+    completeReplay: () => void;
     reset: () => void;
 }
 
@@ -121,14 +122,10 @@ export const useNavigationHistoryStore = create<NavigationHistoryStore>((set, ge
         }
 
         set({ isReplaying: true });
-        try {
-            applyEntry(state.entries[targetIndex]);
-            set((current) => ({
-                ...withCursor(current, targetIndex),
-            }));
-        } finally {
-            set({ isReplaying: false });
-        }
+        applyEntry(state.entries[targetIndex]);
+        set((current) => ({
+            ...withCursor(current, targetIndex),
+        }));
     },
 
     goForward: () => {
@@ -143,15 +140,14 @@ export const useNavigationHistoryStore = create<NavigationHistoryStore>((set, ge
         }
 
         set({ isReplaying: true });
-        try {
-            applyEntry(state.entries[targetIndex]);
-            set((current) => ({
-                ...withCursor(current, targetIndex),
-            }));
-        } finally {
-            set({ isReplaying: false });
-        }
+        applyEntry(state.entries[targetIndex]);
+        set((current) => ({
+            ...withCursor(current, targetIndex),
+        }));
     },
+
+    // Replay stays active until the observer syncs its baseline to the replayed state.
+    completeReplay: () => set({ isReplaying: false }),
 
     reset: () => set({
         entries: [],

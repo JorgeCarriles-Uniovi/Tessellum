@@ -29,6 +29,7 @@ export function useWorkspaceNavigationHistory({ workspaceRestored }: UseWorkspac
     const activePath = useVaultStore((state) => state.activeNote?.path ?? null);
     const viewMode = useGraphStore((state) => state.viewMode);
     const record = useNavigationHistoryStore((state) => state.record);
+    const completeReplay = useNavigationHistoryStore((state) => state.completeReplay);
     const reset = useNavigationHistoryStore((state) => state.reset);
     const isReplaying = useNavigationHistoryStore((state) => state.isReplaying);
 
@@ -70,6 +71,7 @@ export function useWorkspaceNavigationHistory({ workspaceRestored }: UseWorkspac
         // Replayed transitions should update the baseline but must not append entries.
         if (isReplaying) {
             previousEntryRef.current = currentEntry;
+            completeReplay();
             return;
         }
 
@@ -78,5 +80,5 @@ export function useWorkspaceNavigationHistory({ workspaceRestored }: UseWorkspac
         }
 
         previousEntryRef.current = currentEntry;
-    }, [activePath, isReplaying, record, vaultPath, viewMode, workspaceRestored]);
+    }, [activePath, completeReplay, isReplaying, record, vaultPath, viewMode, workspaceRestored]);
 }
