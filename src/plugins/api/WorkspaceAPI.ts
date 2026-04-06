@@ -4,6 +4,7 @@ import type { EventRef } from "../types";
 import type { FileMetadata } from "../../types";
 import { useEditorModeStore, useGraphStore, useUiStore, useVaultStore } from "../../stores";
 import type { EditorMode } from "../../constants/editorModes";
+import { useNavigationHistoryStore } from "../../stores/navigationHistoryStore";
 
 /**
  * Wraps the editor store for workspace-level operations.
@@ -106,5 +107,21 @@ export class WorkspaceAPI {
     /** Subscribe to active note changes. Returns EventRef for auto-cleanup. */
     onActiveNoteChange(cb: (note: FileMetadata | null) => void): EventRef {
         return this.app.events.on("workspace:active-note-change", cb);
+    }
+
+    goBack(): void {
+        useNavigationHistoryStore.getState().goBack();
+    }
+
+    goForward(): void {
+        useNavigationHistoryStore.getState().goForward();
+    }
+
+    canGoBack(): boolean {
+        return useNavigationHistoryStore.getState().canGoBack;
+    }
+
+    canGoForward(): boolean {
+        return useNavigationHistoryStore.getState().canGoForward;
     }
 }

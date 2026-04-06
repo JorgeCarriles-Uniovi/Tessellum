@@ -98,21 +98,25 @@ export class CoreUIActionsPlugin extends Plugin {
             id: "nav-back",
             label: "Back",
             icon: <ArrowLeft size={16} />,
-            onClick: () => { },
-            disabled: true,
-            tooltip: "Coming soon",
+            onClick: () => {
+                this.app.workspace.goBack();
+            },
+            tooltip: "Back",
             region: "titlebar-left",
             order: 10,
+            disabled: !this.app.workspace.canGoBack(),
         });
         this.app.ui.registerUIAction(this.manifest.id, {
             id: "nav-forward",
             label: "Forward",
             icon: <ArrowRight size={16} />,
-            onClick: () => { },
-            disabled: true,
-            tooltip: "Coming soon",
+            onClick: () => {
+                this.app.workspace.goForward();
+            },
+            tooltip: "Forward",
             region: "titlebar-left",
             order: 20,
+            disabled: !this.app.workspace.canGoForward(),
         });
         this.app.ui.registerUIAction(this.manifest.id, {
             id: "open-palette",

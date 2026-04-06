@@ -35,6 +35,7 @@ import { useApplyAppearanceSettings } from "./hooks/useApplyAppearanceSettings";
 import { useApplyAccessibilitySettings } from "./hooks/useApplyAccessibilitySettings";
 import { useApplyThemeSchedule } from "./hooks/useApplyThemeSchedule";
 import { ColorFilterDefs } from "./components/Accessibility/ColorFilterDefs";
+import { useWorkspaceNavigationHistory } from "./hooks/useWorkspaceNavigationHistory";
 
 const WINDOW_KEY = "tessellum-window";
 
@@ -72,6 +73,7 @@ function App() {
     useApplyAppearanceSettings();
     useApplyThemeSchedule();
     useApplyAccessibilitySettings();
+    useWorkspaceNavigationHistory({ workspaceRestored });
 
     useEffect(() => {
         loadThemes();
