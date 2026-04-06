@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { Text } from "@codemirror/state";
-import { Link2, List, Tag } from "lucide-react";
+import { ChevronDown, ChevronRight, Link2, List, Tag } from "lucide-react";
 import { theme } from "../../styles/theme";
 import { BaseSidebar } from "./BaseSidebar";
 import { cn } from "../../lib/utils";
@@ -10,6 +10,7 @@ import { useTessellumApp } from "../../plugins/TessellumApp";
 import { useResizableSidebarWidth } from "./useResizableSidebarWidth";
 import { parseFrontmatter } from "../Editor/extensions/frontmatter/frontmatter-parser";
 import { stringToColor } from "../../utils/graphUtils";
+import { parseOutline } from "../../utils/outline";
 
 const SNIPPET_LIMIT = 20;
 const SNIPPET_MAX_LEN = 120;
@@ -354,19 +355,134 @@ function TagsSection({ activeNote, tags }: { activeNote: { path: string } | null
     );
 }
 
-function OutlineSection() {
+function getOutlineIndent(level: number): string {
+    return `calc(0.5rem + ${Math.max(level - 1, 0) * 0.875}rem)`;
+}
+
+function getOutlineKey(title: string, lineNumber: number): string {
+    return `${lineNumber}:${title}`;
+}
+
+function hasNestedChildren(items: ReturnType<typeof parseOutline>, index: number): boolean {
+    const currentLevel = items[index]?.level ?? 0;
+    const nextLevel = items[index + 1]?.level ?? 0;
+    return nextLevel > currentLevel;
+}
+
+function getVisibleOutlineItems(
+    items: ReturnType<typeof parseOutline>,
+    collapsedKeys: Set<string>
+) {
+    const hiddenLevels: number[] = [];
+
+    return items.filter((item) => {
+        while (hiddenLevels.length > 0 && item.level <= hiddenLevels[hiddenLevels.length - 1]) {
+            hiddenLevels.pop();
+        }
+
+        if (hiddenLevels.length > 0) {
+            return false;
+        }
+
+        if (collapsedKeys.has(getOutlineKey(item.title, item.lineNumber))) {
+            hiddenLevels.push(item.level);
+        }
+
+        return true;
+    });
+}
+
+function OutlineSection({
+                            activeNote,
+                            activeNoteContent,
+                            onNavigate,
+                        }: {
+    activeNote: { path: string } | null;
+    activeNoteContent?: string;
+    onNavigate: (lineNumber: number) => void;
+}) {
+    const outlineItems = useMemo(() => parseOutline(activeNoteContent ?? ""), [activeNoteContent]);
+    const [collapsedKeys, setCollapsedKeys] = useState<Set<string>>(new Set());
+    const visibleOutlineItems = useMemo(
+        () => getVisibleOutlineItems(outlineItems, collapsedKeys),
+        [outlineItems, collapsedKeys]
+    );
+
+    useEffect(() => {
+        setCollapsedKeys(new Set());
+    }, [activeNote?.path, activeNoteContent]);
+
+    function toggleCollapsed(itemTitle: string, lineNumber: number) {
+        const key = getOutlineKey(itemTitle, lineNumber);
+        setCollapsedKeys((current) => {
+            const next = new Set(current);
+            if (next.has(key)) {
+                next.delete(key);
+            } else {
+                next.add(key);
+            }
+            return next;
+        });
+    }
+
     return (
         <section className="space-y-4">
             <SidebarSectionHeader
                 title="Outline"
                 icon={<List size={SIDEBAR_ICON_SIZE} style={{ ...SIDEBAR_ICON_STYLE, color: theme.colors.text.muted, marginRight: "1rem" }} />}
             />
-            <div className="space-y-2 text-[0.75rem]" style={{ color: theme.colors.text.muted, padding: "1rem" }}>
-                <div className="flex items-center gap-2"> Meeting Goals</div>
-                <div className="flex items-center gap-2"> Technical Specs</div>
-                <div className="flex items-center gap-2" style={{ paddingLeft: theme.spacing[2] }}> Backend Refactor</div>
-                <div className="flex items-center gap-2"> Action Items</div>
-            </div>
+            {!activeNote ? (
+                <EmptyState>Select a note to see the outline.</EmptyState>
+            ) : outlineItems.length === 0 ? (
+                <EmptyState>No headers found.</EmptyState>
+            ) : (
+                <div className="space-y-1" style={{ padding: "1rem" }}>
+                    {visibleOutlineItems.map((item) => {
+                        const outlineIndex = outlineItems.findIndex(
+                            (outlineItem) =>
+                                outlineItem.lineNumber === item.lineNumber && outlineItem.title === item.title
+                        );
+                        const canCollapse = hasNestedChildren(outlineItems, outlineIndex);
+                        const isCollapsed = collapsedKeys.has(getOutlineKey(item.title, item.lineNumber));
+
+                        return (
+                            <div
+                                key={`${item.kind}-${item.lineNumber}-${item.title}`}
+                                className="flex items-center gap-1"
+                                style={{ paddingLeft: getOutlineIndent(item.level) }}
+                            >
+                                {canCollapse ? (
+                                    <button
+                                        type="button"
+                                        aria-label={`${isCollapsed ? "Expand" : "Collapse"} ${item.title} section`}
+                                        onClick={() => toggleCollapsed(item.title, item.lineNumber)}
+                                        className="flex h-5 w-5 items-center justify-center rounded-md transition-colors hover:bg-[color:var(--color-background-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--primary)]"
+                                        style={{ color: theme.colors.text.muted }}
+                                    >
+                                        {isCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+                                    </button>
+                                ) : (
+                                    <span className="h-5 w-5 shrink-0" aria-hidden="true" />
+                                )}
+                                <button
+                                    type="button"
+                                    onClick={() => onNavigate(item.lineNumber)}
+                                    className="flex-1 rounded-lg text-left text-[0.75rem] transition-all duration-150 hover:bg-[color:var(--color-background-secondary)] hover:text-[color:var(--color-text-primary)] hover:shadow-sm hover:translate-x-1 focus-visible:bg-[color:var(--color-background-secondary)] focus-visible:text-[color:var(--color-text-primary)] focus-visible:shadow-sm focus-visible:translate-x-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--primary)]"
+                                    style={{
+                                        color: theme.colors.text.muted,
+                                        paddingTop: "0.375rem",
+                                        paddingRight: "0.5rem",
+                                        paddingBottom: "0.375rem",
+                                        paddingLeft: "0.25rem",
+                                    }}
+                                >
+                                    {item.title}
+                                </button>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
         </section>
     );
 }
@@ -422,7 +538,13 @@ export function RightSidebar() {
                     onOpen={(path) => app.workspace.openNote(path)}
                 />
                 <TagsSection activeNote={activeNote} tags={allTags} />
-                <OutlineSection />
+                <OutlineSection
+                    activeNote={activeNote}
+                    activeNoteContent={activeNoteContent}
+                    onNavigate={(lineNumber) => {
+                        app.editor.navigateToLine(lineNumber);
+                    }}
+                />
             </div>
         </BaseSidebar>
     );

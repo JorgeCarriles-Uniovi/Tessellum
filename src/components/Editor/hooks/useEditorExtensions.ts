@@ -3,6 +3,7 @@ import { EditorView } from "@codemirror/view";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
 import { TessellumApp } from "../../../plugins/TessellumApp";
+import { markdownHeadingFoldExtension } from "../extensions/markdown-heading-fold";
 
 const markdownCloseBracketsExtension = markdownLanguage.data.of({
     closeBrackets: {
@@ -25,6 +26,7 @@ export function useEditorExtensions() {
         return [
             markdown({ base: markdownLanguage, codeLanguages: languages }),
             markdownCloseBracketsExtension,
+            markdownHeadingFoldExtension,
             EditorView.lineWrapping,
             ...app.editor.getInitialExtensions(),
         ];

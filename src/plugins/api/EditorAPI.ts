@@ -1,5 +1,5 @@
 import { Compartment, type Extension } from "@codemirror/state";
-import type { EditorView } from "@codemirror/view";
+import { EditorView } from "@codemirror/view";
 import type { TessellumApp } from "../TessellumApp";
 
 /**
@@ -18,9 +18,26 @@ export class EditorAPI {
         this.app = app;
     }
 
-    // Called when the EditorView is created/destroyed
-    setView(view: EditorView | null) : void{
+    // Called when the EditorView is created/destroyed.
+    setView(view: EditorView | null): void {
         this.view = view;
+    }
+
+    navigateToLine(lineNumber: number): boolean {
+        if (!this.view) return false;
+        if (!Number.isInteger(lineNumber) || !Number.isFinite(lineNumber)) return false;
+        if (lineNumber < 1 || lineNumber > this.view.state.doc.lines) return false;
+
+        const line = this.view.state.doc.line(lineNumber);
+        this.view.dispatch({
+            selection: { anchor: line.from },
+            effects: EditorView.scrollIntoView(line.from, {
+                y: "start",
+                yMargin: 24,
+            }),
+        });
+        this.view.focus();
+        return true;
     }
 
     /** Returns the initial array of Extensions.
@@ -29,8 +46,8 @@ export class EditorAPI {
      */
     getInitialExtensions(): Extension[] {
         return Array.from(this.compartments.entries()).map(
-            ([id, compartment]) =>
-                compartment.of(this.extensions.get(id) ?? []))
+            ([id, compartment]) => compartment.of(this.extensions.get(id) ?? [])
+        );
     }
 
     /**
@@ -47,23 +64,23 @@ export class EditorAPI {
         this.reconfigure(pluginId);
     }
 
-    // Remove the extensions of a plugin
+    // Remove the extensions of a plugin.
     unregisterExtensions(pluginId: string): void {
         this.extensions.delete(pluginId);
         this.reconfigure(pluginId);
     }
 
-    // Reconfigure the editor with the new extensions
+    // Reconfigure the editor with the new extensions.
     private reconfigure(pluginId: string): void {
         if (!this.view) return;
         const compartment = this.compartments.get(pluginId);
         if (!compartment) return;
         this.view.dispatch({
-            effects: compartment.reconfigure(this.extensions.get(pluginId) || [])
-        })
+            effects: compartment.reconfigure(this.extensions.get(pluginId) || []),
+        });
     }
 
-    // Get the active EditorView
+    // Get the active EditorView.
     getActiveView(): EditorView | null {
         return this.view;
     }
