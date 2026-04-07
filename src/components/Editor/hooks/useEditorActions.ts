@@ -37,6 +37,12 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
         loadRequestIdRef.current = requestId;
         let cancelled = false;
 
+        // Clear stale content immediately so dependent UI, including the outline,
+        // does not render the previous note while the new note is loading.
+        setContent("");
+        setActiveNoteContent("");
+        setIsDirty(false);
+
         const load = async () => {
             try {
                 setIsLoading(true);

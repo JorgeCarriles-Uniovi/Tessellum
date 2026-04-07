@@ -159,3 +159,11 @@ useGraphStore.subscribe((state) => {
         selectedGraphNode: state.selectedGraphNode,
     });
 });
+
+useEditorContentStore.subscribe((state) => {
+    useEditorStore.setState({
+        activeNoteContent: state.activeNoteContent,
+        isDirty: state.isDirty,
+        editorFontSizePx: state.editorFontSizePx,
+    });
+});
