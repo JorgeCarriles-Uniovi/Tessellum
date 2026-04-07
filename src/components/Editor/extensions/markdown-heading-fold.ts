@@ -15,6 +15,9 @@ import {
     type ViewUpdate,
     WidgetType,
 } from "@codemirror/view";
+import { createElement } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { ChevronRight } from "lucide-react";
 
 const HEADING_NODE_RE = /^ATXHeading([1-6])$/;
 const HEADING_FOLD_COLUMN_WIDTH = "1.5rem";
@@ -80,6 +83,8 @@ function isHeadingFolded(state: EditorState, foldRange: { from: number; to: numb
 }
 
 class HeadingFoldWidget extends WidgetType {
+    private iconRoot: Root | null = null;
+
     constructor(
         private readonly foldRange: { from: number; to: number },
         private readonly isFolded: boolean
@@ -95,6 +100,28 @@ class HeadingFoldWidget extends WidgetType {
         );
     }
 
+    private applyButtonState(button: HTMLButtonElement): void {
+        button.classList.toggle("is-expanded", !this.isFolded);
+        button.setAttribute("aria-expanded", (!this.isFolded).toString());
+        button.setAttribute("aria-label", this.isFolded ? "Expand heading" : "Collapse heading");
+    }
+
+    private attachToggleHandler(button: HTMLButtonElement, view: EditorView): void {
+        button.onclick = (event) => {
+            event.preventDefault();
+
+            // Toggle visual state immediately so the chevron transition is perceptible.
+            const isExpanded = button.classList.contains("is-expanded");
+            const nextExpanded = !isExpanded;
+            button.classList.toggle("is-expanded", nextExpanded);
+            button.setAttribute("aria-expanded", String(nextExpanded));
+            button.setAttribute("aria-label", nextExpanded ? "Collapse heading" : "Expand heading");
+
+            const effect = isExpanded ? foldEffect.of(this.foldRange) : unfoldEffect.of(this.foldRange);
+            view.dispatch({ effects: effect });
+        };
+    }
+
     toDOM(view: EditorView): HTMLElement {
         const marker = document.createElement("span");
         marker.className = "cm-heading-fold-marker";
@@ -103,15 +130,39 @@ class HeadingFoldWidget extends WidgetType {
         const button = document.createElement("button");
         button.type = "button";
         button.className = "cm-heading-fold-toggle";
-        button.textContent = this.isFolded ? "▸" : "▾";
-        button.setAttribute("aria-label", this.isFolded ? "Expand heading" : "Collapse heading");
-        button.onclick = (event) => {
-            event.preventDefault();
-            const effect = this.isFolded ? unfoldEffect.of(this.foldRange) : foldEffect.of(this.foldRange);
-            view.dispatch({ effects: effect });
-        };
+        this.applyButtonState(button);
+
+        const iconContainer = document.createElement("span");
+        iconContainer.className = "cm-heading-fold-icon";
+        this.iconRoot = createRoot(iconContainer);
+        this.iconRoot.render(
+            createElement(ChevronRight, {
+                size: 14,
+                strokeWidth: 2,
+                "aria-hidden": true,
+            })
+        );
+        button.appendChild(iconContainer);
+
+        this.attachToggleHandler(button, view);
         marker.appendChild(button);
         return marker;
+    }
+
+    updateDOM(dom: HTMLElement, view: EditorView): boolean {
+        const button = dom.querySelector(".cm-heading-fold-toggle");
+        if (!(button instanceof HTMLButtonElement)) {
+            return false;
+        }
+
+        this.applyButtonState(button);
+        this.attachToggleHandler(button, view);
+        return true;
+    }
+
+    destroy(): void {
+        this.iconRoot?.unmount();
+        this.iconRoot = null;
     }
 
     ignoreEvent(): boolean {
@@ -173,9 +224,38 @@ const headingFoldWidgetTheme = EditorView.baseTheme({
         margin: "0",
         padding: "0",
         pointerEvents: "auto",
+        transition: "color 200ms ease-in-out",
+    },
+    ".cm-heading-fold-icon": {
+        display: "inline-flex",
+        lineHeight: 0,
+        transition: "transform 200ms ease-in-out",
+        transform: "rotate(-90deg)",
+        willChange: "transform",
+    },
+    ".cm-heading-fold-toggle.is-expanded .cm-heading-fold-icon": {
+        transform: "rotate(0deg)",
+    },
+    ".cm-heading-fold-icon svg": {
+        width: "0.875rem",
+        height: "0.875rem",
     },
     ".cm-heading-fold-toggle:hover": {
         color: "var(--color-text-primary)",
+    },
+    ":root[data-reduced-motion='true'] .cm-heading-fold-toggle": {
+        transition: "none",
+    },
+    ":root[data-reduced-motion='true'] .cm-heading-fold-icon": {
+        transition: "none",
+    },
+    "@media (prefers-reduced-motion: reduce)": {
+        ".cm-heading-fold-toggle": {
+            transition: "none",
+        },
+        ".cm-heading-fold-icon": {
+            transition: "none",
+        },
     },
 });
 
