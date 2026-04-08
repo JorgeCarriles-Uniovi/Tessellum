@@ -15,6 +15,7 @@ import { DailyNotesPlugin } from "./DailyNotesPlugin";
 import { CoreUIActionsPlugin } from "./CoreUIActionsPlugin";
 import { MediaEmbedPlugin } from "./MediaEmbedPlugin";
 import { MediaPastePlugin } from "./MediaPastePlugin.ts";
+import {TaskListPlugin} from "./TaskListPlugin.ts";
 
 /**
  * Registers all built-in plugins with the PluginRegistry.
@@ -60,4 +61,5 @@ export function registerBuiltinPlugins(app: TessellumApp): void {
     app.plugins.register(InlineTagsPlugin.manifest, InlineTagsPlugin);
     app.plugins.register(DailyNotesPlugin.manifest, DailyNotesPlugin);
     app.plugins.register(CoreUIActionsPlugin.manifest, CoreUIActionsPlugin);
+    app.plugins.register(TaskListPlugin.manifest, TaskListPlugin);
 }
