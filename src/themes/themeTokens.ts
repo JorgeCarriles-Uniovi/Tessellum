@@ -74,6 +74,9 @@ export const THEME_TOKEN_MAP = {
 
     "code.string": "--syntax-string",
     "code.function": "--syntax-function",
+    "code.inline": "--code-inline-color",
+    "code.inlineBg": "--code-inline-bg",
+    "code.inlineBorder": "--code-inline-border",
     "code.hashtag": "--cm-hashtag",
     "code.hashtagBg": "--cm-hashtag-bg",
 

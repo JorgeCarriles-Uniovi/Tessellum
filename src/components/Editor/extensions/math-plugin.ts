@@ -1,13 +1,13 @@
 import {
-    Decoration,
     DecorationSet,
     EditorView,
     WidgetType,
 } from "@codemirror/view";
-import { StateField, EditorState, Extension, RangeSetBuilder } from "@codemirror/state";
+import { StateField, EditorState, Extension } from "@codemirror/state";
 import katex from "katex";
 import { findLatexExpressions } from "./shared-latex-utils";
 import { markdownPreviewForceHideFacet } from "./markdown-preview-plugin";
+import { buildPreviewDecorations, createPreviewClickHandler } from "./shared-preview-plugin";
 
 // ─── Widget ───────────────────────────────────────────────────────────────────
 
@@ -29,7 +29,7 @@ class MathWidget extends WidgetType {
         );
     }
 
-    toDOM(view: EditorView) {
+    toDOM() {
         const dom = document.createElement(this.isBlock ? "div" : "span");
         dom.className = this.isBlock ? "cm-math-block" : "cm-math-inline";
         dom.classList.add(this.isBlock ? "latex" : "latex-inline");
@@ -38,24 +38,6 @@ class MathWidget extends WidgetType {
             dom.style.display = "flex";
             dom.style.justifyContent = "center";
         }
-
-        dom.style.pointerEvents = "none";
-
-        const clickOverlay = document.createElement("div");
-        clickOverlay.style.position = "absolute";
-        clickOverlay.style.inset = "0";
-        clickOverlay.style.pointerEvents = "auto";
-        clickOverlay.style.cursor = "pointer";
-        clickOverlay.style.zIndex = "1";
-
-        clickOverlay.addEventListener("mousedown", (e: Event) => {
-            e.preventDefault();
-            e.stopPropagation();
-            view.dispatch({
-                selection: { anchor: this.startPos, head: this.endPos },
-            });
-            view.focus();
-        });
 
         const wrapper = document.createElement(this.isBlock ? "div" : "span");
         wrapper.style.position = "relative";
@@ -76,7 +58,6 @@ class MathWidget extends WidgetType {
         }
 
         wrapper.appendChild(dom);
-        wrapper.appendChild(clickOverlay);
 
         return wrapper;
     }
@@ -86,47 +67,28 @@ class MathWidget extends WidgetType {
     }
 }
 
+type MathPreviewRange = {
+    start: number;
+    end: number;
+    formula: string;
+    isBlock: boolean;
+    block: boolean;
+};
+
+function getMathPreviewRanges(docText: string): MathPreviewRange[] {
+    return findLatexExpressions(docText).map((range) => ({
+        ...range,
+        block: range.isBlock,
+    }));
+}
+
 // ─── Decoration Builder ───────────────────────────────────────────────────────
 
 function buildMathDecorations(state: EditorState) {
-    const builder = new RangeSetBuilder<Decoration>();
-    const selection = state.selection.main;
-    const forceHide = state.facet(markdownPreviewForceHideFacet);
-    const docText = state.doc.toString();
-
-    const matches = findLatexExpressions(docText);
-
-    for (const m of matches) {
-        const startLine = state.doc.lineAt(m.start);
-        const endLine = state.doc.lineAt(m.end);
-
-        // Check if cursor overlaps ANY line that the math expression occupies
-        const isFocused = selection.from <= endLine.to && selection.to >= startLine.from;
-
-        if (!isFocused || forceHide) {
-            builder.add(
-                m.start,
-                m.end,
-                Decoration.replace({
-                    widget: new MathWidget(m.formula, m.isBlock, m.start, m.end),
-                    block: m.isBlock,
-                })
-            );
-        } else {
-            // If focused, keep syntax visible but render a preview below the last line of the expression
-            builder.add(
-                endLine.to,
-                endLine.to,
-                Decoration.widget({
-                    widget: new MathWidget(m.formula, true, m.start, m.end),
-                    block: true,
-                    side: 1, // Render after the line content
-                })
-            );
-        }
-    }
-
-    return builder.finish();
+    return buildPreviewDecorations(state, getMathPreviewRanges(state.doc.toString()), {
+        createWidget: (range) => new MathWidget(range.formula, range.isBlock, range.start, range.end),
+        createFocusedWidget: (range) => new MathWidget(range.formula, true, range.start, range.end),
+    });
 }
 
 // ─── CM6 StateField + Click Handler ───────────────────────────────────────────
@@ -151,43 +113,10 @@ const mathStateField = StateField.define<MathDecorationsState>({
     provide: (field) => EditorView.decorations.from(field, (value) => value.decorations),
 });
 
-const mathClickHandlerExtension = EditorView.domEventHandlers({
-    mousedown(event, view) {
-        const target = event.target as HTMLElement;
-        const latexElement = target.closest(".cm-math-block, .cm-math-inline");
-
-        if (latexElement) {
-            event.preventDefault();
-            event.stopPropagation();
-
-            const wrapper = latexElement.parentElement;
-            if (wrapper) {
-                const pos = view.posAtDOM(wrapper);
-                if (pos !== null) {
-                    const docText = view.state.doc.toString();
-                    const matches = findLatexExpressions(docText);
-                    const match = matches.find(
-                        (m) => pos >= m.start && pos < m.end
-                    );
-
-                    if (match) {
-                        view.dispatch({
-                            selection: {
-                                anchor: match.start,
-                                head: match.end,
-                            },
-                        });
-                        view.focus();
-                    }
-                }
-            }
-
-            return true;
-        }
-
-        return false;
-    },
-});
+const mathClickHandlerExtension = createPreviewClickHandler(
+    ".cm-math-block, .cm-math-inline",
+    (state) => findLatexExpressions(state.doc.toString())
+);
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 

@@ -2,6 +2,7 @@ import type { TessellumApp } from "../TessellumApp";
 import { MarkdownPreviewPlugin } from "./MarkdownPreviewPlugin";
 import { DividerPlugin } from "./DividerPlugin";
 import { MathPlugin } from "./MathPlugin";
+import { InlineCodePlugin } from "./InlineCodePlugin";
 import { CalloutPlugin } from "./CalloutPlugin";
 import { TablePlugin } from "./TablePlugin";
 import { WikiLinkPlugin } from "./WikiLinkPlugin";
@@ -22,19 +23,20 @@ import { MediaPastePlugin } from "./MediaPastePlugin.ts";
  * (via Map insertion order in EditorAPI). Listed from
  * lowest-level to highest-level:
  *
- *  1. markdown-preview — hides syntax markers (fundamental to editing UX)
- *  2. divider — simple widget replacement
- *  3. math — KaTeX rendering
- *  4. callout — callout blocks with headers/content
- *  5. table — table rendering with cell navigation
- *  6. wikilink — link resolution and navigation
- *  7. core-commands — headings, lists, code blocks (no CM extensions, just commands)
- *  8. code — code block rendering with syntax highlighting
- *  9. mermaid — renders mermaid diagrams in markdown code blocks
- *  10. frontmatter — renders YAML frontmatter as a widget and hides syntax
- *  11. inline-tags — renders #tags and @mentions as widgets and hides syntax
- *  12. daily-notes — provides a sidebar action and command palette command to open today's daily note
- *  13. media-embed — renders image and PDF embeds in the editor
+ *  1. markdown-preview - hides syntax markers (fundamental to editing UX)
+ *  2. divider - simple widget replacement
+ *  3. math - KaTeX rendering
+ *  4. inline-code - renders markdown inline code spans when unfocused
+ *  5. callout - callout blocks with headers/content
+ *  6. table - table rendering with cell navigation
+ *  7. wikilink - link resolution and navigation
+ *  8. core-commands - headings, lists, code blocks (no CM extensions, just commands)
+ *  9. code - code block rendering with syntax highlighting
+ *  10. mermaid - renders mermaid diagrams in markdown code blocks
+ *  11. frontmatter - renders YAML frontmatter as a widget and hides syntax
+ *  12. inline-tags - renders #tags and @mentions as widgets and hides syntax
+ *  13. daily-notes - provides a sidebar action and command palette command to open today's daily note
+ *  14. media-embed - renders image and PDF embeds in the editor
  *
  * Note: The markdown-preview plugin is intentionally registered first to ensure
  * it can hide syntax markers for all subsequent plugins that add markdown syntax.
@@ -47,6 +49,7 @@ export function registerBuiltinPlugins(app: TessellumApp): void {
     app.plugins.register(MarkdownPreviewPlugin.manifest, MarkdownPreviewPlugin);
     app.plugins.register(DividerPlugin.manifest, DividerPlugin);
     app.plugins.register(MathPlugin.manifest, MathPlugin);
+    app.plugins.register(InlineCodePlugin.manifest, InlineCodePlugin);
     app.plugins.register(CalloutPlugin.manifest, CalloutPlugin);
     app.plugins.register(TablePlugin.manifest, TablePlugin);
     app.plugins.register(WikiLinkPlugin.manifest, WikiLinkPlugin);
