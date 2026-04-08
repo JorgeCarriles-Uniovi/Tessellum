@@ -527,6 +527,10 @@ export function RightSidebar() {
             <div
                 className="flex flex-col space-y-10 transition-all duration-300 ease-in-out"
                 style={{
+                    flex: 1,
+                    minHeight: 0,
+                    overflowY: "auto",
+                    overflowX: "hidden",
                     opacity: isRightSidebarOpen ? 1 : 0,
                     transform: isRightSidebarOpen ? "translateX(0)" : "translateX(8px)",
                 }}

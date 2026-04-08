@@ -4,7 +4,10 @@ import { mkdir, readDir, readTextFile, watch, type UnwatchFn } from "@tauri-apps
 import { BUILTIN_THEMES, DEFAULT_THEME_NAME, type ThemeDefinition } from "../themes/builtinThemes";
 import { getCssVarForToken, type ThemeTokenKey, type ThemeTokenMap } from "../themes/themeTokens";
 import { normalizeThemeName, parseJsonTheme, parseFlatYaml, parseThemeDefinition } from "../themes/themeUtils";
-import { applyAccentPaletteFromColor } from "../hooks/useApplyAppearanceSettings";
+import {
+    applyAccentPaletteFromColor,
+    applyAppearanceCustomCssVars,
+} from "../hooks/useApplyAppearanceSettings";
 import { useAppearanceStore } from "./appearanceStore";
 
 const THEME_STORAGE_KEY = "tessellum:appearance:theme";
@@ -43,6 +46,7 @@ function applyCssVars(vars: Record<string, string>) {
 function applyTheme(theme: ThemeDefinition, fallback: ThemeDefinition) {
     applyCssVars(buildCssVars(fallback.tokens));
     applyCssVars(buildCssVars(theme.tokens));
+    applyAppearanceCustomCssVars(useAppearanceStore.getState());
     const root = document.documentElement;
     root.dataset.theme = theme.variant;
     root.dataset.themeName = theme.name;

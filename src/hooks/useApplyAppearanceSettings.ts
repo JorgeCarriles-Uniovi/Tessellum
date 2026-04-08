@@ -249,6 +249,30 @@ function applyInlineCodeColors(snapshot: Pick<
     }, snapshot.inlineCodeCustom);
 }
 
+export function applyAppearanceCustomCssVars(snapshot: Pick<
+    AppearanceSnapshot,
+    | "terminalHeaderBg"
+    | "terminalLineBg"
+    | "terminalBorder"
+    | "terminalText"
+    | "terminalMuted"
+    | "terminalCustom"
+    | "syntaxComment"
+    | "syntaxKeyword"
+    | "syntaxOperator"
+    | "syntaxString"
+    | "syntaxNumber"
+    | "syntaxVariable"
+    | "syntaxFunction"
+    | "syntaxCustom"
+    | "inlineCodeColor"
+    | "inlineCodeCustom"
+>) {
+    applyTerminalColors(snapshot);
+    applySyntaxColors(snapshot);
+    applyInlineCodeColors(snapshot);
+}
+
 function applyAppearance(snapshot: AppearanceSnapshot) {
     const root = document.documentElement;
     root.dataset.density = snapshot.density;
@@ -256,9 +280,7 @@ function applyAppearance(snapshot: AppearanceSnapshot) {
     applySpacing(snapshot.density);
     applyRadius(snapshot.radius);
     applyShadows(snapshot.shadow);
-    applyTerminalColors(snapshot);
-    applySyntaxColors(snapshot);
-    applyInlineCodeColors(snapshot);
+    applyAppearanceCustomCssVars(snapshot);
     if (snapshot.accentSource === "custom") {
         applyAccentPalette(snapshot.accentColor);
     }
