@@ -91,6 +91,9 @@ const BASE_LIGHT_TOKENS: ThemeTokenMap = {
 
     "code.string": "#16a34a",
     "code.function": "#2563eb",
+    "code.inline": "var(--color-text-primary)",
+    "code.inlineBg": "color-mix(in srgb, var(--color-bg-tertiary) 85%, transparent)",
+    "code.inlineBorder": "color-mix(in srgb, var(--color-border-medium) 70%, transparent)",
     "code.hashtag": "#7c3aed",
     "code.hashtagBg": "rgba(124, 58, 237, 0.1)",
 
@@ -176,6 +179,9 @@ const BASE_DARK_TOKENS: ThemeTokenMap = {
 
     "code.string": "#16a34a",
     "code.function": "#60a5fa",
+    "code.inline": "var(--color-text-primary)",
+    "code.inlineBg": "color-mix(in srgb, var(--color-bg-tertiary) 92%, transparent)",
+    "code.inlineBorder": "color-mix(in srgb, var(--color-border-medium) 80%, transparent)",
     "code.hashtag": "#8b5cf6",
     "code.hashtagBg": "rgba(139, 92, 246, 0.15)",
 

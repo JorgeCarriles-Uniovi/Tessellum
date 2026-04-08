@@ -22,6 +22,8 @@ const SYNTAX_NUMBER_KEY = "tessellum:appearance:syntaxNumber";
 const SYNTAX_VARIABLE_KEY = "tessellum:appearance:syntaxVariable";
 const SYNTAX_FUNCTION_KEY = "tessellum:appearance:syntaxFunction";
 const SYNTAX_CUSTOM_KEY = "tessellum:appearance:syntaxCustom";
+const INLINE_CODE_COLOR_KEY = "tessellum:appearance:inlineCodeColor";
+const INLINE_CODE_CUSTOM_KEY = "tessellum:appearance:inlineCodeCustom";
 const THEME_SCHEDULE_MODE_KEY = "tessellum:appearance:themeScheduleMode";
 const THEME_SCHEDULE_LIGHT_START_KEY = "tessellum:appearance:themeScheduleLightStart";
 const THEME_SCHEDULE_DARK_START_KEY = "tessellum:appearance:themeScheduleDarkStart";
@@ -56,6 +58,8 @@ export interface AppearanceState {
     syntaxVariable: string;
     syntaxFunction: string;
     syntaxCustom: boolean;
+    inlineCodeColor: string;
+    inlineCodeCustom: boolean;
     themeScheduleMode: "off" | "system" | "sun" | "custom";
     themeScheduleLightStart: string;
     themeScheduleDarkStart: string;
@@ -86,6 +90,8 @@ export interface AppearanceActions {
     setSyntaxVariable: (value: string) => void;
     setSyntaxFunction: (value: string) => void;
     setSyntaxCustom: (value: boolean) => void;
+    setInlineCodeColor: (value: string) => void;
+    setInlineCodeCustom: (value: boolean) => void;
     setThemeScheduleMode: (value: "off" | "system" | "sun" | "custom") => void;
     setThemeScheduleLightStart: (value: string) => void;
     setThemeScheduleDarkStart: (value: string) => void;
@@ -107,6 +113,7 @@ const DEFAULT_SYNTAX_STRING = "#50a14f";
 const DEFAULT_SYNTAX_NUMBER = "#986801";
 const DEFAULT_SYNTAX_VARIABLE = "#e45649";
 const DEFAULT_SYNTAX_FUNCTION = "#4078f2";
+const DEFAULT_INLINE_CODE_COLOR = "#111827";
 const DEFAULT_THEME_SCHEDULE_MODE: AppearanceState["themeScheduleMode"] = "off";
 const DEFAULT_THEME_SCHEDULE_LIGHT_START = "08:00";
 const DEFAULT_THEME_SCHEDULE_DARK_START = "20:00";
@@ -158,6 +165,8 @@ export const useAppearanceStore = create<AppearanceStore>((set) => ({
     syntaxVariable: readString(SYNTAX_VARIABLE_KEY, DEFAULT_SYNTAX_VARIABLE),
     syntaxFunction: readString(SYNTAX_FUNCTION_KEY, DEFAULT_SYNTAX_FUNCTION),
     syntaxCustom: readBoolean(SYNTAX_CUSTOM_KEY, false),
+    inlineCodeColor: readString(INLINE_CODE_COLOR_KEY, DEFAULT_INLINE_CODE_COLOR),
+    inlineCodeCustom: readBoolean(INLINE_CODE_CUSTOM_KEY, false),
     themeScheduleMode: readString(THEME_SCHEDULE_MODE_KEY, DEFAULT_THEME_SCHEDULE_MODE) as AppearanceState["themeScheduleMode"],
     themeScheduleLightStart: readString(THEME_SCHEDULE_LIGHT_START_KEY, DEFAULT_THEME_SCHEDULE_LIGHT_START),
     themeScheduleDarkStart: readString(THEME_SCHEDULE_DARK_START_KEY, DEFAULT_THEME_SCHEDULE_DARK_START),
@@ -265,6 +274,15 @@ export const useAppearanceStore = create<AppearanceStore>((set) => ({
     setSyntaxCustom: (syntaxCustom) => set(() => {
         localStorage.setItem(SYNTAX_CUSTOM_KEY, String(syntaxCustom));
         return { syntaxCustom };
+    }),
+    setInlineCodeColor: (inlineCodeColor) => set(() => {
+        localStorage.setItem(INLINE_CODE_COLOR_KEY, inlineCodeColor);
+        localStorage.setItem(INLINE_CODE_CUSTOM_KEY, "true");
+        return { inlineCodeColor, inlineCodeCustom: true };
+    }),
+    setInlineCodeCustom: (inlineCodeCustom) => set(() => {
+        localStorage.setItem(INLINE_CODE_CUSTOM_KEY, String(inlineCodeCustom));
+        return { inlineCodeCustom };
     }),
     setThemeScheduleMode: (themeScheduleMode) => set(() => {
         localStorage.setItem(THEME_SCHEDULE_MODE_KEY, themeScheduleMode);

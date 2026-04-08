@@ -157,3 +157,21 @@
     font-size: 1.05em;
     line-height: normal;
 }
+
+.cm-inline-code-wrapper {
+    display: inline-block;
+}
+
+.cm-inline-code-render {
+    display: inline-block;
+    padding: 0.08rem 0.38rem;
+    border-radius: 0.35rem;
+    border: 1px solid var(--code-inline-border);
+    background: var(--code-inline-bg);
+    color: var(--code-inline-color);
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.9em;
+    line-height: 1.4;
+    vertical-align: baseline;
+    white-space: pre;
+}

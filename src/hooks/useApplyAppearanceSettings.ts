@@ -197,6 +197,8 @@ type AppearanceSnapshot = {
     syntaxVariable: string;
     syntaxFunction: string;
     syntaxCustom: boolean;
+    inlineCodeColor: string;
+    inlineCodeCustom: boolean;
 };
 
 function setOrClearCssVars(vars: Record<string, string>, enabled: boolean) {
@@ -238,6 +240,39 @@ function applySyntaxColors(snapshot: Pick<
     }, snapshot.syntaxCustom);
 }
 
+function applyInlineCodeColors(snapshot: Pick<
+    AppearanceSnapshot,
+    "inlineCodeColor" | "inlineCodeCustom"
+>) {
+    setOrClearCssVars({
+        "--code-inline-color": snapshot.inlineCodeColor,
+    }, snapshot.inlineCodeCustom);
+}
+
+export function applyAppearanceCustomCssVars(snapshot: Pick<
+    AppearanceSnapshot,
+    | "terminalHeaderBg"
+    | "terminalLineBg"
+    | "terminalBorder"
+    | "terminalText"
+    | "terminalMuted"
+    | "terminalCustom"
+    | "syntaxComment"
+    | "syntaxKeyword"
+    | "syntaxOperator"
+    | "syntaxString"
+    | "syntaxNumber"
+    | "syntaxVariable"
+    | "syntaxFunction"
+    | "syntaxCustom"
+    | "inlineCodeColor"
+    | "inlineCodeCustom"
+>) {
+    applyTerminalColors(snapshot);
+    applySyntaxColors(snapshot);
+    applyInlineCodeColors(snapshot);
+}
+
 function applyAppearance(snapshot: AppearanceSnapshot) {
     const root = document.documentElement;
     root.dataset.density = snapshot.density;
@@ -245,8 +280,7 @@ function applyAppearance(snapshot: AppearanceSnapshot) {
     applySpacing(snapshot.density);
     applyRadius(snapshot.radius);
     applyShadows(snapshot.shadow);
-    applyTerminalColors(snapshot);
-    applySyntaxColors(snapshot);
+    applyAppearanceCustomCssVars(snapshot);
     if (snapshot.accentSource === "custom") {
         applyAccentPalette(snapshot.accentColor);
     }
@@ -274,7 +308,9 @@ function isSameAppearance(a: AppearanceSnapshot | null, b: AppearanceSnapshot): 
         a.syntaxNumber === b.syntaxNumber &&
         a.syntaxVariable === b.syntaxVariable &&
         a.syntaxFunction === b.syntaxFunction &&
-        a.syntaxCustom === b.syntaxCustom
+        a.syntaxCustom === b.syntaxCustom &&
+        a.inlineCodeColor === b.inlineCodeColor &&
+        a.inlineCodeCustom === b.inlineCodeCustom
     );
 }
 
@@ -311,6 +347,8 @@ export function useApplyAppearanceSettings() {
                 syntaxVariable: state.syntaxVariable,
                 syntaxFunction: state.syntaxFunction,
                 syntaxCustom: state.syntaxCustom,
+                inlineCodeColor: state.inlineCodeColor,
+                inlineCodeCustom: state.inlineCodeCustom,
             });
         });
 

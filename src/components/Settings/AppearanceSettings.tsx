@@ -52,6 +52,10 @@ export function AppearanceSettings() {
     const setSyntaxFunction = useAppearanceStore((state) => state.setSyntaxFunction);
     const syntaxCustom = useAppearanceStore((state) => state.syntaxCustom);
     const setSyntaxCustom = useAppearanceStore((state) => state.setSyntaxCustom);
+    const inlineCodeColor = useAppearanceStore((state) => state.inlineCodeColor);
+    const setInlineCodeColor = useAppearanceStore((state) => state.setInlineCodeColor);
+    const inlineCodeCustom = useAppearanceStore((state) => state.inlineCodeCustom);
+    const setInlineCodeCustom = useAppearanceStore((state) => state.setInlineCodeCustom);
     const themeScheduleMode = useAppearanceStore((state) => state.themeScheduleMode);
     const setThemeScheduleMode = useAppearanceStore((state) => state.setThemeScheduleMode);
     const themeScheduleLightStart = useAppearanceStore((state) => state.themeScheduleLightStart);
@@ -346,6 +350,25 @@ export function AppearanceSettings() {
                     <ColorField label="Number" value={syntaxNumber} onChange={setSyntaxNumber} disabled={!syntaxCustom} />
                     <ColorField label="Variable" value={syntaxVariable} onChange={setSyntaxVariable} disabled={!syntaxCustom} />
                     <ColorField label="Function" value={syntaxFunction} onChange={setSyntaxFunction} disabled={!syntaxCustom} />
+                </div>
+            </SettingSection>
+
+            <SettingSection title="Inline Code" description="Customize rendered inline code text color">
+                <div className="mb-4">
+                    <ToggleSetting
+                        label="Custom inline code color"
+                        description="Override the theme default for rendered inline code text"
+                        checked={inlineCodeCustom}
+                        onChange={setInlineCodeCustom}
+                    />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                    <ColorField
+                        label="Text"
+                        value={inlineCodeColor}
+                        onChange={setInlineCodeColor}
+                        disabled={!inlineCodeCustom}
+                    />
                 </div>
             </SettingSection>
 
