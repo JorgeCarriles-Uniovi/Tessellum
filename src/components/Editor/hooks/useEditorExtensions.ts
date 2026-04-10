@@ -4,6 +4,8 @@ import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
 import { TessellumApp } from "../../../plugins/TessellumApp";
 import { markdownHeadingFoldExtension } from "../extensions/markdown-heading-fold";
+import type { EditorMode } from "../../../constants/editorModes";
+import { getInitialExtensionPluginIds } from "./sourceModeExtensions";
 
 const markdownCloseBracketsExtension = markdownLanguage.data.of({
     closeBrackets: {
@@ -20,15 +22,20 @@ const markdownCloseBracketsExtension = markdownLanguage.data.of({
  * The plugin extensions are wrapped in Compartments by EditorAPI,
  * allowing individual plugins to be reconfigured at runtime.
  */
-export function useEditorExtensions() {
+export function useEditorExtensions(editorMode: EditorMode) {
     return useMemo(() => {
         const app = TessellumApp.instance;
+        const visiblePluginIds = getInitialExtensionPluginIds(
+            editorMode,
+            app.editor.getRegisteredExtensionPluginIds()
+        );
+
         return [
             markdown({ base: markdownLanguage, codeLanguages: languages }),
             markdownCloseBracketsExtension,
             markdownHeadingFoldExtension,
             EditorView.lineWrapping,
-            ...app.editor.getInitialExtensions(),
+            ...app.editor.getInitialExtensionsForPluginIds(visiblePluginIds),
         ];
-    }, []);
+    }, [editorMode]);
 }

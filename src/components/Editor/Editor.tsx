@@ -612,7 +612,7 @@ export function Editor() {
         handleSlashSelectRef.current?.(cmd, view);
     });
 
-    const pluginExtensions = useEditorExtensions();
+    const pluginExtensions = useEditorExtensions(editorMode);
     const { wikiLinkSuggestionsExtension, wikiLinkSuggestionsProps } = useWikiLinkSuggestions(vaultPath || "");
     const {
         handleSlashSelect,
