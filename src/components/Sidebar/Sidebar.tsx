@@ -16,6 +16,7 @@ import { useFileSync } from "../FileTree/hooks/useFileSync";
 import { cn } from "../../lib/utils";
 import { useResizableSidebarWidth } from "../Layout/useResizableSidebarWidth";
 import { SearchPanel } from "../Search/SearchPanel";
+import { TrashModal } from "../TrashModal/TrashModal";
 
 const LEFT_SIDEBAR_WIDTH_KEY = "tessellum:left-sidebar-width";
 const LEFT_SIDEBAR_MIN = 220;
@@ -234,6 +235,7 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
     const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
     const [templatePickerParent, setTemplatePickerParent] = useState<string | undefined>(undefined);
     const [hoveredActionId, setHoveredActionId] = useState<string | null>(null);
+    const [isTrashModalOpen, setIsTrashModalOpen] = useState(false);
 
     const vaultName = vaultPath ? vaultPath.split(/[\\/]/).pop() || vaultPath : "No vault";
 
@@ -255,6 +257,15 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
         });
         return () => app.events.off(ref);
     }, [app]);
+
+    useEffect(() => {
+        const ref = app.events.on("ui:open-trash", () => {
+            if (vaultPath) {
+                setIsTrashModalOpen(true);
+            }
+        });
+        return () => app.events.off(ref);
+    }, [app, vaultPath]);
 
     const sidebarChrome = (
         <div
@@ -403,11 +414,12 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
                             <div style={footerStyle}>
                                 {footerActions.map((action) => {
                                     const isHovered = hoveredActionId === action.id;
+                                    const disabled = action.disabled || (!vaultPath && action.id === "sidebar-trash");
                                     return (
                                         <button
                                             key={action.id}
-                                            style={footerButtonStyle(isHovered, action.disabled)}
-                                            onClick={action.disabled ? undefined : action.onClick}
+                                            style={footerButtonStyle(isHovered, disabled)}
+                                            onClick={disabled ? undefined : action.onClick}
                                             onMouseEnter={() => setHoveredActionId(action.id)}
                                             onMouseLeave={() => setHoveredActionId(null)}
                                             title={action.tooltip || action.label}
@@ -508,6 +520,12 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
                 hasDirectory={deleteTargets.some((target) => target.is_dir)}
                 onClose={cancelDelete}
                 onConfirm={confirmDelete}
+            />
+
+            <TrashModal
+                isOpen={isTrashModalOpen}
+                onClose={() => setIsTrashModalOpen(false)}
+                vaultPath={vaultPath}
             />
         </>
     );

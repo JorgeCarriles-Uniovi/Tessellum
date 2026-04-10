@@ -12,6 +12,12 @@ pub struct PurgeReport {
 	pub errors: usize,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParsedTrashName {
+	pub original_name: String,
+	pub parent_label: String,
+}
+
 /// Generates a unique trash name using the current naming format:
 /// "<stem-or-dirname> (<parent>) <timestamp>[.md]"
 pub fn generate_trash_name(path: &Path, timestamp: u128) -> Option<String> {
@@ -96,6 +102,110 @@ pub fn parse_trash_timestamp(name: &str) -> Option<u128> {
 	let without_ext = name.strip_suffix(".md").unwrap_or(name);
 	let (_, timestamp) = without_ext.rsplit_once(' ')?;
 	timestamp.parse::<u128>().ok()
+}
+
+pub fn parse_trash_entry_name(name: &str, is_dir: bool) -> Option<ParsedTrashName> {
+	let without_ext = if is_dir {
+		name
+	} else {
+		name.strip_suffix(".md")?
+	};
+	let (name_and_parent, timestamp) = without_ext.rsplit_once(' ')?;
+	if timestamp.parse::<u128>().is_err() {
+		return None;
+	}
+	let close_index = name_and_parent.rfind(')')?;
+	let open_index = name_and_parent[..close_index].rfind(" (")?;
+	let base_name = name_and_parent[..open_index].trim();
+	let parent_label = name_and_parent[open_index + 2..close_index].trim();
+	if base_name.is_empty() || parent_label.is_empty() {
+		return None;
+	}
+	
+	let original_name = if is_dir {
+		base_name.to_string()
+	} else {
+		format!("{base_name}.md")
+	};
+	
+	Some(ParsedTrashName {
+		original_name,
+		parent_label: parent_label.to_string(),
+	})
+}
+
+pub fn build_restored_destination_path(destination_dir: &Path, original_name: &str) -> Option<PathBuf> {
+	let original_path = destination_dir.join(original_name);
+	if !original_path.exists() {
+		return Some(original_path);
+	}
+	
+	let (stem, extension) = split_name_parts(original_name);
+	let restored_stem = format!("{stem} (Restored)");
+	let initial_name = match extension {
+		Some(ext) => format!("{restored_stem}.{ext}"),
+		None => restored_stem.clone(),
+	};
+	let initial_path = destination_dir.join(&initial_name);
+	if !initial_path.exists() {
+		return Some(initial_path);
+	}
+	
+	let mut index = 1;
+	loop {
+		let candidate_name = match extension {
+			Some(ext) => format!("{restored_stem} ({index}).{ext}"),
+			None => format!("{restored_stem} ({index})"),
+		};
+		let candidate_path = destination_dir.join(candidate_name);
+		if !candidate_path.exists() {
+			return Some(candidate_path);
+		}
+		index += 1;
+	}
+}
+
+pub fn permanently_delete_trash_entry(path: &Path) -> std::io::Result<()> {
+	if path.is_dir() {
+		fs::remove_dir_all(path)
+	} else {
+		fs::remove_file(path)
+	}
+}
+
+pub fn restore_trashed_names_recursively(dir: &Path) -> std::io::Result<()> {
+	if !dir.is_dir() {
+		return Ok(());
+	}
+	
+	let entries: Vec<PathBuf> = fs::read_dir(dir)?
+		.filter_map(|entry| entry.ok().map(|value| value.path()))
+		.collect();
+	
+	for entry_path in entries {
+		let is_dir = entry_path.is_dir();
+		let entry_name = entry_path
+			.file_name()
+			.and_then(|value| value.to_str())
+			.unwrap_or_default();
+		
+		let renamed_path = match parse_trash_entry_name(entry_name, is_dir) {
+			Some(parsed) => {
+				let parent_dir = entry_path.parent().unwrap_or(dir);
+				let next_path = build_restored_destination_path(parent_dir, &parsed.original_name)
+					.unwrap_or_else(|| parent_dir.join(&parsed.original_name));
+				fs::rename(&entry_path, &next_path)?;
+				next_path
+			}
+			None => entry_path,
+		};
+		
+		if renamed_path.is_dir() {
+			restore_trashed_names_recursively(&renamed_path)?;
+		}
+	}
+	
+	Ok(())
 }
 
 pub fn purge_expired_trash(vault_path: &str, retention_days: u64) -> PurgeReport {
@@ -203,6 +313,95 @@ mod tests {
 		assert_eq!(parse_trash_timestamp("no-timestamp.md"), None);
 		assert_eq!(parse_trash_timestamp("Bad (Parent) abc.md"), None);
 		assert_eq!(parse_trash_timestamp(""), None);
+	}
+	
+	#[test]
+	fn parse_trash_entry_name_extracts_original_file_name_and_parent() {
+		let parsed =
+			parse_trash_entry_name("Meeting Notes (Projects) 1740681450123.md", false).unwrap();
+		assert_eq!(parsed.original_name, "Meeting Notes.md");
+		assert_eq!(parsed.parent_label, "Projects");
+	}
+	
+	#[test]
+	fn parse_trash_entry_name_extracts_original_folder_name_and_parent() {
+		let parsed = parse_trash_entry_name("Drafts (Root) 1740681450123", true).unwrap();
+		assert_eq!(parsed.original_name, "Drafts");
+		assert_eq!(parsed.parent_label, "Root");
+	}
+	
+	#[test]
+	fn parse_trash_entry_name_rejects_invalid_names() {
+		assert_eq!(parse_trash_entry_name("no timestamp here.md", false), None);
+		assert_eq!(parse_trash_entry_name("MissingParent 123.md", false), None);
+	}
+	
+	#[test]
+	fn build_restored_destination_path_uses_original_name_when_available() {
+		let dir = tempdir().unwrap();
+		let destination = build_restored_destination_path(dir.path(), "Note.md").unwrap();
+		assert_eq!(
+			destination.file_name().and_then(|value| value.to_str()),
+			Some("Note.md")
+		);
+	}
+	
+	#[test]
+	fn build_restored_destination_path_adds_restored_suffix_and_counter_for_files() {
+		let dir = tempdir().unwrap();
+		let destination = dir.path();
+		fs::write(destination.join("Note.md"), "").unwrap();
+		fs::write(destination.join("Note (Restored).md"), "").unwrap();
+		
+		let resolved = build_restored_destination_path(destination, "Note.md").unwrap();
+		
+		assert_eq!(
+			resolved.file_name().and_then(|value| value.to_str()),
+			Some("Note (Restored) (1).md")
+		);
+	}
+	
+	#[test]
+	fn build_restored_destination_path_adds_restored_suffix_and_counter_for_folders() {
+		let dir = tempdir().unwrap();
+		let destination = dir.path();
+		fs::create_dir_all(destination.join("Project")).unwrap();
+		fs::create_dir_all(destination.join("Project (Restored)")).unwrap();
+		
+		let resolved = build_restored_destination_path(destination, "Project").unwrap();
+		
+		assert_eq!(
+			resolved.file_name().and_then(|value| value.to_str()),
+			Some("Project (Restored) (1)")
+		);
+	}
+	
+	#[test]
+	fn permanently_delete_trash_entry_removes_top_level_directory() {
+		let dir = tempdir().unwrap();
+		let trash_dir = dir.path().join(".trash");
+		let trashed = trash_dir.join("Project (Root) 1740681450123");
+		fs::create_dir_all(trashed.join("nested")).unwrap();
+		
+		permanently_delete_trash_entry(&trashed).unwrap();
+		
+		assert!(!trashed.exists());
+	}
+	
+	#[test]
+	fn restore_trashed_names_recursively_restores_nested_file_names() {
+		let dir = tempdir().unwrap();
+		let project_dir = dir.path().join("Project");
+		fs::create_dir_all(&project_dir).unwrap();
+		fs::write(
+			project_dir.join("Child Note (Project) 1740681450123.md"),
+			"nested",
+		)
+			.unwrap();
+		
+		restore_trashed_names_recursively(&project_dir).unwrap();
+		
+		assert!(project_dir.join("Child Note.md").exists());
 	}
 	
 	#[test]

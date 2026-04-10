@@ -172,9 +172,10 @@ export class CoreUIActionsPlugin extends Plugin {
             id: "sidebar-trash",
             label: "Trash",
             icon: <Trash2 size={16} />,
-            onClick: () => { },
-            disabled: true,
-            tooltip: "Coming soon",
+            onClick: () => {
+                this.app.events.emit("ui:open-trash");
+            },
+            tooltip: "Trash",
             region: "sidebar-footer",
             order: 30,
         });
