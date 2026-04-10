@@ -53,5 +53,5 @@ export function findTaskListItems(docText: string): TaskListItem[] {
  * Normalizes task toggles to the requested compact unchecked form.
  */
 export function getToggledTaskMarker(_marker: string, checked: boolean): string {
-    return checked ? "- []" : "- [x]";
+    return checked ? "- [ ]" : "- [x]";
 }
