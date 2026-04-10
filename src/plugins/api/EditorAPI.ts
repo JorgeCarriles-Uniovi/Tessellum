@@ -50,6 +50,20 @@ export class EditorAPI {
         );
     }
 
+    getInitialExtensionsForPluginIds(pluginIds: string[]): Extension[] {
+        return pluginIds.flatMap((pluginId) => {
+            const compartment = this.compartments.get(pluginId);
+            if (!compartment) {
+                return [];
+            }
+            return [compartment.of(this.extensions.get(pluginId) ?? [])];
+        });
+    }
+
+    getRegisteredExtensionPluginIds(): string[] {
+        return Array.from(this.compartments.keys());
+    }
+
     /**
      * Registers the extensions for a plugin. Replaces the plugins extension
      * set.

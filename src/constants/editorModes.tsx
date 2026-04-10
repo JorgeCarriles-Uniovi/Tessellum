@@ -26,7 +26,6 @@ export const EDITOR_MODES: Record<
         statusLabel: "EDITING",
         editable: true,
         icon: <Code2 size={12} />,
-        disabled: true,
     },
 };
 
