@@ -11,6 +11,7 @@ import { Extension, Facet, RangeSetBuilder } from "@codemirror/state";
 import { getCalloutLinePositions } from "./callout/callout-plugin";
 import { CALLOUT_HEADER_RE } from "./callout/callout-parser";
 import { getTableLinePositions } from "./table/table-plugin";
+import { findTaskListItems } from "./task-list/task-list-parser";
 
 // Set of mark types we want to hide
 const HIDDEN_MARKS = new Set([
@@ -61,12 +62,16 @@ function buildDecorations(view: EditorView, forceHide: boolean): DecorationSet {
     const builder = new RangeSetBuilder<Decoration>();
     const selection = view.state.selection.main;
     const selectionLine = view.state.doc.lineAt(selection.from);
+    const taskListLinePositions = new Set(
+        findTaskListItems(view.state.doc.toString()).map((item) => item.lineStart)
+    );
 
     // Gather callout line positions and types so we can skip hiding marks in terminal callouts.
     const calloutMap = getCalloutLinePositions(view);
     const tablePositions = getTableLinePositions(view);
 
     const shouldSkipForTable = (lineFrom: number) => tablePositions.has(lineFrom);
+    const isTaskListLine = (lineFrom: number) => taskListLinePositions.has(lineFrom);
     const isInTerminalCallout = (lineFrom: number) => calloutMap.get(lineFrom) === "terminal";
     const isCalloutOwnedLine = (lineFrom: number) => calloutMap.has(lineFrom);
     const isLinkLike = (nodeName: string) => nodeName === "LinkMark" || nodeName === "URL";
@@ -153,6 +158,10 @@ function buildDecorations(view: EditorView, forceHide: boolean): DecorationSet {
             }
 
             if (name === "ListMark") {
+                if (isTaskListLine(line.from)) {
+                    return;
+                }
+
                 addListDecoration(from, to);
                 return;
             }
