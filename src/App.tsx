@@ -176,6 +176,17 @@ function App() {
     }, [app]);
 
     useEffect(() => {
+        const ref = app.events.on("vault:refresh-files", () => {
+            if (!vaultPath) {
+                return;
+            }
+            refreshFiles(vaultPath, false);
+            invoke('sync_vault', { vaultPath }).catch(console.error);
+        });
+        return () => app.events.off(ref);
+    }, [app, vaultPath]);
+
+    useEffect(() => {
         const ref = app.events.on("ui:set-theme", (nextTheme: string) => {
             if (typeof nextTheme === "string") {
                 useThemeStore.getState().setActiveTheme(nextTheme);
