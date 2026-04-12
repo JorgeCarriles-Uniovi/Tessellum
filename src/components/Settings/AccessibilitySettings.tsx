@@ -3,6 +3,7 @@ import { SettingItem } from "./items/SettingItem.tsx";
 import { ToggleSetting } from "./items/ToggleSetting.tsx";
 import { useAccessibilityStore } from "../../stores";
 import type { ColorFilter, UiScale } from "../../stores/accessibilityStore";
+import { useAppTranslation } from "../../i18n/react.tsx";
 
 export function AccessibilitySettings() {
     const highContrast = useAccessibilityStore((state) => state.highContrast);
@@ -13,6 +14,7 @@ export function AccessibilitySettings() {
     const setUiScale = useAccessibilityStore((state) => state.setUiScale);
     const colorFilter = useAccessibilityStore((state) => state.colorFilter);
     const setColorFilter = useAccessibilityStore((state) => state.setColorFilter);
+    const { t } = useAppTranslation("settings");
     const inputStyle = {
         borderColor: "var(--color-border-light)",
         backgroundColor: "var(--color-panel-bg)",
@@ -25,14 +27,14 @@ export function AccessibilitySettings() {
 
     return (
         <div className="space-y-6">
-            <SettingSection title="Readability" description="Improve visibility and comfort">
+            <SettingSection title={t("accessibility.readabilityTitle")} description={t("accessibility.readabilityDescription")}>
                 <ToggleSetting
-                    label="High contrast"
-                    description="Increase contrast for better readability"
+                    label={t("accessibility.highContrast")}
+                    description={t("accessibility.highContrastDescription")}
                     checked={highContrast}
                     onChange={setHighContrast}
                 />
-                <SettingItem label="UI Scale">
+                <SettingItem label={t("accessibility.uiScale")}>
                     <select
                         value={String(uiScale)}
                         onChange={(e) => setUiScale(Number(e.target.value) as UiScale)}
@@ -48,24 +50,24 @@ export function AccessibilitySettings() {
                 </SettingItem>
             </SettingSection>
 
-            <SettingSection title="Motion" description="Reduce animations and transitions">
+            <SettingSection title={t("accessibility.motionTitle")} description={t("accessibility.motionDescription")}>
                 <ToggleSetting
-                    label="Reduce motion"
-                    description="Minimize animations and motion effects"
+                    label={t("accessibility.reduceMotion")}
+                    description={t("accessibility.reduceMotionDescription")}
                     checked={reducedMotion}
                     onChange={setReducedMotion}
                 />
             </SettingSection>
 
-            <SettingSection title="Color" description="Color accessibility options">
-                <SettingItem label="Color filter">
+            <SettingSection title={t("accessibility.colorTitle")} description={t("accessibility.colorDescription")}>
+                <SettingItem label={t("accessibility.colorFilter")}>
                     <select
                         value={colorFilter}
                         onChange={(e) => setColorFilter(e.target.value as ColorFilter)}
                         className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)] focus:border-transparent transition-all cursor-pointer"
                         style={inputStyle}
                     >
-                        <option value="none">None</option>
+                        <option value="none">{t("accessibility.none")}</option>
                         <option value="protanopia">Protanopia</option>
                         <option value="deuteranopia">Deuteranopia</option>
                         <option value="tritanopia">Tritanopia</option>

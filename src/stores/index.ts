@@ -9,6 +9,7 @@ export { useEditorModeStore } from "./editorModeStore";
 export type { EditorModeActions, EditorModeState, EditorModeStore } from "./editorModeStore";
 
 export { useSettingsStore } from "./settingsStore";
+export { readStoredLocale, DEFAULT_LOCALE } from "./settingsStore";
 export type { SettingsActions, SettingsState, SettingsStore } from "./settingsStore";
 
 export { useAppearanceStore } from "./appearanceStore";

@@ -2,6 +2,7 @@ import { X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { HeroProjection, WorkspaceCardItem } from "./types";
 import { stringToColor } from "../../../utils/graphUtils";
+import { useAppTranslation } from "../../../i18n/react.tsx";
 
 interface WorkspaceOverviewProps {
     cards: WorkspaceCardItem[];
@@ -74,6 +75,7 @@ export function WorkspaceOverview({
                                       onClose,
                                       onSelectCard,
                                   }: WorkspaceOverviewProps) {
+    const { t } = useAppTranslation("core");
     const cardRefs = useRef<(HTMLButtonElement | null)[]>([]);
     const activeCardIndex = useMemo(() => cards.findIndex((card) => card.isActive), [cards]);
     const [focusedIndex, setFocusedIndex] = useState(-1);
@@ -213,7 +215,7 @@ export function WorkspaceOverview({
                                  paddingTop: "1rem",
                                  paddingBottom: "1rem"
                              }}>
-                            Workspace Overview
+                            {t("workspaceOverview.title")}
                         </div>
                         <button
                             onClick={onClose}
@@ -223,7 +225,7 @@ export function WorkspaceOverview({
                                 backgroundColor: "var(--color-bg-secondary)",
                                 color: "var(--color-text-muted)",
                             }}
-                            aria-label="Close workspace overview"
+                            aria-label={t("workspaceOverview.close")}
                         >
                             <X size={14} />
                         </button>
@@ -291,7 +293,7 @@ export function WorkspaceOverview({
                                             paddingBottom: "0.2rem"
                                         }}
                                     >
-                                        {card.contentPreview || "No text preview available"}
+                                        {card.contentPreview || t("editor.emptyPreview")}
                                     </div>
                                     {card.tags.length > 0 && (
                                         <div className="mt-2 flex flex-wrap gap-1.5" style={{ gap: "0.3rem", paddingBottom: "0.5rem", paddingTop: "0.2rem" }}>
@@ -310,7 +312,7 @@ export function WorkspaceOverview({
                                         className="mt-3 pt-3 border-t flex items-center justify-between text-[10px] md:text-[11px]"
                                         style={{ borderColor: "var(--color-border-light)", color: "var(--color-text-muted)" }}
                                     >
-                                        <span>{card.isActive ? "Current" : "Open tab"}</span>
+                                        <span>{card.isActive ? t("workspaceOverview.current") : t("workspaceOverview.openTab")}</span>
                                         <span>{formatEditedAt(card.lastModified)}</span>
                                     </div>
                                 </button>

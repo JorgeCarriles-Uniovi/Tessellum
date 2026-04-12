@@ -38,6 +38,11 @@ export class PluginRegistry {
                 loaded++;
             } catch (e) {
                 console.error('[PluginRegistry] Error loading plugin:', id, e);
+                try {
+                    plugin[PLUGIN_CLEANUP]();
+                } catch (cleanupError) {
+                    console.error("[PluginRegistry] Error cleaning failed plugin:", id, cleanupError);
+                }
                 this.disabled.add(id);
             }
         }
@@ -68,6 +73,11 @@ export class PluginRegistry {
             this.disabled.delete(id);
         } catch (e) {
             console.error('[PluginRegistry] Error re-enabling plugin:', id, e);
+            try {
+                plugin[PLUGIN_CLEANUP]();
+            } catch (cleanupError) {
+                console.error("[PluginRegistry] Error cleaning failed plugin re-enable:", id, cleanupError);
+            }
             this.disabled.add(id);
         }
     }

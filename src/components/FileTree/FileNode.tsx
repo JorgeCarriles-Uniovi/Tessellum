@@ -11,6 +11,7 @@ import {
     FileDown,
 } from 'lucide-react';
 import { TbFileTypePdf } from "react-icons/tb";
+import { useAppTranslation } from "../../i18n/react.tsx";
 
 export type DropPosition = 'before' | 'after' | 'inside' | null;
 
@@ -379,6 +380,7 @@ interface FileNodeChildrenProps {
     onDragStartIntent: (e: React.MouseEvent, node: TreeNode, isSelected: boolean) => void;
     dragOverPath: string | null;
     dragOverPosition: DropPosition | null;
+    emptyLabel: string;
 }
 
 function FileNodeChildren({
@@ -390,6 +392,7 @@ function FileNodeChildren({
                               onDragStartIntent,
                               dragOverPath,
                               dragOverPosition,
+                              emptyLabel,
                           }: FileNodeChildrenProps) {
     if (!node.is_dir) return null;
 
@@ -418,7 +421,7 @@ function FileNodeChildren({
                         className="py-2 pr-2 text-xs italic text-muted-foreground opacity-60"
                         style={{ paddingLeft: `calc(${level + 1} * 1rem + 1.75rem)` }}
                     >
-                        Empty
+                        {emptyLabel}
                     </div>
                 )}
             </div>
@@ -434,6 +437,7 @@ export function FileNode({
                              dragOverPath,
                              dragOverPosition,
                          }: FileNodeProps) {
+    const { t } = useAppTranslation("core");
     const { activeNote, setActiveNote } = useVaultStore();
     const { setViewMode } = useGraphStore();
     const { expandedFolders, toggleFolder } = useUiStore();
@@ -504,6 +508,7 @@ export function FileNode({
                 onDragStartIntent={onDragStartIntent}
                 dragOverPath={dragOverPath}
                 dragOverPosition={dragOverPosition}
+                emptyLabel={t("fileTree.empty")}
             />
         </div>
     );

@@ -1,6 +1,7 @@
 import type { Extension } from "@codemirror/state";
 import type { TessellumApp } from "./TessellumApp";
 import type { PluginManifest, EventRef, Command } from "./types";
+import type { PluginTranslationBundles } from "../i18n/types.ts";
 
 export const PLUGIN_CLEANUP = Symbol("plugin-cleanup");
 
@@ -41,6 +42,10 @@ export abstract class Plugin {
         this.app.commands.register(this.manifest.id, command);
     }
 
+    registerTranslations(bundles: PluginTranslationBundles): void {
+        this.app.i18n.registerTranslations(this.manifest.id, bundles);
+    }
+
     // Tracks an event subscription for automatic cleanup
     registerEvent(ref: EventRef): void {
         this._eventRefs.push(ref);
@@ -59,6 +64,7 @@ export abstract class Plugin {
         this.app.ui.unregisterPaletteCommands(this.manifest.id);
         this.app.ui.unregisterUIActions(this.manifest.id);
         this.app.ui.unregisterSettingsTab(this.manifest.id);
+        this.app.i18n.unregisterTranslations(this.manifest.id);
         this.app.events.removeAll(this._eventRefs);
         this._eventRefs = [];
     }

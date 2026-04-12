@@ -12,8 +12,10 @@ import { useTessellumApp } from '../../plugins/TessellumApp';
 import { theme } from '../../styles/theme';
 import { EDITOR_MODES, type EditorMode } from '../../constants/editorModes';
 import { useNavigationHistoryStore } from '../../stores/navigationHistoryStore';
+import { useAppTranslation } from '../../i18n/react.tsx';
 
 export function TitleBar() {
+    const { t } = useAppTranslation("core");
     const [isMaximized, setIsMaximized] = useState(false);
     const { toggleSidebar, isSidebarOpen, toggleRightSidebar, isRightSidebarOpen, activeNote, toggleLocalGraph, isLocalGraphOpen, vaultPath } = useEditorStore();
     const { isSearchOpen, closeSearch, openSearch } = useUiStore();
@@ -137,7 +139,7 @@ export function TitleBar() {
             <div className="flex items-center px-2 gap-1 h-full"
                  style={{ paddingLeft: "0.4rem", paddingRight: "1rem", paddingTop: "1px", paddingBottom: "1px" }}>
                 {/* Sidebar Toggle */}
-                <NavButton onClick={toggleSidebar} active={isSidebarOpen} tooltip="Toggle Sidebar">
+                <NavButton onClick={toggleSidebar} active={isSidebarOpen} tooltip={t("titleBar.toggleSidebar")}>
                     <PanelLeft size={iconSize} style={iconStyle} />
                 </NavButton>
 
@@ -148,8 +150,8 @@ export function TitleBar() {
                         const isBack = action.id === "nav-back";
                         const enabled = isBack ? canGoBack : canGoForward;
                         const tooltip = isBack
-                            ? (enabled ? "Back" : "No previous note")
-                            : (enabled ? "Forward" : "No next note");
+                            ? (enabled ? action.tooltip || action.label : t("titleBar.noPreviousNote"))
+                            : (enabled ? action.tooltip || action.label : t("titleBar.noNextNote"));
 
                         return (
                             <NavButton
@@ -178,7 +180,7 @@ export function TitleBar() {
                     }
 
                     const handleClick = isSearchOpen ? closeSearch : openSearch;
-                    const tooltip = isSearchOpen ? "Back to files" : action.tooltip || action.label;
+                    const tooltip = isSearchOpen ? t("titleBar.backToFiles") : action.tooltip || action.label;
                     const icon = isSearchOpen ? <Folder size={iconSize} style={iconStyle} /> : action.icon;
 
                     return (
@@ -202,7 +204,7 @@ export function TitleBar() {
                 data-tauri-drag-region
             >
                 {crumbs.length === 0 ? (
-                    <span className="opacity-50">Tessellum</span>
+                    <span className="opacity-50">{t("titleBar.defaultTitle")}</span>
                 ) : (
                     crumbs.map((crumb, idx) => (
                         <div key={`${crumb}-${idx}`} className="flex items-center gap-2">
@@ -240,12 +242,12 @@ export function TitleBar() {
 
 
                 {/* Right Sidebar Toggle */}
-                <NavButton onClick={toggleRightSidebar} active={isRightSidebarOpen} tooltip="Toggle Right Sidebar">
+                <NavButton onClick={toggleRightSidebar} active={isRightSidebarOpen} tooltip={t("titleBar.toggleRightSidebar")}>
                     <PanelRight size={iconSize} style={iconStyle} />
                 </NavButton>
 
                 {/* Local Graph Toggle */}
-                <NavButton onClick={toggleLocalGraph} active={isLocalGraphOpen} tooltip="Toggle Local Graph">
+                <NavButton onClick={toggleLocalGraph} active={isLocalGraphOpen} tooltip={t("titleBar.toggleLocalGraph")}>
                     <GitFork size={iconSize} style={iconStyle} />
                 </NavButton>
 
@@ -283,11 +285,11 @@ export function TitleBar() {
                             setIsModeMenuOpen(true);
                             setIsModeMenuClosing(false);
                         }}
-                        title="Change editor mode"
+                        title={t("titleBar.changeEditorMode")}
                     >
                         <span className="flex items-center gap-1.5">
                             {activeModeConfig.icon}
-                            {activeModeConfig.statusLabel}
+                            {t(activeModeConfig.statusLabelKey)}
                         </span>
                         <ChevronDown size={12} />
                     </button>
@@ -313,7 +315,7 @@ export function TitleBar() {
                                 className="px-3 py-2 text-[0.65rem] font-bold tracking-widest uppercase"
                                 style={{ color: "var(--color-text-muted)", borderBottom: "1px solid var(--color-panel-border)" }}
                             >
-                                Editor Mode
+                                {t("titleBar.editorMode")}
                             </div>
                             {Object.entries(EDITOR_MODES).map(([mode, config]) => {
                                 const isDisabled = !!config.disabled;
@@ -334,18 +336,18 @@ export function TitleBar() {
                                         }}
                                         onClick={() => handleModeSelect(mode as EditorMode)}
                                         disabled={isDisabled}
-                                        title={isDisabled ? "Coming soon" : config.label}
+                                        title={isDisabled ? t("titleBar.comingSoon") : t(config.labelKey)}
                                     >
                                         <span className="flex items-center gap-2">
                                             {config.icon}
-                                            {config.label}
+                                            {t(config.labelKey)}
                                         </span>
                                         {isDisabled && (
                                             <span
                                                 className="ml-auto text-[0.5rem] uppercase tracking-widest"
                                                 style={{ color: "var(--color-text-muted)" }}
                                             >
-                                                Soon
+                                                {t("titleBar.soon")}
                                             </span>
                                         )}
                                     </button>

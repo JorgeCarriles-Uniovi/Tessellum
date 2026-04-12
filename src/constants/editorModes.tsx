@@ -7,23 +7,29 @@ export const DEFAULT_EDITOR_MODE: EditorMode = "live-preview";
 
 export const EDITOR_MODES: Record<
     EditorMode,
-    { label: string; statusLabel: string; editable: boolean; icon: ReactNode; disabled?: boolean }
+    { label: string; labelKey: string; statusLabel: string; statusLabelKey: string; editable: boolean; icon: ReactNode; disabled?: boolean }
 > = {
     reading: {
         label: "Reading",
+        labelKey: "titleBar.editorModes.reading",
         statusLabel: "READING",
+        statusLabelKey: "titleBar.editorModes.readingStatus",
         editable: false,
         icon: <BookOpen size={12} />,
     },
     "live-preview": {
         label: "Live preview",
+        labelKey: "titleBar.editorModes.livePreview",
         statusLabel: "EDITING",
+        statusLabelKey: "titleBar.editorModes.editingStatus",
         editable: true,
         icon: <Eye size={12} />,
     },
     source: {
         label: "Source mode",
+        labelKey: "titleBar.editorModes.source",
         statusLabel: "EDITING",
+        statusLabelKey: "titleBar.editorModes.editingStatus",
         editable: true,
         icon: <Code2 size={12} />,
     },

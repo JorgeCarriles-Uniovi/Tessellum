@@ -29,6 +29,7 @@ import {
     AccessibilitySettings
 } from "../../components/Settings/AccessibilitySettings.tsx";
 import { PluginsSettings } from "../../components/Settings/PluginsSettings.tsx";
+import { coreUIActionsTranslations, coreUIActionKeywords } from "./coreUIActionsTranslations.ts";
 
 export class CoreUIActionsPlugin extends Plugin {
     static manifest: PluginManifest = {
@@ -40,12 +41,18 @@ export class CoreUIActionsPlugin extends Plugin {
     };
 
     onload() {
+        this.registerTranslations(coreUIActionsTranslations);
+        const namespace = this.app.i18n.getPluginNamespace(this.manifest.id);
+        const t = (key: string) => this.app.i18n.t(key, { namespace });
+        const keywords = (key: keyof typeof coreUIActionKeywords.en) =>
+            [...coreUIActionKeywords[this.app.i18n.getLocale()][key]];
+
         const openVault = async () => {
             try {
                 const selected = await open({
                     directory: true,
                     multiple: false,
-                    title: "Select Vault Folder",
+                    title: t("dialogs.selectVaultFolder"),
                 });
                 if (!selected) return;
                 this.app.workspace.setVaultPath(selected as string);
@@ -55,14 +62,14 @@ export class CoreUIActionsPlugin extends Plugin {
                 this.app.events.emit("vault:opened", selected);
             } catch (e) {
                 console.error(e);
-                toast.error("Failed to open vault");
+                toast.error(t("errors.failedOpenVault"));
             }
         };
 
         const newNote = async () => {
             const vaultPath = this.app.workspace.getVaultPath();
             if (!vaultPath) {
-                toast.error("Open a vault first");
+                toast.error(t("errors.openVaultFirst"));
                 return;
             }
             try {
@@ -70,7 +77,7 @@ export class CoreUIActionsPlugin extends Plugin {
                 this.app.workspace.openNoteByMetadata(note);
             } catch (e) {
                 console.error(e);
-                toast.error("Failed to create note");
+                toast.error(t("errors.failedCreateNote"));
             }
         };
 
@@ -96,31 +103,31 @@ export class CoreUIActionsPlugin extends Plugin {
 
         this.app.ui.registerUIAction(this.manifest.id, {
             id: "nav-back",
-            label: "Back",
+            label: () => t("actions.back"),
             icon: <ArrowLeft size={16} />,
             onClick: () => {
                 this.app.workspace.goBack();
             },
-            tooltip: "Back",
+            tooltip: () => t("actions.back"),
             region: "titlebar-left",
             order: 10,
             disabled: !this.app.workspace.canGoBack(),
         });
         this.app.ui.registerUIAction(this.manifest.id, {
             id: "nav-forward",
-            label: "Forward",
+            label: () => t("actions.forward"),
             icon: <ArrowRight size={16} />,
             onClick: () => {
                 this.app.workspace.goForward();
             },
-            tooltip: "Forward",
+            tooltip: () => t("actions.forward"),
             region: "titlebar-left",
             order: 20,
             disabled: !this.app.workspace.canGoForward(),
         });
         this.app.ui.registerUIAction(this.manifest.id, {
             id: "open-palette",
-            label: "Search",
+            label: () => t("actions.search"),
             icon: <Search size={16} />,
             onClick: openSearch,
             region: "titlebar-left",
@@ -128,7 +135,7 @@ export class CoreUIActionsPlugin extends Plugin {
         });
         this.app.ui.registerUIAction(this.manifest.id, {
             id: "sidebar-open-vault",
-            label: "Open Vault",
+            label: () => t("actions.openVault"),
             icon: <FolderOpen size={16} />,
             onClick: openVault,
             region: "sidebar-header",
@@ -136,7 +143,7 @@ export class CoreUIActionsPlugin extends Plugin {
         });
         this.app.ui.registerUIAction(this.manifest.id, {
             id: "sidebar-new-folder",
-            label: "New Folder",
+            label: () => t("actions.newFolder"),
             icon: <FolderPlus size={16} />,
             onClick: newFolder,
             region: "sidebar-header",
@@ -144,7 +151,7 @@ export class CoreUIActionsPlugin extends Plugin {
         });
         this.app.ui.registerUIAction(this.manifest.id, {
             id: "sidebar-new-note",
-            label: "New Note",
+            label: () => t("actions.newNote"),
             icon: <Plus size={16} />,
             onClick: newNote,
             region: "sidebar-header",
@@ -153,7 +160,7 @@ export class CoreUIActionsPlugin extends Plugin {
 
         this.app.ui.registerUIAction(this.manifest.id, {
             id: "sidebar-graph",
-            label: "Graph View",
+            label: () => t("actions.graphView"),
             icon: <Network size={16} />,
             onClick: openGraph,
             region: "sidebar-footer",
@@ -161,101 +168,101 @@ export class CoreUIActionsPlugin extends Plugin {
         });
         this.app.ui.registerUIAction(this.manifest.id, {
             id: "sidebar-settings",
-            label: "Settings",
+            label: () => t("actions.settings"),
             icon: <Settings size={16} />,
             onClick: openSettings,
-            tooltip: "Settings",
+            tooltip: () => t("actions.settings"),
             region: "sidebar-footer",
             order: 20,
         });
         this.app.ui.registerUIAction(this.manifest.id, {
             id: "sidebar-trash",
-            label: "Trash",
+            label: () => t("actions.trash"),
             icon: <Trash2 size={16} />,
             onClick: () => {
                 this.app.events.emit("ui:open-trash");
             },
-            tooltip: "Trash",
+            tooltip: () => t("actions.trash"),
             region: "sidebar-footer",
             order: 30,
         });
 
         this.app.ui.registerPaletteCommand(this.manifest.id, {
             id: "open-vault",
-            name: "Open / Switch Vault",
-            keywords: ["vault", "open", "switch"],
+            name: () => t("commands.openVault"),
+            keywords: () => keywords("openVault"),
             icon: <FolderOpen size={16} />,
             onTrigger: openVault,
         });
         this.app.ui.registerPaletteCommand(this.manifest.id, {
             id: "new-note",
-            name: "New Note",
-            keywords: ["note", "create"],
+            name: () => t("commands.newNote"),
+            keywords: () => keywords("newNote"),
             icon: <Plus size={16} />,
             onTrigger: newNote,
         });
         this.app.ui.registerPaletteCommand(this.manifest.id, {
             id: "new-folder",
-            name: "New Folder",
-            keywords: ["folder", "create"],
+            name: () => t("commands.newFolder"),
+            keywords: () => keywords("newFolder"),
             icon: <FolderPlus size={16} />,
             onTrigger: newFolder,
         });
         this.app.ui.registerPaletteCommand(this.manifest.id, {
             id: "graph-view",
-            name: "Open Graph View",
-            keywords: ["graph", "network"],
+            name: () => t("commands.graphView"),
+            keywords: () => keywords("graphView"),
             icon: <Network size={16} />,
             onTrigger: openGraph,
         });
         this.app.ui.registerPaletteCommand(this.manifest.id, {
             id: "new-note-template",
-            name: "New Note from Template",
-            keywords: ["template", "note"],
+            name: () => t("commands.newNoteFromTemplate"),
+            keywords: () => keywords("newNoteFromTemplate"),
             icon: <Plus size={16} />,
             onTrigger: openTemplatePicker,
         });
         this.app.ui.registerPaletteCommand(this.manifest.id, {
             id: "settings",
-            name: "Open Settings",
-            keywords: ["settings", "preferences"],
+            name: () => t("commands.openSettings"),
+            keywords: () => keywords("openSettings"),
             icon: <Settings size={16} />,
             onTrigger: openSettings,
         });
         this.app.ui.registerSettingsTab(this.manifest.id, {
             id: "General",
-            name: "General",
+            name: () => t("tabs.general"),
             icon: <User size={16} />,
             isActive: true,
             component: <GeneralSettings />,
         });
         this.app.ui.registerSettingsTab(this.manifest.id, {
             id: "Editor",
-            name: "Editor",
+            name: () => t("tabs.editor"),
             icon: <FileText size={16} />,
             component: <EditorSettings />
         });
         this.app.ui.registerSettingsTab(this.manifest.id, {
             id: "Appearance",
-            name: "Appearance",
+            name: () => t("tabs.appearance"),
             icon: <Palette size={16} />,
             component: <AppearanceSettings></AppearanceSettings>
         });
         this.app.ui.registerSettingsTab(this.manifest.id, {
             id: "Shortcuts",
-            name: "Shortcuts",
+            name: () => t("tabs.shortcuts"),
             icon: <Keyboard size={16} />,
             component: <ShortcutsSettings></ShortcutsSettings>
         });
         this.app.ui.registerSettingsTab(this.manifest.id, {
             id: "Accessibility",
-            name: "Accessibility",
+            name: () => t("tabs.accessibility"),
             icon: <Eye size={16} />,
             component: <AccessibilitySettings></AccessibilitySettings>
         });
         this.app.ui.registerSettingsTab(this.manifest.id, {
             id: "Plugins",
-            name: "Plugins",
+            name: () => t("tabs.plugins"),
             icon: <Puzzle size={16} />,
             component: <PluginsSettings />
         });

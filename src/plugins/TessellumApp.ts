@@ -6,6 +6,8 @@ import { VaultAPI } from "./api/VaultAPI";
 import { WorkspaceAPI } from "./api/WorkspaceAPI";
 import { CommandAPI } from "./api/CommandAPI";
 import { UIAPI } from "./api/UIAPI";
+import { I18nAPI } from "./api/I18nAPI";
+import { appI18n } from "../i18n/index.ts";
 
 /**
  * Central app singleton for managing plugins, events, and API access.
@@ -32,6 +34,7 @@ export class TessellumApp {
     readonly workspace: WorkspaceAPI;
     readonly commands: CommandAPI;
     readonly ui: UIAPI;
+    readonly i18n: I18nAPI;
     readonly events: EventBus;
     readonly plugins: PluginRegistry;
 
@@ -42,6 +45,7 @@ export class TessellumApp {
         this.workspace = new WorkspaceAPI(this);
         this.commands = new CommandAPI();
         this.ui = new UIAPI();
+        this.i18n = new I18nAPI(appI18n);
         this.plugins = new PluginRegistry(this);
     }
 
