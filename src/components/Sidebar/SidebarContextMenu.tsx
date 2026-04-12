@@ -3,6 +3,7 @@ import { FileMetadata } from '../../types.ts';
 import {
     Trash2, Edit2, FilePlus, FolderPlus
 } from 'lucide-react';
+import { useAppTranslation } from '../../i18n/react.tsx';
 
 interface SidebarContextMenuProps {
     x: number;
@@ -19,6 +20,7 @@ interface SidebarContextMenuProps {
 export function SidebarContextMenu({
                                        x, y, target, onClose, onRename, onDelete, onNewNote, onNewNoteFromTemplate, onNewFolder
                                    }: SidebarContextMenuProps) {
+    const { t } = useAppTranslation("core");
 
     const menuRef = useRef<HTMLDivElement>(null);
 
@@ -69,7 +71,7 @@ export function SidebarContextMenu({
                 className="w-full text-left px-4 py-2 flex items-center gap-2 hover:bg-[color:var(--color-panel-hover)]"
                 style={{ color: "var(--color-text-secondary)", marginBottom: "2px", marginTop: "2px" }}
             >
-                <Edit2 size={14} /> Rename
+                <Edit2 size={14} /> {t("contextMenu.rename")}
             </button>
 
             {/* Divider */}
@@ -82,7 +84,7 @@ export function SidebarContextMenu({
                     className="w-full text-left px-4 py-2 flex items-center gap-2 hover:bg-[color:var(--color-panel-hover)]"
                     style={{ color: "var(--color-text-secondary)", marginBottom: "2px", marginTop: "2px" }}
                 >
-                    <FilePlus size={14} /> New Note
+                    <FilePlus size={14} /> {t("contextMenu.newNote")}
                 </button>
             )}
 
@@ -92,7 +94,7 @@ export function SidebarContextMenu({
                     className="w-full text-left px-4 py-2 flex items-center gap-2 hover:bg-[color:var(--color-panel-hover)]"
                     style={{ color: "var(--color-text-secondary)", marginBottom: "2px", marginTop: "2px" }}
                 >
-                    <FilePlus size={14} /> New Note From Template
+                    <FilePlus size={14} /> {t("contextMenu.newNoteFromTemplate")}
                 </button>
             )}
 
@@ -102,7 +104,7 @@ export function SidebarContextMenu({
                     className="w-full text-left px-4 py-2 flex items-center gap-2 hover:bg-[color:var(--color-panel-hover)]"
                     style={{ color: "var(--color-text-secondary)", marginBottom: "2px", marginTop: "2px" }}
                 >
-                    <FolderPlus size={14} /> New Folder
+                    <FolderPlus size={14} /> {t("contextMenu.newFolder")}
                 </button>
             )}
 
@@ -115,7 +117,7 @@ export function SidebarContextMenu({
                 className="w-full text-left px-4 py-2 flex items-center gap-2 hover:bg-[color:var(--color-alert-bg)]"
                 style={{ color: "var(--color-alert-text)", marginBottom: "2px", marginTop: "2px" }}
             >
-                <Trash2 size={14} /> Delete
+                <Trash2 size={14} /> {t("contextMenu.delete")}
             </button>
         </div>
     );

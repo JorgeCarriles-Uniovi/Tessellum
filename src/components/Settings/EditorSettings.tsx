@@ -3,8 +3,10 @@ import { SettingItem } from "./items/SettingItem.tsx";
 import { ToggleSetting } from "./items/ToggleSetting.tsx";
 import { useState } from "react";
 import { useEditorContentStore, useSettingsStore } from "../../stores";
+import { useAppTranslation } from "../../i18n/react.tsx";
 
 export function EditorSettings() {
+    const { t } = useAppTranslation("settings");
     const editorFontSizePx = useEditorContentStore((state) => state.editorFontSizePx);
     const setEditorFontSizePx = useEditorContentStore((state) => state.setEditorFontSizePx);
 
@@ -29,8 +31,8 @@ export function EditorSettings() {
 
     return (
         <div className="space-y-6">
-            <SettingSection title="Font" description="Customize editor typography">
-                <SettingItem label="Font Family">
+            <SettingSection title={t("editor.fontTitle")} description={t("editor.fontDescription")}>
+                <SettingItem label={t("editor.fontFamily")}>
                     <select
                         value={fontFamily}
                         onChange={(e) => setFontFamily(e.target.value)}
@@ -45,20 +47,20 @@ export function EditorSettings() {
                         <option value="Courier New">Courier New</option>
                     </select>
                 </SettingItem>
-                <SettingItem label="Font Size">
+                <SettingItem label={t("editor.fontSize")}>
                     <select
                         value={String(editorFontSizePx)}
                         onChange={(e) => setEditorFontSizePx(Number(e.target.value))}
                         className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)] focus:border-transparent transition-all cursor-pointer"
                         style={selectStyle}
                     >
-                        <option value="14">14px - Small</option>
-                        <option value="16">16px - Medium</option>
-                        <option value="18">18px - Large</option>
-                        <option value="20">20px - Extra Large</option>
+                        <option value="14">{t("editor.fontSizeSmall")}</option>
+                        <option value="16">{t("editor.fontSizeMedium")}</option>
+                        <option value="18">{t("editor.fontSizeLarge")}</option>
+                        <option value="20">{t("editor.fontSizeExtraLarge")}</option>
                     </select>
                 </SettingItem>
-                <SettingItem label="Line Height">
+                <SettingItem label={t("editor.lineHeight")}>
                     <div className="flex items-center gap-3">
                         <input
                             type="range"
@@ -72,7 +74,7 @@ export function EditorSettings() {
                         <span className="text-xs w-10" style={{ color: "var(--color-text-muted)" }}>{editorLineHeight.toFixed(1)}</span>
                     </div>
                 </SettingItem>
-                <SettingItem label="Letter Spacing">
+                <SettingItem label={t("editor.letterSpacing")}>
                     <div className="flex items-center gap-3">
                         <input
                             type="range"
@@ -88,22 +90,22 @@ export function EditorSettings() {
                 </SettingItem>
             </SettingSection>
 
-            <SettingSection title="Display" description="Editor display options">
+            <SettingSection title={t("editor.displayTitle")} description={t("editor.displayDescription")}>
                 <ToggleSetting
-                    label="Show line numbers"
-                    description="Display line numbers in the editor"
+                    label={t("editor.showLineNumbers")}
+                    description={t("editor.showLineNumbersDescription")}
                     checked={lineNumbers}
                     onChange={setLineNumbers}
                 />
                 <ToggleSetting
-                    label="Word wrap"
-                    description="Wrap long lines automatically"
+                    label={t("editor.wordWrap")}
+                    description={t("editor.wordWrapDescription")}
                     checked={true}
                     onChange={() => { }}
                 />
                 <ToggleSetting
-                    label="Vim mode"
-                    description="Enable Vim keyboard bindings"
+                    label={t("editor.vimMode")}
+                    description={t("editor.vimModeDescription")}
                     checked={false}
                     onChange={() => { }}
                 />

@@ -36,8 +36,7 @@ import { TabStrip, type Tab } from "./TabStrip";
 import { useAccessibilityStore } from "../../stores";
 import { WorkspaceOverview } from "./workspaceOverview/WorkspaceOverview";
 import type { HeroProjection, WorkspaceCardItem } from "./workspaceOverview/types";
-
-const EMPTY_PREVIEW_TEXT = "No text preview available";
+import { useAppTranslation } from "../../i18n/react.tsx";
 
 interface NoteCardMetadata {
     contentPreview: string;
@@ -111,7 +110,7 @@ function stripMarkdownSyntax(rawText: string): string {
         .replace(/[*_~`>#-]/g, " ");
 }
 
-function buildContentPreview(rawContent: string): NoteCardMetadata {
+function buildContentPreview(rawContent: string, emptyPreviewText: string): NoteCardMetadata {
     const { frontmatter, body } = extractFrontmatter(rawContent);
     const tags = parseFrontmatterTags(frontmatter);
     const plainText = stripMarkdownSyntax(body);
@@ -124,7 +123,7 @@ function buildContentPreview(rawContent: string): NoteCardMetadata {
         .join(" ");
 
     if (!collapsed) {
-        return { contentPreview: EMPTY_PREVIEW_TEXT, tags };
+        return { contentPreview: emptyPreviewText, tags };
     }
 
     return {
@@ -154,20 +153,26 @@ function normalizeTimestampSeconds(value: number): number {
     return value;
 }
 
-function formatRelativeTime(unixSeconds: number): string {
+function formatRelativeTime(unixSeconds: number, locale: string): string {
     const now = Date.now();
     const seconds = normalizeTimestampSeconds(unixSeconds);
     const diffMs = now - seconds * 1000;
     const minutes = Math.floor(diffMs / 60000);
 
-    if (minutes < 1) return "Just now";
-    if (minutes < 60) return `${minutes}m ago`;
+    if (minutes < 1) {
+        return new Intl.RelativeTimeFormat(locale, { numeric: "auto" }).format(0, "minute");
+    }
+    if (minutes < 60) {
+        return new Intl.RelativeTimeFormat(locale, { numeric: "auto" }).format(-minutes, "minute");
+    }
 
     const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h ago`;
+    if (hours < 24) {
+        return new Intl.RelativeTimeFormat(locale, { numeric: "auto" }).format(-hours, "hour");
+    }
 
     const days = Math.floor(hours / 24);
-    return `${days}d ago`;
+    return new Intl.RelativeTimeFormat(locale, { numeric: "auto" }).format(-days, "day");
 }
 
 function createTableMarkdown(rows: number, cols: number) {
@@ -349,9 +354,11 @@ function useSlashInsertions(
 function EmptyEditorState({
                               vaultPath,
                               primaryAction,
+                              t,
                           }: {
     vaultPath?: string | null;
     primaryAction?: PaletteCommand;
+    t: (key: string, options?: Record<string, unknown>) => string;
 }) {
     return (
         <div className="h-full flex items-center justify-center select-none">
@@ -360,7 +367,7 @@ function EmptyEditorState({
                 style={{ color: theme.colors.text.muted, maxWidth: "720px", margin: "0 auto" }}
             >
                 <div className="text-lg font-semibold" style={{ color: theme.colors.text.secondary }}>
-                    {vaultPath ? "Start a new note" : "Open a vault to begin"}
+                    {vaultPath ? t("editor.startNewNote") : t("editor.openVaultToBegin")}
                 </div>
                 {primaryAction && (
                     <button
@@ -374,7 +381,7 @@ function EmptyEditorState({
                             padding: "0.5rem 1rem"
                         }}
                     >
-                        {vaultPath ? "Create New Note" : "Open Vault"}
+                        {vaultPath ? t("editor.createNewNote") : t("editor.openVault")}
                     </button>
                 )}
             </div>
@@ -403,6 +410,8 @@ function EditorHeader({
                           lastModified,
                           titleFontSizePx,
                           readOnly,
+                          t,
+                          locale,
                       }: {
     title: string;
     onTitleChange: (value: string) => void;
@@ -411,6 +420,8 @@ function EditorHeader({
     lastModified: number;
     titleFontSizePx: number;
     readOnly: boolean;
+    t: (key: string, options?: Record<string, unknown>) => string;
+    locale: string;
 }) {
     return (
         <div className="w-full mx-auto px-12 pt-20 pb-16 flex-shrink-0" style={{ borderColor: theme.colors.border.light }}>
@@ -428,19 +439,19 @@ function EditorHeader({
                     value={title}
                     onChange={(e) => onTitleChange(e.target.value)}
                     onBlur={onTitleBlur}
-                    placeholder="Untitled"
+                    placeholder={t("editor.untitled")}
                     readOnly={readOnly}
                     disabled={readOnly}
                 />
                 <div className="flex items-center gap-3 text-[0.6875rem] mt-5" style={{ color: theme.colors.text.muted, paddingBottom: 20 }}>
                     <span className="flex items-center gap-1">
                         <Calendar size={12} />
-                        {new Date(normalizeTimestampSeconds(lastModified) * 1000).toLocaleDateString()}
+                        {new Date(normalizeTimestampSeconds(lastModified) * 1000).toLocaleDateString(locale)}
                     </span>
                     {editedAt && (
                         <span className="flex items-center gap-1">
                             <Clock size={12} />
-                            Edited {editedAt}
+                            {t("editor.edited", { value: editedAt })}
                         </span>
                     )}
                 </div>
@@ -600,6 +611,7 @@ export function Editor() {
     useEditorFontZoom(editorRef);
     const { noteRenaming } = useEditorActions();
     const app = useTessellumApp();
+    const { t, i18n } = useAppTranslation("core");
     const [isOverviewOpen, setIsOverviewOpen] = useState(false);
     const [isOverviewMounted, setIsOverviewMounted] = useState(false);
     const [heroProjection] = useState<HeroProjection | null>(null);
@@ -668,15 +680,15 @@ export function Editor() {
             const previews = await Promise.all(
                 missingPaths.map(async (path) => {
                     if (isMediaFile(path)) {
-                        const metadata: NoteCardMetadata = { contentPreview: EMPTY_PREVIEW_TEXT, tags: [] };
+                        const metadata: NoteCardMetadata = { contentPreview: t("editor.emptyPreview"), tags: [] };
                         return [path, metadata] as const;
                     }
                     try {
                         const content = await invoke<string>("read_file", { vaultPath, path });
-                        return [path, buildContentPreview(content)] as const;
+                        return [path, buildContentPreview(content, t("editor.emptyPreview"))] as const;
                     } catch (error) {
                         console.error(`Failed to load preview for ${path}:`, error);
-                        const metadata: NoteCardMetadata = { contentPreview: EMPTY_PREVIEW_TEXT, tags: [] };
+                        const metadata: NoteCardMetadata = { contentPreview: t("editor.emptyPreview"), tags: [] };
                         return [path, metadata] as const;
                     }
                 })
@@ -843,10 +855,10 @@ export function Editor() {
 
     if (!activeNote) {
         const primaryAction = getPrimaryAction(vaultPath, newNoteCommand, openVaultCommand);
-        return <EmptyEditorState vaultPath={vaultPath} primaryAction={primaryAction} />;
+        return <EmptyEditorState vaultPath={vaultPath} primaryAction={primaryAction} t={t} />;
     }
 
-    const editedAt = activeNote.last_modified ? formatRelativeTime(activeNote.last_modified) : "";
+    const editedAt = activeNote.last_modified ? formatRelativeTime(activeNote.last_modified, i18n.language) : "";
 
     const isMedia = isMediaFile(activeNote.path);
     const tabs = buildTabsFromPaths(openTabPaths, files);
@@ -858,7 +870,7 @@ export function Editor() {
             title: tab.title,
             path: tab.path,
             shortPath: buildShortPath(tab.path),
-            contentPreview: tabMetadataByPath[tab.path]?.contentPreview ?? EMPTY_PREVIEW_TEXT,
+            contentPreview: tabMetadataByPath[tab.path]?.contentPreview ?? t("editor.emptyPreview"),
             tags: tabMetadataByPath[tab.path]?.tags ?? [],
             lastModified: file?.last_modified ?? 0,
             isActive: tab.id === activeNote.path,
@@ -931,6 +943,8 @@ export function Editor() {
                 titleFontSizePx={titleFontSizePx}
                 lastModified={activeNote.last_modified}
                 readOnly={!isEditable}
+                t={t}
+                locale={i18n.language}
             />
             <div className="w-full border-b" style={dividerStyle} />
             <EditorBody
@@ -956,7 +970,7 @@ export function Editor() {
             />
             {isLoading && (
                 <div className="pointer-events-none px-12 py-3 text-xs" style={{ color: theme.colors.text.muted }}>
-                    Loading note...
+                    {t("editor.loadingNote")}
                 </div>
             )}
         </div>

@@ -11,6 +11,7 @@ import { useResizableSidebarWidth } from "./useResizableSidebarWidth";
 import { parseFrontmatter } from "../Editor/extensions/frontmatter/frontmatter-parser";
 import { stringToColor } from "../../utils/graphUtils";
 import { parseOutline } from "../../utils/outline";
+import { useAppTranslation } from "../../i18n/react.tsx";
 
 const SNIPPET_LIMIT = 20;
 const SNIPPET_MAX_LEN = 120;
@@ -279,24 +280,26 @@ function BacklinksSection({
                               backlinks,
                               isLoading,
                               onOpen,
+                              t,
                           }: {
     activeNote: { path: string } | null;
     backlinks: BacklinkItem[];
     isLoading: boolean;
     onOpen: (path: string) => void;
+    t: (key: string, values?: Record<string, unknown>) => string;
 }) {
     return (
         <section className="space-y-4">
             <SidebarSectionHeader
-                title="Backlinks"
+                title={t("rightSidebar.backlinks")}
                 icon={<Link2 size={SIDEBAR_ICON_SIZE} style={{ ...SIDEBAR_ICON_STYLE, color: theme.colors.text.muted, marginRight: "1rem" }} />}
             />
             {isLoading ? (
-                <EmptyState>Loading backlinks</EmptyState>
+                <EmptyState>{t("rightSidebar.loadingBacklinks")}</EmptyState>
             ) : !activeNote ? (
-                <EmptyState>Select a note to see backlinks.</EmptyState>
+                <EmptyState>{t("rightSidebar.selectNoteForBacklinks")}</EmptyState>
             ) : backlinks.length === 0 ? (
-                <EmptyState>No backlinks yet.</EmptyState>
+                <EmptyState>{t("rightSidebar.noBacklinks")}</EmptyState>
             ) : (
                 <div className="space-y-3" style={{ padding: "1rem" }}>
                     {backlinks.map((item) => (
@@ -327,17 +330,17 @@ function BacklinksSection({
     );
 }
 
-function TagsSection({ activeNote, tags }: { activeNote: { path: string } | null; tags: string[] }) {
+function TagsSection({ activeNote, tags, t }: { activeNote: { path: string } | null; tags: string[]; t: (key: string) => string }) {
     return (
         <section className="space-y-4">
             <SidebarSectionHeader
-                title="Tags"
+                title={t("rightSidebar.tags")}
                 icon={<Tag size={SIDEBAR_ICON_SIZE} style={{ ...SIDEBAR_ICON_STYLE, color: theme.colors.text.muted, marginRight: "1rem" }} />}
             />
             {!activeNote ? (
-                <EmptyState>Select a note to see tags.</EmptyState>
+                <EmptyState>{t("rightSidebar.selectNoteForTags")}</EmptyState>
             ) : tags.length === 0 ? (
-                <EmptyState>No tags found.</EmptyState>
+                <EmptyState>{t("rightSidebar.noTags")}</EmptyState>
             ) : (
                 <div className="flex flex-wrap gap-2" style={{ padding: "1rem" }}>
                     {tags.map((tag) => (
@@ -396,10 +399,12 @@ function OutlineSection({
                             activeNote,
                             activeNoteContent,
                             onNavigate,
+                            t,
                         }: {
     activeNote: { path: string } | null;
     activeNoteContent?: string;
     onNavigate: (lineNumber: number) => void;
+    t: (key: string, values?: Record<string, unknown>) => string;
 }) {
     const outlineItems = useMemo(() => parseOutline(activeNoteContent ?? ""), [activeNoteContent]);
     const [collapsedKeys, setCollapsedKeys] = useState<Set<string>>(new Set());
@@ -428,13 +433,13 @@ function OutlineSection({
     return (
         <section className="space-y-4">
             <SidebarSectionHeader
-                title="Outline"
+                title={t("rightSidebar.outline")}
                 icon={<List size={SIDEBAR_ICON_SIZE} style={{ ...SIDEBAR_ICON_STYLE, color: theme.colors.text.muted, marginRight: "1rem" }} />}
             />
             {!activeNote ? (
-                <EmptyState>Select a note to see the outline.</EmptyState>
+                <EmptyState>{t("rightSidebar.selectNoteForOutline")}</EmptyState>
             ) : outlineItems.length === 0 ? (
-                <EmptyState>No headers found.</EmptyState>
+                <EmptyState>{t("rightSidebar.noHeaders")}</EmptyState>
             ) : (
                 <div className="space-y-1" style={{ padding: "1rem" }}>
                     {visibleOutlineItems.map((item) => {
@@ -454,7 +459,7 @@ function OutlineSection({
                                 {canCollapse ? (
                                     <button
                                         type="button"
-                                        aria-label={`${isCollapsed ? "Expand" : "Collapse"} ${item.title} section`}
+                                        aria-label={isCollapsed ? t("rightSidebar.expandSection", { title: item.title }) : t("rightSidebar.collapseSection", { title: item.title })}
                                         onClick={() => toggleCollapsed(item.title, item.lineNumber)}
                                         className="flex h-5 w-5 items-center justify-center rounded-md transition-colors hover:bg-[color:var(--color-background-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--primary)]"
                                         style={{ color: theme.colors.text.muted }}
@@ -490,6 +495,7 @@ function OutlineSection({
 export function RightSidebar() {
     const { activeNote, activeNoteContent, files, isRightSidebarOpen } = useEditorStore();
     const app = useTessellumApp();
+    const { t } = useAppTranslation("core");
     const { sidebarWidth, isResizing, onResizeStart } = useSidebarWidth();
     const { backlinks, isLoadingBacklinks } = useBacklinks(app, activeNote?.path, files);
     const backendTags = useBackendTags(app, activeNote?.path);
@@ -540,14 +546,16 @@ export function RightSidebar() {
                     backlinks={backlinks}
                     isLoading={isLoadingBacklinks}
                     onOpen={(path) => app.workspace.openNote(path)}
+                    t={t}
                 />
-                <TagsSection activeNote={activeNote} tags={allTags} />
+                <TagsSection activeNote={activeNote} tags={allTags} t={t} />
                 <OutlineSection
                     activeNote={activeNote}
                     activeNoteContent={activeNoteContent}
                     onNavigate={(lineNumber) => {
                         app.editor.navigateToLine(lineNumber);
                     }}
+                    t={t}
                 />
             </div>
         </BaseSidebar>

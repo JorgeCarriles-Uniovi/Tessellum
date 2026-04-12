@@ -1,6 +1,7 @@
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { theme } from "../styles/theme";
+import { useAppTranslation } from "../i18n/react.tsx";
 
 interface InputModalProps {
     isOpen: boolean;
@@ -16,16 +17,21 @@ export function InputModal({
                                isOpen,
                                onClose,
                                onSubmit,
-                               title = "Enter name",
-                               placeholder = "Enter a name...",
+                               title,
+                               placeholder,
                                defaultValue = "",
-                               submitLabel = "Create",
+                               submitLabel,
                            }: InputModalProps) {
+    const { t } = useAppTranslation("core");
     const [value, setValue] = useState(defaultValue);
     const [isFocused, setIsFocused] = useState(false);
     const [cancelHovered, setCancelHovered] = useState(false);
     const [submitHovered, setSubmitHovered] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
+
+    const resolvedTitle = title ?? t("inputModal.enterName");
+    const resolvedPlaceholder = placeholder ?? t("inputModal.enterNamePlaceholder");
+    const resolvedSubmitLabel = submitLabel ?? t("inputModal.create");
 
     useEffect(() => {
         if (isOpen) {
@@ -117,7 +123,7 @@ export function InputModal({
                                 fontWeight: theme.typography.fontWeight.semibold,
                             }}
                         >
-                            {title}
+                            {resolvedTitle}
                         </h2>
                     </div>
 
@@ -134,7 +140,7 @@ export function InputModal({
                             onChange={(e) => setValue(e.target.value)}
                             onFocus={() => setIsFocused(true)}
                             onBlur={() => setIsFocused(false)}
-                            placeholder={placeholder}
+                            placeholder={resolvedPlaceholder}
                             style={{
                                 width: "100%",
                                 padding: "12px 16px",
@@ -175,38 +181,38 @@ export function InputModal({
                                 color: theme.colors.text.muted,
                             }}
                         >
-              <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <kbd
-                    style={{
-                        padding: "2px 6px",
-                        fontSize: "10px",
-                        fontFamily: theme.typography.fontFamily.mono,
-                        backgroundColor: theme.colors.background.tertiary,
-                        border: `1px solid ${theme.colors.border.light}`,
-                        borderRadius: theme.borderRadius.base,
-                        color: theme.colors.text.muted,
-                    }}
-                >
-                  Enter
-                </kbd>
-                <span>confirm</span>
-              </span>
                             <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <kbd
-                    style={{
-                        padding: "2px 6px",
-                        fontSize: "10px",
-                        fontFamily: theme.typography.fontFamily.mono,
-                        backgroundColor: theme.colors.background.tertiary,
-                        border: `1px solid ${theme.colors.border.light}`,
-                        borderRadius: theme.borderRadius.base,
-                        color: theme.colors.text.muted,
-                    }}
-                >
-                  Esc
-                </kbd>
-                <span>cancel</span>
-              </span>
+                                <kbd
+                                    style={{
+                                        padding: "2px 6px",
+                                        fontSize: "10px",
+                                        fontFamily: theme.typography.fontFamily.mono,
+                                        backgroundColor: theme.colors.background.tertiary,
+                                        border: `1px solid ${theme.colors.border.light}`,
+                                        borderRadius: theme.borderRadius.base,
+                                        color: theme.colors.text.muted,
+                                    }}
+                                >
+                                    Enter
+                                </kbd>
+                                <span>{t("inputModal.confirm")}</span>
+                            </span>
+                            <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                <kbd
+                                    style={{
+                                        padding: "2px 6px",
+                                        fontSize: "10px",
+                                        fontFamily: theme.typography.fontFamily.mono,
+                                        backgroundColor: theme.colors.background.tertiary,
+                                        border: `1px solid ${theme.colors.border.light}`,
+                                        borderRadius: theme.borderRadius.base,
+                                        color: theme.colors.text.muted,
+                                    }}
+                                >
+                                    Esc
+                                </kbd>
+                                <span>{t("inputModal.cancelHint")}</span>
+                            </span>
                         </div>
 
                         {/* Actions */}
@@ -238,7 +244,7 @@ export function InputModal({
                                     transition: "all 150ms ease",
                                 }}
                             >
-                                Cancel
+                                {t("inputModal.cancel")}
                             </button>
                             <button
                                 type="submit"
@@ -261,7 +267,7 @@ export function InputModal({
                                     transition: "all 150ms ease",
                                 }}
                             >
-                                {submitLabel}
+                                {resolvedSubmitLabel}
                             </button>
                         </div>
                     </div>

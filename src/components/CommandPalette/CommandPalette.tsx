@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 import { theme } from "../../styles/theme";
 import { useTessellumApp } from "../../plugins/TessellumApp";
 import type { PaletteCommand } from "../../plugins/api/UIAPI";
+import { useAppTranslation } from "../../i18n/react.tsx";
 
 interface CommandPaletteProps {
     isOpen: boolean;
@@ -150,16 +151,18 @@ function CommandPaletteList({
                                 selectedIndex,
                                 onSelect,
                                 onHover,
+                                emptyLabel,
                             }: {
     filtered: PaletteCommand[];
     selectedIndex: number;
     onSelect: (index: number) => void;
     onHover: (index: number) => void;
+    emptyLabel: string;
 }) {
     if (filtered.length === 0) {
         return (
             <div style={{ padding: theme.spacing[4], color: theme.colors.gray[500] }}>
-                No commands found
+                {emptyLabel}
             </div>
         );
     }
@@ -201,6 +204,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
     const app = useTessellumApp();
     const commands = app.ui.getPaletteCommands();
     const { query, setQuery, selectedIndex, setSelectedIndex } = usePaletteState(isOpen);
+    const { t } = useAppTranslation("core");
 
     const filtered = useMemo(() => filterCommands(commands, query), [commands, query]);
 
@@ -219,7 +223,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
             <div style={paletteStyle} onClick={(e) => e.stopPropagation()}>
                 <input
                     autoFocus
-                    placeholder="Type a command..."
+                    placeholder={t("commandPalette.placeholder")}
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     style={inputStyle}
@@ -232,6 +236,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
                             triggerSelected(filtered, index, onClose);
                         }}
                         onHover={setSelectedIndex}
+                        emptyLabel={t("commandPalette.empty")}
                     />
                 </div>
             </div>

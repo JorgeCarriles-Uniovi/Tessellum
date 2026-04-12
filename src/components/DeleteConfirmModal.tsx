@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { AlertTriangle, Trash2 } from "lucide-react";
 import { theme } from "../styles/theme";
+import { useAppTranslation } from "../i18n/react.tsx";
 
 interface DeleteConfirmModalProps {
     isOpen: boolean;
@@ -17,6 +18,7 @@ export function DeleteConfirmModal({
                                        onClose,
                                        onConfirm,
                                    }: DeleteConfirmModalProps) {
+    const { t } = useAppTranslation("core");
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
             if (!isOpen) {
@@ -40,10 +42,10 @@ export function DeleteConfirmModal({
 
     const isBulkDelete = targetNames.length > 1;
     const description = isBulkDelete
-        ? `You are about to move ${targetNames.length} selected items to trash.`
+        ? t("deleteModal.bulkDescription", { count: targetNames.length })
         : hasDirectory
-            ? `The folder "${targetNames[0]}" and all its contents will be moved to trash.`
-            : `The file "${targetNames[0]}" will be moved to trash.`;
+            ? t("deleteModal.folderDescription", { name: targetNames[0] })
+            : t("deleteModal.fileDescription", { name: targetNames[0] });
     const previewNames = targetNames.slice(0, 4);
     const remainingCount = targetNames.length - previewNames.length;
 
@@ -106,7 +108,7 @@ export function DeleteConfirmModal({
                             fontWeight: theme.typography.fontWeight.semibold,
                         }}
                     >
-                        Move to trash?
+                        {t("deleteModal.title")}
                     </h2>
                     <p
                         style={{
@@ -132,7 +134,7 @@ export function DeleteConfirmModal({
                             }}
                         >
                             {previewNames.join(", ")}
-                            {remainingCount > 0 ? ` and ${remainingCount} more...` : ""}
+                            {remainingCount > 0 ? t("deleteModal.moreItems", { count: remainingCount }) : ""}
                         </div>
                     )}
                 </div>
@@ -158,7 +160,7 @@ export function DeleteConfirmModal({
                             cursor: "pointer",
                         }}
                     >
-                        Cancel
+                        {t("deleteModal.cancel")}
                     </button>
                     <button
                         type="button"
@@ -178,7 +180,7 @@ export function DeleteConfirmModal({
                         }}
                     >
                         <Trash2 size={14} />
-                        Move to trash
+                        {t("deleteModal.moveToTrash")}
                     </button>
                 </div>
             </div>

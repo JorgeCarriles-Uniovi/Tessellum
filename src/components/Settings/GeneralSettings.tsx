@@ -2,10 +2,15 @@ import { SettingSection } from "./items/SettingSection.tsx";
 import { SettingItem } from "./items/SettingItem.tsx";
 import { ToggleSetting } from "./items/ToggleSetting.tsx";
 import { useState } from "react";
+import { useSettingsStore } from "../../stores";
+import { useAppTranslation } from "../../i18n/react.tsx";
 
 export function GeneralSettings() {
     const [autoSave, setAutoSave] = useState(true);
     const [spellCheck, setSpellCheck] = useState(true);
+    const locale = useSettingsStore((state) => state.locale);
+    const setLocale = useSettingsStore((state) => state.setLocale);
+    const { t } = useAppTranslation("settings");
     const inputStyle = {
         paddingTop: `0.5rem`,
         paddingBottom: `0.5rem`,
@@ -18,8 +23,24 @@ export function GeneralSettings() {
 
     return (
         <div className="space-y-6">
-            <SettingSection title="Profile" description="Manage your profile information">
-                <SettingItem label="Display Name">
+            <SettingSection title={t("general.languageTitle")} description={t("general.languageDescription")}>
+                <SettingItem label={t("general.languageLabel")}>
+                    <div className="space-y-3">
+                        <select
+                            value={locale}
+                            onChange={(event) => setLocale(event.target.value as typeof locale)}
+                            className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)] focus:border-transparent transition-all"
+                            style={inputStyle}
+                        >
+                            <option value="en">{t("general.locale.en")}</option>
+                            <option value="es">{t("general.locale.es")}</option>
+                        </select>
+                    </div>
+                </SettingItem>
+            </SettingSection>
+
+            <SettingSection title={t("general.profileTitle")} description={t("general.profileDescription")}>
+                <SettingItem label={t("general.displayName")}>
                     <input
                         type="text"
                         defaultValue="DevAdmin"
@@ -27,7 +48,7 @@ export function GeneralSettings() {
                         style={inputStyle}
                     />
                 </SettingItem>
-                <SettingItem label="Email">
+                <SettingItem label={t("general.email")}>
                     <input
                         type="email"
                         defaultValue="admin@workspace.com"
@@ -37,16 +58,16 @@ export function GeneralSettings() {
                 </SettingItem>
             </SettingSection>
 
-            <SettingSection title="Workspace" description="Configure workspace settings">
+            <SettingSection title={t("general.workspaceTitle")} description={t("general.workspaceDescription")}>
                 <ToggleSetting
-                    label="Auto-save"
-                    description="Automatically save changes as you type"
+                    label={t("general.autoSave")}
+                    description={t("general.autoSaveDescription")}
                     checked={autoSave}
                     onChange={setAutoSave}
                 />
                 <ToggleSetting
-                    label="Spell check"
-                    description="Check spelling as you type"
+                    label={t("general.spellCheck")}
+                    description={t("general.spellCheckDescription")}
                     checked={spellCheck}
                     onChange={setSpellCheck}
                 />

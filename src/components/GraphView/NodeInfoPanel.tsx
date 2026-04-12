@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { useEditorStore } from '../../stores/editorStore';
 import { stringToColor } from '../../utils/graphUtils';
+import { useAppTranslation } from '../../i18n/react.tsx';
 
 interface NodeInfoPanelProps {
     nodePath: string;
@@ -10,6 +11,7 @@ interface NodeInfoPanelProps {
 }
 
 export function NodeInfoPanel({ nodePath, tags, onClose }: NodeInfoPanelProps) {
+    const { t } = useAppTranslation("core");
     const [outgoing, setOutgoing] = useState<string[]>([]);
     const [incoming, setIncoming] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
@@ -112,14 +114,14 @@ export function NodeInfoPanel({ nodePath, tags, onClose }: NodeInfoPanelProps) {
             >
                 {/* Path */}
                 <div style={{ marginBottom: 12 }}>
-                    <div style={sectionLabelStyle}>Path</div>
+                    <div style={sectionLabelStyle}>{t("graph.path")}</div>
                     <div style={sectionValueStyle}>{relativePath}</div>
                 </div>
 
                 {/* Tags */}
                 {tags && tags.length > 0 && (
                     <div style={{ marginBottom: 12 }}>
-                        <div style={sectionLabelStyle}>Tags</div>
+                        <div style={sectionLabelStyle}>{t("graph.tags")}</div>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                             {tags.map((tag) => {
                                 const { h } = stringToColor(tag);
@@ -146,16 +148,16 @@ export function NodeInfoPanel({ nodePath, tags, onClose }: NodeInfoPanelProps) {
                 )}
 
                 {loading ? (
-                    <div style={{ ...sectionValueStyle, fontStyle: 'italic' }}>Loading...</div>
+                    <div style={{ ...sectionValueStyle, fontStyle: 'italic' }}>{t("graph.loading")}</div>
                 ) : (
                     <>
                         {/* Outgoing links */}
                         <div style={{ marginBottom: 12 }}>
                             <div style={sectionLabelStyle}>
-                                Outgoing Links ({outgoing.length})
+                                {t("graph.outgoingLinks", { count: outgoing.length })}
                             </div>
                             {outgoing.length === 0 ? (
-                                <div style={emptyStyle}>No outgoing links</div>
+                                <div style={emptyStyle}>{t("graph.noOutgoingLinks")}</div>
                             ) : (
                                 outgoing.map((path) => (
                                     <div key={path} style={linkItemStyle}>
@@ -168,10 +170,10 @@ export function NodeInfoPanel({ nodePath, tags, onClose }: NodeInfoPanelProps) {
                         {/* Incoming links */}
                         <div>
                             <div style={sectionLabelStyle}>
-                                Incoming Links ({incoming.length})
+                                {t("graph.incomingLinks", { count: incoming.length })}
                             </div>
                             {incoming.length === 0 ? (
-                                <div style={emptyStyle}>No incoming links</div>
+                                <div style={emptyStyle}>{t("graph.noIncomingLinks")}</div>
                             ) : (
                                 incoming.map((path) => (
                                     <div key={path} style={linkItemStyle}>

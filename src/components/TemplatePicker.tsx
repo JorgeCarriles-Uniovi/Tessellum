@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import { theme } from "../styles/theme";
 import { useEditorStore } from "../stores/editorStore";
 import { useCreateNote } from "./Sidebar/hooks/useCreateNote";
@@ -18,26 +19,27 @@ interface TemplatePickerProps {
 }
 
 export function TemplatePicker({ isOpen, onClose, parentPath }: TemplatePickerProps) {
+    const { t } = useTranslation("core");
     const { vaultPath } = useEditorStore();
     const createNote = useCreateNote();
     const createNoteFromTemplate = useCreateNoteFromTemplate();
 
     const [templates, setTemplates] = useState<TemplateInfo[]>([]);
     const [isLoading, setIsLoading] = useState(false);
-    const [title, setTitle] = useState("Untitled");
+    const [title, setTitle] = useState("");
     const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
 
     const listItems = useMemo(() => {
         return [
-            { name: "Blank note", path: "" },
+            { name: t("templatePicker.blankNote", "Blank note"), path: "" },
             ...templates,
         ];
-    }, [templates]);
+    }, [templates, t]);
 
     useEffect(() => {
         if (!isOpen) return;
 
-        setTitle("Untitled");
+        setTitle(t("templatePicker.untitled", "Untitled"));
         setIsLoading(true);
 
         if (!vaultPath) {
@@ -52,11 +54,11 @@ export function TemplatePicker({ isOpen, onClose, parentPath }: TemplatePickerPr
             })
             .catch((e) => {
                 console.error(e);
-                toast.error("Failed to load templates");
+                toast.error(t("templatePicker.loadError", "Failed to load templates"));
                 setTemplates([]);
             })
             .finally(() => setIsLoading(false));
-    }, [isOpen, vaultPath]);
+    }, [isOpen, vaultPath, t]);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -74,7 +76,7 @@ export function TemplatePicker({ isOpen, onClose, parentPath }: TemplatePickerPr
 
     const handleSelect = async (templatePath: string) => {
         if (!title.trim()) {
-            toast.error("Title cannot be empty");
+            toast.error(t("templatePicker.emptyTitleError", "Title cannot be empty"));
             return;
         }
 
@@ -144,7 +146,7 @@ export function TemplatePicker({ isOpen, onClose, parentPath }: TemplatePickerPr
                             fontWeight: theme.typography.fontWeight.semibold,
                         }}
                     >
-                        New Note From Template
+                        {t("templatePicker.title", "New Note From Template")}
                     </h2>
                     <p
                         style={{
@@ -153,7 +155,7 @@ export function TemplatePicker({ isOpen, onClose, parentPath }: TemplatePickerPr
                             fontSize: theme.typography.fontSize.sm,
                         }}
                     >
-                        Pick a template and name your note.
+                        {t("templatePicker.description", "Pick a template and name your note.")}
                     </p>
                 </div>
 
@@ -167,7 +169,7 @@ export function TemplatePicker({ isOpen, onClose, parentPath }: TemplatePickerPr
                         type="text"
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
-                        placeholder="Untitled"
+                        placeholder={t("templatePicker.untitled", "Untitled")}
                         style={{
                             width: "100%",
                             padding: "12px 16px",
@@ -200,7 +202,7 @@ export function TemplatePicker({ isOpen, onClose, parentPath }: TemplatePickerPr
                                 fontSize: theme.typography.fontSize.sm,
                             }}
                         >
-                            Loading templates...
+                            {t("templatePicker.loading", "Loading templates...")}
                         </div>
                     ) : listItems.length === 1 ? (
                         <div
@@ -210,7 +212,7 @@ export function TemplatePicker({ isOpen, onClose, parentPath }: TemplatePickerPr
                                 fontSize: theme.typography.fontSize.sm,
                             }}
                         >
-                            No templates found. Add .md files to .tessellum/templates.
+                            {t("templatePicker.noTemplatesFound", "No templates found. Add .md files to .tessellum/templates.")}
                         </div>
                     ) : null}
 
@@ -253,7 +255,7 @@ export function TemplatePicker({ isOpen, onClose, parentPath }: TemplatePickerPr
                                         color: theme.colors.text.muted,
                                     }}
                                 >
-                                    {template.path ? "Use" : "Start fresh"}
+                                    {template.path ? t("templatePicker.useTemplate", "Use") : t("templatePicker.startFresh", "Start fresh")}
                                 </span>
                             </button>
                         ))}
@@ -284,7 +286,7 @@ export function TemplatePicker({ isOpen, onClose, parentPath }: TemplatePickerPr
                             transition: "all 150ms ease",
                         }}
                     >
-                        Close
+                        {t("templatePicker.close", "Close")}
                     </button>
                 </div>
             </div>

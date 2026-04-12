@@ -3,11 +3,14 @@ import ReactDOM from "react-dom/client";
 import './styles/globals.css'
 import App from "./App";
 import {ErrorBoundary} from "./components/ErrorBoundary.tsx";
+import { AppI18nProvider } from "./i18n/react.tsx";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <React.StrictMode>
-        <ErrorBoundary>
-            <App />
-        </ErrorBoundary>
+        <AppI18nProvider>
+            <ErrorBoundary>
+                <App />
+            </ErrorBoundary>
+        </AppI18nProvider>
     </React.StrictMode>
 );

@@ -5,8 +5,10 @@ import { ThemePreview } from "./ThemePreview.tsx";
 import { Check } from "lucide-react";
 import { useMemo } from "react";
 import { useAppearanceStore, useThemeStore } from "../../stores";
+import { useAppTranslation } from "../../i18n/react.tsx";
 
 export function AppearanceSettings() {
+    const { t } = useAppTranslation("settings");
     const themes = useThemeStore((state) => state.themes);
     const activeThemeName = useThemeStore((state) => state.activeThemeName);
     const setActiveTheme = useThemeStore((state) => state.setActiveTheme);
@@ -147,7 +149,7 @@ export function AppearanceSettings() {
 
     return (
         <div className="space-y-6">
-            <SettingSection title="Theme" description="Choose your preferred theme">
+            <SettingSection title={t("appearance.themeTitle")} description={t("appearance.themeDescription")}>
                 <div className="grid grid-cols-2 gap-3 mb-4">
                     {orderedThemes.map((theme) => {
                         const isActive = isThemeActive(theme.name);
@@ -170,7 +172,7 @@ export function AppearanceSettings() {
                                             {theme.name}
                                         </p>
                                         <p className="text-[10px] truncate" style={{ color: "var(--color-text-muted)" }}>
-                                            {theme.variant === "light" ? "Light mode" : theme.variant === "dark" ? "Dark mode" : "Custom theme"}
+                                            {theme.variant === "light" ? t("appearance.lightMode") : theme.variant === "dark" ? t("appearance.darkMode") : t("appearance.customTheme")}
                                         </p>
                                     </div>
                                     <div
@@ -189,7 +191,7 @@ export function AppearanceSettings() {
                 </div>
             </SettingSection>
 
-            <SettingSection title="Theme Schedule" description="Automatically switch themes">
+            <SettingSection title={t("appearance.scheduleTitle")} description={t("appearance.scheduleDescription")}>
                 <div className="grid grid-cols-4 gap-3">
                     <button
                         onClick={() => setThemeScheduleMode('off')}
@@ -199,7 +201,7 @@ export function AppearanceSettings() {
                             ...(themeScheduleMode === "off" ? selectedScheduleStyle : idleScheduleStyle),
                         }}
                     >
-                        Off
+                        {t("appearance.off")}
                     </button>
                     <button
                         onClick={() => setThemeScheduleMode('system')}
@@ -209,7 +211,7 @@ export function AppearanceSettings() {
                             ...(themeScheduleMode === "system" ? selectedScheduleStyle : idleScheduleStyle),
                         }}
                     >
-                        System
+                        {t("appearance.system")}
                     </button>
                     <button
                         onClick={() => setThemeScheduleMode('sun')}
@@ -219,7 +221,7 @@ export function AppearanceSettings() {
                             ...(themeScheduleMode === "sun" ? selectedScheduleStyle : idleScheduleStyle),
                         }}
                     >
-                        Sunrise / Sunset
+                        {t("appearance.sunriseSunset")}
                     </button>
                     <button
                         onClick={() => setThemeScheduleMode('custom')}
@@ -229,7 +231,7 @@ export function AppearanceSettings() {
                             ...(themeScheduleMode === "custom" ? selectedScheduleStyle : idleScheduleStyle),
                         }}
                     >
-                        Custom
+                        {t("appearance.custom")}
                     </button>
                 </div>
                 {themeScheduleMode === 'custom' && (
@@ -244,7 +246,7 @@ export function AppearanceSettings() {
                         }}
                     >
                         <div className="flex items-center justify-between">
-                            <label className="text-xs" style={mutedLabelStyle}>Light start</label>
+                            <label className="text-xs" style={mutedLabelStyle}>{t("appearance.lightStart")}</label>
                             <input
                                 type="time"
                                 value={themeScheduleLightStart}
@@ -254,7 +256,7 @@ export function AppearanceSettings() {
                             />
                         </div>
                         <div className="flex items-center justify-between">
-                            <label className="text-xs" style={mutedLabelStyle}>Dark start</label>
+                            <label className="text-xs" style={mutedLabelStyle}>{t("appearance.darkStart")}</label>
                             <input
                                 type="time"
                                 value={themeScheduleDarkStart}
@@ -267,7 +269,7 @@ export function AppearanceSettings() {
                 )}
             </SettingSection>
 
-            <SettingSection title="Accent Color" description="Customize the accent color">
+            <SettingSection title={t("appearance.accentTitle")} description={t("appearance.accentDescription")}>
                 <div className="grid grid-cols-6 gap-2"
                      style={{
                          paddingBottom: `1rem`,
@@ -315,56 +317,56 @@ export function AppearanceSettings() {
                 </div>
             </SettingSection>
 
-            <SettingSection title="Terminal Colors" description="Adjust terminal callout colors">
+            <SettingSection title={t("appearance.terminalTitle")} description={t("appearance.terminalDescription")}>
                 <div className="mb-4">
                     <ToggleSetting
-                        label="Custom terminal colors"
-                        description="Override the theme defaults for terminal callouts"
+                        label={t("appearance.customTerminalColors")}
+                        description={t("appearance.customTerminalColorsDescription")}
                         checked={terminalCustom}
                         onChange={setTerminalCustom}
                     />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                    <ColorField label="Header bg" value={terminalHeaderBg} onChange={setTerminalHeaderBg} disabled={!terminalCustom} />
-                    <ColorField label="Line bg" value={terminalLineBg} onChange={setTerminalLineBg} disabled={!terminalCustom} />
-                    <ColorField label="Border" value={terminalBorder} onChange={setTerminalBorder} disabled={!terminalCustom} />
-                    <ColorField label="Text" value={terminalText} onChange={setTerminalText} disabled={!terminalCustom} />
-                    <ColorField label="Muted" value={terminalMuted} onChange={setTerminalMuted} disabled={!terminalCustom} />
+                    <ColorField label={t("appearance.headerBg")} value={terminalHeaderBg} onChange={setTerminalHeaderBg} disabled={!terminalCustom} />
+                    <ColorField label={t("appearance.lineBg")} value={terminalLineBg} onChange={setTerminalLineBg} disabled={!terminalCustom} />
+                    <ColorField label={t("appearance.border")} value={terminalBorder} onChange={setTerminalBorder} disabled={!terminalCustom} />
+                    <ColorField label={t("appearance.text")} value={terminalText} onChange={setTerminalText} disabled={!terminalCustom} />
+                    <ColorField label={t("appearance.muted")} value={terminalMuted} onChange={setTerminalMuted} disabled={!terminalCustom} />
                 </div>
             </SettingSection>
 
-            <SettingSection title="Syntax Highlighting" description="Customize code block colors">
+            <SettingSection title={t("appearance.syntaxTitle")} description={t("appearance.syntaxDescription")}>
                 <div className="mb-4">
                     <ToggleSetting
-                        label="Custom syntax colors"
-                        description="Override the theme defaults for code blocks"
+                        label={t("appearance.customSyntaxColors")}
+                        description={t("appearance.customSyntaxColorsDescription")}
                         checked={syntaxCustom}
                         onChange={setSyntaxCustom}
                     />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                    <ColorField label="Comment" value={syntaxComment} onChange={setSyntaxComment} disabled={!syntaxCustom} />
-                    <ColorField label="Keyword" value={syntaxKeyword} onChange={setSyntaxKeyword} disabled={!syntaxCustom} />
-                    <ColorField label="Operator" value={syntaxOperator} onChange={setSyntaxOperator} disabled={!syntaxCustom} />
-                    <ColorField label="String" value={syntaxString} onChange={setSyntaxString} disabled={!syntaxCustom} />
-                    <ColorField label="Number" value={syntaxNumber} onChange={setSyntaxNumber} disabled={!syntaxCustom} />
-                    <ColorField label="Variable" value={syntaxVariable} onChange={setSyntaxVariable} disabled={!syntaxCustom} />
-                    <ColorField label="Function" value={syntaxFunction} onChange={setSyntaxFunction} disabled={!syntaxCustom} />
+                    <ColorField label={t("appearance.comment")} value={syntaxComment} onChange={setSyntaxComment} disabled={!syntaxCustom} />
+                    <ColorField label={t("appearance.keyword")} value={syntaxKeyword} onChange={setSyntaxKeyword} disabled={!syntaxCustom} />
+                    <ColorField label={t("appearance.operator")} value={syntaxOperator} onChange={setSyntaxOperator} disabled={!syntaxCustom} />
+                    <ColorField label={t("appearance.string")} value={syntaxString} onChange={setSyntaxString} disabled={!syntaxCustom} />
+                    <ColorField label={t("appearance.number")} value={syntaxNumber} onChange={setSyntaxNumber} disabled={!syntaxCustom} />
+                    <ColorField label={t("appearance.variable")} value={syntaxVariable} onChange={setSyntaxVariable} disabled={!syntaxCustom} />
+                    <ColorField label={t("appearance.function")} value={syntaxFunction} onChange={setSyntaxFunction} disabled={!syntaxCustom} />
                 </div>
             </SettingSection>
 
-            <SettingSection title="Inline Code" description="Customize rendered inline code text color">
+            <SettingSection title={t("appearance.inlineCodeTitle")} description={t("appearance.inlineCodeDescription")}>
                 <div className="mb-4">
                     <ToggleSetting
-                        label="Custom inline code color"
-                        description="Override the theme default for rendered inline code text"
+                        label={t("appearance.customInlineCodeColor")}
+                        description={t("appearance.customInlineCodeColorDescription")}
                         checked={inlineCodeCustom}
                         onChange={setInlineCodeCustom}
                     />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                     <ColorField
-                        label="Text"
+                        label={t("appearance.text")}
                         value={inlineCodeColor}
                         onChange={setInlineCodeColor}
                         disabled={!inlineCodeCustom}
@@ -372,73 +374,73 @@ export function AppearanceSettings() {
                 </div>
             </SettingSection>
 
-            <SettingSection title="Visual Style" description="Adjust density and styling">
+            <SettingSection title={t("appearance.visualStyleTitle")} description={t("appearance.visualStyleDescription")}>
                 <div className="grid grid-cols-2 gap-4">
-                    <SettingItem label="Density">
+                    <SettingItem label={t("appearance.density")}>
                         <select
                             value={density}
                             onChange={(e) => setDensity(e.target.value as 'compact' | 'comfortable')}
                             className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)] focus:border-transparent transition-all cursor-pointer"
                             style={{ ...pillStyle, ...inputBaseStyle }}
                         >
-                            <option value="compact">Compact</option>
-                            <option value="comfortable">Comfortable</option>
+                            <option value="compact">{t("appearance.compact")}</option>
+                            <option value="comfortable">{t("appearance.comfortable")}</option>
                         </select>
                     </SettingItem>
-                    <SettingItem label="Corner radius">
+                    <SettingItem label={t("appearance.cornerRadius")}>
                         <select
                             value={radius}
                             onChange={(e) => setRadius(e.target.value as '6' | '10' | '16')}
                             className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)] focus:border-transparent transition-all cursor-pointer"
                             style={{ ...pillStyle, ...inputBaseStyle }}
                         >
-                            <option value="6">Sharp</option>
-                            <option value="10">Balanced</option>
-                            <option value="16">Soft</option>
+                            <option value="6">{t("appearance.sharp")}</option>
+                            <option value="10">{t("appearance.balanced")}</option>
+                            <option value="16">{t("appearance.soft")}</option>
                         </select>
                     </SettingItem>
-                    <SettingItem label="Shadows">
+                    <SettingItem label={t("appearance.shadows")}>
                         <select
                             value={shadow}
                             onChange={(e) => setShadow(e.target.value as 'subtle' | 'medium' | 'strong')}
                             className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)] focus:border-transparent transition-all cursor-pointer"
                             style={{ ...pillStyle, ...inputBaseStyle }}
                         >
-                            <option value="subtle">Subtle</option>
-                            <option value="medium">Medium</option>
-                            <option value="strong">Strong</option>
+                            <option value="subtle">{t("appearance.subtle")}</option>
+                            <option value="medium">{t("appearance.medium")}</option>
+                            <option value="strong">{t("appearance.strong")}</option>
                         </select>
                     </SettingItem>
-                    <SettingItem label="Icon style">
+                    <SettingItem label={t("appearance.iconStyle")}>
                         <select
                             value={iconStyle}
                             onChange={(e) => setIconStyle(e.target.value as 'outline' | 'filled')}
                             className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)] focus:border-transparent transition-all cursor-pointer"
                             style={{ ...pillStyle, ...inputBaseStyle }}
                         >
-                            <option value="outline">Outline</option>
-                            <option value="filled">Filled</option>
+                            <option value="outline">{t("appearance.outline")}</option>
+                            <option value="filled">{t("appearance.filled")}</option>
                         </select>
                     </SettingItem>
                 </div>
             </SettingSection>
 
-            <SettingSection title="Layout" description="Adjust workspace layout options">
+            <SettingSection title={t("appearance.layoutTitle")} description={t("appearance.layoutDescription")}>
                 <div className="grid grid-cols-2 gap-4">
-                    <SettingItem label="Sidebar position">
+                    <SettingItem label={t("appearance.sidebarPosition")}>
                         <select
                             value={sidebarPosition}
                             onChange={(e) => setSidebarPosition(e.target.value as 'left' | 'right')}
                             className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)] focus:border-transparent transition-all cursor-pointer"
                             style={{ ...pillStyle, ...inputBaseStyle }}
                         >
-                            <option value="left">Left</option>
-                            <option value="right">Right</option>
+                            <option value="left">{t("appearance.left")}</option>
+                            <option value="right">{t("appearance.right")}</option>
                         </select>
                     </SettingItem>
                     <ToggleSetting
-                        label="Toolbar"
-                        description="Show the top toolbar"
+                        label={t("appearance.toolbar")}
+                        description={t("appearance.toolbarDescription")}
                         checked={toolbarVisible}
                         onChange={setToolbarVisible}
                     />

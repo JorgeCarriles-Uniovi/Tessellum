@@ -1,6 +1,9 @@
 import type { ReactNode } from "react";
 import type { CalloutType } from "../../constants/callout-types";
 
+type ResolvableText = string | (() => string);
+type ResolvableTextList = string[] | (() => string[]);
+
 export interface SidebarAction {
     id: string;
     label: string;
@@ -48,15 +51,47 @@ export type SettingsTab = {
     isActive?: boolean;
 }
 
+type RegisteredSidebarAction = Omit<SidebarAction, "label"> & {
+    label: ResolvableText;
+};
+
+type RegisteredPaletteCommand = Omit<PaletteCommand, "name" | "keywords"> & {
+    name: ResolvableText;
+    keywords?: ResolvableTextList;
+};
+
+type RegisteredUIAction = Omit<UIAction, "label" | "tooltip"> & {
+    label: ResolvableText;
+    tooltip?: ResolvableText;
+};
+
+type RegisteredSettingsTab = Omit<SettingsTab, "name"> & {
+    name: ResolvableText;
+};
+
+function resolveText(value: ResolvableText | undefined): string | undefined {
+    if (typeof value === "function") {
+        return value();
+    }
+    return value;
+}
+
+function resolveTextList(value: ResolvableTextList | undefined): string[] | undefined {
+    if (typeof value === "function") {
+        return value();
+    }
+    return value;
+}
+
 /**
  * UI contribution API.
  */
 export class UIAPI {
     private calloutTypes = new Map<string, CalloutType[]>(); // pluginId -> types
-    private sidebarActions = new Map<string, SidebarAction[]>();
-    private paletteCommands = new Map<string, PaletteCommand[]>();
-    private uiActions = new Map<string, UIAction[]>();
-    private settingsTabs = new Map<string, SettingsTab[]>();
+    private sidebarActions = new Map<string, RegisteredSidebarAction[]>();
+    private paletteCommands = new Map<string, RegisteredPaletteCommand[]>();
+    private uiActions = new Map<string, RegisteredUIAction[]>();
+    private settingsTabs = new Map<string, RegisteredSettingsTab[]>();
 
     constructor() {
     }
@@ -87,7 +122,7 @@ export class UIAPI {
 
     // --- Sidebar actions ---
 
-    registerSidebarAction(pluginId: string, action: SidebarAction): void {
+    registerSidebarAction(pluginId: string, action: RegisteredSidebarAction): void {
         if (!this.sidebarActions.has(pluginId)) {
             this.sidebarActions.set(pluginId, []);
         }
@@ -101,14 +136,17 @@ export class UIAPI {
     getSidebarActions(): SidebarAction[] {
         const result: SidebarAction[] = [];
         for (const actions of this.sidebarActions.values()) {
-            result.push(...actions);
+            result.push(...actions.map((action) => ({
+                ...action,
+                label: resolveText(action.label) ?? "",
+            })));
         }
         return result.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     }
 
     // --- UI actions (layout regions) ---
 
-    registerUIAction(pluginId: string, action: UIAction): void {
+    registerUIAction(pluginId: string, action: RegisteredUIAction): void {
         if (!this.uiActions.has(pluginId)) {
             this.uiActions.set(pluginId, []);
         }
@@ -124,7 +162,11 @@ export class UIAPI {
         for (const actions of this.uiActions.values()) {
             for (const action of actions) {
                 if (action.region === region) {
-                    result.push(action);
+                    result.push({
+                        ...action,
+                        label: resolveText(action.label) ?? "",
+                        tooltip: resolveText(action.tooltip),
+                    });
                 }
             }
         }
@@ -133,7 +175,7 @@ export class UIAPI {
 
     // --- Command palette ---
 
-    registerPaletteCommand(pluginId: string, command: PaletteCommand): void {
+    registerPaletteCommand(pluginId: string, command: RegisteredPaletteCommand): void {
         if (!this.paletteCommands.has(pluginId)) {
             this.paletteCommands.set(pluginId, []);
         }
@@ -147,14 +189,18 @@ export class UIAPI {
     getPaletteCommands(): PaletteCommand[] {
         const result: PaletteCommand[] = [];
         for (const commands of this.paletteCommands.values()) {
-            result.push(...commands);
+            result.push(...commands.map((command) => ({
+                ...command,
+                name: resolveText(command.name) ?? "",
+                keywords: resolveTextList(command.keywords),
+            })));
         }
         return result;
     }
 
     // --- Settings tabs ---
 
-    registerSettingsTab(pluginId: string, tab: SettingsTab): void {
+    registerSettingsTab(pluginId: string, tab: RegisteredSettingsTab): void {
         if (!this.settingsTabs.has(pluginId)) {
             this.settingsTabs.set(pluginId, []);
         }
@@ -168,14 +214,12 @@ export class UIAPI {
     getSettingsTabs(): SettingsTab[] {
         const result: SettingsTab[] = [];
         for (const tabs of this.settingsTabs.values()) {
-            result.push(...tabs);
+            result.push(...tabs.map((tab) => ({
+                ...tab,
+                name: resolveText(tab.name) ?? "",
+            })));
         }
         return result;
     }
 
-
-    // --- Future expansion ---
-    // registerSidebarView(pluginId: string, view: SidebarViewConfig): void;
-    // registerRibbonAction(pluginId: string, action: RibbonAction): void;
-    // addStatusBarItem(pluginId: string): HTMLElement;
 }

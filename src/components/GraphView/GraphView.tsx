@@ -11,6 +11,7 @@ import { mapGraphDataToElements, GraphData } from "../../utils/graphUtils.ts";
 import { createNoteInDir } from "../../utils/noteUtils";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { normalizeCypherQuery } from "../../lib/cypherQueryNormalizer";
+import { useAppTranslation } from "../../i18n/react.tsx";
 
 type QueryRow = Record<string, unknown>;
 
@@ -30,6 +31,7 @@ function extractMatchingNodeIds(rows: QueryRow[], graphData: GraphData): Set<str
 }
 
 export function GraphView() {
+    const { t } = useAppTranslation("core");
     const { vaultPath, files, setActiveNote, addFileIfMissing } = useVaultStore();
     const { setViewMode, selectedGraphNode, setSelectedGraphNode } = useGraphStore();
 
@@ -173,21 +175,21 @@ export function GraphView() {
                     }}
                 >
                     <ArrowLeft size={14} />
-                    Back to Editor
+                    {t("graph.backToEditor")}
                 </button>
                 <span className="text-[13px] font-semibold text-[var(--color-text-primary)]">
-                    Graph View
+                    {t("graph.graphView")}
                 </span>
             </div>
 
             <div className="flex-1 relative">
                 {loading ? (
                     <div className="flex items-center justify-center h-full text-[var(--color-text-muted)] text-sm">
-                        Loading graph...
+                        {t("graph.loadingGraph")}
                     </div>
                 ) : elements.length === 0 ? (
                     <div className="flex items-center justify-center h-full text-[var(--color-text-muted)] text-sm">
-                        No graph data yet. Create notes and links to see connections.
+                        {t("graph.noGraphData")}
                     </div>
                 ) : (
                     <GraphCanvas

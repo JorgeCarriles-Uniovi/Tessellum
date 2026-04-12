@@ -17,6 +17,7 @@ import { cn } from "../../lib/utils";
 import { useResizableSidebarWidth } from "../Layout/useResizableSidebarWidth";
 import { SearchPanel } from "../Search/SearchPanel";
 import { TrashModal } from "../TrashModal/TrashModal";
+import { useAppTranslation } from "../../i18n/react.tsx";
 
 const LEFT_SIDEBAR_WIDTH_KEY = "tessellum:left-sidebar-width";
 const LEFT_SIDEBAR_MIN = 220;
@@ -236,8 +237,9 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
     const [templatePickerParent, setTemplatePickerParent] = useState<string | undefined>(undefined);
     const [hoveredActionId, setHoveredActionId] = useState<string | null>(null);
     const [isTrashModalOpen, setIsTrashModalOpen] = useState(false);
+    const { t } = useAppTranslation("core");
 
-    const vaultName = vaultPath ? vaultPath.split(/[\\/]/).pop() || vaultPath : "No vault";
+    const vaultName = vaultPath ? vaultPath.split(/[\\/]/).pop() || vaultPath : t("sidebar.noVault");
 
     const openTemplatePicker = (parentPath?: string) => {
         setTemplatePickerParent(parentPath);
@@ -381,8 +383,8 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
                                         <div style={emptyStateIconStyle}>
                                             <FolderOpen size={SIDEBAR_EMPTY_ICON_SIZE} style={SIDEBAR_EMPTY_ICON_STYLE} />
                                         </div>
-                                        <div style={emptyStateTitleStyle}>No notes yet</div>
-                                        <div style={emptyStateTextStyle}>Create your first note or folder to get started.</div>
+                                        <div style={emptyStateTitleStyle}>{t("sidebar.emptyTitle")}</div>
+                                        <div style={emptyStateTextStyle}>{t("sidebar.emptyDescription")}</div>
                                     </div>
                                 ) : (
                                     <FileTree data={treeData} onContextMenu={handleContextMenu} />
@@ -499,19 +501,19 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
                 isOpen={isFolderModalOpen}
                 onClose={closeFolderModal}
                 onSubmit={handleCreateFolderConfirm}
-                title="Create New Folder"
-                placeholder="Enter folder name..."
-                submitLabel="Create"
+                title= {t("sidebar.modal.createFolder")}
+                placeholder= {t("sidebar.modal.folderPlaceholder")}
+                submitLabel= {t("sidebar.modal.create")}
             />
 
             <InputModal
                 isOpen={isRenameModalOpen}
                 onClose={closeRenameModal}
                 onSubmit={handleRenameConfirm}
-                title="Rename"
-                placeholder="Enter new name..."
+                title= {t("sidebar.modal.rename")}
+                placeholder= {t("sidebar.modal.renamePlaceholder")}
                 defaultValue={getRenameInitialValue()}
-                submitLabel="Rename"
+                submitLabel= {t("sidebar.modal.rename")}
             />
 
             <DeleteConfirmModal
@@ -532,17 +534,19 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
 }
 
 function VaultSwitcher({ vaultName, onOpenVault }: { vaultName: string; onOpenVault?: () => void }) {
+    const { t } = useAppTranslation("core");
+
     return (
         <button
             style={vaultSwitcherStyle}
             onClick={onOpenVault}
-            title={onOpenVault ? "Switch Vault" : "No action"}
+            title={onOpenVault ? t("sidebar.switchVault") : t("sidebar.noVaultAction")}
         >
             <div style={{ display: "flex", alignItems: "center", gap: theme.spacing[3] }}>
                 <div style={{ ...logoStyle, ...vaultBadgeStyle }}>{vaultName.charAt(0).toUpperCase()}</div>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
                     <span style={{ fontSize: theme.typography.fontSize.sm, fontWeight: 600 }}>{vaultName}</span>
-                    <span style={{ fontSize: theme.typography.fontSize.xs, color: theme.colors.text.muted }}>Open vault</span>
+                    <span style={{ fontSize: theme.typography.fontSize.xs, color: theme.colors.text.muted }}>{t("sidebar.openVault")}</span>
                 </div>
             </div>
         </button>
