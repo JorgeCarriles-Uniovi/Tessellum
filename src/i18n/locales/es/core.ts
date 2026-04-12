@@ -38,6 +38,13 @@ const core = {
         switchVault: "Cambiar vault",
         noVaultAction: "Sin acción",
         noVault: "Sin vault",
+        modal: {
+            createFolder: "Crear Nueva Carpeta",
+            folderPlaceholder: "Introduce el nombre de la carpeta...",
+            create: "Crear",
+            rename: "Renombrar",
+            renamePlaceholder: "Introduce el nuevo nombre...",
+        }
     },
     commandPalette: {
         placeholder: "Escribe un comando...",
@@ -102,6 +109,19 @@ const core = {
     },
     fileTree: {
         empty: "Vacío",
+    },
+    templatePicker: {
+        title: "Nueva nota desde plantilla",
+        description: "Elige una plantilla y dale un nombre a tu nota.",
+        untitled: "Sin título",
+        emptyTitleError: "El título no puede estar vacío",
+        loadError: "Error al cargar las plantillas",
+        blankNote: "Nota en blanco",
+        loading: "Cargando plantillas...",
+        noTemplatesFound: "No se encontraron plantillas. Añade archivos .md a .tessellum/templates.",
+        useTemplate: "Usar",
+        startFresh: "Empezar en blanco",
+        close: "Cerrar",
     },
 };
 

@@ -501,19 +501,19 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
                 isOpen={isFolderModalOpen}
                 onClose={closeFolderModal}
                 onSubmit={handleCreateFolderConfirm}
-                title="Create New Folder"
-                placeholder="Enter folder name..."
-                submitLabel="Create"
+                title= {t("sidebar.modal.createFolder")}
+                placeholder= {t("sidebar.modal.folderPlaceholder")}
+                submitLabel= {t("sidebar.modal.create")}
             />
 
             <InputModal
                 isOpen={isRenameModalOpen}
                 onClose={closeRenameModal}
                 onSubmit={handleRenameConfirm}
-                title="Rename"
-                placeholder="Enter new name..."
+                title= {t("sidebar.modal.rename")}
+                placeholder= {t("sidebar.modal.renamePlaceholder")}
                 defaultValue={getRenameInitialValue()}
-                submitLabel="Rename"
+                submitLabel= {t("sidebar.modal.rename")}
             />
 
             <DeleteConfirmModal

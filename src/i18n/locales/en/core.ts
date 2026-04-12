@@ -38,6 +38,13 @@ const core = {
         switchVault: "Switch Vault",
         noVaultAction: "No action",
         noVault: "No vault",
+        modal: {
+            createFolder: "Create New Folder",
+            folderPlaceholder: "Enter folder name...",
+            create: "Create",
+            rename: "Rename",
+            renamePlaceholder: "Enter new name...",
+        }
     },
     commandPalette: {
         placeholder: "Type a command...",
@@ -102,6 +109,19 @@ const core = {
     },
     fileTree: {
         empty: "Empty",
+    },
+    templatePicker: {
+        title: "New Note From Template",
+        description: "Pick a template and name your note.",
+        untitled: "Untitled",
+        emptyTitleError: "Title cannot be empty",
+        loadError: "Failed to load templates",
+        blankNote: "Blank note",
+        loading: "Loading templates...",
+        noTemplatesFound: "No templates found. Add .md files to .tessellum/templates.",
+        useTemplate: "Use",
+        startFresh: "Start fresh",
+        close: "Close",
     },
 };
 
