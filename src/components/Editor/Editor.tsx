@@ -37,6 +37,11 @@ import { useAccessibilityStore } from "../../stores";
 import { WorkspaceOverview } from "./workspaceOverview/WorkspaceOverview";
 import type { HeroProjection, WorkspaceCardItem } from "./workspaceOverview/types";
 import { useAppTranslation } from "../../i18n/react.tsx";
+import {
+    applyMarkdownShortcut,
+    matchesMarkdownShortcut,
+    matchesTabNavigationShortcut,
+} from "./utils/markdownShortcuts.ts";
 
 interface NoteCardMetadata {
     contentPreview: string;
@@ -792,34 +797,6 @@ export function Editor() {
 
     useEffect(() => {
         const onKeyDown = (event: KeyboardEvent) => {
-            if (!event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) {
-                return;
-            }
-
-            const isOverviewShortcut = event.code === "Space" || event.key === " ";
-            if (isOverviewShortcut) {
-                const target = event.target as HTMLElement | null;
-                if (target) {
-                    const tag = target.tagName;
-                    const isEditor = target.closest(".cm-editor");
-                    if ((tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable) && !isEditor) {
-                        return;
-                    }
-                }
-
-                event.preventDefault();
-                if (isOverviewOpen) {
-                    closeOverview();
-                } else {
-                    openOverview();
-                }
-                return;
-            }
-
-            if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
-                return;
-            }
-
             const target = event.target as HTMLElement | null;
             if (target) {
                 const tag = target.tagName;
@@ -829,14 +806,51 @@ export function Editor() {
                 }
             }
 
+            const usesPrimaryModifier = event.ctrlKey || event.metaKey;
+            if (!usesPrimaryModifier || event.altKey) {
+                return;
+            }
+
+            const isOverviewShortcut = !event.shiftKey && (event.code === "Space" || event.key === " ");
+            if (isOverviewShortcut) {
+                event.preventDefault();
+                if (isOverviewOpen) {
+                    closeOverview();
+                } else {
+                    openOverview();
+                }
+                return;
+            }
+
+            if (matchesMarkdownShortcut(event, "bold")) {
+                event.preventDefault();
+                applyMarkdownShortcut(editorRef.current?.view, "**");
+                return;
+            }
+
+            if (matchesMarkdownShortcut(event, "italic")) {
+                event.preventDefault();
+                applyMarkdownShortcut(editorRef.current?.view, "*");
+                return;
+            }
+
+            const direction = matchesTabNavigationShortcut(event, "previous")
+                ? -1
+                : matchesTabNavigationShortcut(event, "next")
+                    ? 1
+                    : 0;
+
+            if (direction === 0) {
+                return;
+            }
+
             const activePath = activeNote?.path;
             if (!activePath) return;
 
             const activeIndex = openTabPaths.indexOf(activePath);
             if (activeIndex === -1) return;
 
-            const delta = event.key === "ArrowLeft" ? -1 : 1;
-            const targetIndex = activeIndex + delta;
+            const targetIndex = activeIndex + direction;
             if (targetIndex < 0 || targetIndex >= openTabPaths.length) {
                 return;
             }

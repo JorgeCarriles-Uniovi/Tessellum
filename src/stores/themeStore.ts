@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { homeDir, join, extname } from "@tauri-apps/api/path";
+import { join, extname } from "@tauri-apps/api/path";
 import { mkdir, readDir, readTextFile, watch, type UnwatchFn } from "@tauri-apps/plugin-fs";
 import { BUILTIN_THEMES, DEFAULT_THEME_NAME, type ThemeDefinition } from "../themes/builtinThemes";
 import { getCssVarForToken, type ThemeTokenKey, type ThemeTokenMap } from "../themes/themeTokens";
@@ -9,6 +9,7 @@ import {
     applyAppearanceCustomCssVars,
 } from "../hooks/useApplyAppearanceSettings";
 import { useAppearanceStore } from "./appearanceStore";
+import { useVaultStore } from "./vaultStore";
 
 const THEME_STORAGE_KEY = "tessellum:appearance:theme";
 
@@ -78,13 +79,15 @@ function applyThemeAccent(theme: ThemeDefinition, fallback: ThemeDefinition, for
     applyAccentPaletteFromColor(accent);
 }
 
-async function getThemeDir(): Promise<string> {
-    const home = await homeDir();
-    return join(home, ".tessellum", ".themes");
+async function getThemeDir(): Promise<string | null> {
+    const vaultPath = useVaultStore.getState().vaultPath;
+    if (!vaultPath) return null;
+    return join(vaultPath, ".tessellum", ".themes");
 }
 
-async function ensureThemeDir(): Promise<string> {
+async function ensureThemeDir(): Promise<string | null> {
     const dir = await getThemeDir();
+    if (!dir) return null;
     try {
         await mkdir(dir, { recursive: true });
     } catch {
@@ -95,12 +98,22 @@ async function ensureThemeDir(): Promise<string> {
 
 async function loadUserThemes(): Promise<ThemeDefinition[]> {
     const dir = await ensureThemeDir();
-    const entries = await readDir(dir);
+    if (!dir) return [];
+
+    let entries;
+    try {
+        entries = await readDir(dir);
+    } catch {
+        return [];
+    }
     const themes: ThemeDefinition[] = [];
 
     for (const entry of entries) {
         if (!entry.isFile) continue;
-        const extension = (await extname(entry.name || "")).toLowerCase();
+        let extension = (await extname(entry.name || "")).toLowerCase();
+        if (extension && !extension.startsWith(".")) {
+            extension = `.${extension}`;
+        }
         if (![".json", ".yaml", ".yml"].includes(extension)) continue;
         try {
             const fullPath = await join(dir, entry.name);
@@ -175,6 +188,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
         watchPending = true;
         try {
             const dir = await ensureThemeDir();
+            if (!dir) return;
             unwatchFn = await watch(dir, async () => {
                 await get().loadThemes();
             }, { delayMs: 200 });

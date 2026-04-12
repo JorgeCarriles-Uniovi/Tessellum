@@ -17,6 +17,7 @@ import {
 import { Plugin } from "../Plugin";
 import type { PluginManifest } from "../types";
 import { createNoteInDir } from "../../utils/noteUtils";
+import { getParentFromTarget } from "../../utils/pathUtils";
 import { GeneralSettings } from "../../components/Settings/GeneralSettings.tsx";
 import { EditorSettings } from "../../components/Settings/EditorSettings.tsx";
 import {
@@ -73,7 +74,9 @@ export class CoreUIActionsPlugin extends Plugin {
                 return;
             }
             try {
-                const note = await createNoteInDir(vaultPath, "Untitled");
+                const activeNote = this.app.workspace.getActiveNote();
+                const targetDir = activeNote ? getParentFromTarget(activeNote) : vaultPath;
+                const note = await createNoteInDir(targetDir, "Untitled");
                 this.app.workspace.openNoteByMetadata(note);
             } catch (e) {
                 console.error(e);
@@ -100,6 +103,8 @@ export class CoreUIActionsPlugin extends Plugin {
         const openSettings = () => {
             this.app.events.emit("ui:open-settings");
         }
+
+        this.app.events.on("ui:new-note", newNote);
 
         this.app.ui.registerUIAction(this.manifest.id, {
             id: "nav-back",
