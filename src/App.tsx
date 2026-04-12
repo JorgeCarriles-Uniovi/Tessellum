@@ -162,6 +162,12 @@ function App() {
                 return;
             }
 
+            if (modifier && event.key.toLowerCase() === "g") {
+                event.preventDefault();
+                useGraphStore.getState().viewMode === "graph" ? setViewMode("editor") : setViewMode("graph");
+                return;
+            }
+
             const target = event.target as HTMLElement | null;
             if (target) {
                 const tag = target.tagName;

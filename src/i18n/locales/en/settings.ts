@@ -118,6 +118,7 @@ const settings = {
         boldText: "Bold text",
         italicText: "Italic text",
         openCommandPalette: "Open command palette",
+        toggleGraph: "Open graph view",
     },
     accessibility: {
         readabilityTitle: "Readability",

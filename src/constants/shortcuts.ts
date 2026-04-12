@@ -14,4 +14,5 @@ export const APP_SHORTCUTS: AppShortcutDefinition[] = [
     { id: "editor.bold", labelKey: "shortcuts.boldText", shortcut: "Cmd/Ctrl + B" },
     { id: "editor.italic", labelKey: "shortcuts.italicText", shortcut: "Cmd/Ctrl + I" },
     { id: "commandPalette.open", labelKey: "shortcuts.openCommandPalette", shortcut: "Cmd/Ctrl + K" },
+    { id: "graph.toggle", labelKey: "shortcuts.toggleGraph", shortcut: "Cmd/Ctrl + G"},
 ];
