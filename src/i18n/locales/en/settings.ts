@@ -113,8 +113,12 @@ const settings = {
         quickSearch: "Quick search",
         toggleSidebar: "Toggle sidebar",
         openSettings: "Open settings",
+        nextTab: "Next tab",
+        previousTab: "Previous tab",
         boldText: "Bold text",
         italicText: "Italic text",
+        openCommandPalette: "Open command palette",
+        toggleGraph: "Open graph view",
     },
     accessibility: {
         readabilityTitle: "Readability",

@@ -51,7 +51,7 @@ function App() {
         openTabPaths,
         restoreWorkspaceTabs,
     } = useVaultStore();
-    const { expandedFolders, setExpandedFolders, openSearch, closeSearch } = useUiStore();
+    const { expandedFolders, setExpandedFolders, openSearch, closeSearch, toggleSidebar } = useUiStore();
     const { viewMode, isLocalGraphOpen, setViewMode } = useGraphStore();
     const editorMode = useEditorModeStore((state) => state.editorMode);
     const setEditorMode = useEditorModeStore((state) => state.setEditorMode);
@@ -76,12 +76,14 @@ function App() {
     useWorkspaceNavigationHistory({ workspaceRestored });
 
     useEffect(() => {
+        if (!vaultPath) return;
+
         loadThemes();
         startThemeWatch();
         return () => {
             stopThemeWatch();
         };
-    }, [loadThemes, startThemeWatch, stopThemeWatch]);
+    }, [loadThemes, startThemeWatch, stopThemeWatch, vaultPath]);
 
     useEffect(() => {
         const unsubscribe = useAppearanceStore.subscribe((state) => {
@@ -121,6 +123,51 @@ function App() {
 
     useEffect(() => {
         const onKeyDown = (event: KeyboardEvent) => {
+            const isMac = navigator.platform.toLowerCase().includes("mac");
+            const modifier = isMac ? event.metaKey : event.ctrlKey;
+
+            if (modifier && event.key.toLowerCase() === "k") {
+                event.preventDefault();
+                setIsCommandPaletteOpen((prev) => !prev);
+                return;
+            }
+
+            if (modifier && event.key.toLowerCase() === "p") {
+                event.preventDefault();
+                useUiStore.getState().toggleSearch();
+                return;
+            }
+
+            if (modifier && event.key.toLowerCase() === "t") {
+                event.preventDefault();
+                app.events.emit("ui:new-note");
+                return;
+            }
+
+            if (modifier && event.key.toLowerCase() === "j") {
+                event.preventDefault();
+                toggleSidebar();
+                return;
+            }
+
+            if (modifier && event.key === ",") {
+                event.preventDefault();
+                app.events.emit("ui:open-settings");
+                return;
+            }
+
+            if (modifier && event.key.toLowerCase() === "w" && activeNote?.path) {
+                event.preventDefault();
+                closeTab(activeNote.path);
+                return;
+            }
+
+            if (modifier && event.key.toLowerCase() === "g") {
+                event.preventDefault();
+                useGraphStore.getState().viewMode === "graph" ? setViewMode("editor") : setViewMode("graph");
+                return;
+            }
+
             const target = event.target as HTMLElement | null;
             if (target) {
                 const tag = target.tagName;
@@ -129,24 +176,11 @@ function App() {
                     return;
                 }
             }
-
-            const isMac = navigator.platform.toLowerCase().includes("mac");
-            const modifier = isMac ? event.metaKey : event.ctrlKey;
-            if (modifier && event.key.toLowerCase() === "k") {
-                event.preventDefault();
-                setIsCommandPaletteOpen((prev) => !prev);
-                return;
-            }
-
-            if (modifier && event.key.toLowerCase() === "w" && activeNote?.path) {
-                event.preventDefault();
-                closeTab(activeNote.path);
-            }
         };
 
         window.addEventListener("keydown", onKeyDown);
         return () => window.removeEventListener("keydown", onKeyDown);
-    }, [activeNote, closeTab]);
+    }, [activeNote, closeTab, app, toggleSidebar]);
 
     useEffect(() => {
         const ref = app.events.on("ui:open-command-palette", () => {

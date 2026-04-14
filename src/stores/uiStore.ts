@@ -14,6 +14,7 @@ export interface UiActions {
     toggleFolder: (path: string, expand?: boolean) => void;
     openSearch: () => void;
     closeSearch: () => void;
+    toggleSearch: () => void;
 }
 
 export type UiStore = UiState & UiActions;
@@ -38,4 +39,5 @@ export const useUiStore = create<UiStore>((set) => ({
     }),
     openSearch: () => set({ isSearchOpen: true }),
     closeSearch: () => set({ isSearchOpen: false }),
+    toggleSearch: () => set((state) => ({ isSearchOpen: !state.isSearchOpen })),
 }));

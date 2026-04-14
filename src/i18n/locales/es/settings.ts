@@ -115,6 +115,8 @@ const settings = {
         openSettings: "Abrir configuración",
         boldText: "Texto en negrita",
         italicText: "Texto en cursiva",
+        openCommandPalette: "Abrir paleta de comandos",
+        toggleGraph: "Abrir vista de grafo",
     },
     accessibility: {
         readabilityTitle: "Legibilidad",
