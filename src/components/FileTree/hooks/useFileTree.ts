@@ -46,5 +46,7 @@ export function useFileTree() {
         // Context menu actions
         handleContextCreateNote: actions.createNoteInContext,
         handleContextCreateNoteFromTemplate: actions.createNoteFromTemplateInContext,
+        handleContextCopy: actions.copyInContext,
+        handleContextPasteFiles: actions.pasteFilesInContext,
     };
 }

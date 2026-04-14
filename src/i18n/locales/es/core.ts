@@ -88,7 +88,23 @@ const core = {
         newNote: "Nueva nota",
         newNoteFromTemplate: "Nueva nota desde plantilla",
         newFolder: "Nueva carpeta",
+        pasteFiles: "Pegar archivos",
         delete: "Eliminar",
+        copy: "Copiar",
+    },
+    clipboardPaste: {
+        success: "Se importaron {{count}} elemento(s) en {{destinationDir}}",
+        errors: {
+            openVaultFirst: "Abre un vault primero",
+            noFiles: "El portapapeles no contiene archivos",
+            failed: "No se pudieron pegar los archivos",
+        },
+    },
+    clipboardCopy: {
+        success: "Copiado al portapapeles",
+        errors: {
+            failed: "No se pudo copiar",
+        },
     },
     inputModal: {
         enterName: "Escribe un nombre",

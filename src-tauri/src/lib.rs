@@ -74,6 +74,8 @@ pub fn run() {
             commands::templates::create_note_from_template,
             commands::vault::list_files,
             commands::vault::list_files_tree,
+            commands::clipboard::import_clipboard_files,
+            commands::clipboard::write_file_paths_to_clipboard,
             commands::watcher::watch_vault,
             commands::vault::rename_file,
             commands::vault::move_items,

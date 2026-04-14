@@ -5333,6 +5333,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "walkdir",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]

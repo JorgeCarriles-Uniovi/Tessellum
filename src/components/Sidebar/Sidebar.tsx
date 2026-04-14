@@ -18,6 +18,7 @@ import { useResizableSidebarWidth } from "../Layout/useResizableSidebarWidth";
 import { SearchPanel } from "../Search/SearchPanel";
 import { TrashModal } from "../TrashModal/TrashModal";
 import { useAppTranslation } from "../../i18n/react.tsx";
+import { useClipboardFilePaste } from "../../features/clipboard/useClipboardFilePaste";
 
 const LEFT_SIDEBAR_WIDTH_KEY = "tessellum:left-sidebar-width";
 const LEFT_SIDEBAR_MIN = 220;
@@ -231,6 +232,8 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
         handleRenameConfirm,
         getRenameInitialValue,
         handleContextCreateNote,
+        handleContextCopy,
+        handleContextPasteFiles,
     } = useFileTree();
 
     const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
@@ -238,6 +241,12 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
     const [hoveredActionId, setHoveredActionId] = useState<string | null>(null);
     const [isTrashModalOpen, setIsTrashModalOpen] = useState(false);
     const { t } = useAppTranslation("core");
+    const clipboardFilePaste = useClipboardFilePaste({
+        vaultPath,
+        refreshVault: () => {
+            app.events.emit("vault:refresh-files");
+        },
+    });
 
     const vaultName = vaultPath ? vaultPath.split(/[\\/]/).pop() || vaultPath : t("sidebar.noVault");
 
@@ -268,6 +277,13 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
         });
         return () => app.events.off(ref);
     }, [app, vaultPath]);
+
+    useEffect(() => {
+        const ref = app.events.on("ui:paste-files", () => {
+            void clipboardFilePaste.pasteInto();
+        });
+        return () => app.events.off(ref);
+    }, [app, clipboardFilePaste]);
 
     const sidebarChrome = (
         <div
@@ -488,6 +504,8 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
                         closeMenu();
                     }}
                     onNewFolder={handleContextNewFolder}
+                    onPasteFiles={handleContextPasteFiles}
+                    onCopy={handleContextCopy}
                 />
             )}
 
@@ -501,19 +519,19 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
                 isOpen={isFolderModalOpen}
                 onClose={closeFolderModal}
                 onSubmit={handleCreateFolderConfirm}
-                title= {t("sidebar.modal.createFolder")}
-                placeholder= {t("sidebar.modal.folderPlaceholder")}
-                submitLabel= {t("sidebar.modal.create")}
+                title={t("sidebar.modal.createFolder")}
+                placeholder={t("sidebar.modal.folderPlaceholder")}
+                submitLabel={t("sidebar.modal.create")}
             />
 
             <InputModal
                 isOpen={isRenameModalOpen}
                 onClose={closeRenameModal}
                 onSubmit={handleRenameConfirm}
-                title= {t("sidebar.modal.rename")}
-                placeholder= {t("sidebar.modal.renamePlaceholder")}
+                title={t("sidebar.modal.rename")}
+                placeholder={t("sidebar.modal.renamePlaceholder")}
                 defaultValue={getRenameInitialValue()}
-                submitLabel= {t("sidebar.modal.rename")}
+                submitLabel={t("sidebar.modal.rename")}
             />
 
             <DeleteConfirmModal
