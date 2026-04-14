@@ -6,6 +6,7 @@ import {
     useEditorContentStore,
     useEditorModeStore,
     useGraphStore,
+    useSelectionStore,
     useSettingsStore,
     useThemeStore,
     useUiStore,
@@ -36,6 +37,10 @@ import { useApplyAccessibilitySettings } from "./hooks/useApplyAccessibilitySett
 import { useApplyThemeSchedule } from "./hooks/useApplyThemeSchedule";
 import { ColorFilterDefs } from "./components/Accessibility/ColorFilterDefs";
 import { useWorkspaceNavigationHistory } from "./hooks/useWorkspaceNavigationHistory";
+import { useClipboardFilePaste } from "./features/clipboard/useClipboardFilePaste";
+import { useClipboardFileCopy } from "./features/clipboard/useClipboardFileCopy";
+import { shouldHandleClipboardFileCopyShortcut } from "./features/clipboard/clipboardCopyShortcut";
+import { resolveClipboardSelection } from "./features/clipboard/clipboardSelection";
 
 const WINDOW_KEY = "tessellum-window";
 
@@ -49,8 +54,10 @@ function App() {
         setActiveNote,
         closeTab,
         openTabPaths,
+        files,
         restoreWorkspaceTabs,
     } = useVaultStore();
+    const selectedFilePaths = useSelectionStore((state) => state.selectedFilePaths);
     const { expandedFolders, setExpandedFolders, openSearch, closeSearch, toggleSidebar } = useUiStore();
     const { viewMode, isLocalGraphOpen, setViewMode } = useGraphStore();
     const editorMode = useEditorModeStore((state) => state.editorMode);
@@ -111,6 +118,13 @@ function App() {
         }
         return instance;
     }, []);
+    const clipboardFilePaste = useClipboardFilePaste({
+        vaultPath,
+        refreshVault: () => {
+            app.events.emit("vault:refresh-files");
+        },
+    });
+    const clipboardFileCopy = useClipboardFileCopy();
 
     useEffect(() => {
         app.plugins.loadAll();
@@ -125,6 +139,7 @@ function App() {
         const onKeyDown = (event: KeyboardEvent) => {
             const isMac = navigator.platform.toLowerCase().includes("mac");
             const modifier = isMac ? event.metaKey : event.ctrlKey;
+            const target = event.target as HTMLElement | null;
 
             if (modifier && event.key.toLowerCase() === "k") {
                 event.preventDefault();
@@ -150,6 +165,31 @@ function App() {
                 return;
             }
 
+            if (modifier && event.key.toLowerCase() === "v") {
+                if (!clipboardFilePaste.shouldHandleShortcutPaste(target)) {
+                    return;
+                }
+
+                event.preventDefault();
+                void clipboardFilePaste.handleShortcutPaste(target);
+                return;
+            }
+
+            if (modifier && event.key.toLowerCase() === "c") {
+                if (!shouldHandleClipboardFileCopyShortcut(target)) {
+                    return;
+                }
+
+                const pathsToCopy = resolveClipboardSelection(files, selectedFilePaths);
+                if (pathsToCopy.length === 0) {
+                    return;
+                }
+
+                event.preventDefault();
+                void clipboardFileCopy.copyPaths(pathsToCopy);
+                return;
+            }
+
             if (modifier && event.key === ",") {
                 event.preventDefault();
                 app.events.emit("ui:open-settings");
@@ -162,13 +202,6 @@ function App() {
                 return;
             }
 
-            if (modifier && event.key.toLowerCase() === "g") {
-                event.preventDefault();
-                useGraphStore.getState().viewMode === "graph" ? setViewMode("editor") : setViewMode("graph");
-                return;
-            }
-
-            const target = event.target as HTMLElement | null;
             if (target) {
                 const tag = target.tagName;
                 const isEditor = target.closest(".cm-editor");
@@ -180,7 +213,7 @@ function App() {
 
         window.addEventListener("keydown", onKeyDown);
         return () => window.removeEventListener("keydown", onKeyDown);
-    }, [activeNote, closeTab, app, toggleSidebar]);
+    }, [activeNote, clipboardFileCopy, clipboardFilePaste, closeTab, app, files, selectedFilePaths, toggleSidebar]);
 
     useEffect(() => {
         const ref = app.events.on("ui:open-command-palette", () => {

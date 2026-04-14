@@ -88,7 +88,23 @@ const core = {
         newNote: "New Note",
         newNoteFromTemplate: "New Note From Template",
         newFolder: "New Folder",
+        pasteFiles: "Paste Files",
         delete: "Delete",
+        copy: "Copy",
+    },
+    clipboardPaste: {
+        success: "Imported {{count}} item(s) into {{destinationDir}}",
+        errors: {
+            openVaultFirst: "Open a vault first",
+            noFiles: "Clipboard does not contain files",
+            failed: "Failed to paste files",
+        },
+    },
+    clipboardCopy: {
+        success: "Copied to clipboard",
+        errors: {
+            failed: "Failed to copy",
+        },
     },
     inputModal: {
         enterName: "Enter name",

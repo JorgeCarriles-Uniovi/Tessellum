@@ -1,4 +1,5 @@
 pub mod assets;
+pub mod clipboard;
 pub mod folders;
 pub mod graph;
 pub mod indexer;
@@ -10,6 +11,7 @@ pub mod watcher;
 pub mod search;
 
 pub use assets::{resolve_asset, save_asset};
+pub use clipboard::{import_clipboard_files, write_file_paths_to_clipboard};
 pub use folders::create_folder;
 pub use graph::get_graph_data;
 pub use links::{

@@ -10,6 +10,7 @@ import {
     Network,
     Settings,
     Trash2,
+    Clipboard,
     Palette,
     User, FileText, Keyboard, Eye,
     Puzzle,
@@ -104,6 +105,10 @@ export class CoreUIActionsPlugin extends Plugin {
             this.app.events.emit("ui:open-settings");
         }
 
+        const pasteFiles = () => {
+            this.app.events.emit("ui:paste-files");
+        };
+
         this.app.events.on("ui:new-note", newNote);
 
         this.app.ui.registerUIAction(this.manifest.id, {
@@ -161,6 +166,14 @@ export class CoreUIActionsPlugin extends Plugin {
             onClick: newNote,
             region: "sidebar-header",
             order: 20,
+        });
+        this.app.ui.registerUIAction(this.manifest.id, {
+            id: "sidebar-paste-files",
+            label: () => t("actions.pasteFiles"),
+            icon: <Clipboard size={16} />,
+            onClick: pasteFiles,
+            region: "sidebar-header",
+            order: 30,
         });
 
         this.app.ui.registerUIAction(this.manifest.id, {
@@ -226,6 +239,13 @@ export class CoreUIActionsPlugin extends Plugin {
             keywords: () => keywords("newNoteFromTemplate"),
             icon: <Plus size={16} />,
             onTrigger: openTemplatePicker,
+        });
+        this.app.ui.registerPaletteCommand(this.manifest.id, {
+            id: "paste-files",
+            name: () => t("commands.pasteFiles"),
+            keywords: () => keywords("pasteFiles"),
+            icon: <Clipboard size={16} />,
+            onTrigger: pasteFiles,
         });
         this.app.ui.registerPaletteCommand(this.manifest.id, {
             id: "settings",

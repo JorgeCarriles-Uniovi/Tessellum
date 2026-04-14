@@ -40,3 +40,4 @@ chrono = "0.4.43"
 tauri-plugin-window-state = "2.4.1"
 tantivy = "0.25.0"
 kuzu = "0.9"
+windows-sys = { version = "0.59.0", features = ["Win32_System_DataExchange", "Win32_System_Memory", "Win32_UI_Shell"] }
