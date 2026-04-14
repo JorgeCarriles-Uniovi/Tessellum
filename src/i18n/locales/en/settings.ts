@@ -115,6 +115,8 @@ const settings = {
         pasteFiles: "Paste files",
         toggleSidebar: "Toggle sidebar",
         openSettings: "Open settings",
+        openCommandPalette: "Open command palette",
+        toggleGraph: "Toggle graph",
         nextTab: "Next tab",
         previousTab: "Previous tab",
         boldText: "Bold text",
