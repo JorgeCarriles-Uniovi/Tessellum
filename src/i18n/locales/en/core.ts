@@ -30,6 +30,15 @@ const core = {
         untitled: "Untitled",
         edited: "Edited {{value}}",
         loadingNote: "Loading note...",
+        selectionToolbar: {
+            label: "Selected text formatting",
+            bold: "Bold",
+            italic: "Italic",
+            strikethrough: "Strikethrough",
+            bulletedList: "Bulleted list",
+            numberedList: "Numbered list",
+            todoList: "Todo list",
+        },
     },
     sidebar: {
         emptyTitle: "No notes yet",

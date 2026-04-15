@@ -37,8 +37,10 @@ import { useAccessibilityStore } from "../../stores";
 import { WorkspaceOverview } from "./workspaceOverview/WorkspaceOverview";
 import type { HeroProjection, WorkspaceCardItem } from "./workspaceOverview/types";
 import { useAppTranslation } from "../../i18n/react.tsx";
+import { SelectionToolbar } from "./toolbar/SelectionToolbar";
 import {
     applyMarkdownShortcut,
+    getMarkdownMarker,
     matchesMarkdownShortcut,
     matchesTabNavigationShortcut,
 } from "./utils/markdownShortcuts.ts";
@@ -474,6 +476,7 @@ const dividerStyle: CSSProperties = {
 function EditorBody({
                         editorRef,
                         activeNotePath,
+                        selectionToolbarEnabled,
                         editorFontSizePx,
                         content,
                         editorExtensions,
@@ -494,6 +497,7 @@ function EditorBody({
                     }: {
     editorRef: RefObject<ReactCodeMirrorRef>;
     activeNotePath: string;
+    selectionToolbarEnabled: boolean;
     editorFontSizePx: number;
     content: string;
     editorExtensions: Extension[];
@@ -537,6 +541,11 @@ function EditorBody({
                         highlightActiveLine: false,
                         highlightActiveLineGutter: false,
                     }}
+                />
+
+                <SelectionToolbar
+                    editorRef={editorRef}
+                    enabled={selectionToolbarEnabled}
                 />
 
                 <SlashMenu
@@ -765,6 +774,7 @@ export function Editor() {
 
     const titleFontSizePx = useMemo(() => Math.round(28 * editorFontSizePx / 16), [editorFontSizePx]);
     const isEditable = EDITOR_MODES[editorMode].editable;
+    const selectionToolbarEnabled = isEditable && (editorMode === "live-preview" || editorMode === "source");
     const editableExtension = useMemo(() => EditorView.editable.of(isEditable), [isEditable]);
     const previewForceHideExtension = useMemo(
         () => markdownPreviewForceHideFacet.of(!isEditable),
@@ -824,13 +834,13 @@ export function Editor() {
 
             if (matchesMarkdownShortcut(event, "bold")) {
                 event.preventDefault();
-                applyMarkdownShortcut(editorRef.current?.view, "**");
+                applyMarkdownShortcut(editorRef.current?.view, getMarkdownMarker("bold"));
                 return;
             }
 
             if (matchesMarkdownShortcut(event, "italic")) {
                 event.preventDefault();
-                applyMarkdownShortcut(editorRef.current?.view, "*");
+                applyMarkdownShortcut(editorRef.current?.view, getMarkdownMarker("italic"));
                 return;
             }
 
@@ -964,6 +974,7 @@ export function Editor() {
             <EditorBody
                 editorRef={editorRef}
                 activeNotePath={activeNote.path}
+                selectionToolbarEnabled={selectionToolbarEnabled}
                 content={content}
                 editorExtensions={editorExtensions}
                 handleContentChange={handleContentChangeGuarded}
