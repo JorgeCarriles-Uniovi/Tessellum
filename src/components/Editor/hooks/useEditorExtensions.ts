@@ -1,18 +1,9 @@
 import { useMemo } from "react";
-import { EditorView } from "@codemirror/view";
-import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
-import { languages } from "@codemirror/language-data";
 import { TessellumApp } from "../../../plugins/TessellumApp";
-import { markdownHeadingFoldExtension } from "../extensions/markdown-heading-fold";
 import type { EditorMode } from "../../../constants/editorModes";
 import { getInitialExtensionPluginIds } from "./sourceModeExtensions";
-
-const markdownCloseBracketsExtension = markdownLanguage.data.of({
-    closeBrackets: {
-        // Reuse CodeMirror's native bracket behavior for markdown markers too.
-        brackets: ["(", "[", "{", "'", "\"", "`", "*", "$", "~"],
-    },
-});
+import { useSettingsStore } from "../../../stores";
+import { buildEditorExtensions } from "./editorExtensionsBuilder.ts";
 
 /**
  * Assembles the full CodeMirror extension array by combining:
@@ -23,6 +14,8 @@ const markdownCloseBracketsExtension = markdownLanguage.data.of({
  * allowing individual plugins to be reconfigured at runtime.
  */
 export function useEditorExtensions(editorMode: EditorMode) {
+    const vimMode = useSettingsStore((state) => state.vimMode);
+
     return useMemo(() => {
         const app = TessellumApp.instance;
         const visiblePluginIds = getInitialExtensionPluginIds(
@@ -30,12 +23,9 @@ export function useEditorExtensions(editorMode: EditorMode) {
             app.editor.getRegisteredExtensionPluginIds()
         );
 
-        return [
-            markdown({ base: markdownLanguage, codeLanguages: languages }),
-            markdownCloseBracketsExtension,
-            markdownHeadingFoldExtension,
-            EditorView.lineWrapping,
-            ...app.editor.getInitialExtensionsForPluginIds(visiblePluginIds),
-        ];
-    }, [editorMode]);
+        return buildEditorExtensions({
+            pluginExtensions: app.editor.getInitialExtensionsForPluginIds(visiblePluginIds),
+            vimMode,
+        });
+    }, [editorMode, vimMode]);
 }
