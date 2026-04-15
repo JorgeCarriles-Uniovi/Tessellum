@@ -19,10 +19,10 @@ interface BuildEditorExtensionsOptions {
 }
 
 export function buildEditorExtensions({
-                                          pluginExtensions,
-                                          vimMode,
-                                          vimExtension = vim(),
-                                      }: BuildEditorExtensionsOptions): Extension[] {
+      pluginExtensions,
+      vimMode,
+      vimExtension = vim(),
+  }: BuildEditorExtensionsOptions): Extension[] {
     const baseExtensions: Extension[] = [
         markdown({ base: markdownLanguage, codeLanguages: languages }),
         markdownCloseBracketsExtension,
