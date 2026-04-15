@@ -1,24 +1,15 @@
 import { useEffect, useRef } from "react";
-import { useAccessibilityStore } from "../stores";
+import { useAccessibilityStore, useAppearanceStore, useThemeStore } from "../stores";
+import { applyAccessibilityRootState, type AccessibilitySnapshot } from "./accessibilityCssVars.ts";
 
-type AccessibilitySnapshot = {
-    highContrast: boolean;
-    reducedMotion: boolean;
-    uiScale: number;
-    colorFilter: string;
-};
-
-function setRootDataAttribute(key: string, value: string) {
-    const root = document.documentElement;
-    root.setAttribute(`data-${key}`, value);
-}
-
-function applyAccessibilitySettings(snapshot: AccessibilitySnapshot) {
-    const root = document.documentElement;
-    root.style.setProperty("--ui-scale", String(snapshot.uiScale / 100));
-    setRootDataAttribute("high-contrast", snapshot.highContrast ? "true" : "false");
-    setRootDataAttribute("reduced-motion", snapshot.reducedMotion ? "true" : "false");
-    setRootDataAttribute("color-filter", snapshot.colorFilter);
+function toAccessibilitySnapshot(): AccessibilitySnapshot {
+    const state = useAccessibilityStore.getState();
+    return {
+        highContrast: state.highContrast,
+        reducedMotion: state.reducedMotion,
+        uiScale: state.uiScale,
+        colorFilter: state.colorFilter,
+    };
 }
 
 function isSameSnapshot(a: AccessibilitySnapshot | null, b: AccessibilitySnapshot): boolean {
@@ -35,22 +26,38 @@ export function useApplyAccessibilitySettings() {
     const lastApplied = useRef<AccessibilitySnapshot | null>(null);
 
     useEffect(() => {
-        const applyIfChanged = (state: AccessibilitySnapshot) => {
-            if (isSameSnapshot(lastApplied.current, state)) return;
-            lastApplied.current = state;
-            applyAccessibilitySettings(state);
+        const applySnapshot = (snapshot: AccessibilitySnapshot, force = false) => {
+            if (!force && isSameSnapshot(lastApplied.current, snapshot)) return;
+            lastApplied.current = snapshot;
+            applyAccessibilityRootState({ snapshot });
         };
 
-        applyIfChanged(useAccessibilityStore.getState());
-        const unsubscribe = useAccessibilityStore.subscribe((state) => {
-            applyIfChanged({
+        const queueHighContrastOverlay = () => {
+            // Theme and appearance writes happen synchronously, so reapply the
+            // high-contrast overlay after those updates finish.
+            queueMicrotask(() => {
+                const snapshot = toAccessibilitySnapshot();
+                if (!snapshot.highContrast) return;
+                applySnapshot(snapshot, true);
+            });
+        };
+
+        applySnapshot(toAccessibilitySnapshot(), true);
+        const unsubscribeAccessibility = useAccessibilityStore.subscribe((state) => {
+            applySnapshot({
                 highContrast: state.highContrast,
                 reducedMotion: state.reducedMotion,
                 uiScale: state.uiScale,
                 colorFilter: state.colorFilter,
             });
         });
+        const unsubscribeAppearance = useAppearanceStore.subscribe(queueHighContrastOverlay);
+        const unsubscribeTheme = useThemeStore.subscribe(queueHighContrastOverlay);
 
-        return unsubscribe;
+        return () => {
+            unsubscribeAccessibility();
+            unsubscribeAppearance();
+            unsubscribeTheme();
+        };
     }, []);
 }
