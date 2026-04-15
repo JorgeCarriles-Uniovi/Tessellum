@@ -13,10 +13,12 @@ import {
     type ListType,
 } from "../utils/markdownShortcuts";
 import { useSelectionToolbar } from "./useSelectionToolbar";
+import {cn} from "../../../lib/utils.ts";
 
 type SelectionToolbarProps = {
     editorRef: RefObject<ReactCodeMirrorRef>;
     enabled: boolean;
+    placement?: "top" | "bottom";
 };
 
 const ACTION_TEXT_STYLE: Record<MarkdownAction, CSSProperties> = {
@@ -45,7 +47,7 @@ function ListDropdown({
                       }: {
     onSelect: (listType: ListType) => void;
     t: (key: string) => string;
-}) {
+}, placement = "bottom",) {
     const [isOpen, setIsOpen] = useState(false);
 
     const options: { type: ListType; icon: React.ReactNode; label: string }[] = [
@@ -55,7 +57,9 @@ function ListDropdown({
     ];
 
     return (
-        <div className="relative flex items-center h-8" style={{ fontFamily: theme.typography.fontFamily.sans }}>
+        <div className={cn("relative flex items-center h-8", placement === 'top'
+            ? "-translate-y-full mb-2 origin-bottom"
+            : "mt-2 origin-top")} style={{ fontFamily: theme.typography.fontFamily.sans }}>
             {/* Primary Action Button (Bulleted List) */}
             <button
                 type="button"

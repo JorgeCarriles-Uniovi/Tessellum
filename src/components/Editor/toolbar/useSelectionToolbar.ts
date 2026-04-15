@@ -24,6 +24,7 @@ const HIDDEN_TOOLBAR_STATE: SelectionToolbarState = {
 const TOOLBAR_MIN_VIEWPORT_PADDING_PX = 12;
 const TOOLBAR_VERTICAL_OFFSET_PX = 10;
 const TOOLBAR_FALLBACK_WIDTH_PX = 164;
+const TOOLBAR_FALLBACK_HEIGHT_PX = 44;
 
 function getSelectionToolbarState({
                                       editorRef,
@@ -65,17 +66,30 @@ function getSelectionToolbarState({
 
     const x = viewportX - editorRect.left;
 
-    const spaceAbove = selectionStart.top;
-    const TOOLBAR_APPROX_HEIGHT = 44;
-    const placement: 'top' | 'bottom' = spaceAbove < (TOOLBAR_APPROX_HEIGHT + TOOLBAR_MIN_VIEWPORT_PADDING_PX + TOOLBAR_VERTICAL_OFFSET_PX)
-        ? 'bottom'
-        : 'top';
+    const toolbarHeight = toolbarRef.current?.offsetHeight ?? TOOLBAR_FALLBACK_HEIGHT_PX;
+    const requiredClearance = toolbarHeight + TOOLBAR_MIN_VIEWPORT_PADDING_PX + TOOLBAR_VERTICAL_OFFSET_PX;
+    const spaceAbove = selectionStart.top - editorRect.top;
+    const spaceBelow = editorRect.bottom - selectionEnd.bottom;
 
-    const viewportY = placement === 'top'
-        ? Math.max(TOOLBAR_MIN_VIEWPORT_PADDING_PX, selectionStart.top - TOOLBAR_VERTICAL_OFFSET_PX)
-        : Math.min(window.innerHeight - TOOLBAR_MIN_VIEWPORT_PADDING_PX, selectionEnd.bottom + TOOLBAR_VERTICAL_OFFSET_PX);
+    const placement: 'top' | 'bottom' = spaceAbove >= requiredClearance
+        ? 'top'
+        : spaceBelow >= requiredClearance || spaceBelow >= spaceAbove
+            ? 'bottom'
+            : 'top';
 
-    const y = viewportY - editorRect.top;
+    const editorHeight = editorRect.height;
+    const minBottomAnchorY = toolbarHeight + TOOLBAR_MIN_VIEWPORT_PADDING_PX;
+    const maxTopAnchorY = Math.max(minBottomAnchorY, editorHeight - TOOLBAR_MIN_VIEWPORT_PADDING_PX);
+    const minTopAnchorY = TOOLBAR_MIN_VIEWPORT_PADDING_PX;
+    const maxTopPlacementY = Math.max(minTopAnchorY, editorHeight - toolbarHeight - TOOLBAR_MIN_VIEWPORT_PADDING_PX);
+
+    const unclampedY = placement === 'top'
+        ? spaceAbove - TOOLBAR_VERTICAL_OFFSET_PX
+        : spaceAbove + (selectionEnd.bottom - selectionStart.top) + TOOLBAR_VERTICAL_OFFSET_PX;
+
+    const y = placement === 'top'
+        ? Math.min(Math.max(unclampedY, minBottomAnchorY), maxTopAnchorY)
+        : Math.min(Math.max(unclampedY, minTopAnchorY), maxTopPlacementY);
 
     return {
         isOpen: true,
