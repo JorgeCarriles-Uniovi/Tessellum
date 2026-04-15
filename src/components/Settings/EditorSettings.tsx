@@ -16,6 +16,8 @@ export function EditorSettings() {
     const setEditorLineHeight = useSettingsStore((state) => state.setEditorLineHeight);
     const editorLetterSpacing = useSettingsStore((state) => state.editorLetterSpacing);
     const setEditorLetterSpacing = useSettingsStore((state) => state.setEditorLetterSpacing);
+    const vimMode = useSettingsStore((state) => state.vimMode);
+    const setVimMode = useSettingsStore((state) => state.setVimMode);
 
     const [lineNumbers, setLineNumbers] = useState(false);
 
@@ -106,8 +108,8 @@ export function EditorSettings() {
                 <ToggleSetting
                     label={t("editor.vimMode")}
                     description={t("editor.vimModeDescription")}
-                    checked={false}
-                    onChange={() => { }}
+                    checked={vimMode}
+                    onChange={setVimMode}
                 />
             </SettingSection>
         </div>
