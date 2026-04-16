@@ -119,8 +119,11 @@ function App() {
         const runWarmup = async () => {
             try {
                 if (resetAttempts) {
-                    await resetAndEnsureSearchReadiness(path);
-                    return;
+                    await useSearchStore.getState().syncReadiness(path);
+                    if (useSearchStore.getState().readinessReopenRequired) {
+                        await resetAndEnsureSearchReadiness(path);
+                        return;
+                    }
                 }
                 await ensureSearchReadiness(path);
             } catch (error) {
