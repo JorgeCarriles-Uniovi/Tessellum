@@ -1,5 +1,5 @@
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
-import { languages } from "@codemirror/language-data";
+import type { LanguageDescription } from "@codemirror/language";
 import type { Extension } from "@codemirror/state";
 import { EditorView, lineNumbers as cmLineNumbers } from "@codemirror/view";
 import { vim } from "@replit/codemirror-vim";
@@ -17,6 +17,7 @@ interface BuildEditorExtensionsOptions {
     pluginExtensions: Extension[];
     vimMode: boolean;
     lineNumbers: boolean;
+    codeLanguages: readonly LanguageDescription[];
     vimExtension?: Extension;
 }
 
@@ -36,10 +37,11 @@ export function buildEditorExtensions({
                                           pluginExtensions,
                                           vimMode,
                                           lineNumbers,
+                                          codeLanguages,
                                           vimExtension = vim(),
                                       }: BuildEditorExtensionsOptions): Extension[] {
     const baseExtensions: Extension[] = [
-        markdown({ base: markdownLanguage, codeLanguages: languages }),
+        markdown({ base: markdownLanguage, codeLanguages }),
         markdownCloseBracketsExtension,
         markdownHeadingFoldExtension,
         EditorView.lineWrapping,
