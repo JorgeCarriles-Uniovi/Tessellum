@@ -123,7 +123,14 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
                     setActiveNote({ ...noteSnapshot, last_modified: Math.floor(Date.now() / 1000) });
                 }
             })
-            .catch(console.error)
+            .catch((error) => {
+                console.error(error);
+                // Allow scheduling the same content again after a failed write.
+                lastScheduledContentByPathRef.current.delete(path);
+                if (activeNoteRef.current?.path === path) {
+                    setIsDirty(true);
+                }
+            })
             .finally(() => {
                 saveInFlightByPathRef.current.set(path, false);
                 if (saveQueuedByPathRef.current.get(path)) {
