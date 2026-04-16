@@ -248,6 +248,18 @@ function App() {
     }, [activeNote, clipboardFileCopy, clipboardFilePaste, closeTab, app, files, selectedFilePaths, setViewMode, toggleSidebar, viewMode]);
 
     useEffect(() => {
+        const blockContextMenu = (event: MouseEvent) => {
+            event.preventDefault();
+        };
+
+        // Prevent native webview context actions like refresh/inspect on right-click.
+        window.addEventListener("contextmenu", blockContextMenu);
+        return () => {
+            window.removeEventListener("contextmenu", blockContextMenu);
+        };
+    }, []);
+
+    useEffect(() => {
         const ref = app.events.on("ui:open-command-palette", () => {
             setIsCommandPaletteOpen(true);
         });
