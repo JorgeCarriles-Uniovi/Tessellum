@@ -12,6 +12,10 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
     const [content, setContent] = useState<string>("");
     const [isLoading, setIsLoading] = useState(false);
     const saveTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
+    const lastPersistedContentByPathRef = useRef<Map<string, string>>(new Map());
+    const lastScheduledContentByPathRef = useRef<Map<string, string>>(new Map());
+    const latestContentByPathRef = useRef<Map<string, string>>(new Map());
+    const saveTokenRef = useRef(0);
     const loadRequestIdRef = useRef(0);
     const { vaultPath, setActiveNoteContent, setIsDirty, setActiveNote } = useEditorStore();
     const activeNoteRef = useRef(activeNote);
@@ -24,6 +28,7 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
 
     useEffect(() => {
         if (!activeNote) {
+            saveTokenRef.current += 1;
             loadRequestIdRef.current += 1;
             setContent("");
             setActiveNoteContent("");
@@ -33,6 +38,7 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
         }
 
         if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+        saveTokenRef.current += 1;
         const requestId = loadRequestIdRef.current + 1;
         loadRequestIdRef.current = requestId;
         let cancelled = false;
@@ -61,6 +67,9 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
                 if (cancelled || loadRequestIdRef.current !== requestId) {
                     return;
                 }
+                lastPersistedContentByPathRef.current.set(activeNote.path, text);
+                latestContentByPathRef.current.set(activeNote.path, text);
+                lastScheduledContentByPathRef.current.delete(activeNote.path);
                 setContent(text);
                 setActiveNoteContent(text);
                 setIsDirty(false);
@@ -89,18 +98,50 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
     const handleContentChange = useCallback((val: string) => {
         setContent(val);
         setActiveNoteContent(val);
-        setIsDirty(true);
 
         const note = activeNoteRef.current;
         const vault = vaultPathRef.current;
         if (note) {
+            const path = note.path;
+            latestContentByPathRef.current.set(path, val);
+
+            const lastPersisted = lastPersistedContentByPathRef.current.get(path);
+            if (lastPersisted === val) {
+                if (saveTimeoutRef.current) {
+                    clearTimeout(saveTimeoutRef.current);
+                    saveTimeoutRef.current = null;
+                }
+                lastScheduledContentByPathRef.current.delete(path);
+                setIsDirty(false);
+                return;
+            }
+
+            const lastScheduled = lastScheduledContentByPathRef.current.get(path);
+            if (lastScheduled === val && saveTimeoutRef.current) {
+                setIsDirty(true);
+                return;
+            }
+
             if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
 
+            setIsDirty(true);
+            lastScheduledContentByPathRef.current.set(path, val);
+            const saveToken = ++saveTokenRef.current;
+
             saveTimeoutRef.current = window.setTimeout(() => {
-                invoke('write_file', { path: note.path, vaultPath: vault, content: val })
+                invoke('write_file', { path, vaultPath: vault, content: val })
                     .then(() => {
-                        setIsDirty(false);
-                        setActiveNote({ ...note, last_modified: Math.floor(Date.now() / 1000) });
+                        if (saveTokenRef.current !== saveToken) {
+                            return;
+                        }
+                        lastPersistedContentByPathRef.current.set(path, val);
+                        lastScheduledContentByPathRef.current.delete(path);
+                        if (latestContentByPathRef.current.get(path) === val) {
+                            setIsDirty(false);
+                        }
+                        if (activeNoteRef.current?.path === path) {
+                            setActiveNote({ ...note, last_modified: Math.floor(Date.now() / 1000) });
+                        }
                     })
                     .catch(console.error);
             }, 1000);
@@ -108,6 +149,7 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
     }, [setActiveNoteContent, setIsDirty, setActiveNote]);
 
     useEffect(() => () => {
+        saveTokenRef.current += 1;
         if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     }, []);
 
