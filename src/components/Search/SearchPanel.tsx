@@ -234,9 +234,18 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
     const [results, setResults] = useState<SearchResult[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [hasPrimedIndex, setHasPrimedIndex] = useState(false);
     const { vaultPath } = useVaultStore();
-    const { recentSearches, addRecentSearch, loadRecentSearches } = useSearchStore();
+    const {
+        recentSearches,
+        addRecentSearch,
+        loadRecentSearches,
+        readinessStatus,
+        readinessAttemptCount,
+        readinessRetryDelayMs,
+        readinessReopenRequired,
+        syncReadiness,
+        ensureReadiness,
+    } = useSearchStore();
     const app = useTessellumApp();
 
     useEffect(() => {
@@ -249,6 +258,48 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
             return;
         }
 
+        let cancelled = false;
+        const fetchReadiness = async () => {
+            try {
+                if (!cancelled) {
+                    await syncReadiness(vaultPath);
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        };
+
+        void fetchReadiness();
+        return () => {
+            cancelled = true;
+        };
+    }, [syncReadiness, vaultPath]);
+
+    useEffect(() => {
+        if (!vaultPath || readinessStatus === "ready" || readinessReopenRequired) {
+            return;
+        }
+
+        const handle = window.setTimeout(async () => {
+            try {
+                await ensureReadiness(vaultPath);
+            } catch (e) {
+                console.error(e);
+            }
+        }, readinessRetryDelayMs);
+
+        return () => {
+            window.clearTimeout(handle);
+        };
+    }, [ensureReadiness, readinessAttemptCount, readinessReopenRequired, readinessRetryDelayMs, readinessStatus, vaultPath]);
+
+    useEffect(() => {
+        if (!vaultPath) {
+            setResults([]);
+            setError(null);
+            return;
+        }
+
         const trimmed = searchQuery.trim();
         if (!trimmed) {
             setResults([]);
@@ -256,15 +307,16 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
             return;
         }
 
+        if (readinessStatus !== "ready") {
+            setResults([]);
+            setError(readinessReopenRequired ? "Reopen search to retry." : "Preparing search index...");
+            return;
+        }
+
         const handle = setTimeout(async () => {
             setIsLoading(true);
             setError(null);
             try {
-                if (!hasPrimedIndex) {
-                    await invoke("sync_vault", { vaultPath });
-                    await invoke("rebuild_search_index", { vaultPath });
-                    setHasPrimedIndex(true);
-                }
                 const { terms, tags } = splitQuery(trimmed);
                 const query = terms.join(" ");
 
@@ -290,7 +342,7 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
         }, 200);
 
         return () => clearTimeout(handle);
-    }, [searchQuery, vaultPath]);
+    }, [addRecentSearch, readinessReopenRequired, readinessStatus, searchQuery, vaultPath]);
 
     return (
         <div style={panelStyle}>
@@ -345,6 +397,21 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
             </div>
 
             <div style={resultsContainerStyle}>
+                {readinessReopenRequired && (
+                    <div
+                        style={{
+                            margin: "0.5rem 0.75rem",
+                            padding: "0.5rem 0.625rem",
+                            borderRadius: theme.borderRadius.md,
+                            border: `1px solid ${theme.colors.border.light}`,
+                            backgroundColor: theme.colors.background.secondary,
+                            color: theme.colors.text.muted,
+                            fontSize: "0.6875rem",
+                        }}
+                    >
+                        Reopen search to retry.
+                    </div>
+                )}
                 {searchQuery.trim().length === 0 ? (
                     <div>
                         <div style={{ display: "flex", alignItems: "center", gap: theme.spacing[2], padding: "0.5rem 0.75rem" }}>
@@ -387,7 +454,11 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
                     <div>
                         <div style={{ padding: "0.5rem 0.75rem" }}>
                             <span style={sectionLabelStyle}>
-                                {isLoading ? "Searching" : `${results.length} ${results.length === 1 ? "Result" : "Results"}`}
+                                {isLoading
+                                    ? "Searching"
+                                    : readinessStatus !== "ready"
+                                        ? "Preparing index"
+                                        : `${results.length} ${results.length === 1 ? "Result" : "Results"}`}
                             </span>
                             {error && (
                                 <div style={{ marginTop: theme.spacing[1], fontSize: "0.625rem", color: theme.colors.text.muted }}>

@@ -41,13 +41,25 @@ pub async fn sync_vault(
     kuzu_state: State<'_, Mutex<ManagedKuzuConnection>>,
     vault_path: String,
 ) -> Result<SyncResult, TessellumError> {
+    run_sync_vault(state.inner(), kuzu_state.inner(), &vault_path).await
+}
+
+pub async fn run_sync_vault(
+    state: &AppState,
+    kuzu_state: &Mutex<ManagedKuzuConnection>,
+    vault_path: &str,
+) -> Result<SyncResult, TessellumError> {
     let db = state.db.clone();
     let search_index = state.search_index.clone();
     
-    match VaultIndexer::full_sync(db.as_ref(), search_index, &vault_path).await {
+    match VaultIndexer::full_sync(db.as_ref(), search_index, vault_path).await {
         Ok(stats) => {
-            if let Err(err) = sync_full(kuzu_state.inner(), db.as_ref()).await {
-                eprintln!("Kuzu sync_full failed after vault sync: {}", err);
+            if let Err(err) = sync_full(kuzu_state, db.as_ref()).await {
+                log::warn!(
+                    "Kuzu sync_full failed after vault sync for '{}': {}",
+                    vault_path,
+                    err
+                );
             }
             let mut idx_guard = state.file_index.lock().await;
             *idx_guard = None;

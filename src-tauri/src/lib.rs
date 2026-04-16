@@ -97,6 +97,9 @@ pub fn run() {
             commands::search::search_full_text,
             commands::search::search_tags,
             commands::search::rebuild_search_index,
+            commands::search::ensure_search_ready,
+            commands::search::get_search_readiness,
+            commands::search::reset_search_readiness_attempts,
             commands::graph::execute_graph_query,
         ])
         .run(tauri::generate_context!())
