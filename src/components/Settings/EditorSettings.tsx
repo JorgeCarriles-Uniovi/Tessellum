@@ -100,12 +100,12 @@ export function EditorSettings() {
                     checked={lineNumbers}
                     onChange={setLineNumbers}
                 />
-                <ToggleSetting
-                    label={t("editor.wordWrap")}
-                    description={t("editor.wordWrapDescription")}
-                    checked={true}
-                    onChange={() => { }}
-                />
+                {/*<ToggleSetting*/}
+                {/*    label={t("editor.wordWrap")}*/}
+                {/*    description={t("editor.wordWrapDescription")}*/}
+                {/*    checked={true}*/}
+                {/*    onChange={() => { }}*/}
+                {/*/>*/}
                 <ToggleSetting
                     label={t("editor.vimMode")}
                     description={t("editor.vimModeDescription")}
