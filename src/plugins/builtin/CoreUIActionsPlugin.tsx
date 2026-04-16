@@ -167,19 +167,11 @@ export class CoreUIActionsPlugin extends Plugin {
             region: "sidebar-header",
             order: 20,
         });
-        this.app.ui.registerUIAction(this.manifest.id, {
-            id: "sidebar-paste-files",
-            label: () => t("actions.pasteFiles"),
-            icon: <Clipboard size={16} />,
-            onClick: pasteFiles,
-            region: "sidebar-header",
-            order: 30,
-        });
 
         this.app.ui.registerUIAction(this.manifest.id, {
             id: "sidebar-graph",
             label: () => t("actions.graphView"),
-            icon: <Network size={16} />,
+            icon: <Network size={16}/>,
             onClick: openGraph,
             region: "sidebar-footer",
             order: 10,

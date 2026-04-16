@@ -37,10 +37,12 @@ import { useApplyAccessibilitySettings } from "./hooks/useApplyAccessibilitySett
 import { useApplyThemeSchedule } from "./hooks/useApplyThemeSchedule";
 import { ColorFilterDefs } from "./components/Accessibility/ColorFilterDefs";
 import { useWorkspaceNavigationHistory } from "./hooks/useWorkspaceNavigationHistory";
+import { useApplySpellCheckSettings } from "./hooks/useApplySpellCheckSettings";
 import { useClipboardFilePaste } from "./features/clipboard/useClipboardFilePaste";
 import { useClipboardFileCopy } from "./features/clipboard/useClipboardFileCopy";
 import { shouldHandleClipboardFileCopyShortcut } from "./features/clipboard/clipboardCopyShortcut";
 import { resolveClipboardSelection } from "./features/clipboard/clipboardSelection";
+import { toSpellcheckLang } from "./i18n/spellcheck";
 
 const WINDOW_KEY = "tessellum-window";
 
@@ -67,7 +69,7 @@ function App() {
     const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
     const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
     const editorFontSizePx = useEditorContentStore((state) => state.editorFontSizePx);
-    const { fontFamily, editorLineHeight, editorLetterSpacing } = useSettingsStore();
+    const { fontFamily, editorLineHeight, editorLetterSpacing, locale } = useSettingsStore();
     const loadThemes = useThemeStore((state) => state.loadThemes);
     const startThemeWatch = useThemeStore((state) => state.startWatching);
     const stopThemeWatch = useThemeStore((state) => state.stopWatching);
@@ -80,6 +82,7 @@ function App() {
     useApplyAppearanceSettings();
     useApplyThemeSchedule();
     useApplyAccessibilitySettings();
+    useApplySpellCheckSettings();
     useWorkspaceNavigationHistory({ workspaceRestored });
 
     useEffect(() => {
@@ -357,7 +360,26 @@ function App() {
             setExpandedFolders({});
             setWorkspaceRestored(false);
         }
+
+        return () => {
+            invoke('unwatch_vault').catch(() => {
+                // Ignore teardown errors during dev reload/unmount.
+            });
+        };
     }, [vaultPath]);
+
+    useEffect(() => {
+        const onBeforeUnload = () => {
+            invoke('unwatch_vault').catch(() => {
+                // Ignore teardown errors during browser unload/HMR.
+            });
+        };
+
+        window.addEventListener('beforeunload', onBeforeUnload);
+        return () => {
+            window.removeEventListener('beforeunload', onBeforeUnload);
+        };
+    }, []);
 
     useEffect(() => {
         let syncTimer: number | null = null;
@@ -369,7 +391,12 @@ function App() {
                 invoke('sync_vault', { vaultPath }).catch(console.error);
             }, 400);
         });
-        return () => { unlistenPromise.then(unlisten => unlisten()); };
+        return () => {
+            if (syncTimer) {
+                window.clearTimeout(syncTimer);
+            }
+            unlistenPromise.then(unlisten => unlisten());
+        };
     }, [vaultPath]);
 
     useEffect(() => {
@@ -472,6 +499,10 @@ function App() {
             console.error(e);
         }
     }
+
+    useEffect(() => {
+        document.documentElement.lang = toSpellcheckLang(locale);
+    }, [locale]);
 
     return (
         <TessellumAppContext.Provider value={app}>

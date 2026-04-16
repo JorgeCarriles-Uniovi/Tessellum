@@ -1106,6 +1106,17 @@ body {
         color: var(--cm-hashtag);
         padding: 0 0.5rem !important;
     }
+
+    /* Keep native spellcheck markers visible inside CodeMirror tokens. */
+    .cm-editor ::spelling-error {
+        text-decoration: underline wavy #ef4444;
+        text-underline-offset: 0.12em;
+    }
+
+    .cm-editor ::grammar-error {
+        text-decoration: underline wavy #f59e0b;
+        text-underline-offset: 0.12em;
+    }
 }
 
 /* --- Accessibility Overrides --- */

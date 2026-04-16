@@ -7,6 +7,7 @@ const EDITOR_LETTER_SPACING_KEY = "tessellum:editorLetterSpacing";
 const LOCALE_KEY = "tessellum:locale";
 const VIM_MODE_KEY = "tessellum:vimMode";
 const LINE_NUMBERS_KEY = "tessellum:lineNumbers";
+const SPELL_CHECK_KEY = "tessellum:spellCheck";
 
 const DEFAULT_FONT_FAMILY = "Geist Sans";
 const DEFAULT_EDITOR_LINE_HEIGHT = 1.7;
@@ -14,6 +15,7 @@ const DEFAULT_EDITOR_LETTER_SPACING = 0;
 export const DEFAULT_LOCALE: AppLocale = "en";
 export const DEFAULT_VIM_MODE = false;
 export const DEFAULT_LINE_NUMBERS = false;
+export const DEFAULT_SPELL_CHECK = true;
 
 function readString(key: string, fallback: string): string {
     const raw = localStorage.getItem(key);
@@ -54,6 +56,7 @@ export interface SettingsState {
     locale: AppLocale;
     vimMode: boolean;
     lineNumbers: boolean;
+    spellCheck: boolean;
 }
 
 export interface SettingsActions {
@@ -63,6 +66,7 @@ export interface SettingsActions {
     setLocale: (value: AppLocale) => void;
     setVimMode: (value: boolean) => void;
     setLineNumbers: (value: boolean) => void;
+    setSpellCheck: (value: boolean) => void;
 }
 
 export type SettingsStore = SettingsState & SettingsActions;
@@ -74,6 +78,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
     locale: readStoredLocale(),
     vimMode: readStoredVimMode(),
     lineNumbers: readBoolean(LINE_NUMBERS_KEY, DEFAULT_LINE_NUMBERS),
+    spellCheck: readBoolean(SPELL_CHECK_KEY, DEFAULT_SPELL_CHECK),
 
     setFontFamily: (fontFamily) => set(() => {
         localStorage.setItem(FONT_FAMILY_KEY, fontFamily);
@@ -98,5 +103,9 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
     setLineNumbers: (lineNumbers) => set(() => {
         localStorage.setItem(LINE_NUMBERS_KEY, String(lineNumbers));
         return { lineNumbers };
+    }),
+    setSpellCheck: (spellCheck) => set(() => {
+        localStorage.setItem(SPELL_CHECK_KEY, String(spellCheck));
+        return { spellCheck };
     }),
 }));
