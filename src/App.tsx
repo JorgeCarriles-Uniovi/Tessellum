@@ -165,6 +165,12 @@ function App() {
                 return;
             }
 
+                if (modifier && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "g") {
+                event.preventDefault();
+                setViewMode(viewMode === "graph" ? "editor" : "graph");
+                return;
+            }
+
             if (modifier && event.key.toLowerCase() === "v") {
                 if (!clipboardFilePaste.shouldHandleShortcutPaste(target)) {
                     return;
@@ -213,7 +219,7 @@ function App() {
 
         window.addEventListener("keydown", onKeyDown);
         return () => window.removeEventListener("keydown", onKeyDown);
-    }, [activeNote, clipboardFileCopy, clipboardFilePaste, closeTab, app, files, selectedFilePaths, toggleSidebar]);
+    }, [activeNote, clipboardFileCopy, clipboardFilePaste, closeTab, app, files, selectedFilePaths, setViewMode, toggleSidebar, viewMode]);
 
     useEffect(() => {
         const ref = app.events.on("ui:open-command-palette", () => {

@@ -30,6 +30,15 @@ const core = {
         untitled: "Sin título",
         edited: "Editado {{value}}",
         loadingNote: "Cargando nota...",
+        selectionToolbar: {
+            label: "Formato del texto seleccionado",
+            bold: "Negrita",
+            italic: "Cursiva",
+            strikethrough: "Tachado",
+            bulletedList: "Lista de viñetas",
+            numberedList: "Lista numerada",
+            todoList: "Lista de tareas",
+        },
     },
     sidebar: {
         emptyTitle: "Todavía no hay notas",
