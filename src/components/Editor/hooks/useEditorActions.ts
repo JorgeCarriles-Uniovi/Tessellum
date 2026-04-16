@@ -17,6 +17,7 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
     const latestContentByPathRef = useRef<Map<string, string>>(new Map());
     const saveInFlightByPathRef = useRef<Map<string, boolean>>(new Map());
     const saveQueuedByPathRef = useRef<Map<string, boolean>>(new Map());
+    const pendingDebouncedSaveRef = useRef<{ path: string; vault: string | null; noteSnapshot: FileMetadata } | null>(null);
     const loadRequestIdRef = useRef(0);
     const { vaultPath, setActiveNoteContent, setIsDirty, setActiveNote } = useEditorStore();
     const activeNoteRef = useRef(activeNote);
@@ -37,7 +38,6 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
             return;
         }
 
-        if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
         const requestId = loadRequestIdRef.current + 1;
         loadRequestIdRef.current = requestId;
         let cancelled = false;
@@ -108,6 +108,15 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
             return;
         }
 
+        const lastPersisted = lastPersistedContentByPathRef.current.get(path);
+        if (lastPersisted === contentToWrite) {
+            lastScheduledContentByPathRef.current.delete(path);
+            if (activeNoteRef.current?.path === path) {
+                setIsDirty(false);
+            }
+            return;
+        }
+
         saveInFlightByPathRef.current.set(path, true);
         saveQueuedByPathRef.current.set(path, false);
 
@@ -144,6 +153,23 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
             });
     }, [setActiveNote, setIsDirty]);
 
+    const flushPendingDebouncedSave = useCallback(() => {
+        if (!saveTimeoutRef.current) {
+            return;
+        }
+
+        window.clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+
+        const pendingSave = pendingDebouncedSaveRef.current;
+        pendingDebouncedSaveRef.current = null;
+        if (!pendingSave) {
+            return;
+        }
+
+        flushLatestContent(pendingSave.path, pendingSave.vault, pendingSave.noteSnapshot);
+    }, [flushLatestContent]);
+
     const handleContentChange = useCallback((val: string) => {
         setContent(val);
         setActiveNoteContent(val);
@@ -159,6 +185,7 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
                 if (saveTimeoutRef.current) {
                     clearTimeout(saveTimeoutRef.current);
                     saveTimeoutRef.current = null;
+                    pendingDebouncedSaveRef.current = null;
                 }
                 lastScheduledContentByPathRef.current.delete(path);
                 if (!saveInFlightByPathRef.current.get(path)) {
@@ -177,17 +204,27 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
 
             setIsDirty(true);
             lastScheduledContentByPathRef.current.set(path, val);
+            pendingDebouncedSaveRef.current = { path, vault, noteSnapshot: note };
 
             saveTimeoutRef.current = window.setTimeout(() => {
                 saveTimeoutRef.current = null;
-                flushLatestContent(path, vault, note);
+                const pendingSave = pendingDebouncedSaveRef.current;
+                pendingDebouncedSaveRef.current = null;
+                if (!pendingSave) {
+                    return;
+                }
+                flushLatestContent(pendingSave.path, pendingSave.vault, pendingSave.noteSnapshot);
             }, 1000);
         }
     }, [flushLatestContent, setActiveNoteContent, setIsDirty]);
 
+    useEffect(() => {
+        flushPendingDebouncedSave();
+    }, [activeNote?.path, flushPendingDebouncedSave]);
+
     useEffect(() => () => {
-        if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-    }, []);
+        flushPendingDebouncedSave();
+    }, [flushPendingDebouncedSave]);
 
     return { content, isLoading, handleContentChange };
 }
