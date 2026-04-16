@@ -1,8 +1,8 @@
 import { SettingSection } from "./items/SettingSection.tsx";
 import { SettingItem } from "./items/SettingItem.tsx";
 import { ToggleSetting } from "./items/ToggleSetting.tsx";
-import { useState } from "react";
 import { useEditorContentStore, useSettingsStore } from "../../stores";
+
 import { useAppTranslation } from "../../i18n/react.tsx";
 
 export function EditorSettings() {
@@ -19,7 +19,8 @@ export function EditorSettings() {
     const vimMode = useSettingsStore((state) => state.vimMode);
     const setVimMode = useSettingsStore((state) => state.setVimMode);
 
-    const [lineNumbers, setLineNumbers] = useState(false);
+    const lineNumbers = useSettingsStore((state) => state.lineNumbers);
+    const setLineNumbers = useSettingsStore((state) => state.setLineNumbers);
 
     const selectStyle = {
         paddingTop: `0.33rem`,

@@ -161,8 +161,12 @@ class HeadingFoldWidget extends WidgetType {
     }
 
     destroy(): void {
-        this.iconRoot?.unmount();
+        const iconRoot = this.iconRoot;
         this.iconRoot = null;
+        if (iconRoot) {
+            // Defer unmount to avoid React warning when CodeMirror tears down during a render pass.
+            setTimeout(() => iconRoot.unmount(), 0);
+        }
     }
 
     ignoreEvent(): boolean {
