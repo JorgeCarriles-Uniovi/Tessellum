@@ -19,9 +19,9 @@ const SEPARATOR_CELL_RE = /^\s*:?-{3,}:?\s*$/;
 
 function isSeparatorRow(text: string): boolean {
     const stripped = text.trim();
-    if (!stripped.startsWith("|") || !stripped.endsWith("|")) return false;
+    if (!stripped.includes("|")) return false;
     const cells = splitRow(stripped);
-    return cells.length > 0 && cells.every((c) => SEPARATOR_CELL_RE.test(c));
+    return cells.length > 1 && cells.every((c) => SEPARATOR_CELL_RE.test(c));
 }
 
 /** Split a pipe-delimited row into cell contents (excluding outer pipes). */
@@ -34,12 +34,40 @@ export function splitRow(text: string): string[] {
     const trimmed = inner.endsWith("|")
         ? inner.slice(0, -1)
         : inner;
-    return trimmed.split("|").map((c) => c.trim());
+
+    const cells: string[] = [];
+    let current = "";
+    let escaped = false;
+
+    for (const ch of trimmed) {
+        if (escaped) {
+            current += ch;
+            escaped = false;
+            continue;
+        }
+
+        if (ch === "\\") {
+            escaped = true;
+            continue;
+        }
+
+        if (ch === "|") {
+            cells.push(current.trim());
+            current = "";
+            continue;
+        }
+
+        current += ch;
+    }
+
+    cells.push(current.trim());
+    return cells;
 }
 
 function isTableRow(text: string): boolean {
     const stripped = text.trim();
-    return stripped.startsWith("|") && stripped.endsWith("|") && stripped.length > 1;
+    if (!stripped.includes("|")) return false;
+    return splitRow(stripped).length > 1;
 }
 
 function parseAlignment(cell: string): "left" | "center" | "right" {

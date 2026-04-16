@@ -2,7 +2,7 @@ import { Decoration, DecorationSet, EditorView, ViewPlugin, ViewUpdate } from "@
 import { Extension, RangeSetBuilder } from "@codemirror/state";
 import { markdownPreviewForceHideFacet } from "../markdown-preview-plugin";
 import { parseTables } from "./table-parser";
-import { TableWidget } from "./table-widget";
+import { TableHeaderWidget, TableSeparatorWidget, TableDataWidget } from "./table-widget";
 import { tableKeymap } from "./table-navigation";
 
 const tableViewPlugin = ViewPlugin.fromClass(
@@ -28,43 +28,44 @@ const tableViewPlugin = ViewPlugin.fromClass(
             const { state } = view;
             const selection = state.selection.main;
             const forceHide = state.facet(markdownPreviewForceHideFacet);
+            const tables = parseTables(state.doc as any, 0, state.doc.length);
 
-            for (const { from, to } of view.visibleRanges) {
-                const tables = parseTables(state.doc as any, from, to);
+            for (const table of tables) {
+                const cursorInside =
+                    selection.from >= table.from &&
+                    selection.from <= table.to;
 
-                for (const table of tables) {
-                    // Check if cursor is inside the table block
-                    const cursorInside =
-                        selection.from >= table.from &&
-                        selection.from <= table.to;
+                if (cursorInside && !forceHide) {
+                    continue;
+                }
 
-                    if (!cursorInside || forceHide) {
-                        const rawText = state.doc.sliceString(table.from, table.to);
-                        const tableWidget = new TableWidget(table, rawText);
+                let pos = table.from;
+                let lineIndex = 0;
 
-                        const firstLine = state.doc.lineAt(table.from);
-                        builder.add(
-                            firstLine.from,
-                            firstLine.to,
-                            Decoration.replace({
-                                widget: tableWidget,
-                            })
-                        );
+                let dataRowIndex = 0;
+                while (pos <= table.to) {
+                    const line = state.doc.lineAt(pos);
+                    const rawText = line.text;
 
-                        // Hide all the *other* raw text lines of the table
-                        let pos = firstLine.to + 1;
-                        while (pos <= table.to) {
-                            const line = state.doc.lineAt(pos);
-                            builder.add(
-                                line.from,
-                                line.from,
-                                Decoration.line({
-                                    class: "cm-table-hidden-line"
-                                })
-                            );
-                            pos = line.to + 1;
-                        }
+                    let widget;
+                    if (lineIndex === 0) {
+                        widget = new TableHeaderWidget(rawText, table.alignments, table.columnCount, line.from);
+                    } else if (lineIndex === 1) {
+                        widget = new TableSeparatorWidget(rawText, table.alignments, table.columnCount, line.from);
+                    } else {
+                        const isLast = (line.to >= table.to);
+                        widget = new TableDataWidget(rawText, table.alignments, table.columnCount, line.from, isLast, dataRowIndex);
+                        dataRowIndex++;
                     }
+
+                    builder.add(
+                        line.from,
+                        line.to,
+                        Decoration.replace({ widget })
+                    );
+
+                    pos = line.to + 1;
+                    lineIndex++;
                 }
             }
 
@@ -84,15 +85,13 @@ export function getTableLinePositions(view: EditorView): Set<number> {
     const positions = new Set<number>();
     const { state } = view;
 
-    for (const { from, to } of view.visibleRanges) {
-        const tables = parseTables(state.doc as any, from, to);
-        for (const table of tables) {
-            let pos = table.from;
-            while (pos <= table.to) {
-                const line = state.doc.lineAt(pos);
-                positions.add(line.from);
-                pos = line.to + 1;
-            }
+    const tables = parseTables(state.doc as any, 0, state.doc.length);
+    for (const table of tables) {
+        let pos = table.from;
+        while (pos <= table.to) {
+            const line = state.doc.lineAt(pos);
+            positions.add(line.from);
+            pos = line.to + 1;
         }
     }
 

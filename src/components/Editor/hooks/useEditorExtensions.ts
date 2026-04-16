@@ -15,6 +15,7 @@ import { buildEditorExtensions } from "./editorExtensionsBuilder.ts";
  */
 export function useEditorExtensions(editorMode: EditorMode) {
     const vimMode = useSettingsStore((state) => state.vimMode);
+    const lineNumbers = useSettingsStore((state) => state.lineNumbers);
 
     return useMemo(() => {
         const app = TessellumApp.instance;
@@ -26,6 +27,7 @@ export function useEditorExtensions(editorMode: EditorMode) {
         return buildEditorExtensions({
             pluginExtensions: app.editor.getInitialExtensionsForPluginIds(visiblePluginIds),
             vimMode,
+            lineNumbers,
         });
-    }, [editorMode, vimMode]);
+    }, [editorMode, vimMode, lineNumbers]);
 }

@@ -406,15 +406,58 @@ body {
     .cm-blockquote {
         @apply relative border-l-4 border-border pl-4 py-2 text-muted-foreground;
     }
-    .cm-table-widget {
-        @apply my-8 w-full overflow-x-auto select-none cursor-default;
-        margin-top: 2rem !important;
-        margin-bottom: 2rem !important;
+    /* Force table rows to stack with no extra vertical gaps */
+    .cm-editor .cm-line:has(.cm-table-widget) {
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+        line-height: 0 !important;
+        min-height: 0 !important;
     }
 
+    .cm-table-widget {
+        @apply w-full overflow-x-auto select-none cursor-default;
+        display: inline-block;
+        font-size: 0;
+        vertical-align: top;
+        margin: 0 !important;
+        padding: 0 !important;
+        line-height: 0 !important;
+    }
+
+    .cm-table-widget-separator {
+        display: none !important;
+        width: 100%;
+        height: 0 !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: hidden;
+    }
+
+    .cm-editor .cm-line:has(.cm-table-widget-separator) {
+        height: 0 !important;
+        min-height: 0 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        line-height: 0 !important;
+    }
+
+    .cm-table-widget-first {
+        margin-top: 0 !important;
+    }
+
+    .cm-table-widget-last {
+        margin-bottom: 0 !important;
+    }
     .cm-table {
+        margin: 0 !important;
         @apply w-full border-collapse border border-solid border-border;
         font-size: calc(var(--editor-font-size, 16px) * 0.95) !important;
+    }
+
+    .cm-table-widget:not(.cm-table-widget-first):not(.cm-table-widget-separator) .cm-table td,
+    .cm-table-widget:not(.cm-table-widget-first):not(.cm-table-widget-separator) .cm-table th {
+        border-top-width: 0 !important;
     }
 
     .cm-table th {
@@ -438,7 +481,8 @@ body {
         @apply transition-colors duration-150;
     }
 
-    .cm-table tbody tr:nth-child(even) {
+    .cm-table tbody tr:nth-child(even),
+    .cm-table.cm-table-even-row tbody tr {
         @apply bg-muted/40;
     }
 

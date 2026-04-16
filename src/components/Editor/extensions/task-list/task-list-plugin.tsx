@@ -83,10 +83,13 @@ class TaskListCheckboxWidget extends WidgetType {
     }
 
     destroy(): void {
-        if (this.root) {
-            this.root.unmount();
-            this.root = null;
-            this.dom = null;
+        const root = this.root;
+        this.root = null;
+        this.dom = null;
+
+        if (root) {
+            // Avoid synchronous unmount during React render phases triggered by editor updates.
+            setTimeout(() => root.unmount(), 0);
         }
     }
 

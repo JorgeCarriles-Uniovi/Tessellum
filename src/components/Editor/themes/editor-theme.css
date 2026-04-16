@@ -50,6 +50,28 @@
     overflow: auto;
 }
 
+/* --- Line Numbers Gutter --- */
+.cm-gutters {
+    background-color: var(--color-bg-primary) !important;
+    border-right: none !important;
+    color: color-mix(in srgb, var(--foreground) 28%, transparent);
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: calc(var(--editor-font-size, 16px) * 0.82);
+    line-height: var(--editor-line-height, 1.7);
+    user-select: none;
+}
+
+.cm-lineNumbers .cm-gutterElement {
+    display: flex;
+    height: 100%;
+    align-items: center;
+    justify-content: flex-end;
+    line-height: 1;
+    padding: 0 12px 0 8px;
+    min-width: 3ch;
+    background-color: transparent !important;
+}
+
 .editor-scroll-shell .cm-editor {
     height: auto;
 }
