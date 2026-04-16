@@ -77,6 +77,7 @@ pub fn run() {
             commands::clipboard::import_clipboard_files,
             commands::clipboard::write_file_paths_to_clipboard,
             commands::watcher::watch_vault,
+            commands::watcher::unwatch_vault,
             commands::vault::rename_file,
             commands::vault::move_items,
             commands::folders::create_folder,

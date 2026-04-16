@@ -22,13 +22,11 @@ pub async fn watch_vault(
     handle: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<(), TessellumError> {
-    // Initialize the watcher
+    // Initialize or replace the watcher so vault switching and dev reloads
+    // do not keep stale watchers alive.
     let mut watcher_guard = state.watcher.lock().await;
-    
-    if watcher_guard.is_some() {
-        return Ok(());
-    }
-    
+    *watcher_guard = None;
+
     let app_handle_clone = handle.clone();
     let file_index_clone = state.file_index.clone();
     let asset_index_clone = state.asset_index.clone();
@@ -36,7 +34,7 @@ pub async fn watch_vault(
     let last_emit = Arc::new(Mutex::new(
         Instant::now() - Duration::from_millis(DEBOUNCE_MS),
     ));
-    
+
     let mut watcher = RecommendedWatcher::new(
         move |res: Result<Event, Error>| {
             match res {
@@ -45,7 +43,7 @@ pub async fn watch_vault(
                     let mut last = last_emit.lock().unwrap();
                     if last.elapsed() >= Duration::from_millis(DEBOUNCE_MS) {
                         *last = Instant::now();
-                        
+
                         // Invalidate caches
                         let fi = file_index_clone.clone();
                         let ai = asset_index_clone.clone();
@@ -64,12 +62,19 @@ pub async fn watch_vault(
         notify_config,
     )
         .map_err(|e| TessellumError::Internal(e.to_string()))?;
-    
+
     watcher
         .watch(Path::new(&vault_path), RecursiveMode::Recursive)
         .map_err(|e| TessellumError::Internal(e.to_string()))?;
-    
+
     *watcher_guard = Some(watcher);
-    
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn unwatch_vault(state: State<'_, AppState>) -> Result<(), TessellumError> {
+    let mut watcher_guard = state.watcher.lock().await;
+    *watcher_guard = None;
     Ok(())
 }

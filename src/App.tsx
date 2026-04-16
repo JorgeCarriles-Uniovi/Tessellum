@@ -360,7 +360,26 @@ function App() {
             setExpandedFolders({});
             setWorkspaceRestored(false);
         }
+
+        return () => {
+            invoke('unwatch_vault').catch(() => {
+                // Ignore teardown errors during dev reload/unmount.
+            });
+        };
     }, [vaultPath]);
+
+    useEffect(() => {
+        const onBeforeUnload = () => {
+            invoke('unwatch_vault').catch(() => {
+                // Ignore teardown errors during browser unload/HMR.
+            });
+        };
+
+        window.addEventListener('beforeunload', onBeforeUnload);
+        return () => {
+            window.removeEventListener('beforeunload', onBeforeUnload);
+        };
+    }, []);
 
     useEffect(() => {
         let syncTimer: number | null = null;
@@ -372,7 +391,12 @@ function App() {
                 invoke('sync_vault', { vaultPath }).catch(console.error);
             }, 400);
         });
-        return () => { unlistenPromise.then(unlisten => unlisten()); };
+        return () => {
+            if (syncTimer) {
+                window.clearTimeout(syncTimer);
+            }
+            unlistenPromise.then(unlisten => unlisten());
+        };
     }, [vaultPath]);
 
     useEffect(() => {
