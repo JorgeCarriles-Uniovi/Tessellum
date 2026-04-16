@@ -1,9 +1,13 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { TessellumApp } from "../../../plugins/TessellumApp";
 import type { EditorMode } from "../../../constants/editorModes";
 import { getInitialExtensionPluginIds } from "./sourceModeExtensions";
 import { useSettingsStore } from "../../../stores";
 import { buildEditorExtensions } from "./editorExtensionsBuilder.ts";
+import {
+    getCachedCodeLanguages,
+    loadCodeLanguagesForLocale,
+} from "./codeLanguagesLoader.ts";
 
 /**
  * Assembles the full CodeMirror extension array by combining:
@@ -14,8 +18,33 @@ import { buildEditorExtensions } from "./editorExtensionsBuilder.ts";
  * allowing individual plugins to be reconfigured at runtime.
  */
 export function useEditorExtensions(editorMode: EditorMode) {
+    const locale = useSettingsStore((state) => state.locale);
     const vimMode = useSettingsStore((state) => state.vimMode);
     const lineNumbers = useSettingsStore((state) => state.lineNumbers);
+    const [codeLanguages, setCodeLanguages] = useState(() => getCachedCodeLanguages(locale) ?? []);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const load = async () => {
+            try {
+                const languages = await loadCodeLanguagesForLocale(locale);
+                if (!cancelled) {
+                    setCodeLanguages(languages);
+                }
+            } catch (error) {
+                console.error("Failed to load editor code language bundle:", error);
+                if (!cancelled) {
+                    setCodeLanguages([]);
+                }
+            }
+        };
+
+        void load();
+        return () => {
+            cancelled = true;
+        };
+    }, [locale]);
 
     return useMemo(() => {
         const app = TessellumApp.instance;
@@ -28,6 +57,7 @@ export function useEditorExtensions(editorMode: EditorMode) {
             pluginExtensions: app.editor.getInitialExtensionsForPluginIds(visiblePluginIds),
             vimMode,
             lineNumbers,
+            codeLanguages,
         });
-    }, [editorMode, vimMode, lineNumbers]);
+    }, [codeLanguages, editorMode, vimMode, lineNumbers]);
 }

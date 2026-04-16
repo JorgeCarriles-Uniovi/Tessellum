@@ -15,7 +15,8 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
     const lastPersistedContentByPathRef = useRef<Map<string, string>>(new Map());
     const lastScheduledContentByPathRef = useRef<Map<string, string>>(new Map());
     const latestContentByPathRef = useRef<Map<string, string>>(new Map());
-    const saveTokenRef = useRef(0);
+    const saveInFlightByPathRef = useRef<Map<string, boolean>>(new Map());
+    const saveQueuedByPathRef = useRef<Map<string, boolean>>(new Map());
     const loadRequestIdRef = useRef(0);
     const { vaultPath, setActiveNoteContent, setIsDirty, setActiveNote } = useEditorStore();
     const activeNoteRef = useRef(activeNote);
@@ -28,7 +29,6 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
 
     useEffect(() => {
         if (!activeNote) {
-            saveTokenRef.current += 1;
             loadRequestIdRef.current += 1;
             setContent("");
             setActiveNoteContent("");
@@ -38,7 +38,6 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
         }
 
         if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
-        saveTokenRef.current += 1;
         const requestId = loadRequestIdRef.current + 1;
         loadRequestIdRef.current = requestId;
         let cancelled = false;
@@ -95,6 +94,49 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
         };
     }, [activeNote?.path, setActiveNoteContent, setIsDirty, vaultPath]);
 
+    const flushLatestContent = useCallback((path: string, vault: string | null, noteSnapshot: FileMetadata) => {
+        if (!vault) {
+            return;
+        }
+        if (saveInFlightByPathRef.current.get(path)) {
+            saveQueuedByPathRef.current.set(path, true);
+            return;
+        }
+
+        const contentToWrite = latestContentByPathRef.current.get(path);
+        if (contentToWrite == null) {
+            return;
+        }
+
+        saveInFlightByPathRef.current.set(path, true);
+        saveQueuedByPathRef.current.set(path, false);
+
+        invoke('write_file', { path, vaultPath: vault, content: contentToWrite })
+            .then(() => {
+                lastPersistedContentByPathRef.current.set(path, contentToWrite);
+                lastScheduledContentByPathRef.current.delete(path);
+
+                if (activeNoteRef.current?.path === path) {
+                    if (latestContentByPathRef.current.get(path) === contentToWrite) {
+                        setIsDirty(false);
+                    }
+                    setActiveNote({ ...noteSnapshot, last_modified: Math.floor(Date.now() / 1000) });
+                }
+            })
+            .catch(console.error)
+            .finally(() => {
+                saveInFlightByPathRef.current.set(path, false);
+                if (saveQueuedByPathRef.current.get(path)) {
+                    saveQueuedByPathRef.current.set(path, false);
+                    const latestNote = activeNoteRef.current;
+                    const latestVault = vaultPathRef.current;
+                    if (latestNote?.path === path) {
+                        flushLatestContent(path, latestVault, latestNote);
+                    }
+                }
+            });
+    }, [setActiveNote, setIsDirty]);
+
     const handleContentChange = useCallback((val: string) => {
         setContent(val);
         setActiveNoteContent(val);
@@ -112,7 +154,9 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
                     saveTimeoutRef.current = null;
                 }
                 lastScheduledContentByPathRef.current.delete(path);
-                setIsDirty(false);
+                if (!saveInFlightByPathRef.current.get(path)) {
+                    setIsDirty(false);
+                }
                 return;
             }
 
@@ -126,30 +170,15 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
 
             setIsDirty(true);
             lastScheduledContentByPathRef.current.set(path, val);
-            const saveToken = ++saveTokenRef.current;
 
             saveTimeoutRef.current = window.setTimeout(() => {
-                invoke('write_file', { path, vaultPath: vault, content: val })
-                    .then(() => {
-                        if (saveTokenRef.current !== saveToken) {
-                            return;
-                        }
-                        lastPersistedContentByPathRef.current.set(path, val);
-                        lastScheduledContentByPathRef.current.delete(path);
-                        if (latestContentByPathRef.current.get(path) === val) {
-                            setIsDirty(false);
-                        }
-                        if (activeNoteRef.current?.path === path) {
-                            setActiveNote({ ...note, last_modified: Math.floor(Date.now() / 1000) });
-                        }
-                    })
-                    .catch(console.error);
+                saveTimeoutRef.current = null;
+                flushLatestContent(path, vault, note);
             }, 1000);
         }
-    }, [setActiveNoteContent, setIsDirty, setActiveNote]);
+    }, [flushLatestContent, setActiveNoteContent, setIsDirty]);
 
     useEffect(() => () => {
-        saveTokenRef.current += 1;
         if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     }, []);
 
