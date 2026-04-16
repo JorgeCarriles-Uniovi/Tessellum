@@ -7,6 +7,7 @@ import {
     useEditorModeStore,
     useGraphStore,
     useSelectionStore,
+    useSearchStore,
     useSettingsStore,
     useThemeStore,
     useUiStore,
@@ -70,6 +71,9 @@ function App() {
     const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
     const editorFontSizePx = useEditorContentStore((state) => state.editorFontSizePx);
     const { fontFamily, editorLineHeight, editorLetterSpacing, locale } = useSettingsStore();
+    const ensureSearchReadiness = useSearchStore((state) => state.ensureReadiness);
+    const resetAndEnsureSearchReadiness = useSearchStore((state) => state.resetAndEnsureReadiness);
+    const resetSearchReadinessState = useSearchStore((state) => state.resetReadinessState);
     const loadThemes = useThemeStore((state) => state.loadThemes);
     const startThemeWatch = useThemeStore((state) => state.startWatching);
     const stopThemeWatch = useThemeStore((state) => state.stopWatching);
@@ -110,6 +114,22 @@ function App() {
 
     const closeCommandPalette = () => setIsCommandPaletteOpen(false);
     const closeSettingsPanel = () => setIsSettingsPanelOpen(false);
+
+    const warmSearchIndex = (path: string, resetAttempts: boolean) => {
+        const runWarmup = async () => {
+            try {
+                if (resetAttempts) {
+                    await resetAndEnsureSearchReadiness(path);
+                    return;
+                }
+                await ensureSearchReadiness(path);
+            } catch (error) {
+                console.error(error);
+            }
+        };
+
+        void runWarmup();
+    };
 
     const app = useMemo(() => {
         const isNew = !(TessellumApp as any)._instance;
@@ -234,6 +254,9 @@ function App() {
     useEffect(() => {
         const openRef = app.events.on("ui:open-search", () => {
             openSearch();
+            if (vaultPath) {
+                warmSearchIndex(vaultPath, true);
+            }
         });
         const closeRef = app.events.on("ui:close-search", () => {
             closeSearch();
@@ -242,7 +265,17 @@ function App() {
             app.events.off(openRef);
             app.events.off(closeRef);
         };
-    }, [app, closeSearch, openSearch]);
+    }, [app, closeSearch, openSearch, vaultPath]);
+
+    useEffect(() => {
+        const ref = app.events.on("vault:scope-ready", (path: string) => {
+            if (!path) {
+                return;
+            }
+            warmSearchIndex(path, false);
+        });
+        return () => app.events.off(ref);
+    }, [app]);
 
     useEffect(() => {
         const ref = app.events.on("ui:open-settings", () => {
@@ -349,6 +382,12 @@ function App() {
             }).catch(console.error);
         }
     }, [vaultPath, setVaultPath, app]);
+
+    useEffect(() => {
+        if (!vaultPath) {
+            resetSearchReadinessState();
+        }
+    }, [resetSearchReadinessState, vaultPath]);
 
     useEffect(() => {
         if (vaultPath) {

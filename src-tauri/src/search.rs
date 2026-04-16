@@ -1,8 +1,8 @@
 use std::path::{Path, PathBuf};
 
 use regex::Regex;
-use tantivy::collector::TopDocs;
-use tantivy::query::{BooleanQuery, BoostQuery, Occur, PhrasePrefixQuery, Query, TermQuery};
+use tantivy::collector::{DocSetCollector, TopDocs};
+use tantivy::query::{AllQuery, BooleanQuery, BoostQuery, Occur, PhrasePrefixQuery, Query, TermQuery};
 use tantivy::schema::{Facet, Field, IndexRecordOption, STORED, STRING, Schema, TEXT, Value};
 use tantivy::{Index, IndexReader, IndexWriter, ReloadPolicy, TantivyDocument, Term};
 
@@ -202,6 +202,24 @@ impl SearchIndex {
 		}
 		
 		Ok(results)
+	}
+
+	pub fn indexed_paths(&self) -> Result<Vec<String>, String> {
+		let reader = self.reader.searcher();
+		let doc_addresses = reader
+			.search(&AllQuery, &DocSetCollector)
+			.map_err(|e| e.to_string())?;
+		let mut paths = Vec::with_capacity(doc_addresses.len());
+		for address in doc_addresses {
+			let retrieved: TantivyDocument = reader.doc(address).map_err(|e| e.to_string())?;
+			if let Some(path) = retrieved
+				.get_first(self.fields.path)
+				.and_then(|value| value.as_str())
+			{
+				paths.push(normalize_path(path));
+			}
+		}
+		Ok(paths)
 	}
 	
 	fn build_schema() -> (Schema, SearchFields) {

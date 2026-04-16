@@ -6,6 +6,35 @@ use crate::db::Database;
 use crate::models::{AssetIndex, FileIndex};
 use crate::search::SearchIndex;
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SearchReadinessStatus {
+    Idle,
+    Warming,
+    Ready,
+    Failed,
+}
+
+#[derive(Clone, Debug)]
+pub struct SearchReadinessState {
+    pub status: SearchReadinessStatus,
+    pub attempt_count: u32,
+    pub max_attempts: u32,
+    pub last_error: Option<String>,
+    pub vault_path: Option<String>,
+}
+
+impl Default for SearchReadinessState {
+    fn default() -> Self {
+        Self {
+            status: SearchReadinessStatus::Idle,
+            attempt_count: 0,
+            max_attempts: 10,
+            last_error: None,
+            vault_path: None,
+        }
+    }
+}
+
 /// Represents the application state that contains shared resources such as
 /// a file watcher and a database connection.
 ///
@@ -27,6 +56,7 @@ pub struct AppState {
     pub file_index: Arc<Mutex<Option<FileIndex>>>,
     pub asset_index: Arc<Mutex<Option<AssetIndex>>>,
     pub search_index: Arc<Mutex<SearchIndex>>,
+    pub search_readiness: Mutex<SearchReadinessState>,
 }
 
 impl AppState {
@@ -37,6 +67,7 @@ impl AppState {
             file_index: Arc::new(Mutex::new(None)),
             asset_index: Arc::new(Mutex::new(None)),
             search_index: Arc::new(Mutex::new(search_index)),
+            search_readiness: Mutex::new(SearchReadinessState::default()),
         }
     }
 }
