@@ -7,7 +7,8 @@ import { useAppTranslation } from "../../i18n/react.tsx";
 
 export function GeneralSettings() {
     const [autoSave, setAutoSave] = useState(true);
-    const [spellCheck, setSpellCheck] = useState(true);
+    const spellCheck = useSettingsStore((state) => state.spellCheck);
+    const setSpellCheck = useSettingsStore((state) => state.setSpellCheck);
     const locale = useSettingsStore((state) => state.locale);
     const setLocale = useSettingsStore((state) => state.setLocale);
     const { t } = useAppTranslation("settings");

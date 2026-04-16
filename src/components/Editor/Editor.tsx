@@ -24,7 +24,7 @@ import { CalloutType } from "../../constants/callout-types";
 import { TessellumApp, useTessellumApp } from "../../plugins/TessellumApp";
 import { PaletteCommand } from "../../plugins/api/UIAPI";
 import { EditorView } from "@codemirror/view";
-import { Extension } from "@codemirror/state";
+import { Extension, Prec } from "@codemirror/state";
 import { Calendar, Clock } from "lucide-react";
 import { theme } from "../../styles/theme";
 import { isMediaFile } from "../../utils/fileType";
@@ -33,10 +33,11 @@ import { EDITOR_MODES } from "../../constants/editorModes";
 import { useEditorModeStore } from "../../stores/editorModeStore";
 import { markdownPreviewForceHideFacet } from "./extensions/markdown-preview-plugin";
 import { TabStrip, type Tab } from "./TabStrip";
-import { useAccessibilityStore } from "../../stores";
+import { useAccessibilityStore, useSettingsStore } from "../../stores";
 import { WorkspaceOverview } from "./workspaceOverview/WorkspaceOverview";
 import type { HeroProjection, WorkspaceCardItem } from "./workspaceOverview/types";
 import { useAppTranslation } from "../../i18n/react.tsx";
+import { toSpellcheckLang } from "../../i18n/spellcheck";
 import { SelectionToolbar } from "./toolbar/SelectionToolbar";
 import {
     applyMarkdownShortcut,
@@ -417,6 +418,8 @@ function EditorHeader({
                           lastModified,
                           titleFontSizePx,
                           readOnly,
+                          spellCheck,
+                          spellCheckLanguage,
                           t,
                           locale,
                       }: {
@@ -427,6 +430,8 @@ function EditorHeader({
     lastModified: number;
     titleFontSizePx: number;
     readOnly: boolean;
+    spellCheck: boolean;
+    spellCheckLanguage: string;
     t: (key: string, options?: Record<string, unknown>) => string;
     locale: string;
 }) {
@@ -449,6 +454,8 @@ function EditorHeader({
                     placeholder={t("editor.untitled")}
                     readOnly={readOnly}
                     disabled={readOnly}
+                    spellCheck={spellCheck}
+                    lang={spellCheckLanguage}
                 />
                 <div className="flex items-center gap-3 text-[0.6875rem] mt-5" style={{ color: theme.colors.text.muted, paddingBottom: 20 }}>
                     <span className="flex items-center gap-1">
@@ -619,6 +626,8 @@ export function Editor() {
     } = useEditorStore();
     const editorMode = useEditorModeStore((state) => state.editorMode);
     const reducedMotion = useAccessibilityStore((state) => state.reducedMotion);
+    const spellCheck = useSettingsStore((state) => state.spellCheck);
+    const appLocale = useSettingsStore((state) => state.locale);
     const { content, isLoading, handleContentChange } = useFileSynchronization(activeNote);
     const editorRef = useRef<ReactCodeMirrorRef>(null);
     const editorContainerRef = useRef<HTMLDivElement | null>(null);
@@ -773,9 +782,25 @@ export function Editor() {
     );
 
     const titleFontSizePx = useMemo(() => Math.round(28 * editorFontSizePx / 16), [editorFontSizePx]);
+    const spellCheckLanguage = useMemo(() => toSpellcheckLang(appLocale), [appLocale]);
     const isEditable = EDITOR_MODES[editorMode].editable;
     const selectionToolbarEnabled = isEditable && (editorMode === "live-preview" || editorMode === "source");
     const editableExtension = useMemo(() => EditorView.editable.of(isEditable), [isEditable]);
+    const spellCheckExtension = useMemo(
+        () => Prec.highest([
+            EditorView.editorAttributes.of({
+                spellcheck: spellCheck ? "true" : "false",
+                lang: spellCheckLanguage,
+                autocorrect: spellCheck ? "on" : "off",
+            }),
+            EditorView.contentAttributes.of({
+                spellcheck: spellCheck ? "true" : "false",
+                lang: spellCheckLanguage,
+                autocorrect: spellCheck ? "on" : "off",
+            }),
+        ]),
+        [spellCheck, spellCheckLanguage]
+    );
     const previewForceHideExtension = useMemo(
         () => markdownPreviewForceHideFacet.of(!isEditable),
         [isEditable]
@@ -784,6 +809,7 @@ export function Editor() {
         () => [
             ...pluginExtensions,
             editableExtension,
+            spellCheckExtension,
             previewForceHideExtension,
             slashExtension,
             wikiLinkSuggestionsExtension,
@@ -792,6 +818,7 @@ export function Editor() {
         [
             pluginExtensions,
             editableExtension,
+            spellCheckExtension,
             previewForceHideExtension,
             slashExtension,
             wikiLinkSuggestionsExtension,
@@ -967,6 +994,8 @@ export function Editor() {
                 titleFontSizePx={titleFontSizePx}
                 lastModified={activeNote.last_modified}
                 readOnly={!isEditable}
+                spellCheck={spellCheck}
+                spellCheckLanguage={spellCheckLanguage}
                 t={t}
                 locale={i18n.language}
             />
