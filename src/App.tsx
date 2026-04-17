@@ -494,6 +494,10 @@ function App() {
 
     async function refreshFiles(vaultPath: string, restoreState: boolean): Promise<void> {
         try {
+            if (restoreState) {
+                await invoke<boolean>('ensure_feature_demo_in_empty_vault', { vaultPath });
+            }
+
             const [flatFiles, treeFiles] = await Promise.all([
                 invoke<FileMetadata[]>('list_files', { vaultPath }),
                 invoke<TreeNode[]>('list_files_tree', { vaultPath })

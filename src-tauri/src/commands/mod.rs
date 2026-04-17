@@ -23,6 +23,9 @@ pub use notes::{
 	trash_items, write_file, delete_trash_item_permanently,
 };
 pub use templates::{create_note_from_template, list_templates};
-pub use vault::{list_files, list_files_tree, move_items, rename_file, set_vault_path};
+pub use vault::{
+	ensure_feature_demo_in_empty_vault, list_files, list_files_tree, move_items, rename_file,
+	set_vault_path,
+};
 pub use watcher::{watch_vault, unwatch_vault};
 pub use search::{search_full_text, search_tags, rebuild_search_index};

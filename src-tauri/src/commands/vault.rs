@@ -12,6 +12,9 @@ use crate::search::SearchDoc;
 use crate::trash::purge_expired_trash;
 use crate::utils::{extract_tags, is_hidden_or_special, sanitize_string, validate_path_in_vault};
 
+const FEATURE_DEMO_FILENAME: &str = "FEATURE_DEMO.md";
+const FEATURE_DEMO_CONTENT: &str = include_str!("../../../FEATURE_DEMO.md");
+
 /// Rewrite `[[OldStem]]` and `[[OldStem|alias]]` to `[[NewStem]]` / `[[NewStem|alias]]`
 /// in all files whose paths are listed in `backlinks`.
 /// Escaped links (`\[[OldStem]]`) are left unchanged.
@@ -140,6 +143,31 @@ pub fn list_files(vault_path: String) -> Result<Vec<FileMetadata>, TessellumErro
     }
     
     Ok(files)
+}
+
+#[tauri::command]
+pub async fn ensure_feature_demo_in_empty_vault(vault_path: String) -> Result<bool, TessellumError> {
+    let vault = Path::new(&vault_path);
+    if !vault.exists() || !vault.is_dir() {
+        return Err(TessellumError::NotFound(
+            "Vault path does not exist".to_string(),
+        ));
+    }
+
+    if !list_files(vault_path.clone())?.is_empty() {
+        return Ok(false);
+    }
+
+    let demo_path = vault.join(FEATURE_DEMO_FILENAME);
+    if demo_path.exists() {
+        return Ok(false);
+    }
+
+    tokio::fs::write(demo_path, FEATURE_DEMO_CONTENT)
+        .await
+        .map_err(TessellumError::from)?;
+
+    Ok(true)
 }
 
 /// Asynchronous Tauri command to rename a file or folder.
