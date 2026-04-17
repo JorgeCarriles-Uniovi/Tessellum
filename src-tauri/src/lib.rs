@@ -9,10 +9,46 @@ pub mod models;
 mod utils;
 
 use db::Database;
+use std::any::Any;
+use std::fs::{create_dir_all, OpenOptions};
+use std::io::Write;
+use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::Manager;
 pub use models::*;
 use search::SearchIndex;
+
+fn startup_error(stage: &str, message: impl Into<String>) -> std::io::Error {
+    std::io::Error::other(format!("startup failed at {stage}: {}", message.into()))
+}
+
+fn startup_log_path() -> PathBuf {
+    if let Ok(local_app_data) = std::env::var("LOCALAPPDATA") {
+        return PathBuf::from(local_app_data).join("tessellum").join("startup.log");
+    }
+    std::env::temp_dir().join("tessellum-startup.log")
+}
+
+fn append_startup_log(message: &str) {
+    let path = startup_log_path();
+    if let Some(parent) = path.parent() {
+        let _ = create_dir_all(parent);
+    }
+    if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(path) {
+        let _ = writeln!(file, "{message}");
+    }
+}
+
+fn panic_payload_to_string(payload: Box<dyn Any + Send>) -> String {
+    if let Some(msg) = payload.downcast_ref::<&str>() {
+        return (*msg).to_string();
+    }
+    if let Some(msg) = payload.downcast_ref::<String>() {
+        return msg.clone();
+    }
+    "unknown panic payload".to_string()
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -22,40 +58,47 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_persisted_scope::init())
         .setup(|app| {
-            let app_handle = app.handle();
-            let db_url = app_handle
-                .path()
-                .app_data_dir()
-                .expect("failed to get app data directory")
-                .join("vault.db")
-                .to_str()
-                .expect("failed to convert path to string")
-                .to_string();
-            
-            let db_instance = tauri::async_runtime::block_on(async move {
-                Database::init(&db_url).await.unwrap_or_else(|e| {
-                    log::error!("Failed to initialize database: {}", e);
-                    panic!("Failed to initialize database: {}", e);
-                })
-            });
-            
-            let search_dir = app_handle
-                .path()
-                .app_data_dir()
-                .expect("failed to get app data directory")
-                .join("search_index");
-            
-            let search_index = SearchIndex::open_or_create(&search_dir)
-                .unwrap_or_else(|e| panic!("Failed to init search index: {}", e));
-            
-            let kuzu_conn = kuzu_projection::init_managed_connection(&app_handle, &db_instance)
-                .unwrap_or_else(|e| panic!("Failed to initialize Kuzu projection: {}", e));
-            
-            app.manage(Mutex::new(kuzu_conn));
-            app.manage(models::AppState::new(db_instance, search_index));
-            log::info!("Database initialized successfully");
-            
-            Ok(())
+            let setup_result: Result<(), std::io::Error> = (|| {
+                let app_handle = app.handle();
+                let app_data_dir = app_handle
+                    .path()
+                    .app_data_dir()
+                    .map_err(|e| startup_error("resolve-app-data-dir", e.to_string()))?;
+
+                let db_url = app_data_dir
+                    .join("vault.db")
+                    .to_str()
+                    .ok_or_else(|| startup_error("build-db-path", "failed to convert path to string"))?
+                    .to_string();
+
+                let db_instance = tauri::async_runtime::block_on(async move { Database::init(&db_url).await })
+                    .map_err(|e| startup_error("database-init", e.to_string()))?;
+
+                let search_dir = app_data_dir.join("search_index");
+
+                let search_index = SearchIndex::open_or_create(&search_dir)
+                    .map_err(|e| startup_error("search-index-init", e.to_string()))?;
+
+                let kuzu_conn = catch_unwind(AssertUnwindSafe(|| {
+                    kuzu_projection::init_managed_connection(&app_handle, &db_instance)
+                }))
+                .map_err(|payload| startup_error("kuzu-init-panic", panic_payload_to_string(payload)))?
+                .map_err(|e| startup_error("kuzu-init", e.to_string()))?;
+
+                app.manage(Mutex::new(kuzu_conn));
+                app.manage(models::AppState::new(db_instance, search_index));
+                log::info!("Database initialized successfully");
+
+                Ok(())
+            })();
+
+            if let Err(err) = &setup_result {
+                let message = format!("{err}");
+                append_startup_log(&message);
+                eprintln!("{message}");
+            }
+
+            setup_result.map_err(|e| e.into())
         })
         .invoke_handler(tauri::generate_handler![
             commands::notes::create_note,
@@ -102,7 +145,12 @@ pub fn run() {
             commands::graph::execute_graph_query,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .unwrap_or_else(|e| {
+            let message = format!("error while running tauri application: {}", e);
+            log::error!("{message}");
+            append_startup_log(&message);
+            eprintln!("{message}");
+        });
 }
 
 #[cfg(test)]
