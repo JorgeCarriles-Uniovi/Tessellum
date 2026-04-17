@@ -7,9 +7,11 @@ import {
     WidgetType,
 } from "@codemirror/view";
 import { RangeSetBuilder, StateEffect, StateField, EditorState } from "@codemirror/state";
+import { syntaxTree } from "@codemirror/language";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { parseCodeBlocks } from "./code/code-parser";
+import { findLatexExpressions } from "./shared-latex-utils";
 
 interface MediaEmbedConfig {
     vaultPath: string;
@@ -36,6 +38,11 @@ interface PendingRequest {
     target: string;
     mode: EmbedMode;
     sourcePath: string | null;
+}
+
+interface DocRange {
+    from: number;
+    to: number;
 }
 
 const resolvedEffect = StateEffect.define<void>();
@@ -207,13 +214,105 @@ function getMimeType(path: string): string {
     return "application/octet-stream";
 }
 
+function overlapsRange(from: number, to: number, range: DocRange): boolean {
+    return from < range.to && to > range.from;
+}
+
+function collectInlineCodeTextSpans(lineText: string, lineFrom: number): DocRange[] {
+    const spans: DocRange[] = [];
+    let i = 0;
+    let inCode = false;
+    let delimiterLen = 0;
+    let codeStart = -1;
+
+    while (i < lineText.length) {
+        if (lineText[i] !== "`") {
+            i += 1;
+            continue;
+        }
+
+        const runStart = i;
+        while (i < lineText.length && lineText[i] === "`") {
+            i += 1;
+        }
+        const runLen = i - runStart;
+
+        if (!inCode) {
+            inCode = true;
+            delimiterLen = runLen;
+            codeStart = runStart;
+            continue;
+        }
+
+        if (runLen === delimiterLen) {
+            spans.push({
+                from: lineFrom + codeStart,
+                to: lineFrom + i,
+            });
+            inCode = false;
+            delimiterLen = 0;
+            codeStart = -1;
+        }
+    }
+
+    if (inCode && codeStart >= 0) {
+        spans.push({
+            from: lineFrom + codeStart,
+            to: lineFrom + lineText.length,
+        });
+    }
+
+    return spans;
+}
+
+function isBlockedEmbedLine(lineText: string): boolean {
+    // Only render embed previews in plain editor content.
+    return lineText.trimStart().startsWith(">");
+}
+
+function collectInlineCodeRanges(state: EditorState): DocRange[] {
+    const ranges: DocRange[] = [];
+    syntaxTree(state).iterate({
+        enter(node) {
+            if (node.name !== "InlineCode") {
+                return;
+            }
+            ranges.push({ from: node.from, to: node.to });
+        },
+    });
+    return ranges;
+}
+
+function collectLatexRanges(state: EditorState): DocRange[] {
+    return findLatexExpressions(state.doc.toString()).map((match) => ({
+        from: match.start,
+        to: match.end,
+    }));
+}
+
 function parseEmbeds(state: EditorState): EmbedMatch[] {
     const matches: EmbedMatch[] = [];
     const doc = state.doc;
     const blocks = parseCodeBlocks(state);
+    const inlineCodeRanges = collectInlineCodeRanges(state);
+    const latexRanges = collectLatexRanges(state);
 
     const isInCodeBlock = (pos: number) =>
         blocks.some((b) => pos >= b.from && pos <= b.to);
+
+    const isExcludedContext = (from: number, to: number, lineText: string, lineFrom: number) => {
+        if (isInCodeBlock(from) || isBlockedEmbedLine(lineText)) {
+            return true;
+        }
+        if (inlineCodeRanges.some((range) => overlapsRange(from, to, range))) {
+            return true;
+        }
+        const inlineCodeTextSpans = collectInlineCodeTextSpans(lineText, lineFrom);
+        if (inlineCodeTextSpans.some((range) => overlapsRange(from, to, range))) {
+            return true;
+        }
+        return latexRanges.some((range) => overlapsRange(from, to, range));
+    };
 
     const obsidianRe = /!\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g;
     const markdownRe = /!\[([^\]]*)\]\(([^)]+)\)/g;
@@ -227,7 +326,7 @@ function parseEmbeds(state: EditorState): EmbedMatch[] {
         while ((match = obsidianRe.exec(lineText)) !== null) {
             const from = line.from + match.index;
             const to = from + match[0].length;
-            if (isInCodeBlock(from)) continue;
+            if (isExcludedContext(from, to, lineText, line.from)) continue;
 
             const target = match[1].trim();
             if (!target) continue;
@@ -248,7 +347,7 @@ function parseEmbeds(state: EditorState): EmbedMatch[] {
         while ((match = markdownRe.exec(lineText)) !== null) {
             const from = line.from + match.index;
             const to = from + match[0].length;
-            if (isInCodeBlock(from)) continue;
+            if (isExcludedContext(from, to, lineText, line.from)) continue;
 
             const alt = match[1]?.trim();
             const rawTarget = match[2]?.trim();
