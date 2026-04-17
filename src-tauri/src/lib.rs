@@ -65,14 +65,46 @@ pub fn run() {
                     .app_data_dir()
                     .map_err(|e| startup_error("resolve-app-data-dir", e.to_string()))?;
 
+                append_startup_log(&format!(
+                    "resolved app_data_dir: {}",
+                    app_data_dir.display()
+                ));
+
+                create_dir_all(&app_data_dir)
+                    .map_err(|e| startup_error("ensure-app-data-dir", e.to_string()))?;
+
+                let write_probe = app_data_dir.join(".startup-write-probe");
+                OpenOptions::new()
+                    .create(true)
+                    .write(true)
+                    .truncate(true)
+                    .open(&write_probe)
+                    .map_err(|e| {
+                        startup_error(
+                            "app-data-write-test",
+                            format!("{} (path: {})", e, write_probe.display()),
+                        )
+                    })?;
+                let _ = std::fs::remove_file(&write_probe);
+
                 let db_url = app_data_dir
                     .join("vault.db")
                     .to_str()
                     .ok_or_else(|| startup_error("build-db-path", "failed to convert path to string"))?
                     .to_string();
 
-                let db_instance = tauri::async_runtime::block_on(async move { Database::init(&db_url).await })
-                    .map_err(|e| startup_error("database-init", e.to_string()))?;
+                append_startup_log(&format!("resolved db_url: {db_url}"));
+
+                let db_url_for_init = db_url.clone();
+                let db_instance = tauri::async_runtime::block_on(async move {
+                    Database::init(&db_url_for_init).await
+                })
+                .map_err(|e| {
+                    startup_error(
+                        "database-init",
+                        format!("{} (db: {})", e, db_url),
+                    )
+                })?;
 
                 let search_dir = app_data_dir.join("search_index");
 

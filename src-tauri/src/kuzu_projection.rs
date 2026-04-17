@@ -35,6 +35,11 @@ pub fn init_managed_connection(
 		.app_data_dir()
 		.map_err(|e| format!("Failed to get app data directory: {e}"))?
 		.join("graph.kuzu");
+
+	if let Some(parent_dir) = graph_path.parent() {
+		std::fs::create_dir_all(parent_dir)
+			.map_err(|e| format!("Failed to create Kuzu graph parent directory: {e}"))?;
+	}
 	
 	let db_ref: &'static Database = Box::leak(Box::new(
 		Database::new(&graph_path, SystemConfig::default())
