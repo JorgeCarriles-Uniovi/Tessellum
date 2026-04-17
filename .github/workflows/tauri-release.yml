@@ -50,6 +50,10 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev \
             patchelf
+      - name: Build Tauri bundles
+        run: npm run tauri build
+        env:
+          MACOSX_DEPLOYMENT_TARGET: ${{ matrix.os == 'macos-latest' && '10.15' || '' }}
 
       - name: Install npm dependencies
         run: npm ci
