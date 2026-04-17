@@ -19,7 +19,7 @@ pub struct ParsedTrashName {
 }
 
 /// Generates a unique trash name using the current naming format:
-/// "<stem-or-dirname> (<parent>) <timestamp>[.md]"
+/// "<stem-or-dirname> (<parent>) <timestamp>[.<original-ext>]"
 pub fn generate_trash_name(path: &Path, timestamp: u128) -> Option<String> {
 	let filename = path.file_name()?.to_string_lossy();
 	
@@ -35,8 +35,9 @@ pub fn generate_trash_name(path: &Path, timestamp: u128) -> Option<String> {
 	if path.is_dir() {
 		Some(format!("{} ({}) {}", filename, clean_parent, timestamp))
 	} else {
-		let stem = filename.trim_end_matches(".md");
-		Some(format!("{} ({}) {}.md", stem, clean_parent, timestamp))
+		let (stem, extension) = split_name_parts(&filename);
+		let suffix = extension.map(|ext| format!(".{ext}")).unwrap_or_default();
+		Some(format!("{} ({}) {}{}", stem, clean_parent, timestamp, suffix))
 	}
 }
 
@@ -52,6 +53,26 @@ fn with_collision_suffix(name: &str, collision_index: usize) -> String {
 	match extension {
 		Some(ext) => format!("{stem} [{collision_index}].{ext}"),
 		None => format!("{stem} [{collision_index}]"),
+	}
+}
+
+fn strip_extension_for_parsing(name: &str) -> &str {
+	match name.rsplit_once('.') {
+		Some((stem, ext)) if !stem.is_empty() && !ext.contains(' ') => stem,
+		_ => name,
+	}
+}
+
+fn strip_collision_suffix_for_parsing(name: &str) -> &str {
+	match name.rsplit_once(" [") {
+		Some((stem, maybe_index)) if maybe_index.ends_with(']') => {
+			let digits = &maybe_index[..maybe_index.len() - 1];
+			if !digits.is_empty() && digits.chars().all(|c| c.is_ascii_digit()) {
+				return stem;
+			}
+			name
+		}
+		_ => name,
 	}
 }
 
@@ -99,18 +120,21 @@ pub fn rename_recursively(dir: &Path, timestamp: u128) -> std::io::Result<()> {
 /// - "Note (Folder) 1740681450123.md"
 /// - "Folder (Root) 1740681450123"
 pub fn parse_trash_timestamp(name: &str) -> Option<u128> {
-	let without_ext = name.strip_suffix(".md").unwrap_or(name);
-	let (_, timestamp) = without_ext.rsplit_once(' ')?;
+	let without_ext = strip_extension_for_parsing(name);
+	let without_collision = strip_collision_suffix_for_parsing(without_ext);
+	let (_, timestamp) = without_collision.rsplit_once(' ')?;
 	timestamp.parse::<u128>().ok()
 }
 
 pub fn parse_trash_entry_name(name: &str, is_dir: bool) -> Option<ParsedTrashName> {
-	let without_ext = if is_dir {
-		name
+	let (without_ext, extension) = if is_dir {
+		(name, None)
 	} else {
-		name.strip_suffix(".md")?
+		let (stem, ext) = split_name_parts(name);
+		(stem, ext)
 	};
-	let (name_and_parent, timestamp) = without_ext.rsplit_once(' ')?;
+	let without_collision = strip_collision_suffix_for_parsing(without_ext);
+	let (name_and_parent, timestamp) = without_collision.rsplit_once(' ')?;
 	if timestamp.parse::<u128>().is_err() {
 		return None;
 	}
@@ -122,10 +146,9 @@ pub fn parse_trash_entry_name(name: &str, is_dir: bool) -> Option<ParsedTrashNam
 		return None;
 	}
 	
-	let original_name = if is_dir {
-		base_name.to_string()
-	} else {
-		format!("{base_name}.md")
+	let original_name = match extension {
+		Some(ext) => format!("{base_name}.{ext}"),
+		None => base_name.to_string(),
 	};
 	
 	Some(ParsedTrashName {
@@ -301,10 +324,12 @@ mod tests {
 	#[test]
 	fn parse_timestamp_from_valid_names() {
 		let ts = 1_740_681_450_123_u128;
-		let file_name = format!("Note (Daily) {}.md", ts);
+		let file_name = format!("Photo (Daily) {}.png", ts);
+		let file_with_collision = format!("Photo (Daily) {} [1].png", ts);
 		let dir_name = format!("Folder (Projects) {}", ts);
 		
 		assert_eq!(parse_trash_timestamp(&file_name), Some(ts));
+		assert_eq!(parse_trash_timestamp(&file_with_collision), Some(ts));
 		assert_eq!(parse_trash_timestamp(&dir_name), Some(ts));
 	}
 	
@@ -318,9 +343,17 @@ mod tests {
 	#[test]
 	fn parse_trash_entry_name_extracts_original_file_name_and_parent() {
 		let parsed =
-			parse_trash_entry_name("Meeting Notes (Projects) 1740681450123.md", false).unwrap();
-		assert_eq!(parsed.original_name, "Meeting Notes.md");
+			parse_trash_entry_name("Meeting Notes (Projects) 1740681450123.jpeg", false).unwrap();
+		assert_eq!(parsed.original_name, "Meeting Notes.jpeg");
 		assert_eq!(parsed.parent_label, "Projects");
+	}
+
+	#[test]
+	fn parse_trash_entry_name_handles_collision_suffix_for_files() {
+		let parsed =
+			parse_trash_entry_name("Photo (Assets) 1740681450123 [2].png", false).unwrap();
+		assert_eq!(parsed.original_name, "Photo.png");
+		assert_eq!(parsed.parent_label, "Assets");
 	}
 	
 	#[test]
@@ -394,14 +427,14 @@ mod tests {
 		let project_dir = dir.path().join("Project");
 		fs::create_dir_all(&project_dir).unwrap();
 		fs::write(
-			project_dir.join("Child Note (Project) 1740681450123.md"),
+			project_dir.join("Child Note (Project) 1740681450123.png"),
 			"nested",
 		)
 			.unwrap();
 		
 		restore_trashed_names_recursively(&project_dir).unwrap();
 		
-		assert!(project_dir.join("Child Note.md").exists());
+		assert!(project_dir.join("Child Note.png").exists());
 	}
 	
 	#[test]

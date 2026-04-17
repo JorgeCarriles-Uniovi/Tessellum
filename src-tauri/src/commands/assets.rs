@@ -87,8 +87,11 @@ pub async fn save_asset(
 	extension: String,
 	bytes: Vec<u8>,
 ) -> Result<String, TessellumError> {
-	let ext = extension.trim().trim_start_matches('.').to_lowercase();
-	if !is_supported_ext(&ext) {
+	let ext_raw = extension.trim().trim_start_matches('.');
+	if ext_raw.is_empty() {
+		return Err(TessellumError::Validation("Unsupported file type".to_string()));
+	}
+	if !is_supported_ext(&ext_raw.to_lowercase()) {
 		return Err(TessellumError::Validation("Unsupported file type".to_string()));
 	}
 	
@@ -117,11 +120,11 @@ pub async fn save_asset(
 	
 	tokio::fs::create_dir_all(&dir_path).await?;
 	
-	let mut filename = format!("{}.{}", base, ext);
+	let mut filename = format!("{}.{}", base, ext_raw);
 	let mut final_path = dir_path.join(&filename);
 	let mut counter = 1;
 	while final_path.exists() {
-		filename = format!("{}-{}.{}", base, counter, ext);
+		filename = format!("{}-{}.{}", base, counter, ext_raw);
 		final_path = dir_path.join(&filename);
 		counter += 1;
 	}

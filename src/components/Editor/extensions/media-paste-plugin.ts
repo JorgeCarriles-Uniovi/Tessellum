@@ -11,7 +11,7 @@ interface MediaPasteConfig {
 
 const SUPPORTED_MIME: Record<string, string> = {
     "image/png": "png",
-    "image/jpeg": "jpg",
+    "image/jpeg": "jpeg",
     "image/jpg": "jpg",
     "image/gif": "gif",
     "image/webp": "webp",
@@ -39,13 +39,17 @@ function formatTimestamp(date: Date): string {
 }
 
 function getExtensionFromFile(file: File): string | null {
-    const typeExt = SUPPORTED_MIME[file.type];
-    if (typeExt) return typeExt;
     const name = file.name || "";
     const dot = name.lastIndexOf(".");
-    if (dot === -1) return null;
-    const ext = name.slice(dot + 1).toLowerCase();
-    return SUPPORTED_EXTS.has(ext) ? ext : null;
+    if (dot !== -1) {
+        const ext = name.slice(dot + 1).toLowerCase();
+        if (SUPPORTED_EXTS.has(ext)) {
+            return ext;
+        }
+    }
+    const typeExt = SUPPORTED_MIME[file.type];
+    if (typeExt) return typeExt;
+    return null;
 }
 
 function buildBaseName(file: File, timestamp: string): string {
