@@ -87,19 +87,40 @@ pub async fn resolve_wikilink(
     vault_path: String,
     target: String,
 ) -> Result<Option<String>, TessellumError> {
-    let mut index_guard = state.file_index.lock().await;
-    
-    // Build index if not cached yet
-    if index_guard.is_none() {
-        let idx = crate::models::FileIndex::build(&vault_path)
-            .map_err(|e| TessellumError::Internal(format!("Failed to build file index: {}", e)))?;
-        *index_guard = Some(idx);
+    let resolved_note = {
+        let mut index_guard = state.file_index.lock().await;
+
+        // Build markdown index if not cached yet
+        if index_guard.is_none() {
+            let idx = crate::models::FileIndex::build(&vault_path)
+                .map_err(|e| TessellumError::Internal(format!("Failed to build file index: {}", e)))?;
+            *index_guard = Some(idx);
+        }
+
+        index_guard
+            .as_ref()
+            .and_then(|file_index| file_index.resolve(&vault_path, &target))
+    };
+
+    if let Some(path) = resolved_note {
+        return Ok(Some(crate::utils::normalize_path(&path.to_string_lossy())));
     }
-    
-    let file_index = index_guard.as_ref().unwrap();
-    
-    // Resolve and return normalized path if found
-    Ok(file_index
-        .resolve(&vault_path, &target)
+
+    // Wikilinks can target media too (e.g. [[image.png]]), so fall back to the asset index.
+    let resolved_asset = {
+        let mut index_guard = state.asset_index.lock().await;
+
+        if index_guard.is_none() {
+            let idx = crate::models::AssetIndex::build(&vault_path)
+                .map_err(|e| TessellumError::Internal(format!("Failed to build asset index: {}", e)))?;
+            *index_guard = Some(idx);
+        }
+
+        index_guard
+            .as_ref()
+            .and_then(|asset_index| asset_index.resolve(&vault_path, &target))
+    };
+
+    Ok(resolved_asset
         .map(|p| crate::utils::normalize_path(&p.to_string_lossy())))
 }

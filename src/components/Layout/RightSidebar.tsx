@@ -12,6 +12,7 @@ import { parseFrontmatter } from "../Editor/extensions/frontmatter/frontmatter-p
 import { stringToColor } from "../../utils/graphUtils";
 import { parseOutline } from "../../utils/outline";
 import { useAppTranslation } from "../../i18n/react.tsx";
+import { getIgnoredTagLineNumbers, stripInlineCodeSpansForTagScan } from "../../utils/tagExtraction";
 
 const SNIPPET_LIMIT = 20;
 const SNIPPET_MAX_LEN = 120;
@@ -107,12 +108,21 @@ function getFrontmatterTags(content: string): Set<string> {
 function getInlineTags(content: string): Set<string> {
     const body = stripFrontmatter(content);
     const tags = new Set<string>();
-    const regex = /(?:^|\s)(#[a-zA-Z0-9_\-]+)/g;
-    let match: RegExpExecArray | null;
+    const ignoredLines = getIgnoredTagLineNumbers(body);
+    const lines = body.split(/\r?\n/);
+    const regex = /(?:^|\s)(#[a-zA-Z0-9_\-/]+)/g;
 
-    while ((match = regex.exec(body)) !== null) {
-        const normalized = normalizeTag(match[1]);
-        if (normalized) tags.add(normalized);
+    for (let i = 0; i < lines.length; i += 1) {
+        const lineNumber = i + 1;
+        if (ignoredLines.has(lineNumber)) continue;
+
+        const scanLine = stripInlineCodeSpansForTagScan(lines[i]);
+        regex.lastIndex = 0;
+        let match: RegExpExecArray | null;
+        while ((match = regex.exec(scanLine)) !== null) {
+            const normalized = normalizeTag(match[1]);
+            if (normalized) tags.add(normalized);
+        }
     }
 
     return tags;

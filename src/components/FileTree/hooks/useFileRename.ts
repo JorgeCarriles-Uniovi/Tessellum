@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
 import { FileMetadata } from "../../../types.ts";
-import { getNameWithoutExtension, ensureMarkdownExtension } from '../../../utils/pathUtils.ts';
+import { getNameWithoutExtension } from '../../../utils/pathUtils.ts';
 import { useEditorStore } from '../../../stores/editorStore.ts';
 
 export function useFileRename() {
@@ -36,8 +36,8 @@ export function useFileRename() {
                 newName: newName
             });
 
-            // Ensure proper filename with extension
-            const finalFilename = ensureMarkdownExtension(newName, target.is_dir);
+            // Backend decides final extension; derive displayed filename from returned path.
+            const finalFilename = newPath.split(/[\\/]/).pop() || newName;
 
             // Update store
             renameFile(target.path, newPath, finalFilename);

@@ -28,6 +28,51 @@ export interface ParsedWikiLink {
     aliasOffset?: number; // Offset of the alias text from the start of the full string [[...]]
 }
 
+function collectInlineCodeTextSpans(lineText: string): Array<{ from: number; to: number }> {
+    const spans: Array<{ from: number; to: number }> = [];
+    let i = 0;
+    let inCode = false;
+    let delimiterLen = 0;
+    let codeStart = -1;
+
+    while (i < lineText.length) {
+        if (lineText[i] !== "`") {
+            i += 1;
+            continue;
+        }
+
+        const runStart = i;
+        while (i < lineText.length && lineText[i] === "`") {
+            i += 1;
+        }
+        const runLen = i - runStart;
+
+        if (!inCode) {
+            inCode = true;
+            delimiterLen = runLen;
+            codeStart = runStart;
+            continue;
+        }
+
+        if (runLen === delimiterLen) {
+            spans.push({ from: codeStart, to: i });
+            inCode = false;
+            delimiterLen = 0;
+            codeStart = -1;
+        }
+    }
+
+    if (inCode && codeStart >= 0) {
+        spans.push({ from: codeStart, to: lineText.length });
+    }
+
+    return spans;
+}
+
+function overlapsRange(from: number, to: number, range: { from: number; to: number }): boolean {
+    return from < range.to && to > range.from;
+}
+
 /**
  * Parse wikilink syntax and extract target and optional alias
  */
@@ -70,12 +115,26 @@ export function findWikiLinks(view: EditorView): WikiLinkMatch[] {
     for (let i = 1; i <= doc.lines; i++) {
         const line = doc.line(i);
         const lineText = line.text;
+        const inlineCodeSpans = collectInlineCodeTextSpans(lineText);
 
         let match: RegExpExecArray | null;
         regex.lastIndex = 0; // Reset regex
 
         while ((match = regex.exec(lineText)) !== null) {
-            const from = line.from + match.index;
+            const startInLine = match.index;
+            const endInLine = startInLine + match[0].length;
+
+            // Do not treat ![[...]] as a wikilink; it belongs to media embed syntax.
+            if (startInLine > 0 && lineText[startInLine - 1] === "!") {
+                continue;
+            }
+
+            // Keep wikilink syntax untouched inside inline code spans.
+            if (inlineCodeSpans.some((span) => overlapsRange(startInLine, endInLine, span))) {
+                continue;
+            }
+
+            const from = line.from + startInLine;
             const to = from + match[0].length;
             const parsed = parseWikiLink(match[0]);
 

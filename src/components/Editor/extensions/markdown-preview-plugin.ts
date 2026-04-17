@@ -12,6 +12,7 @@ import { getCalloutLinePositions } from "./callout/callout-plugin";
 import { CALLOUT_HEADER_RE } from "./callout/callout-parser";
 import { getTableLinePositions } from "./table/table-plugin";
 import { findTaskListItems } from "./task-list/task-list-parser";
+import { findLatexExpressions } from "./shared-latex-utils";
 
 // Set of mark types we want to hide
 const HIDDEN_MARKS = new Set([
@@ -55,6 +56,103 @@ class ListMarkWidget extends WidgetType {
     }
 }
 
+interface DocRange {
+    from: number;
+    to: number;
+}
+
+function collectInlineCodeTextSpans(lineText: string, lineFrom: number): DocRange[] {
+    const spans: DocRange[] = [];
+    let i = 0;
+    let inCode = false;
+    let delimiterLen = 0;
+    let codeStart = -1;
+
+    while (i < lineText.length) {
+        if (lineText[i] !== "`") {
+            i += 1;
+            continue;
+        }
+
+        const runStart = i;
+        while (i < lineText.length && lineText[i] === "`") {
+            i += 1;
+        }
+        const runLen = i - runStart;
+
+        if (!inCode) {
+            inCode = true;
+            delimiterLen = runLen;
+            codeStart = runStart;
+            continue;
+        }
+
+        if (runLen === delimiterLen) {
+            spans.push({
+                from: lineFrom + codeStart,
+                to: lineFrom + i,
+            });
+            inCode = false;
+            delimiterLen = 0;
+            codeStart = -1;
+        }
+    }
+
+    if (inCode && codeStart >= 0) {
+        spans.push({
+            from: lineFrom + codeStart,
+            to: lineFrom + lineText.length,
+        });
+    }
+
+    return spans;
+}
+
+function overlapsRange(from: number, to: number, range: DocRange): boolean {
+    return from < range.to && to > range.from;
+}
+
+function collectInlineCodeRanges(view: EditorView): DocRange[] {
+    const ranges: DocRange[] = [];
+    syntaxTree(view.state).iterate({
+        enter(node) {
+            if (node.name !== "InlineCode") {
+                return;
+            }
+            ranges.push({ from: node.from, to: node.to });
+        },
+    });
+    return ranges;
+}
+
+function collectLatexRanges(view: EditorView): DocRange[] {
+    return findLatexExpressions(view.state.doc.toString()).map((match) => ({
+        from: match.start,
+        to: match.end,
+    }));
+}
+
+function isExcludedEmbedContext(
+    lineText: string,
+    lineFrom: number,
+    from: number,
+    to: number,
+    inlineCodeRanges: DocRange[],
+    latexRanges: DocRange[]
+): boolean {
+    if (lineText.trimStart().startsWith(">")) {
+        return true;
+    }
+    if (inlineCodeRanges.some((range) => overlapsRange(from, to, range))) {
+        return true;
+    }
+    const inlineCodeTextSpans = collectInlineCodeTextSpans(lineText, lineFrom);
+    if (inlineCodeTextSpans.some((range) => overlapsRange(from, to, range))) {
+        return true;
+    }
+    return latexRanges.some((range) => overlapsRange(from, to, range));
+}
+
 /**
  * Builds decorations to hide markdown syntax markers when not focused.
  */
@@ -65,6 +163,8 @@ function buildDecorations(view: EditorView, forceHide: boolean): DecorationSet {
     const taskListLinePositions = new Set(
         findTaskListItems(view.state.doc.toString()).map((item) => item.lineStart)
     );
+    const inlineCodeRanges = collectInlineCodeRanges(view);
+    const latexRanges = collectLatexRanges(view);
 
     // Gather callout line positions and types so we can skip hiding marks in terminal callouts.
     const calloutMap = getCalloutLinePositions(view);
@@ -75,6 +175,8 @@ function buildDecorations(view: EditorView, forceHide: boolean): DecorationSet {
     const isInTerminalCallout = (lineFrom: number) => calloutMap.get(lineFrom) === "terminal";
     const isCalloutOwnedLine = (lineFrom: number) => calloutMap.has(lineFrom);
     const isLinkLike = (nodeName: string) => nodeName === "LinkMark" || nodeName === "URL";
+    const isEmbedMarker = (nodeName: string) => nodeName === "ImageMark" || nodeName === "LinkMark" || nodeName === "URL";
+    const isEmbedSyntaxLine = (text: string) => /!\[\[[^\]]+\]\]|!\[[^\]]*\]\([^)]+\)/.test(text);
     const isLinkParent = (parentName: string) =>
         parentName === "Link" || parentName === "Image";
     const cursorOverlapsParent = (parentFrom: number, parentTo: number) =>
@@ -114,6 +216,15 @@ function buildDecorations(view: EditorView, forceHide: boolean): DecorationSet {
             }
 
             if (!forceHide) {
+                if (
+                    isEmbedMarker(name) &&
+                    isEmbedSyntaxLine(line.text) &&
+                    isExcludedEmbedContext(line.text, line.from, from, to, inlineCodeRanges, latexRanges)
+                ) {
+                    // Keep raw embed brackets visible in excluded contexts.
+                    return;
+                }
+
                 // If cursor is on an embed line, keep raw syntax visible
                 if (
                     line.from === selectionLine.from &&
