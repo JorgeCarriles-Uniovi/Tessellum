@@ -17,6 +17,8 @@
     "core:window:allow-set-position",
     "fs:default",
     "fs:allow-exists",
-    "window-state:default"
+    "window-state:default",
+    "core:path:default",
+    "core:event:default"
   ]
 }
