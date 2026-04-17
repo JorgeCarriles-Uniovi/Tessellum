@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { clearWikiLinkCacheEffect } from "../extensions/wikilink/wikiLink-plugin";
 import { TessellumApp } from "../../../plugins/TessellumApp";
 import { createNoteInDir } from "../../../utils/noteUtils";
+import { isMediaFile } from "../../../utils/fileType";
 
 export function useWikiLinkNavigation() {
     const { activeNote, setActiveNote, addFileIfMissing } = useVaultStore();
@@ -30,6 +31,23 @@ export function useWikiLinkNavigation() {
             }
 
             // 2. Sanitize Input for filename matching / creation
+            if (isMediaFile(normalizedLinkTarget)) {
+                const mediaFilename = normalizedLinkTarget.split(/[\\/]/).pop()?.trim();
+                if (!mediaFilename) {
+                    return;
+                }
+
+                const existingMedia = files.find(
+                    (f) => f.filename.toLowerCase() === mediaFilename.toLowerCase()
+                );
+
+                if (existingMedia) {
+                    setActiveNote(existingMedia);
+                }
+
+                return;
+            }
+
             let targetName: string;
             try {
                 targetName = sanitizeFilename(normalizedLinkTarget);

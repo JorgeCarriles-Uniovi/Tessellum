@@ -16,7 +16,7 @@ import {
 import { DEFAULT_EDITOR_MODE, isEditorMode } from "./constants/editorModes";
 import { listen } from "@tauri-apps/api/event";
 import { exists } from '@tauri-apps/plugin-fs';
-import { getCurrentWindow, LogicalPosition, LogicalSize } from '@tauri-apps/api/window';
+import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window';
 import { Editor } from "./components/Editor/Editor.tsx";
 import { Sidebar } from "./components/Sidebar/Sidebar.tsx";
 import { GraphView } from "./components/GraphView/GraphView.tsx";
@@ -46,6 +46,8 @@ import { resolveClipboardSelection } from "./features/clipboard/clipboardSelecti
 import { toSpellcheckLang } from "./i18n/spellcheck";
 
 const WINDOW_KEY = "tessellum-window";
+const MIN_WINDOW_WIDTH = 720;
+const MIN_WINDOW_HEIGHT = 500;
 
 function App() {
     const {
@@ -336,21 +338,31 @@ function App() {
 
     useEffect(() => {
         const appWindow = getCurrentWindow();
+        const isUsableDimension = (value: unknown, min: number): value is number =>
+            typeof value === "number" && Number.isFinite(value) && value >= min;
 
         const restore = async () => {
             try {
                 const raw = localStorage.getItem(WINDOW_KEY);
-                if (!raw) return;
-                const state = JSON.parse(raw) as { x: number; y: number; width: number; height: number; isMaximized?: boolean };
-                if (state.isMaximized) {
-                    await appWindow.maximize();
-                    return;
+                if (raw) {
+                    const state = JSON.parse(raw) as {
+                        width?: number;
+                        height?: number;
+                        isMaximized?: boolean;
+                    };
+                    if (state.isMaximized) {
+                        await appWindow.maximize();
+                        return;
+                    }
+                    if (isUsableDimension(state.width, MIN_WINDOW_WIDTH) && isUsableDimension(state.height, MIN_WINDOW_HEIGHT)) {
+                        await appWindow.setSize(new LogicalSize(state.width, state.height));
+                    }
                 }
-                if (state.width && state.height) {
-                    await appWindow.setSize(new LogicalSize(state.width, state.height));
-                }
-                if (state.x !== undefined && state.y !== undefined) {
-                    await appWindow.setPosition(new LogicalPosition(state.x, state.y));
+
+                // Recover from stale persisted tiny sizes (custom state or plugin state).
+                const size = await appWindow.outerSize();
+                if (size.width < MIN_WINDOW_WIDTH || size.height < MIN_WINDOW_HEIGHT) {
+                    await appWindow.setSize(new LogicalSize(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT));
                 }
             } catch (e) {
                 console.error(e);
@@ -360,11 +372,12 @@ function App() {
         const persist = async () => {
             try {
                 const isMaximized = await appWindow.isMaximized();
-                const pos = await appWindow.outerPosition();
                 const size = await appWindow.outerSize();
+                if (size.width < MIN_WINDOW_WIDTH || size.height < MIN_WINDOW_HEIGHT) {
+                    // Ignore transient tiny dimensions to avoid restoring collapsed windows.
+                    return;
+                }
                 localStorage.setItem(WINDOW_KEY, JSON.stringify({
-                    x: pos.x,
-                    y: pos.y,
                     width: size.width,
                     height: size.height,
                     isMaximized,

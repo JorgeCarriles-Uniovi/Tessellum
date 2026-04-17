@@ -11,7 +11,6 @@ mod utils;
 use db::Database;
 use std::sync::Mutex;
 use tauri::Manager;
-use tauri_plugin_window_state::Builder as WindowStateBuilder;
 pub use models::*;
 use search::SearchIndex;
 
@@ -22,7 +21,6 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_persisted_scope::init())
-        .plugin(WindowStateBuilder::default().build())
         .setup(|app| {
             let app_handle = app.handle();
             let db_url = app_handle
@@ -113,7 +111,7 @@ mod tests {
     use tempfile::tempdir;
     
     use commands::extract_wikilinks;
-    use models::FileIndex;
+    use models::{AssetIndex, FileIndex};
     
     #[test]
     fn test_extract_wikilinks() {
@@ -159,5 +157,27 @@ mod tests {
         let resolved = index.resolve(vault_path, "subfolder/Note1");
         assert!(resolved.is_some());
         assert!(resolved.unwrap().to_string_lossy().contains("subfolder"));
+    }
+
+    #[test]
+    fn test_asset_index_resolution() {
+        let dir = tempdir().unwrap();
+        let vault_path = dir.path().to_str().unwrap();
+
+        fs::write(dir.path().join("cover.png"), b"png").unwrap();
+
+        let media = dir.path().join("media");
+        fs::create_dir(&media).unwrap();
+        fs::write(media.join("diagram.pdf"), b"pdf").unwrap();
+
+        let index = AssetIndex::build(vault_path).unwrap();
+
+        let resolved_cover = index.resolve(vault_path, "cover.png");
+        assert!(resolved_cover.is_some());
+        assert!(resolved_cover.unwrap().ends_with("cover.png"));
+
+        let resolved_pdf = index.resolve(vault_path, "media/diagram");
+        assert!(resolved_pdf.is_some());
+        assert!(resolved_pdf.unwrap().to_string_lossy().contains("media/diagram.pdf"));
     }
 }

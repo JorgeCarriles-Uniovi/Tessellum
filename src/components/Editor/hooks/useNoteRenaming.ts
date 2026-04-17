@@ -9,11 +9,6 @@ import { toast } from "sonner";
 const toInputName = (filename: string, is_dir: boolean) =>
     is_dir ? filename : filename.replace(/\.md$/i, '');
 
-// Converts "My Note" -> "My Note.md" (Only for files)
-const toStorageName = (name: string, is_dir: boolean) =>
-    is_dir ? name : "" + name + ".md";
-
-
 export function useNoteRenaming() {
     const { activeNote, renameFile, vaultPath } = useEditorStore();
     const [titleInput, setTitleInput] = useState("");
@@ -41,15 +36,14 @@ export function useNoteRenaming() {
         }
 
         try {
-            // Calculate final filename (e.g., adds .md if it's a file)
-            const finalFilename = toStorageName(cleanName, activeNote.is_dir);
-
             // Backend: Rename on disk
             const newPath = await invoke<string>('rename_file', {
                 vaultPath: vaultPath,
                 oldPath: activeNote.path,
                 newName: cleanName // Backend likely handles the move logic
             });
+
+            const finalFilename = newPath.split(/[\\/]/).pop() || cleanName;
 
             // Store: Update State with the correct new path and filename
             renameFile(activeNote.path, newPath, finalFilename);

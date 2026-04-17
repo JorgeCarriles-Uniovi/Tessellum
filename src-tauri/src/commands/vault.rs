@@ -60,6 +60,24 @@ async fn rewrite_backlinks(
     Ok(())
 }
 
+fn derive_renamed_filename(old_path: &Path, clean_name: &str) -> String {
+    if old_path.is_dir() {
+        return clean_name.to_string();
+    }
+
+    // If the user typed an explicit extension, respect it.
+    if Path::new(clean_name).extension().is_some() {
+        return clean_name.to_string();
+    }
+
+    // Otherwise preserve the original file extension (e.g. .md, .png, .pdf).
+    if let Some(ext) = old_path.extension().and_then(|s| s.to_str()) {
+        return format!("{}.{}", clean_name, ext);
+    }
+
+    clean_name.to_string()
+}
+
 /// Lists all files and directories within the specified vault path and retrieves their metadata.
 ///
 /// # Arguments
@@ -163,13 +181,7 @@ pub async fn rename_file(
     // Check before the rename while the path still exists on disk
     let is_file = old.is_file();
     
-    let final_filename = if old.is_dir() {
-        clean_name
-    } else if clean_name.ends_with(".md") {
-        clean_name
-    } else {
-        format!("{}.md", clean_name)
-    };
+    let final_filename = derive_renamed_filename(old, &clean_name);
     
     let new_path = parent.join(&final_filename);
     
@@ -522,8 +534,10 @@ fn spawn_trash_retention_cleanup(vault_path: std::path::PathBuf) {
 
 #[cfg(test)]
 mod tests {
+    use super::derive_renamed_filename;
     use super::spawn_trash_retention_cleanup;
     use std::fs;
+    use std::path::Path;
     use std::thread;
     use std::time::Duration;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -557,6 +571,51 @@ mod tests {
         }
         
         assert!(deleted, "expected startup cleanup to remove expired trash file");
+    }
+
+    #[test]
+    fn derive_renamed_filename_preserves_existing_extension_when_missing() {
+        let media_old = Path::new("C:/vault/assets/cover.png");
+        let note_old = Path::new("C:/vault/Note.md");
+
+        assert_eq!(derive_renamed_filename(media_old, "hero"), "hero.png");
+        assert_eq!(derive_renamed_filename(note_old, "Renamed Note"), "Renamed Note.md");
+    }
+
+    #[test]
+    fn derive_renamed_filename_respects_explicit_extension() {
+        let media_old = Path::new("C:/vault/assets/cover.png");
+        assert_eq!(derive_renamed_filename(media_old, "hero.webp"), "hero.webp");
+    }
+
+    #[test]
+    fn integration_rename_media_without_extension_preserves_original_ext() {
+        let temp = tempdir().unwrap();
+        let old_path = temp.path().join("cover.png");
+        fs::write(&old_path, b"png").unwrap();
+
+        let final_name = derive_renamed_filename(&old_path, "hero");
+        let new_path = temp.path().join(final_name);
+        fs::rename(&old_path, &new_path).unwrap();
+
+        assert!(!old_path.exists());
+        assert!(new_path.exists());
+        assert_eq!(new_path.file_name().and_then(|n| n.to_str()), Some("hero.png"));
+    }
+
+    #[test]
+    fn integration_rename_markdown_without_extension_keeps_md() {
+        let temp = tempdir().unwrap();
+        let old_path = temp.path().join("Old.md");
+        fs::write(&old_path, b"# note").unwrap();
+
+        let final_name = derive_renamed_filename(&old_path, "Renamed");
+        let new_path = temp.path().join(final_name);
+        fs::rename(&old_path, &new_path).unwrap();
+
+        assert!(!old_path.exists());
+        assert!(new_path.exists());
+        assert_eq!(new_path.file_name().and_then(|n| n.to_str()), Some("Renamed.md"));
     }
 }
 
