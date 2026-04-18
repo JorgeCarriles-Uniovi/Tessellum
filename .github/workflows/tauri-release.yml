@@ -19,12 +19,16 @@ jobs:
         include:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
+            bundles: msi,nsis
           - os: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
+            bundles: deb,appimage
           - os: macos-13
             target: x86_64-apple-darwin
+            bundles: app,dmg
           - os: macos-14
             target: aarch64-apple-darwin
+            bundles: app,dmg
 
     steps:
       - name: Checkout
@@ -57,6 +61,14 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev \
             patchelf
+
+      - name: Install Windows bundling dependencies
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          choco install wixtoolset nsis -y --no-progress
+          "C:\Program Files (x86)\WiX Toolset v3.11\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          "C:\Program Files (x86)\NSIS" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Install macOS system dependencies
         if: startsWith(matrix.os, 'macos-')
@@ -111,6 +123,13 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
+      - name: Print resolved kuzu crate version
+        run: cargo tree -p kuzu --manifest-path src-tauri/Cargo.toml
+
+      - name: Clean cached kuzu artifacts on macOS
+        if: startsWith(matrix.os, 'macos-')
+        run: cargo clean -p kuzu --manifest-path src-tauri/Cargo.toml
+
       - name: Build and publish release assets
         uses: tauri-apps/tauri-action@v0
         env:
@@ -131,5 +150,5 @@ jobs:
           releaseBody: "Automated cross-platform release for Tessellum."
           releaseDraft: false
           prerelease: false
-          args: --target ${{ matrix.target }}
+          args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
 
