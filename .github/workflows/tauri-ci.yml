@@ -20,9 +20,6 @@ jobs:
           - os: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
             bundles: deb,appimage
-          - os: macos-13
-            target: x86_64-apple-darwin
-            bundles: app,dmg
           - os: macos-14
             target: aarch64-apple-darwin
             bundles: app,dmg
@@ -45,9 +42,15 @@ jobs:
       - name: Cache Rust
         uses: swatinem/rust-cache@v2
         with:
-          shared-key: ${{ matrix.os }}-${{ matrix.target }}-rust
+          shared-key: ${{ matrix.os }}-${{ matrix.target }}-${{ runner.arch }}-rust
           workspaces: |
             src-tauri -> target
+
+      - name: Purge kuzu native build artifacts on macOS
+        if: startsWith(matrix.os, 'macos-')
+        run: |
+          rm -rf src-tauri/target/release/build/kuzu-*
+          rm -rf src-tauri/target/${{ matrix.target }}/release/build/kuzu-*
 
       - name: Install Linux system dependencies
         if: matrix.os == 'ubuntu-24.04'
