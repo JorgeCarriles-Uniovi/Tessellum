@@ -59,7 +59,7 @@ jobs:
         if: startsWith(matrix.os, 'macos-')
         run: |
           brew update
-          brew install cmake ninja pkg-config libomp
+          brew install cmake ninja pkg-config libomp kuzu
 
       - name: Print macOS build diagnostics
         if: startsWith(matrix.os, 'macos-')
@@ -70,11 +70,22 @@ jobs:
           xcrun --sdk macosx --show-sdk-path
           rustc -Vv
           cargo -V
+          KUZU_PREFIX="$(brew --prefix kuzu)"
+          echo "KUZU_PREFIX=$KUZU_PREFIX"
+          file "$KUZU_PREFIX/lib/libkuzu.dylib"
+          ls "$KUZU_PREFIX/include"
 
       - name: Configure macOS build environment
         if: startsWith(matrix.os, 'macos-')
         run: |
+          # Use the prebuilt Kuzu dylib on macOS instead of compiling the bundled C++ project in CI.
+          KUZU_PREFIX="$(brew --prefix kuzu)"
           echo "SDKROOT=$(xcrun --sdk macosx --show-sdk-path)" >> "$GITHUB_ENV"
+          echo "KUZU_SHARED=1" >> "$GITHUB_ENV"
+          echo "KUZU_LIBRARY_DIR=$KUZU_PREFIX/lib" >> "$GITHUB_ENV"
+          echo "KUZU_INCLUDE_DIR=$KUZU_PREFIX/include" >> "$GITHUB_ENV"
+          echo "DYLD_LIBRARY_PATH=$KUZU_PREFIX/lib" >> "$GITHUB_ENV"
+          echo "PKG_CONFIG_PATH=$KUZU_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH" >> "$GITHUB_ENV"
           echo "CARGO_BUILD_JOBS=2" >> "$GITHUB_ENV"
           echo "NUM_JOBS=2" >> "$GITHUB_ENV"
           echo "CMAKE_BUILD_PARALLEL_LEVEL=2" >> "$GITHUB_ENV"
@@ -88,10 +99,10 @@ jobs:
           else
             echo "CMAKE_OSX_ARCHITECTURES=x86_64" >> "$GITHUB_ENV"
             echo "ARCHFLAGS=-arch x86_64" >> "$GITHUB_ENV"
-            echo "MACOSX_DEPLOYMENT_TARGET=10.15" >> "$GITHUB_ENV"
-            echo "CMAKE_OSX_DEPLOYMENT_TARGET=10.15" >> "$GITHUB_ENV"
-            echo "CFLAGS=-mmacosx-version-min=10.15" >> "$GITHUB_ENV"
-            echo "CXXFLAGS=-mmacosx-version-min=10.15" >> "$GITHUB_ENV"
+            echo "MACOSX_DEPLOYMENT_TARGET=11.0" >> "$GITHUB_ENV"
+            echo "CMAKE_OSX_DEPLOYMENT_TARGET=11.0" >> "$GITHUB_ENV"
+            echo "CFLAGS=-mmacosx-version-min=11.0" >> "$GITHUB_ENV"
+            echo "CXXFLAGS=-mmacosx-version-min=11.0" >> "$GITHUB_ENV"
           fi
 
       - name: Install npm dependencies
