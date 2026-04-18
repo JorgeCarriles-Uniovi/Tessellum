@@ -11,15 +11,20 @@ permissions:
 
 jobs:
   publish:
-    name: Publish (${{ matrix.os }})
+    name: Publish (${{ matrix.os }} / ${{ matrix.target }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - windows-latest
-          - macos-latest
-          - ubuntu-24.04
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+          - os: macos-13
+            target: x86_64-apple-darwin
+          - os: macos-14
+            target: aarch64-apple-darwin
 
     steps:
       - name: Checkout
@@ -33,6 +38,8 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
 
       - name: Cache Rust
         uses: swatinem/rust-cache@v2
@@ -50,18 +57,40 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev \
             patchelf
-      - name: Build Tauri bundles
-        run: npm run tauri build
-        env:
-          MACOSX_DEPLOYMENT_TARGET: ${{ matrix.os == 'macos-latest' && '10.15' || '' }}
+
+      - name: Install macOS system dependencies
+        if: startsWith(matrix.os, 'macos-')
+        run: |
+          brew update
+          brew install cmake ninja pkg-config libomp
+
+      - name: Print macOS build diagnostics
+        if: startsWith(matrix.os, 'macos-')
+        run: |
+          uname -a
+          uname -m
+          xcodebuild -version
+          xcrun --sdk macosx --show-sdk-path
+          rustc -Vv
+          cargo -V
 
       - name: Install npm dependencies
         run: npm ci
+
+      - name: Build Tauri bundles
+        run: npm run tauri build
+        env:
+          CARGO_BUILD_TARGET: ${{ matrix.target }}
+          RUST_BACKTRACE: full
+          CARGO_TERM_VERBOSE: "true"
+          CARGO_INCREMENTAL: "0"
+          MACOSX_DEPLOYMENT_TARGET: ${{ startsWith(matrix.os, 'macos-') && '10.15' || '' }}
 
       - name: Build and publish release assets
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CARGO_BUILD_TARGET: ${{ matrix.target }}
           # Optional macOS signing/notarization secrets:
           # APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           # APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
