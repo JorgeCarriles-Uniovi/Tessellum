@@ -5,6 +5,11 @@ description = "A Note taking application built with Rust and Tauri"
 authors = ["Jorge Carriles Ruiz"]
 edition = "2024"
 
+[package.metadata.bundle]
+name = "Tessellum"
+identifier = "com.tessellum"
+icon = ["icons/icon.png"]
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
@@ -39,7 +44,7 @@ serde_yaml = "0.9.34+deprecated"
 chrono = "0.4.43"
 tauri-plugin-window-state = "2.4.1"
 tantivy = "0.25.0"
-kuzu = { version = "=0.11.3", features = ["bundled"] }
+kuzu = "0.11.3"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows-sys = { version = "0.59.0", features = ["Win32_System_DataExchange", "Win32_System_Memory", "Win32_UI_Shell"] }
