@@ -78,14 +78,23 @@ jobs:
         if: startsWith(matrix.os, 'macos-')
         run: |
           echo "SDKROOT=$(xcrun --sdk macosx --show-sdk-path)" >> "$GITHUB_ENV"
+          echo "CARGO_BUILD_JOBS=2" >> "$GITHUB_ENV"
+          echo "NUM_JOBS=2" >> "$GITHUB_ENV"
+          echo "CMAKE_BUILD_PARALLEL_LEVEL=2" >> "$GITHUB_ENV"
           if [ "${{ matrix.target }}" = "aarch64-apple-darwin" ]; then
             echo "CMAKE_OSX_ARCHITECTURES=arm64" >> "$GITHUB_ENV"
             echo "ARCHFLAGS=-arch arm64" >> "$GITHUB_ENV"
             echo "MACOSX_DEPLOYMENT_TARGET=11.0" >> "$GITHUB_ENV"
+            echo "CMAKE_OSX_DEPLOYMENT_TARGET=11.0" >> "$GITHUB_ENV"
+            echo "CFLAGS=-mmacosx-version-min=11.0" >> "$GITHUB_ENV"
+            echo "CXXFLAGS=-mmacosx-version-min=11.0" >> "$GITHUB_ENV"
           else
             echo "CMAKE_OSX_ARCHITECTURES=x86_64" >> "$GITHUB_ENV"
             echo "ARCHFLAGS=-arch x86_64" >> "$GITHUB_ENV"
             echo "MACOSX_DEPLOYMENT_TARGET=10.15" >> "$GITHUB_ENV"
+            echo "CMAKE_OSX_DEPLOYMENT_TARGET=10.15" >> "$GITHUB_ENV"
+            echo "CFLAGS=-mmacosx-version-min=10.15" >> "$GITHUB_ENV"
+            echo "CXXFLAGS=-mmacosx-version-min=10.15" >> "$GITHUB_ENV"
           fi
 
       - name: Install npm dependencies
@@ -98,9 +107,6 @@ jobs:
           RUST_BACKTRACE: full
           CARGO_TERM_VERBOSE: "true"
           CARGO_INCREMENTAL: "0"
-          CARGO_BUILD_JOBS: ${{ startsWith(matrix.os, 'macos-') && '2' || '' }}
-          NUM_JOBS: ${{ startsWith(matrix.os, 'macos-') && '2' || '' }}
-          CMAKE_BUILD_PARALLEL_LEVEL: ${{ startsWith(matrix.os, 'macos-') && '2' || '' }}
 
       - name: Build and publish release assets
         uses: tauri-apps/tauri-action@v0
