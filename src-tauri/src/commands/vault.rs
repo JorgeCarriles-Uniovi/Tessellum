@@ -16,7 +16,7 @@ const FEATURE_DEMO_FILENAME: &str = "FEATURE_DEMO.md";
 const FEATURE_DEMO_CONTENT: &str = include_str!("../../../FEATURE_DEMO.md");
 
 /// Rewrite `[[OldStem]]` and `[[OldStem|alias]]` to `[[NewStem]]` / `[[NewStem|alias]]`
-/// in all files whose paths are listed in `backlinks`.
+/// in all files, whose paths are listed in `backlinks`.
 /// Escaped links (`\[[OldStem]]`) are left unchanged.
 async fn rewrite_backlinks(
     backlinks: &[String],
