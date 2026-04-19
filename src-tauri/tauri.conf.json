@@ -33,6 +33,11 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "resources": [
+      "vendor/kuzu/*/lib/*",
+      "vendor/kuzu/*/include/*",
+      "vendor/kuzu/*/LICENSE*"
+    ],
     "windows": {
       "webviewInstallMode": {
         "type": "embedBootstrapper"

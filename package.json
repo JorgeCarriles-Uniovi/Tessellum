@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "tauri:dev": "node ./scripts/run-tauri-with-kuzu-prebuilt.mjs dev",
+    "tauri:build": "node ./scripts/run-tauri-with-kuzu-prebuilt.mjs build"
   },
   "dependencies": {
     "@codemirror/lang-markdown": "^6.5.0",
