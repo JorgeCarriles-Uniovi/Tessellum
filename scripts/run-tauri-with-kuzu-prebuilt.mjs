@@ -17,8 +17,9 @@ const libDir = path.join(prebuiltRoot, "lib");
 const includeDir = path.join(prebuiltRoot, "include");
 
 const env = { ...process.env };
+const usePrebuilt = shouldUsePrebuiltForTarget(targetTriple);
 
-if (hasPrebuiltKuzu(libDir, includeDir)) {
+if (usePrebuilt && hasPrebuiltKuzu(libDir, includeDir)) {
   env.KUZU_LIBRARY_DIR = libDir;
   env.KUZU_INCLUDE_DIR = includeDir;
   // Use shared linking to avoid shipping every static third-party Kuzu dependency.
@@ -28,8 +29,13 @@ if (hasPrebuiltKuzu(libDir, includeDir)) {
   delete env.KUZU_LIBRARY_DIR;
   delete env.KUZU_INCLUDE_DIR;
   delete env.KUZU_SHARED;
-  console.log(`[kuzu] No prebuilt binary found for ${targetTriple}; falling back to source build.`);
-  console.log(`[kuzu] Expected: ${platformLibraryPath(libDir)}`);
+  if (!usePrebuilt) {
+    console.log(`[kuzu] Prebuilt is disabled for ${targetTriple}; falling back to source build.`);
+    console.log("[kuzu] Set KUZU_ENABLE_PREBUILT_MAC=1 to force trying macOS prebuilts.");
+  } else {
+    console.log(`[kuzu] No prebuilt binary found for ${targetTriple}; falling back to source build.`);
+    console.log(`[kuzu] Expected: ${platformLibraryPath(libDir)}`);
+  }
 }
 
 const npxCommand = process.platform === "win32" ? "npx.cmd" : "npx";
@@ -104,4 +110,14 @@ function resolveTargetTriple() {
 
   throw new Error(`Unsupported platform/arch for kuzu prebuilt lookup: ${process.platform}/${process.arch}`);
 }
+
+function shouldUsePrebuiltForTarget(target) {
+  // Official macOS libkuzu releases can miss symbols required by the Rust kuzu crate.
+  // Keep macOS on source build by default unless explicitly forced.
+  if (target.endsWith("apple-darwin")) {
+    return process.env.KUZU_ENABLE_PREBUILT_MAC === "1";
+  }
+  return true;
+}
+
 
