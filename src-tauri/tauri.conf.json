@@ -34,7 +34,7 @@
     "active": true,
     "targets": "all",
     "resources": [
-      "vendor/kuzu/**"
+      "vendor/kuzu/**/*"
     ],
     "windows": {
       "webviewInstallMode": {
