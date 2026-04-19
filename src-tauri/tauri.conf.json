@@ -34,9 +34,7 @@
     "active": true,
     "targets": "all",
     "resources": [
-      "vendor/kuzu/*/lib/*",
-      "vendor/kuzu/*/include/*",
-      "vendor/kuzu/*/LICENSE*"
+      "vendor/kuzu/**"
     ],
     "windows": {
       "webviewInstallMode": {
