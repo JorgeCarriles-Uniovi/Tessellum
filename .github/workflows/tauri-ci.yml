@@ -45,9 +45,12 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             libgtk-3-dev \
             libwebkit2gtk-4.0-dev \
+            libjavascriptcoregtk-4.0-dev \
+            libsoup-3.0-dev \
             libayatana-appindicator3-dev \
             librsvg2-dev \
-            patchelf
+            patchelf \
+            pkg-config
 
       - name: Install npm dependencies
         run: npm ci
