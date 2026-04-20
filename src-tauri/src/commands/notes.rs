@@ -3,7 +3,6 @@ use serde::Serialize;
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
-use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::State;
 use tauri::async_runtime;
@@ -13,8 +12,8 @@ use crate::commands::extract_wikilinks;
 use crate::commands::templates::{apply_placeholders, templates_dir};
 use crate::error::TessellumError;
 use crate::indexer::VaultIndexer;
-use crate::kuzu_projection::{
-    ManagedKuzuConnection, sync_full, sync_link_create, sync_link_delete, sync_note_delete,
+use crate::grafeo_projection::{
+    ManagedGrafeoConnection, sync_full, sync_link_create, sync_link_delete, sync_note_delete,
     sync_note_upsert,
 };
 use crate::models::{AppState, FileIndex, FileMetadata};
@@ -186,7 +185,7 @@ fn restore_trash_item_internal_for_tests(
 
 async fn refresh_indexes_after_restore(
     state: &State<'_, AppState>,
-    kuzu_state: &State<'_, Mutex<ManagedKuzuConnection>>,
+    kuzu_state: &State<'_, ManagedGrafeoConnection>,
     vault_path: &str,
 ) {
     let db = state.db.clone();
@@ -378,7 +377,7 @@ async fn index_note_content(
 
 async fn sync_note_delta_non_critical(
     state: &State<'_, AppState>,
-    kuzu_state: &State<'_, Mutex<ManagedKuzuConnection>>,
+    kuzu_state: &State<'_, ManagedGrafeoConnection>,
     delta: NoteSyncDelta,
 ) {
     let db = state.db.clone();
@@ -393,19 +392,8 @@ async fn sync_note_delta_non_critical(
     let previous: HashSet<String> = delta.previous_links.into_iter().collect();
     let current: HashSet<String> = delta.current_links.into_iter().collect();
     
-    let conn = match kuzu_state.lock() {
-        Ok(guard) => guard,
-        Err(_) => {
-            eprintln!(
-                "Kuzu sync lock failed while syncing links for '{}'",
-                delta.note_id
-            );
-            return;
-        }
-    };
-    
     for to_id in current.difference(&previous) {
-        if let Err(err) = sync_link_create(&conn, &delta.note_id, to_id) {
+        if let Err(err) = sync_link_create(kuzu_state.inner(), &delta.note_id, to_id) {
             eprintln!(
                 "Kuzu sync_link_create failed for '{} -> {}': {}",
                 delta.note_id, to_id, err
@@ -414,7 +402,7 @@ async fn sync_note_delta_non_critical(
     }
     
     for to_id in previous.difference(&current) {
-        if let Err(err) = sync_link_delete(&conn, &delta.note_id, to_id) {
+        if let Err(err) = sync_link_delete(kuzu_state.inner(), &delta.note_id, to_id) {
             eprintln!(
                 "Kuzu sync_link_delete failed for '{} -> {}': {}",
                 delta.note_id, to_id, err
@@ -433,7 +421,7 @@ async fn sync_note_delta_non_critical(
 #[tauri::command]
 pub async fn create_note(
     state: State<'_, AppState>,
-    kuzu_state: State<'_, Mutex<ManagedKuzuConnection>>,
+    kuzu_state: State<'_, ManagedGrafeoConnection>,
     vault_path: String,
     title: String,
 ) -> Result<String, TessellumError> {
@@ -522,7 +510,7 @@ pub async fn create_note(
 #[tauri::command]
 pub async fn get_or_create_daily_note(
     state: State<'_, AppState>,
-    kuzu_state: State<'_, Mutex<ManagedKuzuConnection>>,
+    kuzu_state: State<'_, ManagedGrafeoConnection>,
     vault_path: String,
 ) -> Result<FileMetadata, TessellumError> {
     validate_path_in_vault(&vault_path, &vault_path).map_err(|e| TessellumError::Validation(e))?;
@@ -618,7 +606,7 @@ pub async fn get_or_create_daily_note(
 /// using a timestamp.
 async fn trash_item_internal(
     state: State<'_, AppState>,
-    kuzu_state: State<'_, Mutex<ManagedKuzuConnection>>,
+    kuzu_state: State<'_, ManagedGrafeoConnection>,
     item_path: String,
     vault_path: String,
 ) -> Result<(), TessellumError> {
@@ -693,12 +681,8 @@ async fn trash_item_internal(
     *asset_guard = None;
     
     if was_file {
-        if let Ok(conn) = kuzu_state.lock() {
-            if let Err(err) = sync_note_delete(&conn, &crate::utils::normalize_path(&item_path)) {
-                eprintln!("Kuzu sync_note_delete failed for '{}': {}", item_path, err);
-            }
-        } else {
-            eprintln!("Kuzu sync lock failed for note delete '{}'", item_path);
+        if let Err(err) = sync_note_delete(kuzu_state.inner(), &crate::utils::normalize_path(&item_path)) {
+            eprintln!("Kuzu sync_note_delete failed for '{}': {}", item_path, err);
         }
     } else {
         match timeout(Duration::from_secs(5), sync_full(kuzu_state.inner(), db.as_ref())).await {
@@ -720,7 +704,7 @@ async fn trash_item_internal(
 #[tauri::command]
 pub async fn trash_item(
     state: State<'_, AppState>,
-    kuzu_state: State<'_, Mutex<ManagedKuzuConnection>>,
+    kuzu_state: State<'_, ManagedGrafeoConnection>,
     item_path: String,
     vault_path: String,
 ) -> Result<(), TessellumError> {
@@ -730,7 +714,7 @@ pub async fn trash_item(
 #[tauri::command]
 pub async fn trash_items(
     state: State<'_, AppState>,
-    kuzu_state: State<'_, Mutex<ManagedKuzuConnection>>,
+    kuzu_state: State<'_, ManagedGrafeoConnection>,
     item_paths: Vec<String>,
     vault_path: String,
 ) -> Result<TrashItemsResult, TessellumError> {
@@ -775,7 +759,7 @@ pub async fn list_trash_items(vault_path: String) -> Result<Vec<TrashItemMetadat
 #[tauri::command]
 pub async fn restore_trash_item(
     state: State<'_, AppState>,
-    kuzu_state: State<'_, Mutex<ManagedKuzuConnection>>,
+    kuzu_state: State<'_, ManagedGrafeoConnection>,
     trash_item_path: String,
     vault_path: String,
 ) -> Result<String, TessellumError> {
@@ -814,7 +798,7 @@ pub async fn read_file(vault_path: String, path: String) -> Result<String, Tesse
 #[tauri::command]
 pub async fn write_file(
     state: State<'_, AppState>,
-    kuzu_state: State<'_, Mutex<ManagedKuzuConnection>>,
+    kuzu_state: State<'_, ManagedGrafeoConnection>,
     vault_path: String,
     path: String,
     content: String,

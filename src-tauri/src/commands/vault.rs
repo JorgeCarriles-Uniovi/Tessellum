@@ -1,12 +1,11 @@
 use std::fs::metadata;
 use std::path::Path;
-use std::sync::Mutex;
 use std::time::UNIX_EPOCH;
 use tauri_plugin_fs::FsExt;
 use walkdir::WalkDir;
 
 use crate::error::TessellumError;
-use crate::kuzu_projection::{sync_full, ManagedKuzuConnection};
+use crate::grafeo_projection::ManagedGrafeoConnection;
 use crate::models::FileMetadata;
 use crate::search::SearchDoc;
 use crate::trash::purge_expired_trash;
@@ -183,7 +182,7 @@ pub async fn ensure_feature_demo_in_empty_vault(vault_path: String) -> Result<bo
 #[tauri::command]
 pub async fn rename_file(
     state: tauri::State<'_, crate::models::AppState>,
-    kuzu_state: tauri::State<'_, Mutex<ManagedKuzuConnection>>,
+    _grafeo_state: tauri::State<'_, ManagedGrafeoConnection>,
     vault_path: String,
     old_path: String,
     new_name: String,
@@ -272,11 +271,10 @@ pub async fn rename_file(
         .update_search_file_path(&old_path, &new_path.to_string_lossy())
         .await
         .map_err(TessellumError::from)?;
-    
-    if let Err(err) = sync_full(kuzu_state.inner(), db.as_ref()).await {
-        eprintln!("Kuzu sync_full failed after rename '{}': {}", old_path, err);
-    }
-    
+
+    // Note: Grafeo sync happens automatically via file watcher/write_file command
+    // No need for full sync on individual file rename
+
     // Invalidate the cache since path has changed
     let mut idx_guard = state.file_index.lock().await;
     *idx_guard = None;
@@ -321,7 +319,7 @@ pub async fn rename_file(
 #[tauri::command]
 pub async fn move_items(
     state: tauri::State<'_, crate::models::AppState>,
-    kuzu_state: tauri::State<'_, Mutex<ManagedKuzuConnection>>,
+    _grafeo_state: tauri::State<'_, ManagedGrafeoConnection>,
     vault_path: String,
     item_paths: Vec<String>,
     dest_dir: String,
@@ -403,11 +401,10 @@ pub async fn move_items(
             .await
             .map_err(TessellumError::from)?;
     }
-    
-    if let Err(err) = sync_full(kuzu_state.inner(), db.as_ref()).await {
-        eprintln!("Kuzu sync_full failed after move_items: {}", err);
-    }
-    
+
+    // Note: Grafeo sync happens automatically via file watcher/write_file command
+    // No need for full sync on batch file move
+
     let search_index = state.search_index.clone();
     let planned_files = planned.clone();
     tauri::async_runtime::spawn_blocking(move || {

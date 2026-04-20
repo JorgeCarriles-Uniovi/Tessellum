@@ -21,8 +21,16 @@ function extractMatchingNodeIds(rows: QueryRow[], graphData: GraphData): Set<str
 
     for (const row of rows) {
         for (const cell of Object.values(row)) {
+            // Handle string values (e.g., when query returns n.id)
             if (typeof cell === "string" && graphNodeIds.has(cell)) {
                 idsFromColumns.add(cell);
+            }
+            // Handle object/node values (e.g., when query returns full node n)
+            else if (cell && typeof cell === "object" && "id" in cell) {
+                const id = (cell as { id: unknown }).id;
+                if (typeof id === "string" && graphNodeIds.has(id)) {
+                    idsFromColumns.add(id);
+                }
             }
         }
     }
@@ -107,17 +115,32 @@ export function GraphView() {
         [files, vaultPath, setActiveNote, setViewMode, addFileIfMissing]
     );
 
+    // Handle graphData changes (display full graph when no query is active)
     useEffect(() => {
         if (!graphData) {
             setElements([]);
             return;
         }
 
-        const trimmed = debouncedQuery.trim();
-        if (!trimmed) {
+        // Only update display if there's no active query
+        if (!debouncedQuery.trim()) {
             setElements(mapGraphDataToElements(graphData));
+        }
+    }, [graphData, debouncedQuery]);
+
+    // Handle query execution (only when query text changes)
+    useEffect(() => {
+        const trimmed = debouncedQuery.trim();
+
+        // If no query, clear error and return (graphData effect handles display)
+        if (!trimmed) {
             setQueryError(null);
             setIsCypherRunning(false);
+            return;
+        }
+
+        // Guard against no graphData
+        if (!graphData) {
             return;
         }
 
@@ -162,7 +185,7 @@ export function GraphView() {
         };
 
         executeQuery();
-    }, [debouncedQuery, graphData]);
+    }, [debouncedQuery]);
 
     return (
         <div className="w-full h-full relative flex flex-col">

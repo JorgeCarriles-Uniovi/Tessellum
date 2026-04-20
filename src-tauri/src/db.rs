@@ -793,7 +793,7 @@ impl Database {
         }
         
         let tags = self.get_file_tags(note_id).await?;
-        let title = crate::kuzu_projection::title_from_note_id(note_id);
+        let title = crate::grafeo_projection::title_from_note_id(note_id);
         Ok(Some((note_id.to_string(), title, tags)))
     }
     
@@ -808,7 +808,7 @@ impl Database {
         let projections = notes
             .into_iter()
             .map(|(path, _)| {
-                let title = crate::kuzu_projection::title_from_note_id(&path);
+                let title = crate::grafeo_projection::title_from_note_id(&path);
                 let tags = file_tags.get(&path).cloned().unwrap_or_default();
                 (path, title, tags)
             })
