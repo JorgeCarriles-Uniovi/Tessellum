@@ -45,12 +45,13 @@ export function TitleBar() {
             try {
                 const maximized = await appWindow.isMaximized();
                 setIsMaximized(maximized);
-            } catch (e) { console.error(e); }
+            } catch (e) {
+                console.error(e);
+            }
         };
+
         checkMaximized();
-        const unlisten = appWindow.listen('tauri://resize', checkMaximized);
-        return () => { unlisten.then(f => f()); }
-    }, []);
+    }, [appWindow]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {

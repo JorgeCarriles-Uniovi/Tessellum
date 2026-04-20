@@ -21,6 +21,9 @@ jobs:
           - macos-latest
           - ubuntu-22.04
 
+  build-linux:
+    name: Publish (ubuntu-24.04 / x86_64-unknown-linux-gnu)
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -36,12 +39,14 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-gnu
 
       - name: Cache Rust
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: |
-            src-tauri -> target
+          shared-key: ubuntu-24.04-x86_64-unknown-linux-gnu-rust
+          workspaces: src-tauri -> target
 
       - name: Install Linux system dependencies
         if: matrix.os == 'ubuntu-22.04'
