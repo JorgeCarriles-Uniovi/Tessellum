@@ -2,19 +2,17 @@ pub mod commands;
 mod db;
 pub mod error;
 mod indexer;
-mod kuzu_projection;
+mod grafeo_projection;
 mod search;
 mod trash;
 pub mod models;
 mod utils;
 
 use db::Database;
-use std::any::Any;
 use std::fs::{create_dir_all, OpenOptions};
 use std::io::Write;
-use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::PathBuf;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tauri::Manager;
 pub use models::*;
 use search::SearchIndex;
@@ -38,16 +36,6 @@ fn append_startup_log(message: &str) {
     if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(path) {
         let _ = writeln!(file, "{message}");
     }
-}
-
-fn panic_payload_to_string(payload: Box<dyn Any + Send>) -> String {
-    if let Some(msg) = payload.downcast_ref::<&str>() {
-        return (*msg).to_string();
-    }
-    if let Some(msg) = payload.downcast_ref::<String>() {
-        return msg.clone();
-    }
-    "unknown panic payload".to_string()
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -111,15 +99,38 @@ pub fn run() {
                 let search_index = SearchIndex::open_or_create(&search_dir)
                     .map_err(|e| startup_error("search-index-init", e.to_string()))?;
 
-                let kuzu_conn = catch_unwind(AssertUnwindSafe(|| {
-                    kuzu_projection::init_managed_connection(&app_handle, &db_instance)
-                }))
-                .map_err(|payload| startup_error("kuzu-init-panic", panic_payload_to_string(payload)))?
-                .map_err(|e| startup_error("kuzu-init", e.to_string()))?;
+                // Manage graph connection state
+                app.manage(Mutex::new(()));
 
-                app.manage(Mutex::new(kuzu_conn));
-                app.manage(models::AppState::new(db_instance, search_index));
-                log::info!("Database initialized successfully");
+                let app_state = models::AppState::new(db_instance, search_index);
+                let db_for_sync = app_state.db.clone();
+                app.manage(app_state);
+
+                // Initialize Grafeo graph database directly
+                let graph_db_path = app_data_dir.join("graph.grafeo");
+                match grafeo_projection::init_connection(graph_db_path) {
+                    Ok(_) => {
+                        log::info!("Grafeo graph database initialized successfully");
+
+                        // Perform initial sync on startup in background
+                        let grafeo_conn = std::sync::Mutex::new(());
+                        tauri::async_runtime::spawn(async move {
+                            match grafeo_projection::sync_full(&grafeo_conn, db_for_sync.as_ref()).await {
+                                Ok(_) => {
+                                    log::info!("Initial Grafeo sync completed");
+                                }
+                                Err(e) => {
+                                    log::warn!("Initial Grafeo sync failed: {}", e);
+                                }
+                            }
+                        });
+                    }
+                    Err(e) => {
+                        log::warn!("Grafeo graph database initialization failed: {}", e);
+                    }
+                }
+
+                log::info!("Database and graph initialized successfully");
 
                 Ok(())
             })();
@@ -167,6 +178,7 @@ pub fn run() {
             commands::notes::get_all_property_keys,
             commands::indexer::sync_vault,
             commands::graph::get_graph_data,
+            commands::graph::execute_graph_query,
             commands::vault::set_vault_path,
             commands::search::search_full_text,
             commands::search::search_tags,
@@ -174,7 +186,6 @@ pub fn run() {
             commands::search::ensure_search_ready,
             commands::search::get_search_readiness,
             commands::search::reset_search_readiness_attempts,
-            commands::graph::execute_graph_query,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {

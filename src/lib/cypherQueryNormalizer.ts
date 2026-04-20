@@ -11,7 +11,8 @@ export function normalizeCypherTagEqualityShorthand(query: string): string {
         return query;
     }
 
-    const top = trimmed.match(/^MATCH\s+(.+?)(?:\s+WHERE\s+(.+?))?(?:\s+RETURN\s+(.+))?$/i);
+    // More robust regex that handles relationship patterns with arrows
+    const top = trimmed.match(/^MATCH\s+((?:(?!(?:\s+WHERE\s+|\s+RETURN\s+)).)+)(?:\s+WHERE\s+((?:(?!\s+RETURN\s+).)+))?(?:\s+RETURN\s+(.+))?$/is);
     if (!top) {
         return query;
     }
@@ -43,12 +44,24 @@ export function normalizeCypherTagEqualityShorthand(query: string): string {
 }
 
 /**
+ * Normalizes undirected relationship shorthand -- to -[:LINKS_TO]- for Grafeo compatibility
+ * Grafeo requires relationship type to be specified, even for undirected patterns
+ */
+function normalizeUndirectedRelationships(query: string): string {
+    // Replace bare -- with -[:LINKS_TO]- (undirected LINKS_TO relationship)
+    // The negative lookahead (?!\[) ensures we don't replace -- that's already part of a -[...]- pattern
+    return query.replace(/--(?!\[)/g, '-[:LINKS_TO]-');
+}
+
+/**
  * Applies all Cypher UX normalizations:
+ * - undirected relationship syntax
  * - tag shorthand support
  * - optional RETURN clause (defaults to all MATCH variables)
  */
 export function normalizeCypherQuery(query: string): string {
-    const withTagShorthand = normalizeCypherTagEqualityShorthand(query);
+    const withUndirected = normalizeUndirectedRelationships(query);
+    const withTagShorthand = normalizeCypherTagEqualityShorthand(withUndirected);
     return ensureReturnClause(withTagShorthand);
 }
 
@@ -60,7 +73,7 @@ function normalizeTagEqualsPredicate(predicate: string): string {
         return predicate;
     }
 
-    const left = `${equalsMatch[1]}.${equalsMatch[2]}`;
+    const variable = equalsMatch[1];
     const right = equalsMatch[3].trim();
 
     if (isAlreadyQuotedList(right)) {
@@ -72,10 +85,14 @@ function normalizeTagEqualsPredicate(predicate: string): string {
         return predicate;
     }
 
-    const serialized = normalizedTags
-        .map((tag) => `"${escapeDoubleQuoted(tag)}"`)
-        .join(", ");
-    return `${left} = [${serialized}]`;
+    // For single tag: use "tag" IN n.tags
+    // For multiple tags: use "tag1" IN n.tags AND "tag2" IN n.tags
+    // This matches notes that contain ALL specified tags (not exact equality)
+    const conditions = normalizedTags
+        .map((tag) => `"${escapeDoubleQuoted(tag)}" IN ${variable}.tags`)
+        .join(" AND ");
+
+    return conditions;
 }
 
 function ensureReturnClause(query: string): string {
@@ -84,7 +101,9 @@ function ensureReturnClause(query: string): string {
         return query;
     }
 
-    const top = trimmed.match(/^MATCH\s+(.+?)(?:\s+WHERE\s+(.+?))?(?:\s+RETURN\s+(.+))?$/i);
+    // More robust regex that handles relationship patterns with arrows
+    // Use word boundaries for WHERE and RETURN to avoid capturing them in the pattern
+    const top = trimmed.match(/^MATCH\s+((?:(?!(?:\s+WHERE\s+|\s+RETURN\s+)).)+)(?:\s+WHERE\s+((?:(?!\s+RETURN\s+).)+))?(?:\s+RETURN\s+(.+))?$/is);
     if (!top) {
         return query;
     }
@@ -102,7 +121,8 @@ function ensureReturnClause(query: string): string {
     }
 
     const whereClause = whereText.length > 0 ? ` WHERE ${whereText}` : "";
-    const generatedReturn = variables.map((v) => `${v}.id`).join(", ");
+    // Return full nodes (not just .id) so we get all properties
+    const generatedReturn = variables.join(", ");
     return `MATCH ${patternText}${whereClause} RETURN ${generatedReturn}`;
 }
 

@@ -1,11 +1,8 @@
 use serde::Serialize;
-use serde_json::Value;
 use std::collections::HashSet;
-use std::sync::Mutex;
 use tauri::State;
 
 use crate::error::TessellumError;
-use crate::kuzu_projection::{execute_graph_query_inner, lock_connection, ManagedKuzuConnection};
 use crate::models::AppState;
 
 #[derive(Serialize, Clone)]
@@ -59,13 +56,11 @@ pub async fn get_graph_data(
 	build_graph_data(&state, &vault_path).await
 }
 
+/// Execute a GQL/Cypher query on the Grafeo database
 #[tauri::command]
-pub fn execute_graph_query(
-	cypher: String,
-	state: State<'_, Mutex<ManagedKuzuConnection>>,
-) -> Result<Value, String> {
-	let conn = lock_connection(&state)?;
-	execute_graph_query_inner(&conn, &cypher)
+pub fn execute_graph_query(cypher: String) -> Result<serde_json::Value, TessellumError> {
+	crate::grafeo_projection::execute_query(&cypher)
+		.map_err(|e| TessellumError::Internal(e))
 }
 
 pub async fn build_graph_data(

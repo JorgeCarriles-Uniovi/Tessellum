@@ -1,12 +1,11 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::path::Path;
-use std::sync::Mutex;
 use tauri::State;
 
 use crate::commands::indexer::run_sync_vault;
 use crate::error::TessellumError;
-use crate::kuzu_projection::ManagedKuzuConnection;
+use crate::grafeo_projection::ManagedGrafeoConnection;
 use crate::models::{AppState, SearchReadinessState, SearchReadinessStatus};
 use crate::utils::is_hidden_or_special;
 use crate::utils::normalize_path;
@@ -269,7 +268,7 @@ pub async fn reset_search_readiness_attempts(
 #[tauri::command]
 pub async fn ensure_search_ready(
 	state: State<'_, AppState>,
-	kuzu_state: State<'_, Mutex<ManagedKuzuConnection>>,
+	kuzu_state: State<'_, ManagedGrafeoConnection>,
 	vault_path: String,
 ) -> Result<SearchReadinessResponse, TessellumError> {
 	{
