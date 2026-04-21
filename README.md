@@ -1,92 +1,251 @@
 # Tessellum
 
-Local-first knowledge management app built with Tauri, React, and TypeScript. Tessellum manages a folder of Markdown notes ("vault"), indexes links/tags/metadata in a local SQLite database, and provides an editor plus graph views for navigation.
+Tessellum is a local-first knowledge management desktop application built with Tauri, React, TypeScript, and Rust. It keeps notes as plain Markdown inside a user-selected vault, then adds fast local indexing, graph exploration, plugin-driven editing, and deep UI customization on top.
+
+## Table of Contents
+
+- [Why Tessellum](#why-tessellum)
+- [Feature Snapshot](#feature-snapshot)
+- [Architecture](#architecture)
+- [Project Structure](#project-structure)
+- [Development](#development)
+
+## Why Tessellum
+
+Tessellum's main strengths come from the way it combines ownership, speed, and extensibility:
+
+- **Local-first by default**. Notes, assets, templates, and custom themes stay on disk in a normal folder structure. The application does not depend on a cloud backend to be useful.
+- **Plain Markdown as the source of truth**. The vault remains readable outside the app, which keeps the data portable and durable.
+- **Rich knowledge workflows**. The editor supports wiki links, callouts, Mermaid, KaTeX, tables, task lists, inline tags, frontmatter, code blocks, images, and PDF embeds.
+- **Two navigation models**. Users can work through a classic file tree and tabs, or switch to a graph view with orphan detection, ghost nodes for broken links, and Cypher-style graph filtering.
+- **Fast search and metadata access**. SQLite stores note metadata and relationships, Tantivy powers local full-text search, and backlinks/tags remain cheap to query.
+- **Real-time synchronization**. A Rust file watcher listens for vault changes, invalidates runtime caches, and keeps the UI and indexes in sync.
+- **Extensible architecture**. Built-in editor behavior is implemented through a plugin registry, and plugins can contribute CodeMirror extensions, command palette entries, settings tabs, UI actions, and sidebar actions.
+- **Designed for personal workflows**. Daily notes, templates, safe trash handling, theme scheduling, Vim mode, spellcheck, accessibility controls, localization, and user-defined themes are part of the application model, not afterthoughts.
+
+## Feature Snapshot
+
+### Note-taking and editing
+
+- Markdown notes stored directly in the vault
+- Reading, live preview, and source editor modes
+- Wiki links with resolution to vault files
+- Rich blocks for callouts, Mermaid diagrams, tables, math, inline code, and task lists
+- Frontmatter and inline tag support
+- Media embeds for images and PDFs
+- Slash commands, selection toolbar, tab strip, and command palette
+
+### Navigation and discovery
+
+- Vault file tree with folder-aware operations
+- Backlinks, outline, and tag sidebar for the active note
+- Full-text search with tag filters and recent searches
+- Global graph view plus local graph panel
+- Cypher-style query panel over the graph projection
+
+### Workflow and customization
+
+- Template-driven note creation
+- Daily note workflow
+- Safe trash with restore and timed cleanup
+- Theme system with built-in themes plus user themes from the vault
+- Appearance, accessibility, language, spellcheck, and plugin settings
+- Runtime plugin enable/disable support
 
 ## Architecture
 
-### Frontend (React + Vite)
+Tessellum follows a layered local-first architecture:
 
-- **UI shell**: `src/App.tsx` wires the layout (TitleBar, Sidebar, Editor, GraphView) and handles vault selection, background sync, and file watcher events.
-- **State**: `src/stores/editorStore.ts` (Zustand) stores vault path, file tree, active note, view mode (editor/graph), and UI state.
-- **Editor**: `src/components/Editor/Editor.tsx` uses CodeMirror 6 with slash commands, wikilink suggestions, callouts, and table pickers. Editor behavior is extended by plugins through a shared API.
-- **Graph views**: `src/components/GraphView` renders a global graph via Cytoscape and an optional local graph panel.
-- **Sidebar + FileTree**: `src/components/Sidebar` and `src/components/FileTree` handle navigation, note creation, context menus, and template-based note creation.
-- **Plugin system**: `src/plugins` provides the plugin registry, event bus, and APIs for editor/vault/workspace/commands/UI.
+- The **vault** is the source of truth for user content.
+- The **Rust backend** owns filesystem access, indexing, search, and graph projection.
+- The **React frontend** owns interaction, composition, and rendering.
+- The **plugin system** extends the editor and UI without forcing features into one monolithic component.
 
-### Backend (Tauri + Rust)
+### High-level runtime
 
-- **Command layer**: `src-tauri/src/commands` exposes all backend functionality to the frontend via Tauri commands.
-- **Database**: `src-tauri/src/db.rs` manages a SQLite database with `notes` and `links` tables used for metadata, tags, and graph relationships.
-- **Indexer**: `src-tauri/src/indexer.rs` performs a full sync by scanning the vault, extracting links/tags/frontmatter, and updating the DB.
-- **Watcher**: `src-tauri/src/commands/watcher.rs` listens for filesystem changes and emits debounced `file-changed` events.
-- **Shared state**: `src-tauri/src/models/app_state.rs` keeps the DB handle, watcher, and a cached in-memory file index for link resolution.
+```mermaid
+flowchart LR
+    subgraph Vault["User Vault"]
+        Notes["Markdown notes"]
+        Assets["Images, PDFs, other files"]
+        Templates[".tessellum/templates"]
+        Themes[".tessellum/.themes"]
+        Trash[".trash"]
+    end
 
-### Data Flow (High Level)
+    subgraph Frontend["Frontend: React + TypeScript"]
+        AppShell["App shell and views"]
+        Stores["Zustand stores"]
+        Plugins["Plugin registry and app APIs"]
+    end
 
-1. User selects a vault folder.
-2. The backend starts watching the vault and performs periodic syncs.
-3. On file changes or saves, the backend indexes file metadata, tags, frontmatter, and resolved wikilinks.
-4. The frontend queries the backend for files, tree structure, backlinks, graph data, and templates.
-5. Graph view renders nodes/edges using backend-resolved paths to avoid inconsistencies.
+    subgraph Backend["Backend: Rust + Tauri"]
+        Commands["Tauri command layer"]
+        Watcher["Filesystem watcher"]
+        Indexer["Vault indexer"]
+        Caches["File and asset caches"]
+    end
 
-## Main Functionality
+    subgraph Derived["Derived local data"]
+        SQLite["SQLite metadata db"]
+        Tantivy["Tantivy search index"]
+        Grafeo["Grafeo graph projection"]
+    end
 
-- **Local-first Markdown vault** stored on disk. No cloud dependency.
-- **Note creation and renaming** with collision-safe filenames and backlink rewriting on rename.
-- **Wikilinks** (`[[Note]]` and `[[Note|Alias]]`) with resolution to full paths.
-- **Graph view** built from resolved links, including broken-link ghost nodes and orphan detection.
-- **Templates** stored at `{vault}/.tessellum/templates/` with placeholders:
-  - `{{date}}`, `{{time}}`, `{{datetime}}`, `{{title}}`, `{{vault}}`
-- **Frontmatter + inline tags** indexing for metadata and tag-driven UI.
-- **Slash commands and pickers** for callouts and table insertion.
-- **Plugin-driven editor extensions** including callouts, mermaid, inline tags, code blocks, math, tables, and markdown preview.
+    Vault --> Watcher
+    Vault --> Indexer
+    Frontend <--> Commands
+    Commands --> SQLite
+    Indexer --> SQLite
+    Indexer --> Tantivy
+    SQLite --> Grafeo
+    Watcher --> Frontend
+    Plugins --> AppShell
+    Stores --> AppShell
+```
 
-## Built-in Plugins
+### Architectural principles
 
-Registered in `src/plugins/builtin/index.ts` in order of CodeMirror extension priority:
+- **Content and indexes are separated on purpose**. Markdown files stay inside the vault, while operational indexes live in the app data directory. This keeps the vault portable and the runtime fast.
+- **The backend is the system boundary**. Filesystem access, indexing, trash behavior, and search/graph maintenance all happen through Rust commands instead of ad hoc frontend reads.
+- **Derived data is disposable**. SQLite, Tantivy, and Grafeo are optimized views of vault content, not the authoritative data format.
+- **State is split by responsibility**. Instead of one giant client store, Tessellum uses focused Zustand slices for vault state, UI state, graph state, editor content, search readiness, appearance, settings, and plugins.
+- **Features prefer extension points over hard coupling**. Built-in editor features are loaded through the same plugin runtime that third-party features can use.
 
-- `MarkdownPreviewPlugin`
-- `DividerPlugin`
-- `MathPlugin`
-- `CalloutPlugin`
-- `TablePlugin`
-- `WikiLinkPlugin`
-- `CoreCommandsPlugin`
-- `CodePlugin`
-- `MermaidPlugin`
-- `FrontmatterPlugin`
-- `InlineTagsPlugin`
+### Frontend layer
+
+The frontend lives in `src/` and is responsible for user interaction, view orchestration, and plugin-aware composition.
+
+- `src/App.tsx` wires the application shell, restores workspace state, starts vault watching, warms the search index, and coordinates editor, graph, and settings surfaces.
+- `src/components/` contains the major views: editor, sidebar, title bar, search panel, graph view, command palette, settings modal, trash modal, and layout helpers.
+- `src/stores/` contains specialized Zustand stores such as `vaultStore`, `editorContentStore`, `graphStore`, `searchStore`, `appearanceStore`, `settingsStore`, and `pluginsStore`. This keeps client state focused and easier to reason about.
+- `src/plugins/` contains the frontend extension runtime. `TessellumApp` exposes app-level APIs, `PluginRegistry` manages lifecycle, and the API classes provide stable surfaces for editor, vault, workspace, command, UI, and i18n integration.
+- `src/i18n/`, `src/themes/`, and `src/features/clipboard/` hold cross-cutting concerns that are intentionally separated from the main UI tree.
+
+### Backend layer
+
+The backend lives in `src-tauri/src/` and handles filesystem coordination, indexing, persistence, search, and graph data.
+
+- `lib.rs` starts the Tauri runtime, initializes local data stores, registers commands, and sets up shared `AppState`.
+- `commands/` exposes the backend surface consumed by the frontend: notes, vault operations, templates, links, watcher, graph, search, clipboard, folders, and assets.
+- `db.rs` manages the SQLite database used for indexed notes, links, search file metadata, and normalized tags.
+- `indexer.rs` scans the vault, parses Markdown metadata, extracts wiki links and tags, updates SQLite, and batches documents into Tantivy.
+- `search.rs` manages full-text search, tag search, search readiness checks, and index rebuild logic.
+- `grafeo_projection.rs` projects notes and links into a graph database so the graph view can support richer query workflows.
+- `trash.rs` implements trash naming, restore behavior, collision handling, and retention cleanup.
+- `models/app_state.rs` holds shared runtime resources such as the watcher, database handle, search index, and in-memory file and asset caches.
+
+### Persistence model
+
+Tessellum uses two storage scopes:
+
+| Scope | Location | Purpose |
+| --- | --- | --- |
+| Vault-owned data | User-selected vault | Markdown notes, folders, assets, `.tessellum/templates`, `.tessellum/.themes`, and `.trash` |
+| App-owned data | Tauri app data directory | `vault.db`, `search_index/`, `graph.grafeo`, and startup diagnostics |
+
+This split matters because it keeps user content portable while allowing the app to maintain fast local indexes and caches.
+
+### Data flow and synchronization
+
+The normal runtime loop looks like this:
+
+1. The user opens a vault from the frontend.
+2. The frontend calls `set_vault_path`, which expands Tauri file scopes and triggers trash retention cleanup for that vault.
+3. The frontend starts `watch_vault`, fetches the flat file list and file tree, restores UI state, and starts periodic or on-demand sync.
+4. The Rust indexer scans the vault, ignores hidden/special paths, parses frontmatter, extracts inline tags and wiki links, and updates SQLite.
+5. The same sync path batches searchable documents into Tantivy.
+6. Grafeo receives a projection of notes and links so the graph view can query relationships efficiently.
+7. When the filesystem watcher emits `file-changed`, the frontend refreshes visible state and triggers another debounced sync cycle.
+
+This gives Tessellum a useful architecture property: **the vault can change from inside or outside the app, and the runtime still converges back to a consistent local model**.
+
+### Search architecture
+
+Search is not just a text box layered over files:
+
+- SQLite tracks indexed files and note metadata.
+- Tantivy stores the searchable document index.
+- The frontend keeps a dedicated `searchStore` with readiness state and recent searches.
+- On vault open or search activation, the frontend asks the backend to ensure the search index is ready.
+- The backend can rebuild the search index if the expected Markdown set and the actual Tantivy index drift apart beyond a threshold.
+
+This makes search startup more resilient while keeping the user-facing interaction simple.
+
+### Graph architecture
+
+The graph experience is built from two layers:
+
+- **SQLite relationship layer**: the note/link index is used to build the standard graph data shown in the UI, including orphan detection and ghost nodes for broken targets.
+- **Grafeo query layer**: the same note/link model is projected into a graph database so users can run Cypher-style queries from the graph panel.
+
+That split keeps the default graph view cheap while still enabling advanced filtering workflows.
+
+### Plugin and extension architecture
+
+One of the strongest parts of the project is that built-in rich editor behavior is implemented as plugins rather than hard-coded branches.
+
+- `TessellumApp` is the frontend singleton that exposes app-wide APIs and an event bus.
+- `PluginRegistry` owns plugin lifecycle, enable/disable state, and load error isolation.
+- `EditorAPI` gives each plugin its own CodeMirror compartment so extensions can be configured independently.
+- `WorkspaceAPI` lets plugins interact with notes and navigation without importing Zustand stores directly.
+- `UIAPI` lets plugins contribute command palette entries, settings tabs, title bar actions, sidebar actions, and custom callout types.
+
+Built-in plugins currently cover capabilities such as markdown preview, math, inline code, callouts, tables, wiki links, code blocks, Mermaid, frontmatter, inline tags, daily notes, media embedding, media paste, task lists, and core UI actions.
 
 ## Project Structure
 
-- `src/` frontend React app
-- `src/components/` UI components (Editor, Sidebar, GraphView, etc.)
-- `src/plugins/` plugin system and built-in plugins
-- `src/stores/` global app state (Zustand)
-- `src-tauri/` Tauri backend (Rust commands, DB, indexer)
+| Path | Responsibility |
+| --- | --- |
+| `src/` | Frontend application |
+| `src/components/` | UI surfaces such as editor, graph, search, settings, sidebars, and layout |
+| `src/stores/` | Focused Zustand state slices |
+| `src/plugins/` | Plugin runtime, event bus, manifests, and frontend APIs |
+| `src/features/clipboard/` | Clipboard import/export workflow |
+| `src/i18n/` | Localization resources and i18n service |
+| `src/themes/` | Theme tokens, built-in themes, and theme parsing |
+| `src/utils/` | Shared frontend utilities for graph mapping, notes, paths, tags, and outline parsing |
+| `src-tauri/src/commands/` | Tauri command handlers for backend features |
+| `src-tauri/src/models/` | Shared backend runtime types and caches |
+| `src-tauri/src/db.rs` | SQLite persistence layer |
+| `src-tauri/src/indexer.rs` | Vault scan and indexing pipeline |
+| `src-tauri/src/search.rs` | Search readiness and full-text/tag search |
+| `src-tauri/src/grafeo_projection.rs` | Graph projection and query integration |
+| `src-tauri/src/trash.rs` | Trash lifecycle and retention logic |
+| `.github/workflows/` | CI and release automation |
 
 ## Development
 
-- `npm run tauri dev` runs the full Tauri app
+### Prerequisites
+
+- Node.js 20+
+- Rust stable
+- Tauri prerequisites for your operating system
+
+### Run locally
+
 ```bash
-# 1. Clone the repository
-git clone https://github.com/your-username/your-repo-name.git
-cd your-repo-name
-
-# 2. Install frontend dependencies
-npm install  # or yarn/pnpm
-
-# 3. Run the app in development mode
+npm install
 npm run tauri dev
 ```
-## TODO
 
-- add image and pdf support
-- add styles support
-- add cypher for the graph
-- add full text search and search by tags
-- add support for editor type niri
-- resize the editor
-- view and editing mode
-- toggle plugins in settings
-- improve keyboard use in template modal
+### Build production bundles
+
+```bash
+npm run tauri build
+```
+
+### Frontend-only build
+
+```bash
+npm run build
+```
+
+### CI and release pipeline
+
+- `.github/workflows/tauri-ci.yml` builds bundles on Windows, macOS, and Ubuntu.
+- `.github/workflows/tauri-release.yml` publishes release assets for tagged versions.
+
+---
+
+Tessellum is strongest when viewed as more than a note editor: it is a local-first Markdown workspace with a deliberate indexing pipeline, a graph-aware backend, and a plugin-oriented frontend that is structured to grow without collapsing into one oversized application module.
