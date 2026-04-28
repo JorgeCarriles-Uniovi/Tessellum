@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 
 // @ts-expect-error process is a nodejs global
@@ -9,6 +9,12 @@ export default defineConfig(async () => ({
     plugins: [react()],
     css: {
         postcss: './postcss.config.js', // Optional, Vite uses this by default
+    },
+    test: {
+        environment: "jsdom",
+        setupFiles: ["./src/test/setup.ts"],
+        clearMocks: true,
+        restoreMocks: true,
     },
 
     // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`

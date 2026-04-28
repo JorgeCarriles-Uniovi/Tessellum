@@ -7,12 +7,14 @@ mod search;
 mod trash;
 pub mod models;
 mod utils;
+#[cfg(test)]
+mod test_support;
 
 use db::Database;
 use std::fs::{create_dir_all, OpenOptions};
 use std::io::Write;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 use tauri::Manager;
 pub use models::*;
 use search::SearchIndex;
