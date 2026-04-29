@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { useAppearanceStore } from "../stores";
+import { useAppearanceStore } from "../stores/appearanceStore";
 
 const SPACING_BASE_REM: Record<number, number> = {
     0: 0,

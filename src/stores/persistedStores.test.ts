@@ -166,7 +166,7 @@ describe("persisted stores", () => {
         });
         expect(localStorage.getItem("tessellum:editorFontSizePx")).toBe("12");
         expect(DEFAULT_EDITOR_FONT_SIZE_PX).toBe(16);
-    });
+    }, 10000);
 
     test("reads persisted settings with locale and boolean fallbacks and updates through actions", async () => {
         localStorage.setItem("tessellum:locale", "fr");

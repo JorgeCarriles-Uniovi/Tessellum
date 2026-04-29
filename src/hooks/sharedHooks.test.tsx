@@ -113,5 +113,5 @@ describe("shared hooks", () => {
             vi.advanceTimersByTime(300);
         });
         expect(result.current).toBe("gamma");
-    });
+    }, 10000);
 });

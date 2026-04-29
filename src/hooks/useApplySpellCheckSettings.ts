@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { useSettingsStore } from "../stores";
+import { useSettingsStore } from "../stores/settingsStore";
 
 type SpellcheckElement = HTMLElement & { spellcheck?: boolean };
 
