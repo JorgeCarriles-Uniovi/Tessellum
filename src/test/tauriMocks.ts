@@ -4,6 +4,11 @@ const tauriState = vi.hoisted(() => {
     const invokeMock = vi.fn(async () => undefined);
     const convertFileSrcMock = vi.fn((path: string) => `asset://${path}`);
     const listenMock = vi.fn(async () => vi.fn(async () => undefined));
+    const joinMock = vi.fn(async (...parts: string[]) => parts.filter(Boolean).join("/"));
+    const extnameMock = vi.fn(async (fileName: string) => {
+        const match = /\.[^.]+$/.exec(fileName);
+        return match ? match[0] : "";
+    });
     const existsMock = vi.fn(async () => false);
     const readDirMock = vi.fn(async () => []);
     const readTextFileMock = vi.fn(async () => "");
@@ -37,6 +42,8 @@ const tauriState = vi.hoisted(() => {
         invokeMock,
         convertFileSrcMock,
         listenMock,
+        joinMock,
+        extnameMock,
         existsMock,
         readDirMock,
         readTextFileMock,
@@ -53,6 +60,8 @@ const tauriState = vi.hoisted(() => {
 export const invokeMock = tauriState.invokeMock;
 export const convertFileSrcMock = tauriState.convertFileSrcMock;
 export const listenMock = tauriState.listenMock;
+export const joinMock = tauriState.joinMock;
+export const extnameMock = tauriState.extnameMock;
 export const existsMock = tauriState.existsMock;
 export const readDirMock = tauriState.readDirMock;
 export const readTextFileMock = tauriState.readTextFileMock;
@@ -70,6 +79,11 @@ vi.mock("@tauri-apps/api/core", () => ({
 
 vi.mock("@tauri-apps/api/event", () => ({
     listen: tauriState.listenMock,
+}));
+
+vi.mock("@tauri-apps/api/path", () => ({
+    join: tauriState.joinMock,
+    extname: tauriState.extnameMock,
 }));
 
 vi.mock("@tauri-apps/plugin-fs", () => ({
@@ -99,6 +113,15 @@ export function resetTauriMocks(): void {
 
     listenMock.mockReset();
     listenMock.mockResolvedValue(vi.fn(async () => undefined));
+
+    joinMock.mockReset();
+    joinMock.mockImplementation(async (...parts: string[]) => parts.filter(Boolean).join("/"));
+
+    extnameMock.mockReset();
+    extnameMock.mockImplementation(async (fileName: string) => {
+        const match = /\.[^.]+$/.exec(fileName);
+        return match ? match[0] : "";
+    });
 
     existsMock.mockReset();
     existsMock.mockResolvedValue(false);

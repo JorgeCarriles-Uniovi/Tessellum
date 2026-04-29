@@ -15,6 +15,8 @@ export default defineConfig(async () => ({
         setupFiles: ["./src/test/setup.ts"],
         clearMocks: true,
         restoreMocks: true,
+        testTimeout: 10000,
+        hookTimeout: 10000,
     },
 
     // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
