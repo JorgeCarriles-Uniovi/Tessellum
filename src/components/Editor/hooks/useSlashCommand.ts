@@ -11,52 +11,12 @@ import { EditorState } from '@codemirror/state';
 import { Prec } from "@codemirror/state";
 import { TessellumApp } from "../../../plugins/TessellumApp";
 import type { Command } from "../../../plugins/types";
-
-// ===== PURE UTILITIES (no React dependencies) =====
-
-function getSlashContext(state: EditorState, cursorPos: number) {
-    const line = state.doc.lineAt(cursorPos);
-    const lineOffset = cursorPos - line.from;
-    const slashPos = line.text.lastIndexOf('/', lineOffset);
-
-    if (slashPos === -1) return null;
-
-    const queryText = line.text.slice(slashPos + 1, lineOffset);
-    const hasSpace = queryText.includes(' ');
-    const cursorAfterSlash = lineOffset >= slashPos;
-
-    return (hasSpace) || !cursorAfterSlash ? null : {
-        queryText: queryText,
-        absoluteSlashPos: line.from + slashPos
-    };
-}
-
-function canTriggerSlash(state: EditorState, cursorPos: number) {
-    if (cursorPos === 0) return true;
-    const charBefore = state.doc.sliceString(cursorPos - 1, cursorPos);
-    return charBefore === ' ' || charBefore === '\n';
-}
-
-interface MenuCoords {
-    left: number;
-    top: number;
-    placement: 'bottom' | 'top';
-}
-
-function getSafeCursorCoords(view: EditorView, cursorPos: number) {
-    const boundedPos = Math.max(0, Math.min(cursorPos, view.state.doc.length));
-    try {
-        return view.coordsAtPos(boundedPos);
-    } catch (error) {
-        console.warn("[editor-slash] coordsAtPos failed", {
-            cursorPos,
-            boundedPos,
-            docLength: view.state.doc.length,
-            error,
-        });
-        return null;
-    }
-}
+import {
+    canTriggerSlash,
+    getSafeCursorCoords,
+    getSlashContext,
+    type MenuCoords,
+} from "./slashCommandLogic";
 
 function useSlashTrigger(isOpenRef: RefObject<boolean>, openMenu: (coords: MenuCoords) => void) {
     return useMemo(() => EditorView.domEventHandlers({

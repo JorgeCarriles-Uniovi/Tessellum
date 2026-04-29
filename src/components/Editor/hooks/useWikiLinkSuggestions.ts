@@ -10,81 +10,16 @@ import { EditorView, keymap } from '@codemirror/view';
 import { Prec } from "@codemirror/state";
 import { invoke } from "@tauri-apps/api/core";
 import { WikiLinkSuggestion } from '../WikiLinkSuggestionsMenu.tsx';
-
-// ============================================================================
-// TYPES
-// ============================================================================
+import {
+    getSafeWikiLinkCursorCoords,
+    getWikiLinkContext,
+    type WikiLinkContext,
+} from "./wikiLinkSuggestionsLogic";
 
 interface MenuCoords {
     left: number;
     top: number;
     placement: 'bottom' | 'top';
-}
-
-interface WikiLinkContext {
-    queryText: string;      // Text after [[ (before |)
-    aliasText: string;      // Text after | (if present)
-    hasAlias: boolean;      // Whether user typed |
-    bracketPos: number;     // Absolute position of [[
-}
-
-function getSafeCursorCoords(view: EditorView, cursorPos: number) {
-    const boundedPos = Math.max(0, Math.min(cursorPos, view.state.doc.length));
-    try {
-        return view.coordsAtPos(boundedPos);
-    } catch (error) {
-        console.warn("[editor-wikilink] coordsAtPos failed", {
-            cursorPos,
-            boundedPos,
-            docLength: view.state.doc.length,
-            error,
-        });
-        return null;
-    }
-}
-
-// ============================================================================
-// PURE UTILITIES
-// ============================================================================
-
-/**
- * Extract wikilink context from current cursor position
- * Handles: [[query or [[target|alias
- */
-function getWikiLinkContext(state: { doc: any; selection: { main: { from: number } } }, cursorPos: number): WikiLinkContext | null {
-    const line = state.doc.lineAt(cursorPos);
-    const lineOffset = cursorPos - line.from;
-    const lineText = line.text.slice(0, lineOffset);
-
-    // Find the last [[ that isn't escaped
-    const bracketIndex = lineText.lastIndexOf('[[');
-    if (bracketIndex === -1) return null;
-
-    // Check if escaped
-    if (bracketIndex > 0 && lineText[bracketIndex - 1] === '\\') return null;
-
-    // Check we haven't closed the bracket yet
-    const afterBrackets = lineText.slice(bracketIndex + 2);
-    if (afterBrackets.includes(']]')) return null;
-
-    // Parse the content: check for alias separator
-    const pipeIndex = afterBrackets.indexOf('|');
-
-    if (pipeIndex !== -1) {
-        return {
-            queryText: afterBrackets.slice(0, pipeIndex),
-            aliasText: afterBrackets.slice(pipeIndex + 1),
-            hasAlias: true,
-            bracketPos: line.from + bracketIndex
-        };
-    }
-
-    return {
-        queryText: afterBrackets,
-        aliasText: '',
-        hasAlias: false,
-        bracketPos: line.from + bracketIndex
-    };
 }
 
 // ============================================================================
@@ -210,7 +145,7 @@ function useWikiLinkTrigger(
                     const prevChar = state.doc.sliceString(cursorPos - 1, cursorPos);
                     if (prevChar === '[') {
                         // We have [[, open the menu
-                        const cursorCoords = getSafeCursorCoords(view, cursorPos);
+                        const cursorCoords = getSafeWikiLinkCursorCoords(view, cursorPos);
                         const editorRect = view.dom.getBoundingClientRect();
 
                         if (cursorCoords && editorRect) {
