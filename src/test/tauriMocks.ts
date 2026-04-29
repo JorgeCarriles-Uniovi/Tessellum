@@ -5,6 +5,7 @@ const tauriState = vi.hoisted(() => {
     const convertFileSrcMock = vi.fn((path: string) => `asset://${path}`);
     const listenMock = vi.fn(async () => vi.fn(async () => undefined));
     const joinMock = vi.fn(async (...parts: string[]) => parts.filter(Boolean).join("/"));
+    const dirnameMock = vi.fn(async (path: string) => path.split(/[\\/]/).slice(0, -1).join("/") || "");
     const extnameMock = vi.fn(async (fileName: string) => {
         const match = /\.[^.]+$/.exec(fileName);
         return match ? match[0] : "";
@@ -43,6 +44,7 @@ const tauriState = vi.hoisted(() => {
         convertFileSrcMock,
         listenMock,
         joinMock,
+        dirnameMock,
         extnameMock,
         existsMock,
         readDirMock,
@@ -61,6 +63,7 @@ export const invokeMock = tauriState.invokeMock;
 export const convertFileSrcMock = tauriState.convertFileSrcMock;
 export const listenMock = tauriState.listenMock;
 export const joinMock = tauriState.joinMock;
+export const dirnameMock = tauriState.dirnameMock;
 export const extnameMock = tauriState.extnameMock;
 export const existsMock = tauriState.existsMock;
 export const readDirMock = tauriState.readDirMock;
@@ -83,6 +86,7 @@ vi.mock("@tauri-apps/api/event", () => ({
 
 vi.mock("@tauri-apps/api/path", () => ({
     join: tauriState.joinMock,
+    dirname: tauriState.dirnameMock,
     extname: tauriState.extnameMock,
 }));
 
@@ -116,6 +120,9 @@ export function resetTauriMocks(): void {
 
     joinMock.mockReset();
     joinMock.mockImplementation(async (...parts: string[]) => parts.filter(Boolean).join("/"));
+
+    dirnameMock.mockReset();
+    dirnameMock.mockImplementation(async (path: string) => path.split(/[\\/]/).slice(0, -1).join("/") || "");
 
     extnameMock.mockReset();
     extnameMock.mockImplementation(async (fileName: string) => {
