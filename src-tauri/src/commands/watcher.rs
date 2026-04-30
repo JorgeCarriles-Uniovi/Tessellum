@@ -10,6 +10,15 @@ use crate::models::AppState;
 /// Debounce window: ignore events within this duration of the last emit.
 const DEBOUNCE_MS: u64 = 200;
 
+fn should_emit_change(last_emit: &mut Instant, now: Instant) -> bool {
+    if now.duration_since(*last_emit) < Duration::from_millis(DEBOUNCE_MS) {
+        return false;
+    }
+
+    *last_emit = now;
+    true
+}
+
 /// Watches a directory and emits a debounced event to the frontend whenever
 /// a file within the directory changes.
 ///
@@ -41,8 +50,8 @@ pub async fn watch_vault(
                 Ok(_) => {
                     // Debounce: only emit if enough time has passed
                     let mut last = last_emit.lock().unwrap();
-                    if last.elapsed() >= Duration::from_millis(DEBOUNCE_MS) {
-                        *last = Instant::now();
+                    let now = Instant::now();
+                    if should_emit_change(&mut last, now) {
 
                         // Invalidate caches
                         let fi = file_index_clone.clone();
@@ -77,4 +86,33 @@ pub async fn unwatch_vault(state: State<'_, AppState>) -> Result<(), TessellumEr
     let mut watcher_guard = state.watcher.lock().await;
     *watcher_guard = None;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::{Duration, Instant};
+
+    use super::should_emit_change;
+
+    #[test]
+    fn emits_when_the_debounce_window_has_elapsed() {
+        let base = Instant::now();
+        let mut last_emit = base - Duration::from_millis(250);
+
+        let emitted = should_emit_change(&mut last_emit, base);
+
+        assert!(emitted);
+        assert_eq!(last_emit, base);
+    }
+
+    #[test]
+    fn suppresses_events_inside_the_debounce_window() {
+        let base = Instant::now();
+        let mut last_emit = base - Duration::from_millis(50);
+
+        let emitted = should_emit_change(&mut last_emit, base);
+
+        assert!(!emitted);
+        assert!(base.duration_since(last_emit) < Duration::from_millis(200));
+    }
 }

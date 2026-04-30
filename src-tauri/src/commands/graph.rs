@@ -155,3 +155,62 @@ pub async fn build_graph_data(
 	
 	Ok(GraphData { nodes, edges })
 }
+
+#[cfg(test)]
+mod tests {
+    use tempfile::tempdir;
+
+    use super::{build_graph_data, path_to_label};
+    use crate::db::Database;
+    use crate::models::AppState;
+    use crate::search::SearchIndex;
+
+    #[test]
+    fn strips_vault_prefix_and_markdown_extension_for_labels() {
+        assert_eq!(
+            path_to_label("Vault/Projects/Plan.md", "Vault"),
+            "Plan"
+        );
+        assert_eq!(path_to_label("Vault/Projects/Image.png", "Vault"), "Image.png");
+    }
+
+    #[tokio::test]
+    async fn builds_graph_data_with_existing_orphan_and_broken_nodes() {
+        let dir = tempdir().unwrap();
+        let db = Database::init(dir.path().join("graph.sqlite").to_str().unwrap())
+            .await
+            .unwrap();
+        let alpha = dir.path().join("Vault/Alpha.md");
+        let beta = dir.path().join("Vault/Beta.md");
+        let orphan = dir.path().join("Vault/Orphan.md");
+        let missing = dir.path().join("Vault/Missing.md");
+        db.index_file(
+            &alpha.to_string_lossy(),
+            1,
+            10,
+            Some(r#"{"tags":["project"]}"#),
+            None,
+            &[
+                beta.to_string_lossy().to_string(),
+                missing.to_string_lossy().to_string(),
+            ],
+        )
+        .await
+        .unwrap();
+        db.index_file(&beta.to_string_lossy(), 1, 10, None, None, &[]).await.unwrap();
+        db.index_file(&orphan.to_string_lossy(), 1, 10, None, None, &[]).await.unwrap();
+
+        let search_dir = tempdir().unwrap();
+        let app_state = AppState::new(db, SearchIndex::open_or_create(&search_dir.path().join("search-index")).unwrap());
+        let normalized_alpha = crate::utils::normalize_path(&alpha.to_string_lossy());
+        let normalized_orphan = crate::utils::normalize_path(&orphan.to_string_lossy());
+        let normalized_missing = crate::utils::normalize_path(&missing.to_string_lossy());
+
+        let graph = build_graph_data(&app_state, dir.path().join("Vault").to_str().unwrap()).await.unwrap();
+
+        assert!(graph.nodes.iter().any(|node| node.id == normalized_alpha && node.exists));
+        assert!(graph.nodes.iter().any(|node| node.id == normalized_orphan && node.orphan));
+        assert!(graph.nodes.iter().any(|node| node.id == normalized_missing && !node.exists));
+        assert!(graph.edges.iter().any(|edge| edge.target == normalized_missing && edge.broken));
+    }
+}

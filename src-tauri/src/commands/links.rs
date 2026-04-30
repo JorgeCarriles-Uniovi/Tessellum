@@ -121,6 +121,31 @@ pub async fn resolve_wikilink(
             .and_then(|asset_index| asset_index.resolve(&vault_path, &target))
     };
 
-    Ok(resolved_asset
+	Ok(resolved_asset
         .map(|p| crate::utils::normalize_path(&p.to_string_lossy())))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::extract_wikilinks;
+
+    #[test]
+    fn extracts_plain_and_aliased_wikilinks() {
+        let links = extract_wikilinks("See [[Alpha]] and [[Beta|Shown Beta]] today.");
+
+        assert_eq!(links.len(), 2);
+        assert_eq!(links[0].target, "Alpha");
+        assert_eq!(links[0].alias, None);
+        assert_eq!(links[1].target, "Beta");
+        assert_eq!(links[1].alias.as_deref(), Some("Shown Beta"));
+    }
+
+    #[test]
+    fn ignores_escaped_wikilinks_and_trims_inner_whitespace() {
+        let links = extract_wikilinks(r"\[[Ignored]] [[  Folder/Note  |  Alias  ]]");
+
+        assert_eq!(links.len(), 1);
+        assert_eq!(links[0].target, "Folder/Note");
+        assert_eq!(links[0].alias.as_deref(), Some("Alias"));
+    }
 }

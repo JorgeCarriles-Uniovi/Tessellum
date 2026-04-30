@@ -264,3 +264,75 @@ fn tokenize_query(query: &str) -> Vec<String> {
 	}
 	terms
 }
+
+#[cfg(test)]
+mod tests {
+	use tempfile::tempdir;
+
+	use super::{tokenize_query, SearchDoc, SearchIndex};
+
+	fn make_doc(path: &str, title: &str, body: &str, tags: &[&str]) -> SearchDoc {
+		SearchDoc {
+			path: path.to_string(),
+			title: title.to_string(),
+			body: body.to_string(),
+			tags: tags.iter().map(|tag| tag.to_string()).collect(),
+		}
+	}
+
+	#[test]
+	fn tokenizes_query_into_search_terms() {
+		let terms = tokenize_query("Alpha-beta, #tag and note_2");
+
+		assert_eq!(terms, vec!["alpha-beta", "tag", "and", "note_2"]);
+	}
+
+	#[test]
+	fn indexes_search_documents_and_filters_by_text_and_tags() {
+		let dir = tempdir().unwrap();
+		let index = SearchIndex::open_or_create(&dir.path().join("search-index")).unwrap();
+		index
+			.index_batch(
+				&[
+					make_doc("Vault/Alpha.md", "Alpha Note", "project kickoff body", &["project", "work"]),
+					make_doc("Vault/Beta.md", "Beta", "meeting notes", &["meeting"]),
+				],
+				&[],
+			)
+			.unwrap();
+
+		let text_results = index.search("alpha", &[], false, 10, 0).unwrap();
+		assert_eq!(text_results.len(), 1);
+		assert_eq!(text_results[0].0.path, "Vault/Alpha.md");
+
+		let tag_results = index
+			.search("", &[String::from("meeting")], false, 10, 0)
+			.unwrap();
+		assert_eq!(tag_results.len(), 1);
+		assert_eq!(tag_results[0].0.path, "Vault/Beta.md");
+
+		let no_results = index
+			.search("unknown", &[String::from("project")], true, 10, 0)
+			.unwrap();
+		assert!(no_results.is_empty());
+	}
+
+	#[test]
+	fn clears_and_deletes_indexed_paths() {
+		let dir = tempdir().unwrap();
+		let index = SearchIndex::open_or_create(&dir.path().join("search-index")).unwrap();
+		index
+			.index_batch(&[make_doc("Vault/Alpha.md", "Alpha", "body", &[])], &[])
+			.unwrap();
+		assert_eq!(index.indexed_paths().unwrap(), vec!["Vault/Alpha.md"]);
+
+		index.delete_path("Vault/Alpha.md").unwrap();
+		assert!(index.indexed_paths().unwrap().is_empty());
+
+		index
+			.index_batch(&[make_doc("Vault/Beta.md", "Beta", "body", &[])], &[])
+			.unwrap();
+		index.clear().unwrap();
+		assert!(index.indexed_paths().unwrap().is_empty());
+	}
+}

@@ -81,3 +81,62 @@ pub async fn run_sync_vault(
         }),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use tempfile::tempdir;
+
+    use super::{run_sync_vault, SyncResult};
+    use crate::db::Database;
+    use crate::grafeo_projection::ManagedGrafeoConnection;
+    use crate::models::{AppState, AssetIndex, FileIndex};
+    use crate::search::SearchIndex;
+    use crate::test_support::TestVault;
+
+    #[test]
+    fn sync_result_maps_index_stats_fields() {
+        let result = SyncResult::from(crate::indexer::IndexStats {
+            files_indexed: 2,
+            files_deleted: 1,
+            files_skipped: 3,
+            duration_ms: 42,
+        });
+
+        assert!(result.success);
+        assert_eq!(result.files_indexed, 2);
+        assert_eq!(result.files_deleted, 1);
+        assert_eq!(result.files_skipped, 3);
+        assert_eq!(result.duration_ms, 42);
+        assert_eq!(result.error, None);
+    }
+
+    #[tokio::test]
+    async fn run_sync_vault_returns_success_and_invalidates_cached_indexes() {
+        let vault = TestVault::new()
+            .with_markdown("Inbox/Alpha.md", "# Alpha")
+            .with_markdown("Inbox/Beta.md", "# Beta")
+            .build();
+        let db_dir = tempdir().unwrap();
+        let db = Database::init(db_dir.path().join("indexer-command.sqlite").to_str().unwrap())
+            .await
+            .unwrap();
+        let search_dir = tempdir().unwrap();
+        let state = AppState::new(
+            db,
+            SearchIndex::open_or_create(&search_dir.path().join("search-index")).unwrap(),
+        );
+        let grafeo_state = ManagedGrafeoConnection::default();
+
+        *state.file_index.lock().await = Some(FileIndex::build(vault.path().to_str().unwrap()).unwrap());
+        *state.asset_index.lock().await = Some(AssetIndex::build(vault.path().to_str().unwrap()).unwrap());
+
+        let result = run_sync_vault(&state, &grafeo_state, vault.path().to_str().unwrap())
+            .await
+            .unwrap();
+
+        assert!(result.success);
+        assert_eq!(result.files_indexed, 2);
+        assert!(state.file_index.lock().await.is_none());
+        assert!(state.asset_index.lock().await.is_none());
+    }
+}
