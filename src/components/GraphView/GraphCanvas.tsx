@@ -44,8 +44,7 @@ export function GraphCanvas({
 
     const getLayoutOptions = () => ({
         name: 'cose',
-        animate: true,
-        animationDuration: 500,
+        animate: false,
         randomize: true,
         nodeRepulsion: () => (mode === 'global' ? 6000 : 4000),
         idealEdgeLength: () => (mode === 'global' ? 70 : 60),
@@ -78,7 +77,7 @@ export function GraphCanvas({
 
             if (orphans.length === 0) {
                 if (focusNodeIdRef.current) {
-                    cy.animate({ fit: { eles: cy.elements(), padding: 60 }, duration: 300 } as any);
+                    cy.fit(cy.elements(), 60);
                 }
                 return;
             }
@@ -100,21 +99,14 @@ export function GraphCanvas({
 
             orphans.forEach((node: cytoscape.NodeSingular, i: number) => {
                 const angle = (2 * Math.PI * i) / orphans.length - Math.PI / 2;
-                node.animate({
-                    position: {
-                        x: cx + radius * Math.cos(angle),
-                        y: cy2 + radius * Math.sin(angle),
-                    },
-                    duration: 400,
-                    easing: 'ease-out-cubic' as any,
+                node.position({
+                    x: cx + radius * Math.cos(angle),
+                    y: cy2 + radius * Math.sin(angle),
                 });
             });
 
             separateOverlappingNodes(cy.nodes().not('.filtered-out'));
-
-            setTimeout(() => {
-                cy.animate({ fit: { eles: cy.elements(), padding: 60 }, duration: 300 } as any);
-            }, 420);
+            cy.fit(cy.elements(), 60);
         };
 
         cy.on('layoutstop', handleLayoutStop);
@@ -271,8 +263,7 @@ export function GraphCanvas({
                 fit: false,
                 avoidOverlap: true,
                 spacingFactor: 1.2,
-                animate: true,
-                animationDuration: 300,
+                animate: false,
             } as any).run();
         }
 
@@ -323,6 +314,7 @@ export function GraphCanvas({
 
     return (
         <div
+            data-testid="graph-canvas"
             ref={containerRef}
             style={{
                 width: '100%',

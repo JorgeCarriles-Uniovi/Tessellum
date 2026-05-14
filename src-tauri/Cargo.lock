@@ -5542,7 +5542,6 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "grafeo",
- "hex",
  "log",
  "notify",
  "regex",
@@ -5562,7 +5561,6 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.18",
  "tokio",
- "uuid",
  "walkdir",
  "windows-sys 0.59.0",
 ]
