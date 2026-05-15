@@ -98,8 +98,13 @@ const core = {
         newNoteFromTemplate: "New Note From Template",
         newFolder: "New Folder",
         pasteFiles: "Paste Files",
+        exportToPdf: "Export to PDF",
         delete: "Delete",
         copy: "Copy",
+    },
+    pdfExport: {
+        success: "PDF exported",
+        error: "Failed to export PDF",
     },
     clipboardPaste: {
         success: "Imported {{count}} item(s) into {{destinationDir}}",

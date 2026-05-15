@@ -5,6 +5,7 @@ pub mod graph;
 pub mod indexer;
 pub mod links;
 pub mod notes;
+pub mod pdf_export;
 pub mod templates;
 pub mod vault;
 pub mod watcher;
@@ -22,6 +23,7 @@ pub use notes::{
 	get_file_tags, list_trash_items, read_file, restore_trash_item, search_notes, trash_item,
 	trash_items, write_file, delete_trash_item_permanently,
 };
+pub use pdf_export::export_markdown_pdf;
 pub use templates::{create_note_from_template, list_templates};
 pub use vault::{
 	ensure_feature_demo_in_empty_vault, list_files, list_files_tree, move_items, rename_file,

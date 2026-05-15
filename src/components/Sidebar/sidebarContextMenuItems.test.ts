@@ -7,6 +7,7 @@ const labels = {
     newNoteFromTemplate: "New from template",
     newFolder: "New folder",
     pasteFiles: "Paste files",
+    exportToPdf: "Export to PDF",
     copy: "Copy",
     delete: "Delete",
 };
@@ -22,6 +23,7 @@ describe("sidebarContextMenuItems", () => {
             onNewFolder: vi.fn(),
             onPasteFiles: vi.fn(),
             onCopy: vi.fn(),
+            canExportToPdf: false,
             labels,
         });
 
@@ -47,10 +49,46 @@ describe("sidebarContextMenuItems", () => {
             onRename: vi.fn(),
             onDelete: vi.fn(),
             onCopy: vi.fn(),
+            canExportToPdf: false,
             labels,
         });
 
         expect(items.map((item) => item.label)).toEqual([
+            "Rename",
+            "Copy",
+            "Delete",
+        ]);
+    });
+
+    test("adds export to pdf for markdown notes only", () => {
+        const exportItems = createSidebarContextMenuItems({
+            isDirectory: false,
+            onRename: vi.fn(),
+            onDelete: vi.fn(),
+            onCopy: vi.fn(),
+            onExportToPdf: vi.fn(),
+            canExportToPdf: true,
+            labels,
+        });
+
+        expect(exportItems.map((item) => item.label)).toEqual([
+            "Rename",
+            "Export to PDF",
+            "Copy",
+            "Delete",
+        ]);
+
+        const nonMarkdownItems = createSidebarContextMenuItems({
+            isDirectory: false,
+            onRename: vi.fn(),
+            onDelete: vi.fn(),
+            onCopy: vi.fn(),
+            onExportToPdf: vi.fn(),
+            canExportToPdf: false,
+            labels,
+        });
+
+        expect(nonMarkdownItems.map((item) => item.label)).toEqual([
             "Rename",
             "Copy",
             "Delete",

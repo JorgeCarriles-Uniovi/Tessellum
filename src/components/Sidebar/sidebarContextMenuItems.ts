@@ -1,6 +1,7 @@
 import {
     Clipboard,
     Edit3,
+    FileOutput,
     FileText,
     FolderPlus,
     Sparkles,
@@ -23,6 +24,7 @@ interface SidebarContextMenuLabels {
     newNoteFromTemplate: string;
     newFolder: string;
     pasteFiles: string;
+    exportToPdf: string;
     copy: string;
     delete: string;
 }
@@ -35,7 +37,9 @@ interface CreateSidebarContextMenuItemsOptions {
     onNewNoteFromTemplate?: () => void;
     onNewFolder?: () => void;
     onPasteFiles?: () => void;
+    onExportToPdf?: () => void;
     onCopy?: () => void;
+    canExportToPdf?: boolean;
     labels: SidebarContextMenuLabels;
 }
 
@@ -47,7 +51,9 @@ export function createSidebarContextMenuItems({
                                                   onNewNoteFromTemplate,
                                                   onNewFolder,
                                                   onPasteFiles,
+                                                  onExportToPdf,
                                                   onCopy,
+                                                  canExportToPdf = false,
                                                   labels,
                                               }: CreateSidebarContextMenuItemsOptions): SidebarContextMenuItem[] {
     const items: SidebarContextMenuItem[] = [
@@ -84,6 +90,14 @@ export function createSidebarContextMenuItems({
             icon: Clipboard,
             label: labels.pasteFiles,
             onClick: onPasteFiles,
+        });
+    }
+
+    if (!isDirectory && canExportToPdf && onExportToPdf) {
+        items.push({
+            icon: FileOutput,
+            label: labels.exportToPdf,
+            onClick: onExportToPdf,
         });
     }
 
