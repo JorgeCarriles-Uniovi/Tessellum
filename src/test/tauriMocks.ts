@@ -17,6 +17,7 @@ const tauriState = vi.hoisted(() => {
     const mkdirMock = vi.fn(async () => undefined);
     const watchMock = vi.fn(async () => vi.fn(async () => undefined));
     const openDialogMock = vi.fn(async () => null);
+    const saveDialogMock = vi.fn(async () => null);
 
     const currentWindow = {
         minimize: vi.fn(async () => undefined),
@@ -53,6 +54,7 @@ const tauriState = vi.hoisted(() => {
         mkdirMock,
         watchMock,
         openDialogMock,
+        saveDialogMock,
         currentWindow,
         getCurrentWindowMock,
         LogicalSize,
@@ -72,6 +74,7 @@ export const readFileMock = tauriState.readFileMock;
 export const mkdirMock = tauriState.mkdirMock;
 export const watchMock = tauriState.watchMock;
 export const openDialogMock = tauriState.openDialogMock;
+export const saveDialogMock = tauriState.saveDialogMock;
 export const getCurrentWindowMock = tauriState.getCurrentWindowMock;
 export const mockedCurrentWindow = tauriState.currentWindow;
 
@@ -101,6 +104,7 @@ vi.mock("@tauri-apps/plugin-fs", () => ({
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({
     open: tauriState.openDialogMock,
+    save: tauriState.saveDialogMock,
 }));
 
 vi.mock("@tauri-apps/api/window", () => ({
@@ -150,6 +154,9 @@ export function resetTauriMocks(): void {
 
     openDialogMock.mockReset();
     openDialogMock.mockResolvedValue(null);
+
+    saveDialogMock.mockReset();
+    saveDialogMock.mockResolvedValue(null);
 
     mockedCurrentWindow.minimize.mockReset();
     mockedCurrentWindow.maximize.mockReset();

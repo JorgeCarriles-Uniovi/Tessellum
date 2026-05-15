@@ -178,6 +178,7 @@ pub fn run() {
             commands::notes::get_all_tags,
             commands::notes::get_file_tags,
             commands::notes::get_all_property_keys,
+            commands::pdf_export::export_markdown_pdf,
             commands::indexer::sync_vault,
             commands::graph::get_graph_data,
             commands::graph::execute_graph_query,

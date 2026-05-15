@@ -14,11 +14,13 @@ interface SidebarContextMenuProps {
     onNewNoteFromTemplate?: () => void;
     onNewFolder?: () => void;
     onPasteFiles?: () => void;
+    onExportToPdf?: () => void;
+    canExportToPdf?: boolean;
     onCopy?: () => void;
 }
 
 export function SidebarContextMenu({
-                                       x, y, target, onClose, onRename, onDelete, onNewNote, onNewNoteFromTemplate, onNewFolder, onPasteFiles, onCopy
+                                       x, y, target, onClose, onRename, onDelete, onNewNote, onNewNoteFromTemplate, onNewFolder, onPasteFiles, onExportToPdf, canExportToPdf, onCopy
                                    }: SidebarContextMenuProps) {
     const { t } = useAppTranslation("core");
     const menuRef = useRef<HTMLDivElement>(null);
@@ -30,13 +32,16 @@ export function SidebarContextMenu({
         onNewNoteFromTemplate,
         onNewFolder,
         onPasteFiles,
+        onExportToPdf,
         onCopy,
+        canExportToPdf,
         labels: {
             rename: t("contextMenu.rename"),
             newNote: t("contextMenu.newNote"),
             newNoteFromTemplate: t("contextMenu.newNoteFromTemplate"),
             newFolder: t("contextMenu.newFolder"),
             pasteFiles: t("contextMenu.pasteFiles"),
+            exportToPdf: t("contextMenu.exportToPdf"),
             delete: t("contextMenu.delete"),
             copy: t("contextMenu.copy"),
         },

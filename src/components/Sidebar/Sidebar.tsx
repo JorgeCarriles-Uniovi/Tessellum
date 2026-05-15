@@ -19,6 +19,8 @@ import { SearchPanel } from "../Search/SearchPanel";
 import { TrashModal } from "../TrashModal/TrashModal";
 import { useAppTranslation } from "../../i18n/react.tsx";
 import { useClipboardFilePaste } from "../../features/clipboard/useClipboardFilePaste";
+import { canExportNoteToPdf } from "../../features/pdfExport/pdfExportDomain";
+import { useMarkdownPdfExport } from "../../features/pdfExport/useMarkdownPdfExport";
 
 const LEFT_SIDEBAR_WIDTH_KEY = "tessellum:left-sidebar-width";
 const LEFT_SIDEBAR_MIN = 220;
@@ -241,6 +243,7 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
     const [hoveredActionId, setHoveredActionId] = useState<string | null>(null);
     const [isTrashModalOpen, setIsTrashModalOpen] = useState(false);
     const { t } = useAppTranslation("core");
+    const markdownPdfExport = useMarkdownPdfExport();
     const clipboardFilePaste = useClipboardFilePaste({
         vaultPath,
         refreshVault: () => {
@@ -505,6 +508,10 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
                     }}
                     onNewFolder={handleContextNewFolder}
                     onPasteFiles={handleContextPasteFiles}
+                    onExportToPdf={() => {
+                        void markdownPdfExport.exportNote(menuState.target);
+                    }}
+                    canExportToPdf={canExportNoteToPdf(menuState.target)}
                     onCopy={handleContextCopy}
                 />
             )}
