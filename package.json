@@ -6,11 +6,12 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "build:ci": "vite build",
     "preview": "vite preview",
     "tauri": "tauri",
     "test": "vitest run",
     "test:watch": "vitest",
-    "e2e": "node cypress/run.cjs",
+    "e2e": "start-server-and-test e2e:dev http://localhost:3000 e2e:run",
     "e2e:dev": "cross-env VITE_E2E=1 vite",
     "e2e:run": "cross-env VITE_E2E=1 cypress run",
     "e2e:open": "cross-env VITE_E2E=1 cypress open"
