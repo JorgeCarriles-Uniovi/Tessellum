@@ -1,0 +1,12 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "types": ["cypress"],
+    "isolatedModules": false
+  },
+  "include": [
+    "./**/*.ts",
+    "./support/index.d.ts"
+  ]
+}
+

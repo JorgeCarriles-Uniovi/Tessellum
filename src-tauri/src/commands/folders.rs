@@ -42,3 +42,56 @@ pub async fn create_folder(vault_path: String, folder_name: String) -> Result<St
     
     Ok(folder_path.to_string_lossy().to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+
+    use tempfile::tempdir;
+
+    use super::create_folder;
+
+    #[tokio::test]
+    async fn creates_a_folder_inside_the_vault() {
+        let vault = tempdir().unwrap();
+
+        let created = create_folder(
+            vault.path().to_str().unwrap().to_string(),
+            "Projects".to_string(),
+        )
+        .await
+        .unwrap();
+
+        assert!(vault.path().join("Projects").exists());
+        assert_eq!(created, vault.path().join("Projects").to_string_lossy());
+    }
+
+    #[tokio::test]
+    async fn rejects_empty_names_after_sanitization() {
+        let vault = tempdir().unwrap();
+
+        let err = create_folder(
+            vault.path().to_str().unwrap().to_string(),
+            "...   ".to_string(),
+        )
+        .await
+        .unwrap_err();
+
+        assert!(err.contains("Name cannot be empty"));
+    }
+
+    #[tokio::test]
+    async fn rejects_duplicate_folder_creation() {
+        let vault = tempdir().unwrap();
+        fs::create_dir_all(vault.path().join("Projects")).unwrap();
+
+        let err = create_folder(
+            vault.path().to_str().unwrap().to_string(),
+            "Projects".to_string(),
+        )
+        .await
+        .unwrap_err();
+
+        assert_eq!(err, "Folder already exists");
+    }
+}

@@ -266,3 +266,21 @@ fn grafeo_value_to_json(value: &grafeo::Value) -> Value {
         _ => Value::String(format!("{:?}", value)),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{execute_query, title_from_note_id};
+
+    #[test]
+    fn derives_titles_from_note_paths() {
+        assert_eq!(title_from_note_id("Vault/Projects/Plan.md"), "Plan");
+        assert_eq!(title_from_note_id("Loose Note.md"), "Loose Note");
+    }
+
+    #[test]
+    fn execute_query_reports_missing_initialization() {
+        let err = execute_query("RETURN 1").unwrap_err();
+
+        assert!(err.contains("not initialized"));
+    }
+}

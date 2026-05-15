@@ -3,7 +3,15 @@ import { useVaultStore } from '../../../stores/vaultStore.ts';
 import { useSelectionStore } from '../../../stores/selectionStore.ts';
 import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
-import { FileMetadata, TreeNode } from "../../../types.ts";
+import { FileMetadata } from "../../../types.ts";
+import {
+    findPreviousOpenNote,
+    getDeleteErrorMessage,
+    normalizeDeleteTargets,
+    pruneTreeByTargets,
+    shouldRemovePath,
+    summarizeFailedTargets,
+} from "./deleteFileLogic.ts";
 
 interface TrashItemsResult {
     deleted_paths: string[];
@@ -11,92 +19,6 @@ interface TrashItemsResult {
         item_path: string;
         message: string;
     }>;
-}
-
-function isDescendantPath(path: string, parentPath: string): boolean {
-    const separator = parentPath.includes('\\') ? '\\' : '/';
-    const childPrefix = parentPath + separator;
-    return path.startsWith(childPrefix);
-}
-
-function normalizeDeleteTargets(candidates: FileMetadata[]): FileMetadata[] {
-    const uniqueByPath = new Map<string, FileMetadata>();
-    candidates.forEach((candidate) => {
-        uniqueByPath.set(candidate.path, candidate);
-    });
-
-    const uniqueTargets = Array.from(uniqueByPath.values());
-
-    // If a folder is selected, there is no need to delete its descendants explicitly.
-    return uniqueTargets.filter((target) => !uniqueTargets.some((other) =>
-        other.path !== target.path &&
-        other.is_dir &&
-        isDescendantPath(target.path, other.path)
-    ));
-}
-
-function shouldRemovePath(path: string, targets: FileMetadata[]): boolean {
-    return targets.some((target) =>
-        path === target.path || (target.is_dir && isDescendantPath(path, target.path))
-    );
-}
-
-function findPreviousOpenNote(
-    activeNotePath: string,
-    openTabPaths: string[],
-    files: FileMetadata[],
-    targets: FileMetadata[],
-): FileMetadata | null {
-    const activeIndex = openTabPaths.indexOf(activeNotePath);
-    if (activeIndex <= 0) {
-        return null;
-    }
-
-    for (let index = activeIndex - 1; index >= 0; index -= 1) {
-        const candidatePath = openTabPaths[index];
-        if (shouldRemovePath(candidatePath, targets)) {
-            continue;
-        }
-
-        const candidate = files.find((file) => file.path === candidatePath);
-        if (candidate) {
-            return candidate;
-        }
-    }
-
-    return null;
-}
-
-function pruneTreeByTargets(nodes: TreeNode[], targets: FileMetadata[]): TreeNode[] {
-    return nodes
-        .filter((node) => !shouldRemovePath(node.id, targets))
-        .map((node) => ({
-            ...node,
-            children: pruneTreeByTargets(node.children ?? [], targets),
-        }));
-}
-
-function getDeleteErrorMessage(error: unknown): string {
-    if (typeof error === "string" && error.trim()) {
-        return error;
-    }
-
-    if (error && typeof error === "object") {
-        const message = Reflect.get(error, "message");
-        if (typeof message === "string" && message.trim()) {
-            return message;
-        }
-    }
-
-    return "Failed to trash item";
-}
-
-function summarizeFailedTargets(failedTargets: FileMetadata[]): string {
-    const previewNames = failedTargets.slice(0, 3).map((target) => target.filename);
-    const remainingCount = failedTargets.length - previewNames.length;
-    const preview = previewNames.join(", ");
-
-    return remainingCount > 0 ? `${preview} and ${remainingCount} more` : preview;
 }
 
 export function useDeleteFile() {

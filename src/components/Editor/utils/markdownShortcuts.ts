@@ -156,7 +156,7 @@ export function applyListFormatting(view: EditorView | null | undefined, listTyp
         if (type === "todo") return /^- \[(?: |x)\]\s/i;
         return /^$/;
     };
-    const anyListRegex = /^([-*]\s|\d+\.\s|- \[(?: |x)\]\s)/i;
+    const anyListRegex = /^(- \[(?: |x)\]\s|\d+\.\s|[-*]\s)/i;
     const targetRegex = getPrefixRegex(listType);
 
     for (let i = fromLine.number; i <= toLine.number; i++) {

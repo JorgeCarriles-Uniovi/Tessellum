@@ -294,3 +294,75 @@ impl VaultIndexer {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use tempfile::tempdir;
+    use tokio::sync::Mutex;
+
+    use super::VaultIndexer;
+    use crate::db::Database;
+    use crate::search::SearchIndex;
+    use crate::test_support::TestVault;
+
+    #[test]
+    fn collects_filesystem_files_skipping_hidden_entries() {
+        let vault = TestVault::new()
+            .with_markdown("Inbox/Note.md", "# Note")
+            .with_markdown(".trash/Hidden.md", "# Hidden")
+            .build();
+        std::fs::write(vault.path().join("image.png"), "png").unwrap();
+        let note_path = crate::utils::normalize_path(&vault.path().join("Inbox/Note.md").to_string_lossy());
+        let image_path = crate::utils::normalize_path(&vault.path().join("image.png").to_string_lossy());
+        let hidden_path = crate::utils::normalize_path(&vault.path().join(".trash/Hidden.md").to_string_lossy());
+
+        let files = VaultIndexer::collect_filesystem_files(vault.path().to_str().unwrap()).unwrap();
+
+        assert!(files.contains_key(&note_path));
+        assert!(files.contains_key(&image_path));
+        assert!(!files.contains_key(&hidden_path));
+        assert_eq!(files[&note_path].1, true);
+        assert_eq!(files[&image_path].1, false);
+    }
+
+    #[tokio::test]
+    async fn full_sync_indexes_new_files_and_removes_deleted_entries() {
+        let vault = TestVault::new()
+            .with_markdown("Inbox/Alpha.md", "# Alpha\n[[Beta]]")
+            .with_markdown("Inbox/Beta.md", "# Beta")
+            .build();
+        let db_dir = tempdir().unwrap();
+        let db = Database::init(db_dir.path().join("indexer.sqlite").to_str().unwrap())
+            .await
+            .unwrap();
+        let search_dir = tempdir().unwrap();
+        let search_index = Arc::new(Mutex::new(SearchIndex::open_or_create(&search_dir.path().join("search-index")).unwrap()));
+
+        let first = VaultIndexer::full_sync(
+            &db,
+            search_index.clone(),
+            vault.path().to_str().unwrap(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(first.files_indexed, 2);
+        assert_eq!(first.files_deleted, 0);
+
+        std::fs::remove_file(vault.path().join("Inbox/Beta.md")).unwrap();
+
+        let second = VaultIndexer::full_sync(
+            &db,
+            search_index,
+            vault.path().to_str().unwrap(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(second.files_deleted, 1);
+
+        let indexed = db.get_all_indexed_files().await.unwrap();
+        assert_eq!(indexed.len(), 1);
+        assert_eq!(indexed[0].0, crate::utils::normalize_path(&vault.path().join("Inbox/Alpha.md").to_string_lossy()));
+    }
+}

@@ -818,3 +818,120 @@ impl Database {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use tempfile::tempdir;
+
+    use super::Database;
+
+    async fn open_test_db() -> Database {
+        let dir = tempdir().unwrap();
+        Database::init(dir.path().join("test.sqlite").to_str().unwrap())
+            .await
+            .unwrap()
+    }
+
+    #[tokio::test]
+    async fn indexes_files_deduplicates_links_and_returns_backlinks() {
+        let db = open_test_db().await;
+        db.index_file(
+            "Vault/Alpha.md",
+            10,
+            100,
+            None,
+            None,
+            &[
+                "Vault/Beta.md".to_string(),
+                "Vault/Beta.md".to_string(),
+                "Vault/Gamma.md".to_string(),
+            ],
+        )
+        .await
+        .unwrap();
+        db.index_file("Vault/Beta.md", 20, 120, None, None, &[]).await.unwrap();
+
+        let outgoing = db.get_outgoing_links("Vault/Alpha.md").await.unwrap();
+        assert_eq!(outgoing, vec!["Vault/Beta.md", "Vault/Gamma.md"]);
+
+        let backlinks = db.get_backlinks("Vault/Beta.md").await.unwrap();
+        assert_eq!(backlinks, vec!["Vault/Alpha.md"]);
+    }
+
+    #[tokio::test]
+    async fn updates_file_paths_for_folder_renames() {
+        let db = open_test_db().await;
+        db.index_file(
+            "Vault/Folder/Alpha.md",
+            10,
+            100,
+            None,
+            None,
+            &["Vault/Folder/Beta.md".to_string()],
+        )
+        .await
+        .unwrap();
+        db.index_file("Vault/Folder/Beta.md", 20, 120, None, None, &[]).await.unwrap();
+
+        db.update_file_path("Vault/Folder", "Vault/Renamed").await.unwrap();
+
+        let outgoing = db.get_outgoing_links("Vault/Renamed/Alpha.md").await.unwrap();
+        assert_eq!(outgoing, vec!["Vault/Renamed/Beta.md"]);
+        let backlinks = db.get_backlinks("Vault/Renamed/Beta.md").await.unwrap();
+        assert_eq!(backlinks, vec!["Vault/Renamed/Alpha.md"]);
+    }
+
+    #[tokio::test]
+    async fn searches_tags_and_collects_frontmatter_metadata() {
+        let db = open_test_db().await;
+        db.index_file(
+            "Vault/Alpha.md",
+            10,
+            100,
+            Some(r#"{"tags":["project","alpha"],"status":"open"}"#),
+            Some(r#"["inline"]"#),
+            &[],
+        )
+        .await
+        .unwrap();
+        db.index_file(
+            "Vault/Beta.md",
+            20,
+            120,
+            Some(r#"{"tags":"project, team","owner":"jorge"}"#),
+            None,
+            &[],
+        )
+        .await
+        .unwrap();
+        db.set_note_tags(
+            "Vault/Alpha.md",
+            &["project".to_string(), "alpha".to_string()],
+        )
+        .await
+        .unwrap();
+        db.set_note_tags("Vault/Beta.md", &["project".to_string(), "team".to_string()])
+            .await
+            .unwrap();
+
+        let (all_matches, total_any) = db
+            .search_notes_by_tags(&["project".to_string()], false, 10, 0)
+            .await
+            .unwrap();
+        assert_eq!(total_any, 2);
+        assert_eq!(all_matches, vec!["Vault/Alpha.md", "Vault/Beta.md"]);
+
+        let (match_all, total_all) = db
+            .search_notes_by_tags(&["project".to_string(), "team".to_string()], true, 10, 0)
+            .await
+            .unwrap();
+        assert_eq!(total_all, 1);
+        assert_eq!(match_all, vec!["Vault/Beta.md"]);
+
+        let tags = db.get_all_tags().await.unwrap();
+        assert_eq!(tags, vec!["alpha", "inline", "project", "team"]);
+
+        let keys = db.get_all_property_keys().await.unwrap();
+        assert_eq!(keys, vec!["owner", "status", "tags"]);
+    }
+}
+
