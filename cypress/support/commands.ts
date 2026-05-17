@@ -10,28 +10,23 @@ const DEFAULT_VAULT_PATH = "mock://vault";
 Cypress.Commands.add("openVault", (files: VaultSeed, options?: OpenVaultOptions) => {
     const vaultPath = options?.vaultPath ?? DEFAULT_VAULT_PATH;
     const clearStorage = options?.clearStorage ?? true;
-    const seed = { vaultPath, files };
 
     cy.visit("/", {
         onBeforeLoad(win) {
             if (clearStorage) {
                 win.localStorage.clear();
             }
-            win.localStorage.setItem("vaultPath", vaultPath);
             win.__E2E__ = {
                 ...(win.__E2E__ ?? {}),
-                seed,
+                seed: { vaultPath, files },
                 dialogSelection: vaultPath,
             };
         },
     });
 
-    cy.window({ timeout: 20000 }).should((win) => {
-        expect(win.__E2E__?.seedVault).to.be.a("function");
-    }).then((win) => {
-        win.__E2E__?.seedVault?.(seed);
-    });
-
+    cy.get('button[title="Open Vault"], button[title="Open / Switch Vault"], button[title="Switch Vault"], button:contains("Open Vault")', { timeout: 20000 })
+        .first()
+        .click();
     cy.get('[role="treeitem"]', { timeout: 20000 }).should("have.length.greaterThan", 0);
 });
 

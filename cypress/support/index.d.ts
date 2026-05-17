@@ -12,4 +12,3 @@ declare namespace Cypress {
         waitForEditorContains(text: string): Chainable<JQuery<HTMLElement>>;
     }
 }
-

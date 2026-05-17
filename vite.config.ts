@@ -1,12 +1,10 @@
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import path from "path";
-import { fileURLToPath } from "node:url";
 
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
 const isCypress = process.env.VITE_E2E === "1";
-const configDir = path.dirname(fileURLToPath(import.meta.url));
 
 // https://vitejs.dev/config/
 export default defineConfig(async () => ({
@@ -25,12 +23,12 @@ export default defineConfig(async () => ({
     resolve: isCypress
         ? {
             alias: {
-                "@tauri-apps/api/core": path.resolve(configDir, "src/e2e/tauri/core.ts"),
-                "@tauri-apps/api/event": path.resolve(configDir, "src/e2e/tauri/event.ts"),
-                "@tauri-apps/api/path": path.resolve(configDir, "src/e2e/tauri/path.ts"),
-                "@tauri-apps/api/window": path.resolve(configDir, "src/e2e/tauri/window.ts"),
-                "@tauri-apps/plugin-fs": path.resolve(configDir, "src/e2e/tauri/fs.ts"),
-                "@tauri-apps/plugin-dialog": path.resolve(configDir, "src/e2e/tauri/dialog.ts"),
+                "@tauri-apps/api/core": path.resolve(__dirname, "src/e2e/tauri/core.ts"),
+                "@tauri-apps/api/event": path.resolve(__dirname, "src/e2e/tauri/event.ts"),
+                "@tauri-apps/api/path": path.resolve(__dirname, "src/e2e/tauri/path.ts"),
+                "@tauri-apps/api/window": path.resolve(__dirname, "src/e2e/tauri/window.ts"),
+                "@tauri-apps/plugin-fs": path.resolve(__dirname, "src/e2e/tauri/fs.ts"),
+                "@tauri-apps/plugin-dialog": path.resolve(__dirname, "src/e2e/tauri/dialog.ts"),
             },
         }
         : undefined,

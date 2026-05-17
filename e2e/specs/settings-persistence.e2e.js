@@ -42,4 +42,3 @@ describe("E2E-006 settings persistence", () => {
     assert.equal(persistedValue, "false");
   });
 });
-

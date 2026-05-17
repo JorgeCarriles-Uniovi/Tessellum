@@ -50,4 +50,3 @@ describe("E2E-003 search and graph", () => {
     assert.ok(await graphCanvas.isExisting());
   });
 });
-
