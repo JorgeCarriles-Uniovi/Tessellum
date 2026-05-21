@@ -4,6 +4,7 @@ import remarkGfm from "remark-gfm";
 import type { Components } from "react-markdown";
 import type { ReactNode } from "react";
 import { Text as CodeMirrorText } from "@codemirror/state";
+import { invoke } from "@tauri-apps/api/core";
 import katex from "katex";
 import katexStyles from "katex/dist/katex.min.css?raw";
 import mermaid from "mermaid";
@@ -15,12 +16,18 @@ import { getCssVarForToken, THEME_TOKEN_KEYS } from "../../themes/themeTokens";
 import { buildPdfOutlineEntries, EXPORT_TYPOGRAPHY } from "./pdfExportDomain";
 import type { MarkdownPdfRenderInput, MarkdownPdfRenderResult } from "./types";
 import { parseOutline } from "../../utils/outline";
-import { parseMarkdownExportBlocks, type CalloutExportBlock } from "./markdownExportBlocks";
+import { parseMarkdownExportBlocks, type CalloutExportBlock, type MarkdownExportBlock } from "./markdownExportBlocks";
 import { getCalloutType } from "../../constants/callout-types";
 import { stringToColor } from "../../utils/graphUtils";
 
 const EXPORT_PAGE_WIDTH_PX = 794;
 const EXPORT_PAGE_MARGIN_X_PX = 80;
+const IMAGE_TOKEN_PREFIX = "[[PDF_EXPORT_IMAGE::";
+const IMAGE_TOKEN_RE = /\[\[PDF_EXPORT_IMAGE::([^[\]]+)\]\]/g;
+const PDF_PLACEHOLDER_TOKEN_PREFIX = "[[PDF_EXPORT_PDF::";
+const PDF_PLACEHOLDER_TOKEN_RE = /\[\[PDF_EXPORT_PDF::([^[\]]+)\]\]/g;
+const OBSIDIAN_EMBED_RE = /!\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g;
+const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "tif", "tiff", "avif"]);
 const EXPORT_LAYOUT_VAR_NAMES = [
     "--font-sans",
     "--font-mono",
@@ -38,7 +45,7 @@ interface RenderMarkdownPdfDocumentOptions {
 
 interface ExportDocumentProps {
     title: string;
-    body: string;
+    blocks: MarkdownExportBlock[];
     frontmatter: string;
     notePath: string;
 }
@@ -206,8 +213,12 @@ html, body {
     background: color-mix(in srgb, var(--color-bg-secondary) 55%, transparent);
 }
 .pdf-export-content img {
+    display: block;
     max-width: 100%;
+    margin: 1.5rem auto;
     border-radius: 12px;
+    break-inside: avoid;
+    page-break-inside: avoid;
 }
 .cm-frontmatter-widget {
     margin: 0 0 1.5rem;
@@ -401,6 +412,17 @@ html, body {
     font-size: 1.05em;
     line-height: normal;
 }
+.cm-pdf-embed-placeholder {
+    display: inline-flex;
+    margin: 0.25rem 0;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--color-border-light);
+    border-radius: 0.5rem;
+    background: color-mix(in srgb, var(--color-bg-secondary) 40%, transparent);
+    color: var(--color-text-secondary);
+    font-size: 0.95em;
+    font-weight: 500;
+}
 .pdf-codeblock,
 .cm-mermaid-block,
 .cm-table,
@@ -543,6 +565,201 @@ function createMarkdownComponents(notePath: string, lineOffset = 0): Components 
     };
 }
 
+function getExtension(path: string): string {
+    const cleanPath = path.split("?")[0].split("#")[0];
+    const dotIndex = cleanPath.lastIndexOf(".");
+    return dotIndex === -1 ? "" : cleanPath.slice(dotIndex + 1).toLowerCase();
+}
+
+function isImagePath(path: string): boolean {
+    return IMAGE_EXTENSIONS.has(getExtension(path));
+}
+
+function isPdfPath(path: string): boolean {
+    return getExtension(path) === "pdf";
+}
+
+function encodePdfPlaceholder(label: string): string {
+    return `${PDF_PLACEHOLDER_TOKEN_PREFIX}${encodeURIComponent(label)}]]`;
+}
+
+function encodeImageToken(path: string, altText: string): string {
+    return `${IMAGE_TOKEN_PREFIX}${encodeURIComponent(JSON.stringify({ path, altText }))}]]`;
+}
+
+function decodeImageToken(value: string): { path: string; altText: string } | null {
+    try {
+        const decoded = JSON.parse(decodeURIComponent(value)) as { path?: string; altText?: string };
+        return decoded.path ? { path: decoded.path, altText: decoded.altText ?? "" } : null;
+    } catch {
+        return null;
+    }
+}
+
+function decodePdfPlaceholder(value: string): string {
+    try {
+        return decodeURIComponent(value);
+    } catch {
+        return value;
+    }
+}
+
+function splitInlineCodeSegments(line: string): Array<{ text: string; isCode: boolean }> {
+    const segments: Array<{ text: string; isCode: boolean }> = [];
+    let cursor = 0;
+
+    while (cursor < line.length) {
+        const tickStart = line.indexOf("`", cursor);
+        if (tickStart === -1) {
+            segments.push({ text: line.slice(cursor), isCode: false });
+            break;
+        }
+
+        if (tickStart > cursor) {
+            segments.push({ text: line.slice(cursor, tickStart), isCode: false });
+        }
+
+        let delimiterEnd = tickStart;
+        while (delimiterEnd < line.length && line[delimiterEnd] === "`") {
+            delimiterEnd += 1;
+        }
+        const delimiter = line.slice(tickStart, delimiterEnd);
+        const contentEnd = line.indexOf(delimiter, delimiterEnd);
+
+        if (contentEnd === -1) {
+            segments.push({ text: line.slice(tickStart), isCode: false });
+            break;
+        }
+
+        segments.push({
+            text: line.slice(tickStart, contentEnd + delimiter.length),
+            isCode: true,
+        });
+        cursor = contentEnd + delimiter.length;
+    }
+
+    return segments;
+}
+
+async function replaceEmbedsInSegment(
+    segment: string,
+    notePath: string,
+    vaultPath?: string | null,
+): Promise<string> {
+    if (!segment.includes("![[")) {
+        return segment;
+    }
+
+    let result = "";
+    let lastIndex = 0;
+
+    for (const match of segment.matchAll(OBSIDIAN_EMBED_RE)) {
+        const fullMatch = match[0];
+        const target = match[1]?.trim();
+        const rawOption = match[2]?.trim();
+        const matchIndex = match.index ?? 0;
+        result += segment.slice(lastIndex, matchIndex);
+
+        if (!vaultPath || !target) {
+            result += fullMatch;
+            lastIndex = matchIndex + fullMatch.length;
+            continue;
+        }
+
+        let replacement = "";
+
+        try {
+            const resolvedPath = await invoke<string | null>("resolve_asset", {
+                vaultPath,
+                target,
+                sourcePath: notePath,
+                mode: "obsidian",
+            });
+
+            if (resolvedPath) {
+                if (isImagePath(resolvedPath)) {
+                    const altText = rawOption && !/^\d+(x\d+)?$/i.test(rawOption)
+                        ? rawOption.replace(/[[\]\\]/g, "").trim()
+                        : "";
+                    replacement = encodeImageToken(resolvedPath, altText);
+                } else if (isPdfPath(resolvedPath)) {
+                    const displayName = resolvedPath.split(/[\\/]/).pop() || target;
+                    replacement = encodePdfPlaceholder(displayName);
+                }
+            }
+        } catch {
+            replacement = "";
+        }
+
+        result += replacement;
+        lastIndex = matchIndex + fullMatch.length;
+    }
+
+    result += segment.slice(lastIndex);
+    return result;
+}
+
+async function preprocessObsidianEmbeds(
+    markdown: string,
+    notePath: string,
+    vaultPath?: string | null,
+): Promise<string> {
+    const lines = markdown.replace(/\r\n/g, "\n").split("\n");
+    const processedLines: string[] = [];
+    let activeFence: string | null = null;
+
+    for (const line of lines) {
+        const fenceMatch = line.trimStart().match(/^(```+|~~~+)/);
+        if (fenceMatch) {
+            const fenceMarker = fenceMatch[1][0];
+            activeFence = activeFence === fenceMarker ? null : fenceMarker;
+            processedLines.push(line);
+            continue;
+        }
+
+        if (activeFence) {
+            processedLines.push(line);
+            continue;
+        }
+
+        const segments = splitInlineCodeSegments(line);
+        const nextSegments = await Promise.all(
+            segments.map((segment) =>
+                segment.isCode
+                    ? Promise.resolve(segment.text)
+                    : replaceEmbedsInSegment(segment.text, notePath, vaultPath)
+            )
+        );
+        processedLines.push(nextSegments.join(""));
+    }
+
+    return processedLines.join("\n");
+}
+
+async function resolveExportBlocks(
+    blocks: MarkdownExportBlock[],
+    notePath: string,
+    vaultPath?: string | null,
+): Promise<MarkdownExportBlock[]> {
+    return Promise.all(
+        blocks.map(async (block) => {
+            if (block.kind === "markdown") {
+                return {
+                    ...block,
+                    content: await preprocessObsidianEmbeds(block.content, notePath, vaultPath),
+                };
+            }
+
+            const content = await preprocessObsidianEmbeds(block.content, notePath, vaultPath);
+            return {
+                ...block,
+                content,
+                contentLines: content.split("\n"),
+            };
+        })
+    );
+}
+
 function parseFrontmatterProperties(frontmatter: string) {
     if (!frontmatter.trim()) {
         return null;
@@ -674,9 +891,7 @@ function StandardCallout({ block, notePath }: { block: CalloutExportBlock; noteP
     );
 }
 
-function ExportDocument({ title, body, frontmatter, notePath }: ExportDocumentProps) {
-    const blocks = parseMarkdownExportBlocks(body);
-
+function ExportDocument({ title, blocks, frontmatter, notePath }: ExportDocumentProps) {
     return (
         <div className="pdf-export-page" data-export-root="true">
             <header className="pdf-export-header">
@@ -825,6 +1040,99 @@ function replaceInlineMath(root: HTMLElement): void {
     }
 }
 
+function createPdfPlaceholderNode(documentRef: Document, label: string): HTMLElement {
+    const placeholder = documentRef.createElement("span");
+    placeholder.className = "cm-pdf-embed-placeholder";
+    placeholder.textContent = `Embedded PDF: ${label}`;
+    return placeholder;
+}
+
+function createImageNode(documentRef: Document, path: string, altText: string): HTMLElement {
+    const image = documentRef.createElement("img");
+    image.src = toFileUrl(path);
+    image.alt = altText;
+    return image;
+}
+
+function replaceImageTokens(root: HTMLElement): void {
+    const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const textNodes: Text[] = [];
+
+    while (walker.nextNode()) {
+        const currentNode = walker.currentNode;
+        if (currentNode.nodeType === Node.TEXT_NODE && !isMathExcludedNode(currentNode)) {
+            textNodes.push(currentNode as Text);
+        }
+    }
+
+    for (const textNode of textNodes) {
+        const text = textNode.textContent ?? "";
+        if (!text.includes(IMAGE_TOKEN_PREFIX)) {
+            continue;
+        }
+
+        const fragment = textNode.ownerDocument.createDocumentFragment();
+        let cursor = 0;
+
+        for (const match of text.matchAll(IMAGE_TOKEN_RE)) {
+            const tokenStart = match.index ?? 0;
+            if (tokenStart > cursor) {
+                fragment.append(text.slice(cursor, tokenStart));
+            }
+
+            const imageData = decodeImageToken(match[1]);
+            if (imageData) {
+                fragment.appendChild(createImageNode(root.ownerDocument, imageData.path, imageData.altText));
+            }
+            cursor = tokenStart + match[0].length;
+        }
+
+        if (cursor < text.length) {
+            fragment.append(text.slice(cursor));
+        }
+
+        textNode.replaceWith(fragment);
+    }
+}
+
+function replacePdfPlaceholderTokens(root: HTMLElement): void {
+    const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const textNodes: Text[] = [];
+
+    while (walker.nextNode()) {
+        const currentNode = walker.currentNode;
+        if (currentNode.nodeType === Node.TEXT_NODE && !isMathExcludedNode(currentNode)) {
+            textNodes.push(currentNode as Text);
+        }
+    }
+
+    for (const textNode of textNodes) {
+        const text = textNode.textContent ?? "";
+        if (!text.includes(PDF_PLACEHOLDER_TOKEN_PREFIX)) {
+            continue;
+        }
+
+        const fragment = textNode.ownerDocument.createDocumentFragment();
+        let cursor = 0;
+
+        for (const match of text.matchAll(PDF_PLACEHOLDER_TOKEN_RE)) {
+            const tokenStart = match.index ?? 0;
+            if (tokenStart > cursor) {
+                fragment.append(text.slice(cursor, tokenStart));
+            }
+
+            fragment.appendChild(createPdfPlaceholderNode(root.ownerDocument, decodePdfPlaceholder(match[1])));
+            cursor = tokenStart + match[0].length;
+        }
+
+        if (cursor < text.length) {
+            fragment.append(text.slice(cursor));
+        }
+
+        textNode.replaceWith(fragment);
+    }
+}
+
 function enhanceMathRendering(root: HTMLElement): void {
     replaceBlockMath(root);
     replaceInlineMath(root);
@@ -942,18 +1250,19 @@ async function waitForRenderFrame(): Promise<void> {
 }
 
 export async function renderMarkdownPdfDocument(
-    { file, content }: MarkdownPdfRenderInput,
+    { file, content, vaultPath }: MarkdownPdfRenderInput,
     options: RenderMarkdownPdfDocumentOptions = {},
 ): Promise<MarkdownPdfRenderResult> {
     const documentTitle = getDocumentTitle(file.filename);
     const { frontmatter, body } = extractFrontmatter(content);
     const styles = getExportStyles();
     const outlineItems = parseOutline(body);
+    const blocks = await resolveExportBlocks(parseMarkdownExportBlocks(body), file.path, vaultPath);
 
     const measurementContainer = createMeasureContainer(styles);
     const root = createRoot(measurementContainer);
     root.render(
-        <ExportDocument title={documentTitle} body={body} frontmatter={frontmatter} notePath={file.path} />
+        <ExportDocument title={documentTitle} blocks={blocks} frontmatter={frontmatter} notePath={file.path} />
     );
     await waitForRenderFrame();
 
@@ -967,6 +1276,8 @@ export async function renderMarkdownPdfDocument(
     enhanceCalloutIcons(exportRoot);
     enhanceCodeBlocks(exportRoot);
     enhanceMathRendering(exportRoot);
+    replaceImageTokens(exportRoot);
+    replacePdfPlaceholderTokens(exportRoot);
     const mermaidStyles = await renderMermaidBlocks(exportRoot);
     await waitForRenderFrame();
 

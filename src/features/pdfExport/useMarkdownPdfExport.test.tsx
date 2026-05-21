@@ -1,6 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { invokeMock, resetTauriMocks, saveDialogMock } from "../../test/tauriMocks";
+import { useVaultStore } from "../../stores/vaultStore";
 import { useMarkdownPdfExport } from "./useMarkdownPdfExport";
 
 const pdfExportHookMocks = vi.hoisted(() => ({
@@ -40,6 +41,7 @@ vi.mock("sonner", () => ({
 describe("useMarkdownPdfExport", () => {
     beforeEach(() => {
         resetTauriMocks();
+        useVaultStore.setState({ vaultPath: "C:/vault" });
         pdfExportHookMocks.readFile.mockReset();
         pdfExportHookMocks.renderDocument.mockReset();
         pdfExportHookMocks.toastSuccess.mockReset();
@@ -69,6 +71,17 @@ describe("useMarkdownPdfExport", () => {
 
         expect(saveDialogMock).toHaveBeenCalled();
         expect(pdfExportHookMocks.readFile).toHaveBeenCalledWith("vault/Plan.md");
+        expect(pdfExportHookMocks.renderDocument).toHaveBeenCalledWith({
+            file: {
+                path: "vault/Plan.md",
+                filename: "Plan.md",
+                is_dir: false,
+                size: 1,
+                last_modified: 1,
+            },
+            content: "# Plan",
+            vaultPath: "C:/vault",
+        });
         expect(invokeMock).toHaveBeenCalledWith("export_markdown_pdf", {
             request: {
                 destinationPath: "C:/exports/Plan.pdf",
