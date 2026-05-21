@@ -6,18 +6,19 @@ mod grafeo_projection;
 mod search;
 mod trash;
 pub mod models;
-mod utils;
-#[cfg(test)]
 mod test_support;
+mod utils;
 
-use db::Database;
 use std::fs::{create_dir_all, OpenOptions};
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::Manager;
 pub use models::*;
-use search::SearchIndex;
+pub use db::Database;
+pub use indexer::{IndexStats, VaultIndexer};
+pub use search::{SearchDoc, SearchFields, SearchIndex};
+pub use test_support::{TestVault, TestVaultBuilder};
 
 fn startup_error(stage: &str, message: impl Into<String>) -> std::io::Error {
     std::io::Error::other(format!("startup failed at {stage}: {}", message.into()))

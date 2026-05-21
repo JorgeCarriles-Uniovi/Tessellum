@@ -88,6 +88,25 @@ impl SearchIndex {
 		self.reader.reload().map_err(|e| e.to_string())?;
 		Ok(())
 	}
+
+	pub fn rebuild_all(&self, docs: &[SearchDoc]) -> Result<(), String> {
+		let mut writer = self.writer()?;
+		writer.delete_all_documents().map_err(|e| e.to_string())?;
+		for doc in docs {
+			let mut document = TantivyDocument::default();
+			document.add_text(self.fields.path, &doc.path);
+			document.add_text(self.fields.title, &doc.title);
+			document.add_text(self.fields.body, &doc.body);
+			for tag in &doc.tags {
+				let facet = Facet::from(&format!("/{}", tag));
+				document.add_facet(self.fields.tags, facet);
+			}
+			writer.add_document(document).map_err(|e| e.to_string())?;
+		}
+		writer.commit().map_err(|e| e.to_string())?;
+		self.reader.reload().map_err(|e| e.to_string())?;
+		Ok(())
+	}
 	
 	pub fn delete_path(&self, path: &str) -> Result<(), String> {
 		let mut writer = self.writer()?;
@@ -241,7 +260,7 @@ impl SearchIndex {
 	}
 	
 	fn writer(&self) -> Result<IndexWriter, String> {
-		self.index.writer(50_000_000).map_err(|e| e.to_string())
+		self.index.writer(200_000_000).map_err(|e| e.to_string())
 	}
 	
 	fn delete_path_with_writer(&self, writer: &mut IndexWriter, path: &str) -> Result<(), String> {

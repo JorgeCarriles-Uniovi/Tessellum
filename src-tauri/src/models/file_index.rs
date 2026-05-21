@@ -14,45 +14,50 @@ pub struct FileIndex {
 impl FileIndex {
     /// Build an index from a vault directory
     pub fn build(vault_path: &str) -> Result<Self, String> {
-        let mut name_to_paths: HashMap<String, Vec<PathBuf>> = HashMap::new();
-        
         if !Path::new(vault_path).exists() {
             return Err("Vault path does not exist".to_string());
         }
-        
-        for entry in WalkDir::new(vault_path).into_iter().filter_map(|e| e.ok()) {
-            let path = entry.path();
-            
-            // Skip hidden files and directories (.git, .trash, etc.)
-            let rel_path = path.strip_prefix(vault_path).unwrap_or(path);
-            if is_hidden_or_special(rel_path) {
-                continue;
-            }
-            
-            // Only index .md files
-            if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("md") {
-                if let Some(filename) = path.file_name() {
-                    let filename_str = filename.to_string_lossy().to_string();
-                    
-                    // Index both with and without .md extension
-                    name_to_paths
-                        .entry(filename_str.clone())
-                        .or_insert_with(Vec::new)
-                        .push(path.to_path_buf());
-                    
-                    // Also index without extension
-                    if let Some(stem) = path.file_stem() {
-                        let stem_str = stem.to_string_lossy().to_string();
-                        name_to_paths
-                            .entry(stem_str)
-                            .or_insert_with(Vec::new)
-                            .push(path.to_path_buf());
-                    }
+
+        let markdown_paths = WalkDir::new(vault_path)
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .map(|entry| entry.into_path())
+            .filter(|path| {
+                let rel_path = path.strip_prefix(vault_path).unwrap_or(path);
+                !is_hidden_or_special(rel_path)
+                    && path.is_file()
+                    && path.extension().and_then(|s| s.to_str()) == Some("md")
+            })
+            .collect::<Vec<_>>();
+
+        Ok(Self::from_markdown_paths(markdown_paths))
+    }
+
+    /// Build an index from an existing markdown path collection.
+    pub fn from_markdown_paths<I, P>(paths: I) -> Self
+    where
+        I: IntoIterator<Item = P>,
+        P: Into<PathBuf>,
+    {
+        let mut name_to_paths: HashMap<String, Vec<PathBuf>> = HashMap::new();
+
+        for path in paths.into_iter().map(Into::into) {
+            if let Some(filename) = path.file_name() {
+                let filename_str = filename.to_string_lossy().to_string();
+
+                name_to_paths
+                    .entry(filename_str.clone())
+                    .or_default()
+                    .push(path.clone());
+
+                if let Some(stem) = path.file_stem() {
+                    let stem_str = stem.to_string_lossy().to_string();
+                    name_to_paths.entry(stem_str).or_default().push(path.clone());
                 }
             }
         }
-        
-        Ok(Self { name_to_paths })
+
+        Self { name_to_paths }
     }
     
     /// Resolve a wikilink target to a full file path.
