@@ -24,4 +24,5 @@ export interface MarkdownPdfRenderResult {
 export interface MarkdownPdfRenderInput {
     file: FileMetadata;
     content: string;
+    vaultPath?: string | null;
 }

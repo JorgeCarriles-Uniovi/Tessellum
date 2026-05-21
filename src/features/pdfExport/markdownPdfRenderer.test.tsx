@@ -1,5 +1,6 @@
-import { describe, expect, test } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { FileMetadata } from "../../types";
+import { invokeMock } from "../../test/tauriMocks";
 import { EXPORT_PAGE_HEIGHT_PX, EXPORT_TYPOGRAPHY } from "./pdfExportDomain";
 import { renderMarkdownPdfDocument } from "./markdownPdfRenderer";
 
@@ -14,6 +15,10 @@ function createFile(filename: string): FileMetadata {
 }
 
 describe("markdownPdfRenderer", () => {
+    beforeEach(() => {
+        invokeMock.mockReset();
+    });
+
     test("builds themed export html with fixed typography and measured outline pages", async () => {
         document.documentElement.style.setProperty("--color-bg-primary", "rgb(250, 245, 240)");
         document.documentElement.style.setProperty("--color-text-primary", "rgb(24, 24, 24)");
@@ -110,5 +115,54 @@ graph LR
         expect(result.html).toContain(">ts<");
         expect(result.html).toContain("cm-mermaid-block");
         expect(result.html).toContain("<svg");
+    });
+
+    test("renders image embeds, replaces pdf embeds with placeholders, and omits missing assets", async () => {
+        invokeMock.mockImplementation(async (command, payload) => {
+            if (command !== "resolve_asset") {
+                return undefined;
+            }
+
+            const target = (payload as { target: string }).target;
+            if (target === "media/photo.png") {
+                return "C:/vault/media/photo.png";
+            }
+            if (target === "docs/spec.pdf") {
+                return "C:/vault/docs/spec.pdf";
+            }
+            return null;
+        });
+
+        const result = await renderMarkdownPdfDocument(
+            {
+                file: createFile("Exports.md"),
+                vaultPath: "C:/vault",
+                content: [
+                    "# Export",
+                    "",
+                    "![[media/photo.png]]",
+                    "",
+                    "![[docs/spec.pdf]]",
+                    "",
+                    "![[media/missing.png]]",
+                ].join("\n"),
+            },
+            {
+                measureHeadingOffsets: async () => new Map([[1, 0]]),
+            }
+        );
+
+        expect(invokeMock).toHaveBeenCalledWith("resolve_asset", {
+            vaultPath: "C:/vault",
+            target: "media/photo.png",
+            sourcePath: "vault/Exports.md",
+            mode: "obsidian",
+        });
+        expect(result.html).toContain('src="file:///C:/vault/media/photo.png"');
+        expect(result.html).toContain(".pdf-export-content img {\n    display: block;");
+        expect(result.html).toContain("margin: 1.5rem auto;");
+        expect(result.html).toContain("Embedded PDF");
+        expect(result.html).toContain("spec.pdf");
+        expect(result.html).not.toContain("missing.png");
     });
 });
