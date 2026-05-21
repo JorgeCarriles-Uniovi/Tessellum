@@ -241,14 +241,6 @@ npm run tauri build
 npm run build
 ```
 
-### E2E tests
-
-See `e2e/README.md` for setup and driver requirements.
-
-```bash
-npm run e2e
-```
-
 ### CI and release pipeline
 
 - `.github/workflows/tauri-ci.yml` builds bundles on Windows, macOS, and Ubuntu.
