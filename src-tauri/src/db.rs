@@ -1,6 +1,9 @@
 use std::time::Duration;
 use sqlx::Pool;
+use sqlx::QueryBuilder;
 use sqlx::sqlite::{Sqlite, SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions};
+
+use crate::models::{IndexedMarkdownFile, IndexedSearchFile};
 
 pub struct Database {
     pool: Pool<Sqlite>,
@@ -413,6 +416,215 @@ impl Database {
             .execute(&self.pool)
             .await?;
         
+        Ok(())
+    }
+
+    /// Replace many markdown file projections in one transaction.
+    pub async fn replace_markdown_batch(
+        &self,
+        entries: &[IndexedMarkdownFile],
+    ) -> Result<(), sqlx::Error> {
+        if entries.is_empty() {
+            return Ok(());
+        }
+
+        let mut tx = self.pool.begin().await?;
+
+        for entry in entries {
+            let inline_tags_json = if entry.inline_tags.is_empty() {
+                None
+            } else {
+                Some(
+                    serde_json::to_string(&entry.inline_tags)
+                        .map_err(|error| sqlx::Error::Protocol(error.to_string()))?,
+                )
+            };
+
+            sqlx::query(
+                "INSERT INTO notes (path, modified_at, size, frontmatter, inline_tags) VALUES (?, ?, ?, ?, ?)
+                 ON CONFLICT(path) DO UPDATE SET modified_at = ?, size = ?, frontmatter = ?, inline_tags = ?",
+            )
+            .bind(&entry.path)
+            .bind(entry.modified)
+            .bind(entry.size as i64)
+            .bind(entry.frontmatter_json.as_deref())
+            .bind(inline_tags_json.as_deref())
+            .bind(entry.modified)
+            .bind(entry.size as i64)
+            .bind(entry.frontmatter_json.as_deref())
+            .bind(inline_tags_json.as_deref())
+            .execute(&mut *tx)
+            .await?;
+
+            sqlx::query("DELETE FROM links WHERE source_path = ?")
+                .bind(&entry.path)
+                .execute(&mut *tx)
+                .await?;
+
+            let mut unique_links = entry.resolved_links.iter().collect::<Vec<_>>();
+            unique_links.sort();
+            unique_links.dedup();
+
+            for target_path in unique_links {
+                sqlx::query("INSERT INTO links (source_path, target_path) VALUES (?, ?)")
+                    .bind(&entry.path)
+                    .bind(target_path)
+                    .execute(&mut *tx)
+                    .await?;
+            }
+
+            sqlx::query("DELETE FROM note_tags WHERE path = ?")
+                .bind(&entry.path)
+                .execute(&mut *tx)
+                .await?;
+
+            for tag in &entry.inline_tags {
+                sqlx::query("INSERT OR IGNORE INTO note_tags (path, tag) VALUES (?, ?)")
+                    .bind(&entry.path)
+                    .bind(tag)
+                    .execute(&mut *tx)
+                    .await?;
+            }
+
+            sqlx::query(
+                "INSERT INTO search_files (path, modified_at, is_markdown) VALUES (?, ?, 1)
+                 ON CONFLICT(path) DO UPDATE SET modified_at = ?, is_markdown = 1",
+            )
+            .bind(&entry.path)
+            .bind(entry.modified)
+            .bind(entry.modified)
+            .execute(&mut *tx)
+            .await?;
+        }
+
+        tx.commit().await?;
+        Ok(())
+    }
+
+    /// Insert a fresh markdown snapshot with chunked bulk inserts.
+    pub async fn insert_markdown_batch_initial(
+        &self,
+        entries: &[IndexedMarkdownFile],
+    ) -> Result<(), sqlx::Error> {
+        if entries.is_empty() {
+            return Ok(());
+        }
+
+        const ROW_BATCH_SIZE: usize = 500;
+        let mut tx = self.pool.begin().await?;
+
+        for chunk in entries.chunks(ROW_BATCH_SIZE) {
+            let inline_tags_json = chunk
+                .iter()
+                .map(|entry| {
+                    if entry.inline_tags.is_empty() {
+                        Ok(None)
+                    } else {
+                        serde_json::to_string(&entry.inline_tags)
+                            .map(Some)
+                            .map_err(|error| sqlx::Error::Protocol(error.to_string()))
+                    }
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+
+            let mut notes_query = QueryBuilder::<Sqlite>::new(
+                "INSERT INTO notes (path, modified_at, size, frontmatter, inline_tags) ",
+            );
+            notes_query.push_values(
+                chunk.iter().zip(inline_tags_json.iter()),
+                |mut builder, (entry, inline_tags)| {
+                    builder
+                        .push_bind(&entry.path)
+                        .push_bind(entry.modified)
+                        .push_bind(entry.size as i64)
+                        .push_bind(entry.frontmatter_json.as_deref())
+                        .push_bind(inline_tags.as_deref());
+                },
+            );
+            notes_query.build().execute(&mut *tx).await?;
+
+            let mut search_query = QueryBuilder::<Sqlite>::new(
+                "INSERT INTO search_files (path, modified_at, is_markdown) ",
+            );
+            search_query.push_values(chunk.iter(), |mut builder, entry| {
+                builder
+                    .push_bind(&entry.path)
+                    .push_bind(entry.modified)
+                    .push_bind(1);
+            });
+            search_query.build().execute(&mut *tx).await?;
+        }
+
+        let tag_rows = entries
+            .iter()
+            .flat_map(|entry| {
+                entry
+                    .inline_tags
+                    .iter()
+                    .map(|tag| (entry.path.as_str(), tag.as_str()))
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        for chunk in tag_rows.chunks(ROW_BATCH_SIZE) {
+            let mut tags_query =
+                QueryBuilder::<Sqlite>::new("INSERT OR IGNORE INTO note_tags (path, tag) ");
+            tags_query.push_values(chunk.iter(), |mut builder, (path, tag)| {
+                builder.push_bind(path).push_bind(tag);
+            });
+            tags_query.build().execute(&mut *tx).await?;
+        }
+
+        let link_rows = entries
+            .iter()
+            .flat_map(|entry| {
+                let mut unique_links = entry.resolved_links.iter().collect::<Vec<_>>();
+                unique_links.sort();
+                unique_links.dedup();
+                unique_links
+                    .into_iter()
+                    .map(|target| (entry.path.as_str(), target.as_str()))
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        for chunk in link_rows.chunks(ROW_BATCH_SIZE) {
+            let mut links_query =
+                QueryBuilder::<Sqlite>::new("INSERT INTO links (source_path, target_path) ");
+            links_query.push_values(chunk.iter(), |mut builder, (source, target)| {
+                builder.push_bind(source).push_bind(target);
+            });
+            links_query.build().execute(&mut *tx).await?;
+        }
+
+        tx.commit().await?;
+        Ok(())
+    }
+
+    /// Upsert many search file rows in one transaction.
+    pub async fn upsert_search_files_batch(
+        &self,
+        entries: &[IndexedSearchFile],
+    ) -> Result<(), sqlx::Error> {
+        if entries.is_empty() {
+            return Ok(());
+        }
+
+        let mut tx = self.pool.begin().await?;
+
+        for entry in entries {
+            sqlx::query(
+                "INSERT INTO search_files (path, modified_at, is_markdown) VALUES (?, ?, ?)
+                 ON CONFLICT(path) DO UPDATE SET modified_at = ?, is_markdown = ?",
+            )
+            .bind(&entry.path)
+            .bind(entry.modified)
+            .bind(if entry.is_markdown { 1 } else { 0 })
+            .bind(entry.modified)
+            .bind(if entry.is_markdown { 1 } else { 0 })
+            .execute(&mut *tx)
+            .await?;
+        }
+
+        tx.commit().await?;
         Ok(())
     }
     

@@ -2,34 +2,34 @@ use std::fs;
 use std::path::Path;
 use tempfile::{tempdir, TempDir};
 
-pub(crate) struct TestVaultBuilder {
+pub struct TestVaultBuilder {
     markdown_files: Vec<(String, String)>,
 }
 
-pub(crate) struct TestVault {
+pub struct TestVault {
     root: TempDir,
 }
 
 impl TestVault {
-    pub(crate) fn new() -> TestVaultBuilder {
+    pub fn new() -> TestVaultBuilder {
         TestVaultBuilder {
             markdown_files: Vec::new(),
         }
     }
 
-    pub(crate) fn path(&self) -> &Path {
+    pub fn path(&self) -> &Path {
         self.root.path()
     }
 }
 
 impl TestVaultBuilder {
-    pub(crate) fn with_markdown(mut self, relative_path: &str, content: &str) -> Self {
+    pub fn with_markdown(mut self, relative_path: &str, content: &str) -> Self {
         self.markdown_files
             .push((relative_path.to_string(), content.to_string()));
         self
     }
 
-    pub(crate) fn build(self) -> TestVault {
+    pub fn build(self) -> TestVault {
         let root = tempdir().expect("temp vault should be created");
 
         for (relative_path, content) in self.markdown_files {

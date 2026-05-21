@@ -12,4 +12,3 @@ export async function extname(fileName: string): Promise<string> {
     const match = /\.[^.]+$/.exec(fileName);
     return match ? match[0] : "";
 }
-

@@ -62,4 +62,3 @@ describe("E2E-001 note lifecycle", () => {
     assert.ok(await restoredItem.isExisting());
   });
 });
-

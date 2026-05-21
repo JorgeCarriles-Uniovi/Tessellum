@@ -1,17 +1,15 @@
 describe("E2E-006 settings persistence", () => {
     beforeEach(() => {
         cy.openVault({
-            "Note A.md": "# Note A\n\nBody for Note A.",
+            "Inbox/Note A.md": "# Note A\n\nBody for Note A.",
         });
     });
 
     it("persists spell check toggle across reload", () => {
-        cy.get('button[title="Settings"]', { timeout: 10000 }).should("be.visible").click();
+        cy.get('button[title="Settings"]').should("be.visible").click();
 
         cy.contains("p", "Spell check")
-            .parents("div")
-            .first()
-            .parent()
+            .closest(".flex")
             .find("button")
             .click();
 
@@ -27,4 +25,3 @@ describe("E2E-006 settings persistence", () => {
         });
     });
 });
-

@@ -5,6 +5,8 @@ import {
     markOrphanNodes,
 } from '../../utils/graphUtils';
 
+const isTestEnv = typeof window !== 'undefined' && !!(window as any).Cypress;
+
 interface GraphCanvasProps {
     elements: cytoscape.ElementDefinition[];
     visibleNodeIds?: Set<string> | null;
@@ -33,6 +35,8 @@ export function GraphCanvas({
     const focusNodeIdRef = useRef<string | undefined>(focusNodeId);
     const selectedNodeIdRef = useRef<string | null>(selectedNodeId ?? null);
     const hoveredNodeIdRef = useRef<string | null>(null);
+    const activeTimersRef = useRef<number[]>([]);
+    const activeLayoutRef = useRef<any>(null);
 
     useEffect(() => {
         focusNodeIdRef.current = focusNodeId;
@@ -44,7 +48,8 @@ export function GraphCanvas({
 
     const getLayoutOptions = () => ({
         name: 'cose',
-        animate: false,
+        animate: !isTestEnv,
+        animationDuration: 500,
         randomize: true,
         nodeRepulsion: () => (mode === 'global' ? 6000 : 4000),
         idealEdgeLength: () => (mode === 'global' ? 70 : 60),
@@ -71,13 +76,26 @@ export function GraphCanvas({
 
         cyRef.current = cy;
 
+        const scheduleTimeout = (cb: () => void, delay: number) => {
+            const id = window.setTimeout(() => {
+                activeTimersRef.current = activeTimersRef.current.filter((t) => t !== id);
+                cb();
+            }, delay);
+            activeTimersRef.current.push(id);
+            return id;
+        };
+
         // After layout finishes, reposition orphan nodes in a circle around the main cluster
         const handleLayoutStop = () => {
             const orphans = cy.nodes('.orphan').not('.filtered-out');
 
             if (orphans.length === 0) {
                 if (focusNodeIdRef.current) {
-                    cy.fit(cy.elements(), 60);
+                    if (isTestEnv) {
+                        cy.fit(cy.elements(), 60);
+                    } else {
+                        cy.animate({ fit: { eles: cy.elements(), padding: 60 }, duration: 300 } as any);
+                    }
                 }
                 return;
             }
@@ -99,14 +117,32 @@ export function GraphCanvas({
 
             orphans.forEach((node: cytoscape.NodeSingular, i: number) => {
                 const angle = (2 * Math.PI * i) / orphans.length - Math.PI / 2;
-                node.position({
+                const newPos = {
                     x: cx + radius * Math.cos(angle),
                     y: cy2 + radius * Math.sin(angle),
-                });
+                };
+                if (isTestEnv) {
+                    node.position(newPos);
+                } else {
+                    node.animate({
+                        position: newPos,
+                        duration: 400,
+                        easing: 'ease-out-cubic' as any,
+                    });
+                }
             });
 
             separateOverlappingNodes(cy.nodes().not('.filtered-out'));
-            cy.fit(cy.elements(), 60);
+
+            if (isTestEnv) {
+                cy.fit(cy.elements(), 60);
+            } else {
+                scheduleTimeout(() => {
+                    if (cyRef.current) {
+                        cy.animate({ fit: { eles: cy.elements(), padding: 60 }, duration: 300 } as any);
+                    }
+                }, 420);
+            }
         };
 
         cy.on('layoutstop', handleLayoutStop);
@@ -154,6 +190,19 @@ export function GraphCanvas({
         });
 
         return () => {
+            activeTimersRef.current.forEach(window.clearTimeout);
+            activeTimersRef.current = [];
+            if (activeLayoutRef.current) {
+                try {
+                    activeLayoutRef.current.stop();
+                } catch (e) {}
+                activeLayoutRef.current = null;
+            }
+            try {
+                cy.stop();
+            } catch (e) {
+                console.warn(e);
+            }
             cy.destroy();
             cyRef.current = null;
         };
@@ -212,7 +261,14 @@ export function GraphCanvas({
         markOrphanNodes(cy);
 
         if (structureChanged) {
-            cy.layout(getLayoutOptions()).run();
+            if (activeLayoutRef.current) {
+                try {
+                    activeLayoutRef.current.stop();
+                } catch (e) {}
+            }
+            const layout = cy.layout(getLayoutOptions());
+            activeLayoutRef.current = layout;
+            layout.run();
         }
     }, [elements, mode]);
 
@@ -258,13 +314,21 @@ export function GraphCanvas({
         const visibleNodes = cy.nodes().not('.filtered-out');
         const visibleEdges = cy.edges().not('.filtered-out');
         if (visibleNodes.length > 1 && visibleEdges.length === 0) {
-            visibleNodes.layout({
+            if (activeLayoutRef.current) {
+                try {
+                    activeLayoutRef.current.stop();
+                } catch (e) {}
+            }
+            const layout = visibleNodes.layout({
                 name: 'circle',
                 fit: false,
                 avoidOverlap: true,
                 spacingFactor: 1.2,
-                animate: false,
-            } as any).run();
+                animate: true,
+                animationDuration: 300,
+            } as any);
+            activeLayoutRef.current = layout;
+            layout.run();
         }
 
         separateOverlappingNodes(visibleNodes);

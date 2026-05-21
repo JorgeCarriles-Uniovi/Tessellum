@@ -27,4 +27,3 @@ module.exports = {
   createTempVault,
   cleanupVault,
 };
-

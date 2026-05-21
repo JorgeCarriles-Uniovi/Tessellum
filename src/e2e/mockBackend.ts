@@ -90,7 +90,7 @@ function getState(): E2EState {
 }
 
 function normalizePath(value: string): string {
-    return value.replace(/\\/g, "/").replace(/^\/+/, "");
+    return value.replace(/\\/g, "/").replace(/^\/+/, "").replace(/\/+/g, "/");
 }
 
 function getFilename(value: string): string {
@@ -505,4 +505,3 @@ export async function invokeMock<T>(command: string, payload?: Record<string, un
 export function convertFileSrcMock(path: string): string {
     return `asset://${path}`;
 }
-

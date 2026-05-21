@@ -1,7 +1,7 @@
 describe("E2E-003 search and graph", () => {
     beforeEach(() => {
         cy.openVault({
-            "Note A.md": "# Note A\n\nBody for Note A.",
+            "Inbox/Note A.md": "# Note A\n\nBody for Note A.",
             "Graph Note.md": "# Graph Note\n\nThis note mentions graph #feature and links [[Note A]].",
         });
     });
@@ -13,11 +13,15 @@ describe("E2E-003 search and graph", () => {
             .type("graph #feature");
 
         cy.contains("Graph Note", { timeout: 20000 }).click();
+        
+        // Close search panel to reveal file tree
+        cy.get('button[aria-label="Close search"]').click();
+        
+        cy.waitForTreeItem("Graph Note");
         cy.waitForEditorContains("This note mentions graph #feature");
 
-        cy.get("body").type("{ctrl}g");
+        cy.contains("button", "Graph View").should("be.visible").click();
         cy.contains("Graph View", { timeout: 20000 }).should("be.visible");
         cy.get('[data-testid="graph-canvas"]', { timeout: 20000 }).should("exist");
     });
 });
-

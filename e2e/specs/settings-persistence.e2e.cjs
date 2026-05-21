@@ -45,4 +45,3 @@ describe("E2E-006 settings persistence", () => {
   });
 });
 
-

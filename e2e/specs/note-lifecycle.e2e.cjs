@@ -65,4 +65,3 @@ describe("E2E-001 note lifecycle", () => {
   });
 });
 
-
