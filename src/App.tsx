@@ -44,6 +44,7 @@ import { useClipboardFileCopy } from "./features/clipboard/useClipboardFileCopy"
 import { shouldHandleClipboardFileCopyShortcut } from "./features/clipboard/clipboardCopyShortcut";
 import { resolveClipboardSelection } from "./features/clipboard/clipboardSelection";
 import { toSpellcheckLang } from "./i18n/spellcheck";
+import { useAutoSave } from "./hooks/useAutoSave";
 
 const WINDOW_KEY = "tessellum-window";
 const MIN_WINDOW_WIDTH = 720;
@@ -90,6 +91,7 @@ function App() {
     useApplyAccessibilitySettings();
     useApplySpellCheckSettings();
     useWorkspaceNavigationHistory({ workspaceRestored });
+    useAutoSave();
 
     useEffect(() => {
         if (!vaultPath) return;

@@ -190,6 +190,10 @@ pub fn run() {
             commands::search::ensure_search_ready,
             commands::search::get_search_readiness,
             commands::search::reset_search_readiness_attempts,
+            commands::recovery::write_recovery_file,
+            commands::recovery::list_recovery_files,
+            commands::recovery::read_recovery_file,
+            commands::recovery::clear_recovery_file,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {

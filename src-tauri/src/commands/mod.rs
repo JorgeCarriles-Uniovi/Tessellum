@@ -6,6 +6,7 @@ pub mod indexer;
 pub mod links;
 pub mod notes;
 pub mod pdf_export;
+pub mod recovery;
 pub mod templates;
 pub mod vault;
 pub mod watcher;

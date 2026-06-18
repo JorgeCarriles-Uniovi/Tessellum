@@ -33,6 +33,8 @@ import { EDITOR_MODES } from "../../constants/editorModes";
 import { useEditorModeStore } from "../../stores";
 import { markdownPreviewForceHideFacet } from "./extensions/markdown-preview-plugin";
 import { TabStrip } from "./TabStrip";
+import { useEditorContentStore } from "../../stores/editorContentStore";
+import { RecoveryBanner } from "./RecoveryBanner";
 import { useAccessibilityStore, useSettingsStore } from "../../stores";
 import { WorkspaceOverview } from "./workspaceOverview/WorkspaceOverview";
 import type { HeroProjection, WorkspaceCardItem } from "./workspaceOverview/types";
@@ -257,6 +259,23 @@ function EmptyEditorState({
     );
 }
 
+function AutoSaveIndicator() {
+    const status = useEditorContentStore((s) => s.autoSaveStatus);
+    if (status.status === "idle" || status.status === "saved") return null;
+    const labels: Record<string, string> = {
+        pending: "Auto-save pending…",
+        saving: "Auto-saving…",
+        error: `Auto-save failed: ${status.errorMessage ?? "unknown error"}`,
+    };
+    const label = labels[status.status];
+    const color = status.status === "error" ? "var(--color-error, #dc2626)" : "inherit";
+    return (
+        <span style={{ color }} className="flex items-center gap-1">
+            {label}
+        </span>
+    );
+}
+
 function EditorHeader({
                           title,
                           onTitleChange,
@@ -315,6 +334,7 @@ function EditorHeader({
                             {t("editor.edited", { value: editedAt })}
                         </span>
                     )}
+                    <AutoSaveIndicator />
                 </div>
             </div>
         </div>
@@ -941,6 +961,7 @@ export function Editor() {
                 isOverviewOpen={isOverviewOpen}
                 editorFontSizePx={editorFontSizePx}
             />
+            <RecoveryBanner />
             <div className="flex-1 min-h-0 relative" ref={editorContainerRef}>
                 {!isMedia && (
                     <div className="flex h-full px-3 py-3 gap-2">

@@ -1,5 +1,19 @@
 import { create } from "zustand";
 
+export type AutoSaveStatusKind = "idle" | "pending" | "saving" | "saved" | "error";
+
+export interface AutoSaveStatus {
+    status: AutoSaveStatusKind;
+    lastSavedAt: number | null;
+    errorMessage: string | null;
+}
+
+const DEFAULT_AUTO_SAVE_STATUS: AutoSaveStatus = {
+    status: "idle",
+    lastSavedAt: null,
+    errorMessage: null,
+};
+
 const EDITOR_FONT_SIZE_KEY = "tessellum:editorFontSizePx";
 export const DEFAULT_EDITOR_FONT_SIZE_PX = 16;
 const MIN_EDITOR_FONT_SIZE_PX = 12;
@@ -27,12 +41,14 @@ export interface EditorContentState {
     activeNoteContent: string;
     isDirty: boolean;
     editorFontSizePx: number;
+    autoSaveStatus: AutoSaveStatus;
 }
 
 export interface EditorContentActions {
     setActiveNoteContent: (content: string) => void;
     setIsDirty: (isDirty: boolean) => void;
     setEditorFontSizePx: (value: number) => void;
+    setAutoSaveStatus: (status: AutoSaveStatus) => void;
 }
 
 export type EditorContentStore = EditorContentState & EditorContentActions;
@@ -41,6 +57,7 @@ export const useEditorContentStore = create<EditorContentStore>((set) => ({
     activeNoteContent: "",
     isDirty: false,
     editorFontSizePx: readInitialEditorFontSizePx(),
+    autoSaveStatus: DEFAULT_AUTO_SAVE_STATUS,
 
     setActiveNoteContent: (activeNoteContent) => set({ activeNoteContent }),
     setIsDirty: (isDirty) => set({ isDirty }),
@@ -49,4 +66,5 @@ export const useEditorContentStore = create<EditorContentStore>((set) => ({
         localStorage.setItem(EDITOR_FONT_SIZE_KEY, String(nextValue));
         return { editorFontSizePx: nextValue };
     }),
+    setAutoSaveStatus: (autoSaveStatus) => set({ autoSaveStatus }),
 }));
