@@ -194,6 +194,11 @@ pub fn run() {
             commands::recovery::list_recovery_files,
             commands::recovery::read_recovery_file,
             commands::recovery::clear_recovery_file,
+            commands::history::write_note_snapshot,
+            commands::history::list_note_snapshots,
+            commands::history::get_note_snapshot,
+            commands::history::pin_snapshot,
+            commands::history::unpin_snapshot,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {

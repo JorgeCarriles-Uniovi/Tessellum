@@ -2,6 +2,7 @@ pub mod assets;
 pub mod clipboard;
 pub mod folders;
 pub mod graph;
+pub mod history;
 pub mod indexer;
 pub mod links;
 pub mod notes;

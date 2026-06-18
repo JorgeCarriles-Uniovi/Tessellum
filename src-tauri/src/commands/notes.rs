@@ -859,7 +859,21 @@ pub async fn write_file(
         .map_err(|e| TessellumError::Internal(format!("Failed to rename '{}' to '{}': {}", tmp_path, path, e)))?;
 
     sync_note_delta_non_critical(&state, &kuzu_state, delta).await;
-    
+
+    // Non-critical: write a version-history snapshot in the background.
+    {
+        let vault_path_snap = vault_path.clone();
+        let path_snap = path.clone();
+        let content_snap = content.clone();
+        tokio::spawn(async move {
+            if let Err(e) = crate::commands::history::write_note_snapshot(
+                vault_path_snap, path_snap, content_snap,
+            ).await {
+                log::warn!("Failed to write version snapshot: {e}");
+            }
+        });
+    }
+
     Ok(())
 }
 

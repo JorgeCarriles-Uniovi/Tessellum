@@ -25,7 +25,7 @@ import { TessellumApp, useTessellumApp } from "../../plugins/TessellumApp";
 import { PaletteCommand } from "../../plugins/api/UIAPI";
 import { EditorView } from "@codemirror/view";
 import { Extension, Prec } from "@codemirror/state";
-import { Calendar, Clock } from "lucide-react";
+import { Calendar, Clock, History } from "lucide-react";
 import { theme } from "../../styles/theme";
 import { isMediaFile } from "../../utils/fileType";
 import { MediaPreview } from "./MediaPreview";
@@ -35,6 +35,7 @@ import { markdownPreviewForceHideFacet } from "./extensions/markdown-preview-plu
 import { TabStrip } from "./TabStrip";
 import { useEditorContentStore } from "../../stores/editorContentStore";
 import { RecoveryBanner } from "./RecoveryBanner";
+import { NoteHistoryPanel } from "../history/NoteHistoryPanel";
 import { useAccessibilityStore, useSettingsStore } from "../../stores";
 import { WorkspaceOverview } from "./workspaceOverview/WorkspaceOverview";
 import type { HeroProjection, WorkspaceCardItem } from "./workspaceOverview/types";
@@ -288,6 +289,8 @@ function EditorHeader({
                           spellCheckLanguage,
                           t,
                           locale,
+                          isHistoryOpen,
+                          onHistoryToggle,
                       }: {
     title: string;
     onTitleChange: (value: string) => void;
@@ -300,6 +303,8 @@ function EditorHeader({
     spellCheckLanguage: string;
     t: (key: string, options?: Record<string, unknown>) => string;
     locale: string;
+    isHistoryOpen: boolean;
+    onHistoryToggle: () => void;
 }) {
     return (
         <div className="w-full mx-auto px-12 pt-20 pb-16 flex-shrink-0" style={{ borderColor: theme.colors.border.light }}>
@@ -335,6 +340,19 @@ function EditorHeader({
                         </span>
                     )}
                     <AutoSaveIndicator />
+                    <button
+                        onClick={onHistoryToggle}
+                        className="flex items-center gap-1 ml-auto px-2 py-0.5 rounded transition-opacity hover:opacity-80"
+                        style={{
+                            color: isHistoryOpen ? "var(--primary)" : "var(--color-text-muted)",
+                            border: "1px solid var(--color-border-light)",
+                            backgroundColor: isHistoryOpen ? "var(--color-background-primary)" : "transparent",
+                        }}
+                        title="Version history"
+                    >
+                        <History size={11} />
+                        <span>History</span>
+                    </button>
                 </div>
             </div>
         </div>
@@ -509,6 +527,7 @@ export function Editor() {
     const [reducedMotionFade, setReducedMotionFade] = useState(false);
     const [tabMetadataByPath, setTabMetadataByPath] = useState<Record<string, NoteCardMetadata>>({});
     const [dirtyCloseConfirm, setDirtyCloseConfirm] = useState<string | null>(null);
+    const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const transitionTimersRef = useRef<number[]>([]);
 
     const handleSlashSelectRef = useRef<(cmd: Command, view?: EditorView) => void>();
@@ -879,6 +898,8 @@ export function Editor() {
                 spellCheckLanguage={spellCheckLanguage}
                 t={t}
                 locale={i18n.language}
+                isHistoryOpen={isHistoryOpen}
+                onHistoryToggle={() => setIsHistoryOpen((v) => !v)}
             />
             <div className="w-full border-b" style={dividerStyle} />
             <EditorBody
@@ -962,9 +983,18 @@ export function Editor() {
                 editorFontSizePx={editorFontSizePx}
             />
             <RecoveryBanner />
-            <div className="flex-1 min-h-0 relative" ref={editorContainerRef}>
+            <div className="flex-1 min-h-0 flex min-w-0" ref={editorContainerRef}>
+                {isHistoryOpen && (
+                    <NoteHistoryPanel
+                        notePath={activeNote.path}
+                        onClose={() => setIsHistoryOpen(false)}
+                        onRestore={(content) => {
+                            handleContentChangeGuarded(content);
+                        }}
+                    />
+                )}
                 {!isMedia && (
-                    <div className="flex h-full px-3 py-3 gap-2">
+                    <div className="flex flex-1 min-w-0 h-full px-3 py-3 gap-2">
                         <div
                             className="flex-1 min-w-0 h-full overflow-y-auto editor-scroll-shell"
                             style={{
