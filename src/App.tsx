@@ -21,6 +21,7 @@ import { Editor } from "./components/Editor/Editor.tsx";
 import { Sidebar } from "./components/Sidebar/Sidebar.tsx";
 import { GraphView } from "./components/GraphView/GraphView.tsx";
 import { LocalGraphPanel } from "./components/GraphView/LocalGraphPanel.tsx";
+import { CanvasView } from "./components/canvas/CanvasView.tsx";
 import { Toaster } from "sonner";
 import { theme } from './styles/theme';
 import 'katex';
@@ -519,7 +520,7 @@ function App() {
                 if (storedExpanded) {
                     setExpandedFolders(JSON.parse(storedExpanded));
                 }
-                if (storedViewMode === 'graph' || storedViewMode === 'editor') {
+                if (storedViewMode === 'graph' || storedViewMode === 'editor' || storedViewMode === 'canvas') {
                     setViewMode(storedViewMode);
                 }
                 if (isEditorMode(storedEditorMode)) {
@@ -603,6 +604,10 @@ function App() {
                                 {viewMode === 'graph' ? (
                                     <div className="flex-1 h-full min-w-0 relative flex flex-col min-h-0 overflow-hidden">
                                         <GraphView />
+                                    </div>
+                                ) : viewMode === 'canvas' ? (
+                                    <div className="flex-1 h-full min-w-0 relative flex flex-col min-h-0 overflow-hidden">
+                                        <CanvasView />
                                     </div>
                                 ) : (
                                     <>

@@ -31,7 +31,8 @@ interface EditorState {
     lastSelectedPath: string | null;
     editorFontSizePx: number;
     // Graph state
-    viewMode: "editor" | "graph";
+    viewMode: "editor" | "graph" | "canvas";
+    canvasPath: string | null;
     isLocalGraphOpen: boolean;
     selectedGraphNode: string | null;
 
@@ -57,7 +58,8 @@ interface EditorState {
     clearSelection: () => void;
     setEditorFontSizePx: (value: number) => void;
     // Graph actions
-    setViewMode: (mode: "editor" | "graph") => void;
+    setViewMode: (mode: "editor" | "graph" | "canvas") => void;
+    setCanvasPath: (path: string | null) => void;
     toggleLocalGraph: () => void;
     setSelectedGraphNode: (path: string | null) => void;
 
@@ -91,6 +93,7 @@ export const useEditorStore = create<EditorState>(() => {
         editorFontSizePx: editorContent.editorFontSizePx,
         // Graph state
         viewMode: graph.viewMode,
+        canvasPath: graph.canvasPath,
         isLocalGraphOpen: graph.isLocalGraphOpen,
         selectedGraphNode: graph.selectedGraphNode,
 
@@ -117,6 +120,7 @@ export const useEditorStore = create<EditorState>(() => {
         setEditorFontSizePx: (value) => useEditorContentStore.getState().setEditorFontSizePx(value),
         // Graph actions
         setViewMode: (mode) => useGraphStore.getState().setViewMode(mode),
+        setCanvasPath: (path) => useGraphStore.getState().setCanvasPath(path),
         toggleLocalGraph: () => useGraphStore.getState().toggleLocalGraph(),
         setSelectedGraphNode: (path) => useGraphStore.getState().setSelectedGraphNode(path),
 
@@ -155,6 +159,7 @@ useSelectionStore.subscribe((state) => {
 useGraphStore.subscribe((state) => {
     useEditorStore.setState({
         viewMode: state.viewMode,
+        canvasPath: state.canvasPath,
         isLocalGraphOpen: state.isLocalGraphOpen,
         selectedGraphNode: state.selectedGraphNode,
     });

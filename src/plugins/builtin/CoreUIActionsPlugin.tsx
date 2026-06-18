@@ -1,5 +1,6 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
+import { invoke } from "@tauri-apps/api/core";
 import {
     ArrowLeft,
     ArrowRight,
@@ -17,6 +18,7 @@ import {
     Puzzle,
     RefreshCw,
     Globe,
+    LayoutTemplate,
 } from "lucide-react";
 import { Plugin } from "../Plugin";
 import type { PluginManifest } from "../types";
@@ -113,6 +115,29 @@ export class CoreUIActionsPlugin extends Plugin {
 
         const pasteFiles = () => {
             this.app.events.emit("ui:paste-files");
+        };
+
+        const newCanvas = async () => {
+            const vaultPath = this.app.workspace.getVaultPath();
+            if (!vaultPath) {
+                toast.error(t("errors.openVaultFirst"));
+                return;
+            }
+            try {
+                const activeNote = this.app.workspace.getActiveNote();
+                const targetDir = activeNote ? getParentFromTarget(activeNote) : vaultPath;
+                const canvasPath = `${targetDir}/Untitled.canvas`;
+                await invoke("write_file", {
+                    vaultPath,
+                    path: canvasPath,
+                    content: JSON.stringify({ nodes: [], edges: [] }, null, 2),
+                });
+                this.app.workspace.setCanvasPath(canvasPath);
+                this.app.workspace.setViewMode("canvas");
+            } catch (e) {
+                console.error(e);
+                toast.error("Failed to create canvas");
+            }
         };
 
         this.app.events.on("ui:new-note", newNote);
@@ -237,6 +262,13 @@ export class CoreUIActionsPlugin extends Plugin {
             keywords: () => keywords("newNoteFromTemplate"),
             icon: <Plus size={16} />,
             onTrigger: openTemplatePicker,
+        });
+        this.app.ui.registerPaletteCommand(this.manifest.id, {
+            id: "new-canvas",
+            name: () => "New Canvas",
+            keywords: () => ["canvas", "new canvas", "spatial", "board"],
+            icon: <LayoutTemplate size={16} />,
+            onTrigger: newCanvas,
         });
         this.app.ui.registerPaletteCommand(this.manifest.id, {
             id: "paste-files",

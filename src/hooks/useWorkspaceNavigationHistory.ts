@@ -6,9 +6,13 @@ interface UseWorkspaceNavigationHistoryParams {
     workspaceRestored: boolean;
 }
 
-function toHistoryEntry(viewMode: "editor" | "graph", activePath: string | null): HistoryEntry | null {
+function toHistoryEntry(viewMode: "editor" | "graph" | "canvas", activePath: string | null): HistoryEntry | null {
     if (viewMode === "graph") {
         return { viewMode: "graph", notePath: activePath };
+    }
+
+    if (viewMode === "canvas") {
+        return null;
     }
 
     if (!activePath) {
