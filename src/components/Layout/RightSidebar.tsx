@@ -13,6 +13,7 @@ import { stringToColor } from "../../utils/graphUtils";
 import { parseOutline } from "../../utils/outline";
 import { useAppTranslation } from "../../i18n/react.tsx";
 import { getIgnoredTagLineNumbers, stripInlineCodeSpansForTagScan } from "../../utils/tagExtraction";
+import { NotePropertiesPanel } from "../sidebar/NotePropertiesPanel";
 
 const SNIPPET_LIMIT = 20;
 const SNIPPET_MAX_LEN = 120;
@@ -503,7 +504,7 @@ function OutlineSection({
 }
 
 export function RightSidebar() {
-    const { activeNote, activeNoteContent, files, isRightSidebarOpen } = useEditorStore();
+    const { activeNote, activeNoteContent, files, isRightSidebarOpen, setActiveNoteContent } = useEditorStore();
     const app = useTessellumApp();
     const { t } = useAppTranslation("core");
     const { sidebarWidth, isResizing, onResizeStart } = useSidebarWidth();
@@ -551,6 +552,11 @@ export function RightSidebar() {
                     transform: isRightSidebarOpen ? "translateX(0)" : "translateX(8px)",
                 }}
             >
+                <NotePropertiesPanel
+                    activeNotePath={activeNote?.path}
+                    activeNoteContent={activeNoteContent}
+                    onContentChange={setActiveNoteContent}
+                />
                 <BacklinksSection
                     activeNote={activeNote}
                     backlinks={backlinks}
