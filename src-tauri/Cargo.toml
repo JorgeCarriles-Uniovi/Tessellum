@@ -50,6 +50,7 @@ url = "2.5.7"
 
 grafeo = "0.5.39"
 doxygen-rs = "0.4.2"
+git2 = { version = "0.20", default-features = false, features = ["https", "ssh"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows-sys = { version = "0.59.0", features = ["Win32_System_DataExchange", "Win32_System_Memory", "Win32_UI_Shell"] }

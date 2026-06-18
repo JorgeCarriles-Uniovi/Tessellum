@@ -4,6 +4,7 @@ pub mod error;
 mod indexer;
 mod grafeo_projection;
 mod search;
+mod sync;
 mod trash;
 pub mod models;
 mod test_support;
@@ -196,6 +197,14 @@ pub fn run() {
             commands::recovery::list_recovery_files,
             commands::recovery::read_recovery_file,
             commands::recovery::clear_recovery_file,
+            commands::sync::init_vault_repo,
+            commands::sync::set_sync_remote,
+            commands::sync::get_sync_status,
+            commands::sync::sync_commit,
+            commands::sync::sync_pull,
+            commands::sync::sync_push,
+            commands::sync::get_conflict_list,
+            commands::sync::full_git_sync,
             commands::history::write_note_snapshot,
             commands::history::list_note_snapshots,
             commands::history::get_note_snapshot,

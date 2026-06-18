@@ -14,6 +14,7 @@ import {
     Palette,
     User, FileText, Keyboard, Eye,
     Puzzle,
+    RefreshCw,
 } from "lucide-react";
 import { Plugin } from "../Plugin";
 import type { PluginManifest } from "../types";
@@ -31,6 +32,7 @@ import {
     AccessibilitySettings
 } from "../../components/Settings/AccessibilitySettings.tsx";
 import { PluginsSettings } from "../../components/Settings/PluginsSettings.tsx";
+import { SyncSettings } from "../../components/Settings/SyncSettings.tsx";
 import { coreUIActionsTranslations, coreUIActionKeywords } from "./coreUIActionsTranslations.ts";
 
 export class CoreUIActionsPlugin extends Plugin {
@@ -276,6 +278,12 @@ export class CoreUIActionsPlugin extends Plugin {
             name: () => t("tabs.accessibility"),
             icon: <Eye size={16} />,
             component: <AccessibilitySettings></AccessibilitySettings>
+        });
+        this.app.ui.registerSettingsTab(this.manifest.id, {
+            id: "Sync",
+            name: () => "Sync",
+            icon: <RefreshCw size={16} />,
+            component: <SyncSettings />
         });
         this.app.ui.registerSettingsTab(this.manifest.id, {
             id: "Plugins",
