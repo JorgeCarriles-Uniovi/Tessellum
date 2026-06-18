@@ -136,28 +136,56 @@ export const useSearchStore = create<SearchStore>((set, get) => ({
         if (!vaultPath) {
             return;
         }
-        const readiness = await singleFlight(readinessGetInFlight, vaultPath, () =>
-            invoke<SearchReadinessPayload>("get_search_readiness", { vaultPath })
-        );
-        get().setReadinessState(readiness);
+        try {
+            const readiness = await singleFlight(readinessGetInFlight, vaultPath, () =>
+                invoke<SearchReadinessPayload>("get_search_readiness", { vaultPath })
+            );
+            get().setReadinessState(readiness);
+        } catch (e) {
+            console.error("searchStore.syncReadiness failed:", e);
+            get().setReadinessState({
+                status: "failed",
+                attempt_count: 0,
+                max_attempts: 10,
+                retry_delay_ms: 5000,
+                reopen_required: false,
+                last_error: String(e),
+            });
+        }
     },
 
     ensureReadiness: async (vaultPath) => {
         if (!vaultPath) {
             return;
         }
-        const readiness = await singleFlight(readinessEnsureInFlight, vaultPath, () =>
-            invoke<SearchReadinessPayload>("ensure_search_ready", { vaultPath })
-        );
-        get().setReadinessState(readiness);
+        try {
+            const readiness = await singleFlight(readinessEnsureInFlight, vaultPath, () =>
+                invoke<SearchReadinessPayload>("ensure_search_ready", { vaultPath })
+            );
+            get().setReadinessState(readiness);
+        } catch (e) {
+            console.error("searchStore.ensureReadiness failed:", e);
+            get().setReadinessState({
+                status: "failed",
+                attempt_count: 0,
+                max_attempts: 10,
+                retry_delay_ms: 5000,
+                reopen_required: false,
+                last_error: String(e),
+            });
+        }
     },
 
     resetAndEnsureReadiness: async (vaultPath) => {
         if (!vaultPath) {
             return;
         }
-        const resetPayload = await invoke<SearchReadinessPayload>("reset_search_readiness_attempts", { vaultPath });
-        get().setReadinessState(resetPayload);
-        await get().ensureReadiness(vaultPath);
+        try {
+            const resetPayload = await invoke<SearchReadinessPayload>("reset_search_readiness_attempts", { vaultPath });
+            get().setReadinessState(resetPayload);
+            await get().ensureReadiness(vaultPath);
+        } catch (e) {
+            console.error("searchStore.resetAndEnsureReadiness failed:", e);
+        }
     },
 }));

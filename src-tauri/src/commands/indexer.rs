@@ -1,4 +1,5 @@
 use serde::Serialize;
+use std::sync::atomic::Ordering;
 use tauri::State;
 
 use crate::error::TessellumError;
@@ -48,10 +49,28 @@ pub async fn run_sync_vault(
     grafeo_state: &ManagedGrafeoConnection,
     vault_path: &str,
 ) -> Result<SyncResult, TessellumError> {
+    // Prevent concurrent full_sync calls: the filesystem watcher can race with
+    // a manual rebuild. compare_exchange returns Ok only if the flag was false,
+    // which means we are the one to proceed. Any concurrent caller returns early.
+    if state.sync_in_progress
+        .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+        .is_err()
+    {
+        log::info!("sync_vault: another sync is already in progress for '{}' — skipping", vault_path);
+        return Ok(SyncResult {
+            success: true,
+            files_indexed: 0,
+            files_deleted: 0,
+            files_skipped: 0,
+            duration_ms: 0,
+            error: None,
+        });
+    }
+
     let db = state.db.clone();
     let search_index = state.search_index.clone();
-    
-    match VaultIndexer::full_sync(db.as_ref(), search_index, vault_path).await {
+
+    let result = match VaultIndexer::full_sync(db.as_ref(), search_index, vault_path).await {
         Ok(stats) => {
             // Only do full Grafeo sync if this is an initial/manual sync with many changes
             // Individual note changes are synced incrementally via write_file command
@@ -79,7 +98,12 @@ pub async fn run_sync_vault(
             duration_ms: 0,
             error: Some(e),
         }),
-    }
+    };
+
+    // Always clear the flag, even on error, so future syncs can proceed.
+    state.sync_in_progress.store(false, Ordering::Release);
+
+    result
 }
 
 #[cfg(test)]

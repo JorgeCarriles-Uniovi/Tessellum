@@ -14,8 +14,14 @@ use crate::utils::{extract_tags, is_hidden_or_special, sanitize_string, validate
 const FEATURE_DEMO_FILENAME: &str = "FEATURE_DEMO.md";
 const FEATURE_DEMO_CONTENT: &str = include_str!("../../../FEATURE_DEMO.md");
 
-/// Rewrite `[[OldStem]]` and `[[OldStem|alias]]` to `[[NewStem]]` / `[[NewStem|alias]]`
-/// in all files whose paths are listed in `backlinks`.
+/// Rewrite wikilinks from old_stem to new_stem in all files listed in `backlinks`.
+///
+/// Handles three forms:
+/// - `[[OldStem]]`            → `[[NewStem]]`
+/// - `[[OldStem|alias]]`      → `[[NewStem|alias]]`
+/// - `[[Folder/OldStem]]`     → `[[Folder/NewStem]]`
+/// - `[[Folder/OldStem|alias]]` → `[[Folder/NewStem|alias]]`
+///
 /// Escaped links (`\[[OldStem]]`) are left unchanged.
 async fn rewrite_backlinks(
     backlinks: &[String],
@@ -25,14 +31,15 @@ async fn rewrite_backlinks(
     if backlinks.is_empty() {
         return Ok(());
     }
-    
-    // Build a regex that matches [[OldStem]] and [[OldStem|alias]],
-    // with an optional leading backslash to detect escaped links.
+
+    // Match [[OldStem]] and [[.../OldStem]] (with optional folder prefix ending in /)
+    // and an optional alias after a pipe. Use (?i) for case-insensitive matching so
+    // case-only renames (e.g. "Note" → "note") are also rewritten.
     let escaped = regex::escape(old_stem);
-    let pattern = format!(r"(\\?)\[\[{escaped}(\|[^\]]+)?\]\]");
+    let pattern = format!(r"(?i)(\\?)\[\[([^\]|]*?/)?{escaped}(\|[^\]]+)?\]\]");
     let re = regex::Regex::new(&pattern)
         .map_err(|e| TessellumError::Internal(format!("Link-rewrite regex error: {e}")))?;
-    
+
     for source_path in backlinks {
         let content = match tokio::fs::read_to_string(source_path).await {
             Ok(c) => c,
@@ -41,17 +48,17 @@ async fn rewrite_backlinks(
                 continue;
             }
         };
-        
+
         let new_content = re.replace_all(&content, |caps: &regex::Captures<'_>| {
-            // If preceded by a backslash, the link is escaped — leave it
-            // verbatim.
+            // If preceded by a backslash, the link is escaped — leave it verbatim.
             if caps.get(1).map_or(false, |m| m.as_str() == "\\") {
                 return caps[0].to_string();
             }
-            let alias = caps.get(2).map_or("", |m| m.as_str());
-            format!("[[{new_stem}{alias}]]")
+            let prefix = caps.get(2).map_or("", |m| m.as_str()); // e.g. "Folder/"
+            let alias = caps.get(3).map_or("", |m| m.as_str());   // e.g. "|Custom Label"
+            format!("[[{prefix}{new_stem}{alias}]]")
         });
-        
+
         if new_content != content {
             if let Err(e) = tokio::fs::write(source_path, new_content.as_bytes()).await {
                 log::warn!("rewrite_backlinks: could not write '{source_path}': {e}");
@@ -248,15 +255,17 @@ pub async fn rename_file(
     
     let db = state.db.clone();
     
-    // Rewrite [[OldStem]] -> [[NewStem]] in all files that link to this note
+    // Rewrite [[OldStem]] -> [[NewStem]] in all files that link to this note.
+    // Use case-insensitive comparison so renames that only change case (e.g. "Note" → "note")
+    // still trigger a rewrite (important on case-insensitive filesystems like Windows/macOS).
     if is_file {
         if let (Some(os), Some(ns)) = (&old_stem, &new_stem) {
-            if os != ns {
+            if !os.eq_ignore_ascii_case(ns) {
                 let backlinks = db
                     .get_backlinks(&old_path)
                     .await
                     .map_err(TessellumError::from)?;
-                
+
                 rewrite_backlinks(&backlinks, os, ns).await?;
             }
         }
@@ -284,12 +293,12 @@ pub async fn rename_file(
     if is_file {
         let search_index = state.search_index.clone();
         let old_path = old_path.clone();
-        let new_path = new_path.to_string_lossy().to_string();
-        tauri::async_runtime::spawn_blocking(move || {
-            let guard = tauri::async_runtime::block_on(search_index.lock());
+        let new_path_str = new_path.to_string_lossy().to_string();
+        tauri::async_runtime::spawn(async move {
+            let guard = search_index.lock().await;
             let _ = guard.delete_path(&old_path);
-            if let Ok(content) = std::fs::read_to_string(&new_path) {
-                let title = Path::new(&new_path)
+            if let Ok(content) = tokio::fs::read_to_string(&new_path_str).await {
+                let title = Path::new(&new_path_str)
                     .file_name()
                     .unwrap_or_default()
                     .to_string_lossy()
@@ -303,7 +312,7 @@ pub async fn rename_file(
                     content
                 };
                 let doc = SearchDoc {
-                    path: crate::utils::normalize_path(&new_path),
+                    path: crate::utils::normalize_path(&new_path_str),
                     title,
                     body,
                     tags,

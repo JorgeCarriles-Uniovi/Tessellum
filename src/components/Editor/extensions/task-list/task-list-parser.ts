@@ -50,8 +50,9 @@ export function findTaskListItems(docText: string): TaskListItem[] {
 }
 
 /**
- * Normalizes task toggles to the requested compact unchecked form.
+ * Returns the marker string for the OPPOSITE (toggled) state.
+ * @param currentlyChecked - whether the task is currently checked
  */
-export function getToggledTaskMarker(_marker: string, checked: boolean): string {
-    return checked ? "- [ ]" : "- [x]";
+export function getToggledTaskMarker(_marker: string, currentlyChecked: boolean): string {
+    return currentlyChecked ? "- [ ]" : "- [x]";
 }

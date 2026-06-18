@@ -57,15 +57,23 @@ import {
 } from "./utils/markdownShortcuts.ts";
 
 function useEditorViewRegistration(editorRef: React.RefObject<ReactCodeMirrorRef>) {
+    // React does not re-run effects when a ref's .current property changes.
+    // Running without a dependency array checks the view on every render and
+    // registers it only when it actually changes value (idempotent setView).
+    const lastViewRef = useRef<EditorView | null | undefined>(null);
     useEffect(() => {
         const view = editorRef.current?.view;
-        if (view) {
-            TessellumApp.instance.editor.setView(view);
+        if (view !== lastViewRef.current) {
+            lastViewRef.current = view;
+            TessellumApp.instance.editor.setView(view ?? null);
         }
+    });
+
+    useEffect(() => {
         return () => {
             TessellumApp.instance.editor.setView(null);
         };
-    }, [editorRef.current?.view]);
+    }, []);
 }
 
 function useSlashInsertions(
@@ -461,6 +469,7 @@ export function Editor() {
         setActiveNote,
         reorderOpenTabs,
         closeTab,
+        isDirty,
         editorFontSizePx,
     } = useEditorStore();
     const editorMode = useEditorModeStore((state) => state.editorMode);
@@ -479,6 +488,7 @@ export function Editor() {
     const [heroProjection] = useState<HeroProjection | null>(null);
     const [reducedMotionFade, setReducedMotionFade] = useState(false);
     const [tabMetadataByPath, setTabMetadataByPath] = useState<Record<string, NoteCardMetadata>>({});
+    const [dirtyCloseConfirm, setDirtyCloseConfirm] = useState<string | null>(null);
     const transitionTimersRef = useRef<number[]>([]);
 
     const handleSlashSelectRef = useRef<(cmd: Command, view?: EditorView) => void>();
@@ -775,7 +785,19 @@ export function Editor() {
     };
 
     const handleTabClose = (id: string) => {
+        // Guard against silently discarding unsaved changes on the active note.
+        if (id === activeNote?.path && isDirty) {
+            setDirtyCloseConfirm(id);
+            return;
+        }
         closeTab(id);
+    };
+
+    const confirmDirtyClose = () => {
+        if (dirtyCloseConfirm) {
+            closeTab(dirtyCloseConfirm);
+        }
+        setDirtyCloseConfirm(null);
     };
 
     const handleTabReorder = (sourceId: string, targetIndex: number) => {
@@ -871,6 +893,44 @@ export function Editor() {
 
     return (
         <div className="h-full w-full flex flex-col overflow-hidden pt-1">
+            {dirtyCloseConfirm && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center"
+                    style={{ backgroundColor: "rgba(0,0,0,0.45)" }}
+                    onClick={() => setDirtyCloseConfirm(null)}
+                >
+                    <div
+                        className="rounded-lg p-5 shadow-xl flex flex-col gap-3 min-w-[280px] max-w-xs"
+                        style={{ backgroundColor: theme.colors.background.primary, border: `1px solid ${theme.colors.border.light}` }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <p className="text-sm font-medium" style={{ color: theme.colors.text.primary }}>
+                            {t("editor.unsavedChangesPrompt", {
+                                defaultValue: "Discard unsaved changes?",
+                            })}
+                        </p>
+                        <p className="text-xs" style={{ color: theme.colors.text.muted }}>
+                            {files.find(f => f.path === dirtyCloseConfirm)?.name ?? dirtyCloseConfirm}
+                        </p>
+                        <div className="flex gap-2 justify-end">
+                            <button
+                                className="px-3 py-1.5 rounded text-xs"
+                                style={{ backgroundColor: theme.colors.background.secondary, color: theme.colors.text.primary }}
+                                onClick={() => setDirtyCloseConfirm(null)}
+                            >
+                                {t("common.cancel", { defaultValue: "Cancel" })}
+                            </button>
+                            <button
+                                className="px-3 py-1.5 rounded text-xs"
+                                style={{ backgroundColor: theme.colors.red?.[600] ?? "#dc2626", color: "#fff" }}
+                                onClick={confirmDirtyClose}
+                            >
+                                {t("editor.discardChanges", { defaultValue: "Discard" })}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
             <TabStrip
                 tabs={tabs}
                 activeTabId={activeNote.path}

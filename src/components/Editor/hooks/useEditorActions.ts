@@ -17,6 +17,7 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
     const latestContentByPathRef = useRef<Map<string, string>>(new Map());
     const saveInFlightByPathRef = useRef<Map<string, boolean>>(new Map());
     const saveQueuedByPathRef = useRef<Map<string, boolean>>(new Map());
+    const saveGenerationByPathRef = useRef<Map<string, number>>(new Map());
     const pendingDebouncedSaveRef = useRef<{ path: string; vault: string | null; noteSnapshot: FileMetadata } | null>(null);
     const loadRequestIdRef = useRef(0);
     const { vaultPath, setActiveNoteContent, setIsDirty, setActiveNote } = useEditorStore();
@@ -119,6 +120,7 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
 
         saveInFlightByPathRef.current.set(path, true);
         saveQueuedByPathRef.current.set(path, false);
+        const saveGen = saveGenerationByPathRef.current.get(path) ?? 0;
 
         invoke('write_file', { path, vaultPath: vault, content: contentToWrite })
             .then(() => {
@@ -126,7 +128,8 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
                 lastScheduledContentByPathRef.current.delete(path);
 
                 if (activeNoteRef.current?.path === path) {
-                    if (latestContentByPathRef.current.get(path) === contentToWrite) {
+                    const currentGen = saveGenerationByPathRef.current.get(path) ?? 0;
+                    if (currentGen === saveGen) {
                         setIsDirty(false);
                     }
                     setActiveNote({ ...noteSnapshot, last_modified: Math.floor(Date.now() / 1000) });
@@ -203,6 +206,7 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
             if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
 
             setIsDirty(true);
+            saveGenerationByPathRef.current.set(path, (saveGenerationByPathRef.current.get(path) ?? 0) + 1);
             lastScheduledContentByPathRef.current.set(path, val);
             pendingDebouncedSaveRef.current = { path, vault, noteSnapshot: note };
 

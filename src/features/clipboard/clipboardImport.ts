@@ -60,25 +60,38 @@ export function createClipboardFileImporter({
 
         const resolvedDestination = destinationDir ?? vaultPath;
 
+        let result;
         try {
-            const result = await importFromClipboard({
+            result = await importFromClipboard({
                 vaultPath,
                 destinationDir: resolvedDestination,
             });
-
-            if (result.importedPaths.length === 0) {
-                notifyError(resolvedMessages.clipboardMissingFiles);
-                return false;
-            }
-
-            await refreshVault();
-            notifySuccess(resolvedMessages.importedFiles(result.importedPaths.length, resolvedDestination));
-            return true;
         } catch (error) {
             console.error(error);
             notifyError(resolvedMessages.pasteFailed);
             return false;
         }
+
+        if (result.importedPaths.length === 0) {
+            notifyError(resolvedMessages.clipboardMissingFiles);
+            return false;
+        }
+
+        // Report the import outcome before attempting vault refresh so that a
+        // refresh failure doesn't mask a successful import.
+        const skipped = result.skippedCount ?? 0;
+        const summary = skipped > 0
+            ? `${resolvedMessages.importedFiles(result.importedPaths.length, resolvedDestination)} (${skipped} skipped)`
+            : resolvedMessages.importedFiles(result.importedPaths.length, resolvedDestination);
+        notifySuccess(summary);
+
+        try {
+            await refreshVault();
+        } catch (refreshError) {
+            console.error("Vault refresh failed after import:", refreshError);
+        }
+
+        return true;
     };
 
     const handleShortcutPaste = async (target: ClipboardPasteTarget | null | undefined, destinationDir?: string) => {

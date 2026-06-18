@@ -34,12 +34,15 @@ export function formatTable(
     const allRows = [table.headerRow, table.separatorRow, ...table.dataRows];
     const parsed = allRows.map(splitRow);
 
-    // Compute max width per column
+    // Compute max width per column.
+    // Escaped pipes (\|) are 2 chars in raw text but display as 1, so measure
+    // display width rather than raw length.
+    const cellDisplayWidth = (cell: string) => cell.replace(/\\\|/g, "|").length;
     const colWidths: number[] = new Array(table.columnCount).fill(0);
     // Only measure header + data rows for width (not separator)
     [parsed[0], ...parsed.slice(2)].forEach((row) => {
         row.forEach((cell, i) => {
-            colWidths[i] = Math.max(colWidths[i], cell.length, 3);
+            colWidths[i] = Math.max(colWidths[i], cellDisplayWidth(cell), 3);
         });
     });
 

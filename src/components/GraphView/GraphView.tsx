@@ -88,6 +88,11 @@ export function GraphView() {
         [setSelectedGraphNode]
     );
 
+    const MEDIA_EXTENSIONS = new Set([
+        'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico',
+        'pdf', 'mp4', 'mov', 'avi', 'mkv', 'webm', 'mp3', 'ogg', 'wav',
+    ]);
+
     const handleNodeDoubleClick = useCallback(
         async (nodeId: string) => {
             const existingFile = files.find((f) => f.path === nodeId);
@@ -96,14 +101,30 @@ export function GraphView() {
                 setActiveNote(existingFile);
                 setViewMode('editor');
             } else {
+                if (!vaultPath) return;
+
+                const normalizedId = nodeId.replace(/\\/g, '/');
+                const parts = normalizedId.split('/');
+                const filename = parts[parts.length - 1];
+                const ext = filename.includes('.')
+                    ? filename.split('.').pop()?.toLowerCase() ?? ''
+                    : '';
+
+                // Ghost node for a missing media asset — do not create a Markdown file.
+                if (ext && MEDIA_EXTENSIONS.has(ext)) {
+                    console.warn(`Graph: ghost node "${filename}" is a media asset — skipping note creation`);
+                    return;
+                }
+
                 try {
-                    const parts = nodeId.replace(/\\/g, '/').split('/');
-                    const filename = parts[parts.length - 1];
-                    const title = filename.replace(/\.md$/, '');
+                    const title = filename.replace(/\.md$/i, '');
+                    // Preserve folder prefix: create note inside the same directory as
+                    // the ghost link (e.g. [[Projects/Idea]] → vault/Projects/Idea.md)
+                    const targetDir = parts.length > 1
+                        ? `${vaultPath}/${parts.slice(0, -1).join('/')}`
+                        : vaultPath;
 
-                    if (!vaultPath) return;
-
-                    const newNote = await createNoteInDir(vaultPath, title);
+                    const newNote = await createNoteInDir(targetDir, title);
                     addFileIfMissing(newNote);
                     setActiveNote(newNote);
                     setViewMode('editor');

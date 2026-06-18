@@ -67,15 +67,14 @@ function getAccentFromTheme(theme: ThemeDefinition, fallback: ThemeDefinition): 
 }
 
 function applyThemeAccent(theme: ThemeDefinition, fallback: ThemeDefinition, force = false) {
-    const appearance = useAppearanceStore.getState();
     const accent = getAccentFromTheme(theme, fallback);
     if (!accent) return;
     if (force) {
-        appearance.setAccentFromTheme(accent);
+        useAppearanceStore.getState().setAccentFromTheme(accent);
         applyAccentPaletteFromColor(accent);
         return;
     }
-    if (appearance.accentSource !== "theme") return;
+    if (useAppearanceStore.getState().accentSource !== "theme") return;
     applyAccentPaletteFromColor(accent);
 }
 

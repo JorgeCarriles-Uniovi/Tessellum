@@ -74,8 +74,18 @@ impl VaultIndexer {
         
         for (path, (modified_time, size, is_markdown)) in &fs_files {
             let needs_index = match db_files.get(path) {
-                None => true,                                                 // New file
-                Some((db_modified, _)) => *modified_time > *db_modified, // Modified file
+                None => true, // New file
+                // Re-index if mtime changed OR if mtime is equal but size changed
+                // (handles same-second edits that only touch frontmatter).
+                Some((db_modified, _)) => {
+                    *modified_time > *db_modified
+                        || (*modified_time == *db_modified
+                            && db
+                                .get_search_file_size(path)
+                                .await
+                                .map(|db_size| db_size != *size as i64)
+                                .unwrap_or(false))
+                }
             };
             
             if needs_index {
@@ -111,6 +121,7 @@ impl VaultIndexer {
                     other_file_updates.push(IndexedSearchFile {
                         path: path.clone(),
                         modified: *modified_time,
+                        size: *size,
                         is_markdown: false,
                     });
                     files_indexed += 1;
@@ -166,20 +177,16 @@ impl VaultIndexer {
         if !docs_to_index.is_empty() || !deleted_paths.is_empty() {
             let docs = docs_to_index.clone();
             let deletes = deleted_paths.clone();
-            tauri::async_runtime::spawn_blocking(move || {
-                let guard = tauri::async_runtime::block_on(search_index.lock());
-                if is_initial_sync {
-                    guard
-                        .rebuild_all(&docs)
-                        .map_err(|e| format!("Failed to rebuild search index: {}", e))
-                } else {
-                    guard
-                        .index_batch(&docs, &deletes)
-                        .map_err(|e| format!("Failed to update search index: {}", e))
-                }
-            })
-                .await
-                .map_err(|e| format!("Search index task failed: {}", e))??;
+            let guard = search_index.lock().await;
+            if is_initial_sync {
+                guard
+                    .rebuild_all(&docs)
+                    .map_err(|e| format!("Failed to rebuild search index: {}", e))?;
+            } else {
+                guard
+                    .index_batch(&docs, &deletes)
+                    .map_err(|e| format!("Failed to update search index: {}", e))?;
+            }
         }
         
         let duration_ms = start.elapsed().as_millis();

@@ -2,6 +2,7 @@ use crate::error::TessellumError;
 use crate::utils::{normalize_path, validate_path_in_vault};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -31,22 +32,28 @@ fn next_available_name(file_name: &str, exists: impl Fn(&str) -> bool) -> String
 	if !exists(file_name) {
 		return file_name.to_string();
 	}
-	
+
 	let (stem, extension) = split_file_name(file_name);
 	let suffix = if extension.is_empty() {
 		String::new()
 	} else {
 		format!(".{extension}")
 	};
-	
-	let mut copy_index = 1;
-	loop {
+
+	const MAX_ATTEMPTS: u32 = 100;
+	for copy_index in 1..=MAX_ATTEMPTS {
 		let candidate = format!("{stem} ({copy_index}){suffix}");
 		if !exists(&candidate) {
 			return candidate;
 		}
-		copy_index += 1;
 	}
+
+	// Fallback to a timestamp-based suffix to guarantee uniqueness without looping.
+	let ts = SystemTime::now()
+		.duration_since(UNIX_EPOCH)
+		.map(|d| d.as_millis())
+		.unwrap_or(0);
+	format!("{stem} {ts}{suffix}")
 }
 
 fn resolve_unique_target_path(destination_dir: &Path, file_name: &str) -> PathBuf {

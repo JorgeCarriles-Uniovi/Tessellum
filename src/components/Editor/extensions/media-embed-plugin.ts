@@ -12,6 +12,7 @@ import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { parseCodeBlocks } from "./code/code-parser";
 import { findLatexExpressions } from "./shared-latex-utils";
+import { collectInlineCodeSpansForLine } from "../../../../utils/inlineCodeSpans";
 
 interface MediaEmbedConfig {
     vaultPath: string;
@@ -219,50 +220,10 @@ function overlapsRange(from: number, to: number, range: DocRange): boolean {
 }
 
 function collectInlineCodeTextSpans(lineText: string, lineFrom: number): DocRange[] {
-    const spans: DocRange[] = [];
-    let i = 0;
-    let inCode = false;
-    let delimiterLen = 0;
-    let codeStart = -1;
-
-    while (i < lineText.length) {
-        if (lineText[i] !== "`") {
-            i += 1;
-            continue;
-        }
-
-        const runStart = i;
-        while (i < lineText.length && lineText[i] === "`") {
-            i += 1;
-        }
-        const runLen = i - runStart;
-
-        if (!inCode) {
-            inCode = true;
-            delimiterLen = runLen;
-            codeStart = runStart;
-            continue;
-        }
-
-        if (runLen === delimiterLen) {
-            spans.push({
-                from: lineFrom + codeStart,
-                to: lineFrom + i,
-            });
-            inCode = false;
-            delimiterLen = 0;
-            codeStart = -1;
-        }
-    }
-
-    if (inCode && codeStart >= 0) {
-        spans.push({
-            from: lineFrom + codeStart,
-            to: lineFrom + lineText.length,
-        });
-    }
-
-    return spans;
+    return collectInlineCodeSpansForLine(lineText).map(({ from, to }) => ({
+        from: lineFrom + from,
+        to: lineFrom + to,
+    }));
 }
 
 function isBlockedEmbedLine(lineText: string): boolean {
@@ -453,6 +414,8 @@ export function createMediaEmbedPlugin(config: MediaEmbedConfig) {
     const plugin = ViewPlugin.fromClass(
         class {
             private view: EditorView;
+            private destroyed = false;
+            private resolveInProgress = false;
             private isUserFocused = false;
             private hasUserInteracted = false;
             private onFocusIn: () => void;
@@ -520,6 +483,7 @@ export function createMediaEmbedPlugin(config: MediaEmbedConfig) {
             }
 
             destroy() {
+                this.destroyed = true;
                 this.view.dom.removeEventListener("focusin", this.onFocusIn);
                 this.view.dom.removeEventListener("focusout", this.onFocusOut);
                 this.view.dom.removeEventListener("keydown", this.onUserInteract);
@@ -533,70 +497,88 @@ export function createMediaEmbedPlugin(config: MediaEmbedConfig) {
             }
 
             async resolvePending(view: EditorView) {
-                const requests = Array.from(pendingRequests.values());
-                pendingRequests.clear();
-                if (requests.length === 0) return;
+                // Only one resolution loop at a time. New items added to
+                // pendingRequests during an in-flight run will be picked up
+                // by the while-loop's next iteration.
+                if (this.resolveInProgress) return;
+                this.resolveInProgress = true;
 
-                let anyUpdated = false;
+                try {
+                    while (pendingRequests.size > 0) {
+                        if (this.destroyed) return;
 
-                for (const req of requests) {
-                    try {
-                        const resolved = await invoke<string | null>("resolve_asset", {
-                            vaultPath: config.vaultPath,
-                            target: req.target,
-                            sourcePath: req.sourcePath,
-                            mode: req.mode,
-                        });
+                        const requests = Array.from(pendingRequests.values());
+                        pendingRequests.clear();
 
-                        resolvedPathCache.set(req.key, resolved ?? null);
+                        let anyUpdated = false;
 
-                        if (!resolved) {
-                            resolvedSrcCache.set(req.key, null);
-                            anyUpdated = true;
-                            continue;
-                        }
+                        for (const req of requests) {
+                            if (this.destroyed) return;
+                            try {
+                                const resolved = await invoke<string | null>("resolve_asset", {
+                                    vaultPath: config.vaultPath,
+                                    target: req.target,
+                                    sourcePath: req.sourcePath,
+                                    mode: req.mode,
+                                });
+                                if (this.destroyed) return;
 
-                        try {
-                            const mime = getMimeType(resolved);
-                            if (mime === "application/pdf") {
-                                const url = convertFileSrc(resolved);
-                                const previous = resolvedSrcCache.get(req.key);
-                                if (previous && previous.startsWith("blob:")) {
-                                    URL.revokeObjectURL(previous);
+                                resolvedPathCache.set(req.key, resolved ?? null);
+
+                                if (!resolved) {
+                                    resolvedSrcCache.set(req.key, null);
+                                    anyUpdated = true;
+                                    continue;
                                 }
-                                resolvedSrcCache.set(req.key, url);
+
+                                try {
+                                    const mime = getMimeType(resolved);
+                                    if (mime === "application/pdf") {
+                                        const url = convertFileSrc(resolved);
+                                        const previous = resolvedSrcCache.get(req.key);
+                                        if (previous && previous.startsWith("blob:")) {
+                                            URL.revokeObjectURL(previous);
+                                        }
+                                        resolvedSrcCache.set(req.key, url);
+                                        anyUpdated = true;
+                                        continue;
+                                    }
+
+                                    const data = await readFile(resolved);
+                                    if (this.destroyed) return;
+                                    const blob = new Blob([data], { type: mime });
+                                    const url = URL.createObjectURL(blob);
+                                    const previous = resolvedSrcCache.get(req.key);
+                                    if (previous && previous.startsWith("blob:")) {
+                                        URL.revokeObjectURL(previous);
+                                    }
+                                    resolvedSrcCache.set(req.key, url);
+                                    anyUpdated = true;
+                                } catch {
+                                    if (this.destroyed) return;
+                                    const fallback = convertFileSrc(resolved);
+                                    const previous = resolvedSrcCache.get(req.key);
+                                    if (previous && previous.startsWith("blob:")) {
+                                        URL.revokeObjectURL(previous);
+                                    }
+                                    resolvedSrcCache.set(req.key, fallback);
+                                    anyUpdated = true;
+                                }
+                            } catch (e) {
+                                if (this.destroyed) return;
+                                console.error("Failed to resolve asset:", e);
+                                resolvedPathCache.set(req.key, null);
+                                resolvedSrcCache.set(req.key, null);
                                 anyUpdated = true;
-                                continue;
                             }
-
-                            const data = await readFile(resolved);
-                            const blob = new Blob([data], { type: mime });
-                            const url = URL.createObjectURL(blob);
-                            const previous = resolvedSrcCache.get(req.key);
-                            if (previous && previous.startsWith("blob:")) {
-                                URL.revokeObjectURL(previous);
-                            }
-                            resolvedSrcCache.set(req.key, url);
-                            anyUpdated = true;
-                        } catch {
-                            const fallback = convertFileSrc(resolved);
-                            const previous = resolvedSrcCache.get(req.key);
-                            if (previous && previous.startsWith("blob:")) {
-                                URL.revokeObjectURL(previous);
-                            }
-                            resolvedSrcCache.set(req.key, fallback);
-                            anyUpdated = true;
                         }
-                    } catch (e) {
-                        console.error("Failed to resolve asset:", e);
-                        resolvedPathCache.set(req.key, null);
-                        resolvedSrcCache.set(req.key, null);
-                        anyUpdated = true;
-                    }
-                }
 
-                if (anyUpdated && view) {
-                    view.dispatch({ effects: resolvedEffect.of() });
+                        if (anyUpdated && !this.destroyed) {
+                            view.dispatch({ effects: resolvedEffect.of() });
+                        }
+                    }
+                } finally {
+                    this.resolveInProgress = false;
                 }
             }
         }

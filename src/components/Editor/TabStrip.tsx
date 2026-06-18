@@ -133,6 +133,10 @@ export function TabStrip({
         if (event.button !== 0) return;
         if (event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) return;
 
+        // Remove any stale global listeners from a previous drag that was
+        // interrupted without a mouseup (e.g. focus loss, rapid re-drag).
+        cleanupDrag();
+
         dragStateRef.current = {
             sourceId,
             startX: event.clientX,

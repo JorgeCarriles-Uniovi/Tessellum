@@ -49,8 +49,23 @@ function findPreviousRemainingTab(
     return nextTabs[0] ?? null;
 }
 
+const VAULT_PATH_KEY = "tessellum:vault:path";
+
+function readVaultPath(): string | null {
+    // Migrate from the legacy unprefixed key on first run.
+    const current = localStorage.getItem(VAULT_PATH_KEY);
+    if (current !== null) return current;
+    const legacy = localStorage.getItem("vaultPath");
+    if (legacy !== null) {
+        localStorage.setItem(VAULT_PATH_KEY, legacy);
+        localStorage.removeItem("vaultPath");
+        return legacy;
+    }
+    return null;
+}
+
 export const useVaultStore = create<VaultStore>((set) => ({
-    vaultPath: localStorage.getItem("vaultPath"),
+    vaultPath: readVaultPath(),
     files: [],
     fileTree: [],
     activeNote: null,
@@ -58,9 +73,9 @@ export const useVaultStore = create<VaultStore>((set) => ({
 
     setVaultPath: (path) => {
         if (path) {
-            localStorage.setItem("vaultPath", path);
+            localStorage.setItem(VAULT_PATH_KEY, path);
         } else {
-            localStorage.removeItem("vaultPath");
+            localStorage.removeItem(VAULT_PATH_KEY);
         }
         // Reset per-vault volatile state when changing vault scope.
         set({ vaultPath: path, activeNote: null, openTabPaths: [] });

@@ -64,11 +64,19 @@ impl Database {
             "CREATE TABLE IF NOT EXISTS search_files (
                 path TEXT PRIMARY KEY,
                 modified_at INTEGER,
-                is_markdown INTEGER
+                is_markdown INTEGER,
+                file_size INTEGER NOT NULL DEFAULT 0
             );",
         )
             .execute(&pool)
             .await?;
+
+        // Migrate existing databases that lack the file_size column.
+        let _ = sqlx::query(
+            "ALTER TABLE search_files ADD COLUMN file_size INTEGER NOT NULL DEFAULT 0",
+        )
+            .execute(&pool)
+            .await; // Ignore error — column may already exist.
         
         // Create links table with RESOLVED target paths
         sqlx::query(
@@ -397,25 +405,41 @@ impl Database {
         Ok(rows)
     }
     
+    /// Get the stored file size for a search file (returns None if not found).
+    pub async fn get_search_file_size(&self, path: &str) -> Option<i64> {
+        sqlx::query_as::<_, (i64,)>(
+            "SELECT file_size FROM search_files WHERE path = ?",
+        )
+            .bind(path)
+            .fetch_optional(&self.pool)
+            .await
+            .ok()
+            .flatten()
+            .map(|(size,)| size)
+    }
+
     /// Upsert search file metadata.
     pub async fn upsert_search_file(
         &self,
         path: &str,
         modified: i64,
+        file_size: i64,
         is_markdown: bool,
     ) -> Result<(), sqlx::Error> {
         sqlx::query(
-            "INSERT INTO search_files (path, modified_at, is_markdown) VALUES (?, ?, ?)
-             ON CONFLICT(path) DO UPDATE SET modified_at = ?, is_markdown = ?",
+            "INSERT INTO search_files (path, modified_at, file_size, is_markdown) VALUES (?, ?, ?, ?)
+             ON CONFLICT(path) DO UPDATE SET modified_at = ?, file_size = ?, is_markdown = ?",
         )
             .bind(path)
             .bind(modified)
+            .bind(file_size)
             .bind(if is_markdown { 1 } else { 0 })
             .bind(modified)
+            .bind(file_size)
             .bind(if is_markdown { 1 } else { 0 })
             .execute(&self.pool)
             .await?;
-        
+
         Ok(())
     }
 
@@ -487,12 +511,14 @@ impl Database {
             }
 
             sqlx::query(
-                "INSERT INTO search_files (path, modified_at, is_markdown) VALUES (?, ?, 1)
-                 ON CONFLICT(path) DO UPDATE SET modified_at = ?, is_markdown = 1",
+                "INSERT INTO search_files (path, modified_at, file_size, is_markdown) VALUES (?, ?, ?, 1)
+                 ON CONFLICT(path) DO UPDATE SET modified_at = ?, file_size = ?, is_markdown = 1",
             )
             .bind(&entry.path)
             .bind(entry.modified)
+            .bind(entry.size as i64)
             .bind(entry.modified)
+            .bind(entry.size as i64)
             .execute(&mut *tx)
             .await?;
         }
@@ -544,12 +570,13 @@ impl Database {
             notes_query.build().execute(&mut *tx).await?;
 
             let mut search_query = QueryBuilder::<Sqlite>::new(
-                "INSERT INTO search_files (path, modified_at, is_markdown) ",
+                "INSERT INTO search_files (path, modified_at, file_size, is_markdown) ",
             );
             search_query.push_values(chunk.iter(), |mut builder, entry| {
                 builder
                     .push_bind(&entry.path)
                     .push_bind(entry.modified)
+                    .push_bind(entry.size as i64)
                     .push_bind(1);
             });
             search_query.build().execute(&mut *tx).await?;
@@ -612,13 +639,15 @@ impl Database {
 
         for entry in entries {
             sqlx::query(
-                "INSERT INTO search_files (path, modified_at, is_markdown) VALUES (?, ?, ?)
-                 ON CONFLICT(path) DO UPDATE SET modified_at = ?, is_markdown = ?",
+                "INSERT INTO search_files (path, modified_at, file_size, is_markdown) VALUES (?, ?, ?, ?)
+                 ON CONFLICT(path) DO UPDATE SET modified_at = ?, file_size = ?, is_markdown = ?",
             )
             .bind(&entry.path)
             .bind(entry.modified)
+            .bind(entry.size as i64)
             .bind(if entry.is_markdown { 1 } else { 0 })
             .bind(entry.modified)
+            .bind(entry.size as i64)
             .bind(if entry.is_markdown { 1 } else { 0 })
             .execute(&mut *tx)
             .await?;

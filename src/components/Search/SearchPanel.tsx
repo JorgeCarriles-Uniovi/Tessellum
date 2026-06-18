@@ -195,6 +195,12 @@ function normalizeTag(tag: string): string {
     return tag.trim().replace(/^#/, "").toLowerCase();
 }
 
+function escapeTantivyTerm(term: string): string {
+    // Escape characters that have special meaning in Tantivy's query parser so
+    // queries like "c++" or "(algorithm)" don't silently return zero results.
+    return term.replace(/[+\-:!"()\[\]{}^~*?\\]/g, "\\$&");
+}
+
 function splitQuery(query: string) {
     const parts = query.split(/\s+/).filter(Boolean);
     const tags: string[] = [];
@@ -207,10 +213,10 @@ function splitQuery(query: string) {
         }
         if (part.startsWith("content:")) {
             const raw = part.slice("content:".length);
-            if (raw) terms.push(raw);
+            if (raw) terms.push(escapeTantivyTerm(raw));
             return;
         }
-        terms.push(part);
+        terms.push(escapeTantivyTerm(part));
     });
     return { terms, tags };
 }
@@ -471,7 +477,7 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
                                 const isHovered = hoveredIndex === idx;
                                 return (
                                     <div
-                                        key={`${result.type}-${idx}`}
+                                        key={`${result.fullPath}-${result.type}`}
                                         style={createResultCardStyle(isHovered)}
                                         onMouseEnter={() => setHoveredIndex(idx)}
                                         onMouseLeave={() => setHoveredIndex(null)}

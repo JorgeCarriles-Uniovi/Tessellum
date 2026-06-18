@@ -1,4 +1,5 @@
 import { EditorView } from "@codemirror/view";
+import { collectInlineCodeSpansForLine } from "../../../../utils/inlineCodeSpans";
 
 export interface WikiLinkMatch {
     from: number;
@@ -28,46 +29,6 @@ export interface ParsedWikiLink {
     aliasOffset?: number; // Offset of the alias text from the start of the full string [[...]]
 }
 
-function collectInlineCodeTextSpans(lineText: string): Array<{ from: number; to: number }> {
-    const spans: Array<{ from: number; to: number }> = [];
-    let i = 0;
-    let inCode = false;
-    let delimiterLen = 0;
-    let codeStart = -1;
-
-    while (i < lineText.length) {
-        if (lineText[i] !== "`") {
-            i += 1;
-            continue;
-        }
-
-        const runStart = i;
-        while (i < lineText.length && lineText[i] === "`") {
-            i += 1;
-        }
-        const runLen = i - runStart;
-
-        if (!inCode) {
-            inCode = true;
-            delimiterLen = runLen;
-            codeStart = runStart;
-            continue;
-        }
-
-        if (runLen === delimiterLen) {
-            spans.push({ from: codeStart, to: i });
-            inCode = false;
-            delimiterLen = 0;
-            codeStart = -1;
-        }
-    }
-
-    if (inCode && codeStart >= 0) {
-        spans.push({ from: codeStart, to: lineText.length });
-    }
-
-    return spans;
-}
 
 function overlapsRange(from: number, to: number, range: { from: number; to: number }): boolean {
     return from < range.to && to > range.from;
@@ -96,9 +57,15 @@ export function parseWikiLink(text: string): ParsedWikiLink | null {
         };
     }
 
-    return {
-        target: inner.trim()
-    };
+    const target = inner.trim();
+    // When the target includes a path separator, display only the last segment
+    // (e.g. [[Projects/2024/Meeting Notes]] shows "Meeting Notes").
+    // An explicit pipe alias always overrides this default.
+    const alias = target.includes('/')
+        ? target.split('/').pop()
+        : undefined;
+
+    return { target, alias };
 }
 
 
@@ -115,7 +82,7 @@ export function findWikiLinks(view: EditorView): WikiLinkMatch[] {
     for (let i = 1; i <= doc.lines; i++) {
         const line = doc.line(i);
         const lineText = line.text;
-        const inlineCodeSpans = collectInlineCodeTextSpans(lineText);
+        const inlineCodeSpans = collectInlineCodeSpansForLine(lineText);
 
         let match: RegExpExecArray | null;
         regex.lastIndex = 0; // Reset regex

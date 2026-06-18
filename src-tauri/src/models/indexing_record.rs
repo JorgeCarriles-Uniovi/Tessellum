@@ -12,5 +12,6 @@ pub struct IndexedMarkdownFile {
 pub struct IndexedSearchFile {
     pub path: String,
     pub modified: i64,
+    pub size: u64,
     pub is_markdown: bool,
 }
