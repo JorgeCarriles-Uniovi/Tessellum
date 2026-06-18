@@ -1,11 +1,13 @@
 use serde::Serialize;
 use std::sync::atomic::Ordering;
+use std::time::UNIX_EPOCH;
 use tauri::State;
 
 use crate::error::TessellumError;
 use crate::indexer::{IndexStats, VaultIndexer};
 use crate::grafeo_projection::{sync_full, ManagedGrafeoConnection};
 use crate::models::AppState;
+use crate::utils::is_hidden_or_special;
 
 /// Response from the sync_vault command.
 #[derive(Serialize)]
@@ -104,6 +106,79 @@ pub async fn run_sync_vault(
     state.sync_in_progress.store(false, Ordering::Release);
 
     result
+}
+
+/// Index status returned to the frontend.
+#[derive(Serialize, Clone)]
+pub struct IndexStatus {
+    pub indexed: u64,
+    pub total: u64,
+    pub stale: u64,
+    pub sync_in_progress: bool,
+}
+
+/// Return current index status without scanning the full vault.
+///
+/// - `indexed`: markdown files recorded in the DB
+/// - `total`: markdown files found on disk
+/// - `stale`: files on disk whose mtime is newer than what the DB recorded
+#[tauri::command]
+pub async fn get_index_status(
+    state: State<'_, AppState>,
+    vault_path: String,
+) -> Result<IndexStatus, TessellumError> {
+    let sync_in_progress = state.sync_in_progress.load(Ordering::Acquire);
+
+    let indexed = state.db.count_indexed_markdown_files().await
+        .unwrap_or(0) as u64;
+
+    // Quick disk walk to count markdown files and stale ones
+    let db_files: std::collections::HashMap<String, i64> = state.db
+        .get_all_search_files()
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|(_, _, is_md)| *is_md != 0)
+        .map(|(path, modified, _)| (path, modified))
+        .collect();
+
+    let mut total: u64 = 0;
+    let mut stale: u64 = 0;
+
+    if let Ok(entries) = walkdir::WalkDir::new(&vault_path)
+        .into_iter()
+        .collect::<Result<Vec<_>, _>>()
+    {
+        for entry in entries {
+            let path = entry.path();
+            let rel = path.strip_prefix(&vault_path).unwrap_or(path);
+            if is_hidden_or_special(rel) { continue; }
+            if path.extension().and_then(|s| s.to_str()) != Some("md") { continue; }
+            if !path.is_file() { continue; }
+
+            total += 1;
+            let path_str = crate::utils::normalize_path(&path.to_string_lossy());
+            if let Ok(meta) = std::fs::metadata(path) {
+                let disk_mtime = meta.modified()
+                    .unwrap_or(UNIX_EPOCH)
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs() as i64;
+                match db_files.get(&path_str) {
+                    None => stale += 1,
+                    Some(&db_mtime) if disk_mtime > db_mtime => stale += 1,
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    Ok(IndexStatus {
+        indexed,
+        total,
+        stale,
+        sync_in_progress,
+    })
 }
 
 #[cfg(test)]

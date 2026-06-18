@@ -418,6 +418,16 @@ impl Database {
             .map(|(size,)| size)
     }
 
+    /// Count indexed markdown files.
+    pub async fn count_indexed_markdown_files(&self) -> Result<i64, sqlx::Error> {
+        let (count,) = sqlx::query_as::<_, (i64,)>(
+            "SELECT COUNT(*) FROM search_files WHERE is_markdown = 1",
+        )
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(count)
+    }
+
     /// Upsert search file metadata.
     pub async fn upsert_search_file(
         &self,
