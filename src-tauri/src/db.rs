@@ -428,6 +428,47 @@ impl Database {
         Ok(count)
     }
 
+    /// Execute a pre-built dataview query and return rows.
+    pub async fn run_dataview_query(
+        &self,
+        sql: &str,
+        params: &[String],
+        columns: &[String],
+    ) -> Result<Vec<crate::commands::dataview::DataviewRow>, sqlx::Error> {
+        let mut q = sqlx::query(sql);
+        for p in params {
+            q = q.bind(p);
+        }
+        let raw_rows = q.fetch_all(&self.pool).await?;
+
+        let mut result = Vec::with_capacity(raw_rows.len());
+        for row in raw_rows {
+            let path: String = row.try_get("path").unwrap_or_default();
+            let frontmatter_str: Option<String> = row.try_get("frontmatter").ok().flatten();
+            let frontmatter: serde_json::Value = frontmatter_str
+                .and_then(|s| serde_json::from_str(&s).ok())
+                .unwrap_or(serde_json::Value::Object(serde_json::Map::new()));
+
+            let title = std::path::Path::new(&path)
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .trim_end_matches(".md")
+                .to_string();
+
+            let mut props = serde_json::Map::new();
+            for col in columns {
+                if col == "title" { continue; }
+                let val = frontmatter.get(col).cloned().unwrap_or(serde_json::Value::Null);
+                props.insert(col.clone(), val);
+            }
+
+            result.push(crate::commands::dataview::DataviewRow { path, title, props });
+        }
+
+        Ok(result)
+    }
+
     /// Upsert search file metadata.
     pub async fn upsert_search_file(
         &self,

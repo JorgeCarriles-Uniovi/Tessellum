@@ -9,6 +9,7 @@ import { WikiLinkPlugin } from "./WikiLinkPlugin";
 import { CoreCommandsPlugin } from "./CoreCommandsPlugin";
 import { CodePlugin } from "./CodePlugin.ts";
 import { MermaidPlugin } from "./MermaidPlugin";
+import { DataviewPlugin } from "./DataviewPlugin";
 import { InlineTagsPlugin } from "./InlineTagsPlugin";
 import { FrontmatterPlugin } from "./FrontmatterPlugin";
 import { DailyNotesPlugin } from "./DailyNotesPlugin";
@@ -57,6 +58,7 @@ export function registerBuiltinPlugins(app: TessellumApp): void {
     app.plugins.register(CoreCommandsPlugin.manifest, CoreCommandsPlugin);
     app.plugins.register(CodePlugin.manifest, CodePlugin);
     app.plugins.register(MermaidPlugin.manifest, MermaidPlugin);
+    app.plugins.register(DataviewPlugin.manifest, DataviewPlugin);
     app.plugins.register(FrontmatterPlugin.manifest, FrontmatterPlugin);
     app.plugins.register(InlineTagsPlugin.manifest, InlineTagsPlugin);
     app.plugins.register(DailyNotesPlugin.manifest, DailyNotesPlugin);

@@ -182,6 +182,7 @@ pub fn run() {
             commands::pdf_export::export_markdown_pdf,
             commands::indexer::sync_vault,
             commands::indexer::get_index_status,
+            commands::dataview::execute_dataview_query,
             commands::graph::get_graph_data,
             commands::graph::execute_graph_query,
             commands::vault::set_vault_path,
