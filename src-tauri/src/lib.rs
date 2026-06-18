@@ -210,6 +210,7 @@ pub fn run() {
             commands::history::get_note_snapshot,
             commands::history::pin_snapshot,
             commands::history::unpin_snapshot,
+            commands::publish::publish_vault,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {

@@ -15,6 +15,7 @@ import {
     User, FileText, Keyboard, Eye,
     Puzzle,
     RefreshCw,
+    Globe,
 } from "lucide-react";
 import { Plugin } from "../Plugin";
 import type { PluginManifest } from "../types";
@@ -33,6 +34,7 @@ import {
 } from "../../components/Settings/AccessibilitySettings.tsx";
 import { PluginsSettings } from "../../components/Settings/PluginsSettings.tsx";
 import { SyncSettings } from "../../components/Settings/SyncSettings.tsx";
+import { PublishSettings } from "../../components/Settings/PublishSettings.tsx";
 import { coreUIActionsTranslations, coreUIActionKeywords } from "./coreUIActionsTranslations.ts";
 
 export class CoreUIActionsPlugin extends Plugin {
@@ -284,6 +286,12 @@ export class CoreUIActionsPlugin extends Plugin {
             name: () => "Sync",
             icon: <RefreshCw size={16} />,
             component: <SyncSettings />
+        });
+        this.app.ui.registerSettingsTab(this.manifest.id, {
+            id: "Publish",
+            name: () => "Publish",
+            icon: <Globe size={16} />,
+            component: <PublishSettings />,
         });
         this.app.ui.registerSettingsTab(this.manifest.id, {
             id: "Plugins",

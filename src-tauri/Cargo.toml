@@ -47,6 +47,7 @@ tauri-plugin-window-state = "2.4.1"
 tantivy = "0.25.0"
 lopdf = "0.40.0"
 url = "2.5.7"
+pulldown-cmark = "0.12"
 
 grafeo = "0.5.39"
 doxygen-rs = "0.4.2"

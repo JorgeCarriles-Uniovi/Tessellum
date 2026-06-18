@@ -8,6 +8,7 @@ pub mod indexer;
 pub mod links;
 pub mod notes;
 pub mod pdf_export;
+pub mod publish;
 pub mod recovery;
 pub mod sync;
 pub mod templates;
