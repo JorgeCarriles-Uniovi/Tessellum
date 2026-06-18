@@ -211,6 +211,8 @@ pub fn run() {
             commands::history::pin_snapshot,
             commands::history::unpin_snapshot,
             commands::publish::publish_vault,
+            commands::export::export_note_docx,
+            commands::export::import_from_url,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {

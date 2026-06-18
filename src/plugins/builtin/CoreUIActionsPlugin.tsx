@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import {
     ArrowLeft,
     ArrowRight,
+    ArrowUpDown,
     FolderOpen,
     Plus,
     FolderPlus,
@@ -35,6 +36,7 @@ import {
 import { PluginsSettings } from "../../components/Settings/PluginsSettings.tsx";
 import { SyncSettings } from "../../components/Settings/SyncSettings.tsx";
 import { PublishSettings } from "../../components/Settings/PublishSettings.tsx";
+import { ExportImportSettings } from "../../components/Settings/ExportImportSettings.tsx";
 import { coreUIActionsTranslations, coreUIActionKeywords } from "./coreUIActionsTranslations.ts";
 
 export class CoreUIActionsPlugin extends Plugin {
@@ -292,6 +294,12 @@ export class CoreUIActionsPlugin extends Plugin {
             name: () => "Publish",
             icon: <Globe size={16} />,
             component: <PublishSettings />,
+        });
+        this.app.ui.registerSettingsTab(this.manifest.id, {
+            id: "Export",
+            name: () => "Export & Import",
+            icon: <ArrowUpDown size={16} />,
+            component: <ExportImportSettings />,
         });
         this.app.ui.registerSettingsTab(this.manifest.id, {
             id: "Plugins",

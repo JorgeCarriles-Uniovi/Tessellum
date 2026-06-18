@@ -1,6 +1,7 @@
 pub mod assets;
 pub mod clipboard;
 pub mod dataview;
+pub mod export;
 pub mod folders;
 pub mod graph;
 pub mod history;

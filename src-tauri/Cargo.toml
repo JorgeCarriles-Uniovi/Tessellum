@@ -48,6 +48,8 @@ tantivy = "0.25.0"
 lopdf = "0.40.0"
 url = "2.5.7"
 pulldown-cmark = "0.12"
+docx-rs = "0.4"
+reqwest = { version = "0.12", features = ["blocking"] }
 
 grafeo = "0.5.39"
 doxygen-rs = "0.4.2"
