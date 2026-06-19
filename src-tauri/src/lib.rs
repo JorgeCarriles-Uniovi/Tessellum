@@ -213,6 +213,8 @@ pub fn run() {
             commands::publish::publish_vault,
             commands::export::export_note_docx,
             commands::export::import_from_url,
+            commands::semantic::semantic_search,
+            commands::semantic::get_link_suggestions,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {

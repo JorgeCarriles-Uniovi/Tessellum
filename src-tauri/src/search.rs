@@ -223,6 +223,40 @@ impl SearchIndex {
 		Ok(results)
 	}
 
+	pub fn get_all_docs(&self) -> Result<Vec<SearchDoc>, String> {
+		let reader = self.reader.searcher();
+		let doc_addresses = reader
+			.search(&AllQuery, &DocSetCollector)
+			.map_err(|e| e.to_string())?;
+		let mut results = Vec::with_capacity(doc_addresses.len());
+		for address in doc_addresses {
+			let retrieved: TantivyDocument = reader.doc(address).map_err(|e| e.to_string())?;
+			let path = retrieved
+				.get_first(self.fields.path)
+				.and_then(|v| v.as_str())
+				.unwrap_or_default()
+				.to_string();
+			if path.is_empty() { continue; }
+			let title = retrieved
+				.get_first(self.fields.title)
+				.and_then(|v| v.as_str())
+				.unwrap_or_default()
+				.to_string();
+			let body = retrieved
+				.get_first(self.fields.body)
+				.and_then(|v| v.as_str())
+				.unwrap_or_default()
+				.to_string();
+			results.push(SearchDoc {
+				path: normalize_path(&path),
+				title,
+				body,
+				tags: Vec::new(),
+			});
+		}
+		Ok(results)
+	}
+
 	pub fn indexed_paths(&self) -> Result<Vec<String>, String> {
 		let reader = self.reader.searcher();
 		let doc_addresses = reader

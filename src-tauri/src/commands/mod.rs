@@ -11,6 +11,7 @@ pub mod notes;
 pub mod pdf_export;
 pub mod publish;
 pub mod recovery;
+pub mod semantic;
 pub mod sync;
 pub mod templates;
 pub mod vault;

@@ -14,6 +14,7 @@ import { parseOutline } from "../../utils/outline";
 import { useAppTranslation } from "../../i18n/react.tsx";
 import { getIgnoredTagLineNumbers, stripInlineCodeSpansForTagScan } from "../../utils/tagExtraction";
 import { NotePropertiesPanel } from "../sidebar/NotePropertiesPanel";
+import { BacklinkSuggestions } from "../sidebar/BacklinkSuggestions";
 
 const SNIPPET_LIMIT = 20;
 const SNIPPET_MAX_LEN = 120;
@@ -563,6 +564,10 @@ export function RightSidebar() {
                     isLoading={isLoadingBacklinks}
                     onOpen={(path) => app.workspace.openNote(path)}
                     t={t}
+                />
+                <BacklinkSuggestions
+                    activeNotePath={activeNote?.path}
+                    onOpen={(path) => app.workspace.openNote(path)}
                 />
                 <TagsSection activeNote={activeNote} tags={allTags} t={t} />
                 <OutlineSection
