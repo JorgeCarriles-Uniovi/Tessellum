@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { Text } from "@codemirror/state";
-import { ChevronDown, ChevronRight, Link2, List, Tag } from "lucide-react";
+import { ChevronDown, ChevronRight, Link2, List, Tag, Sparkles } from "lucide-react";
 import { theme } from "../../styles/theme";
 import { BaseSidebar } from "./BaseSidebar";
 import { cn } from "../../lib/utils";
@@ -15,6 +15,7 @@ import { useAppTranslation } from "../../i18n/react.tsx";
 import { getIgnoredTagLineNumbers, stripInlineCodeSpansForTagScan } from "../../utils/tagExtraction";
 import { NotePropertiesPanel } from "../sidebar/NotePropertiesPanel";
 import { BacklinkSuggestions } from "../sidebar/BacklinkSuggestions";
+import { VaultQAPanel } from "../ai/VaultQAPanel";
 
 const SNIPPET_LIMIT = 20;
 const SNIPPET_MAX_LEN = 120;
@@ -511,6 +512,7 @@ export function RightSidebar() {
     const { sidebarWidth, isResizing, onResizeStart } = useSidebarWidth();
     const { backlinks, isLoadingBacklinks } = useBacklinks(app, activeNote?.path, files);
     const backendTags = useBackendTags(app, activeNote?.path);
+    const [isQAOpen, setIsQAOpen] = useState(false);
 
     const frontendTags = useMemo(() => getFrontendTags(activeNoteContent), [activeNoteContent]);
     const allTags = useMemo(() => getAllTags(frontendTags, backendTags), [frontendTags, backendTags]);
@@ -525,8 +527,8 @@ export function RightSidebar() {
             style={{
                 backgroundColor: theme.colors.background.primary,
                 borderColor: theme.colors.border.light,
-                padding: isRightSidebarOpen ? "1.75rem" : "0",
-                overflow: "visible", // To allow the handle to stay on the edge
+                padding: isQAOpen ? "0" : (isRightSidebarOpen ? "1.75rem" : "0"),
+                overflow: "visible",
             }}
         >
             <div
@@ -542,43 +544,76 @@ export function RightSidebar() {
                     isResizing ? "bg-blue-500" : "bg-transparent group-hover:bg-gray-200"
                 )} />
             </div>
-            <div
-                className="flex flex-col space-y-10 transition-all duration-300 ease-in-out"
-                style={{
-                    flex: 1,
-                    minHeight: 0,
-                    overflowY: "auto",
-                    overflowX: "hidden",
-                    opacity: isRightSidebarOpen ? 1 : 0,
-                    transform: isRightSidebarOpen ? "translateX(0)" : "translateX(8px)",
-                }}
-            >
-                <NotePropertiesPanel
-                    activeNotePath={activeNote?.path}
-                    activeNoteContent={activeNoteContent}
-                    onContentChange={setActiveNoteContent}
-                />
-                <BacklinksSection
-                    activeNote={activeNote}
-                    backlinks={backlinks}
-                    isLoading={isLoadingBacklinks}
-                    onOpen={(path) => app.workspace.openNote(path)}
-                    t={t}
-                />
-                <BacklinkSuggestions
-                    activeNotePath={activeNote?.path}
-                    onOpen={(path) => app.workspace.openNote(path)}
-                />
-                <TagsSection activeNote={activeNote} tags={allTags} t={t} />
-                <OutlineSection
-                    activeNote={activeNote}
-                    activeNoteContent={activeNoteContent}
-                    onNavigate={(lineNumber) => {
-                        app.editor.navigateToLine(lineNumber);
+
+            {/* Vault Q&A toggle button */}
+            {isRightSidebarOpen && (
+                <button
+                    className="absolute top-3 right-3 z-10 flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs transition-colors"
+                    style={{
+                        background: isQAOpen
+                            ? "var(--primary)"
+                            : "color-mix(in srgb, var(--primary) 12%, transparent)",
+                        color: isQAOpen ? "#fff" : "var(--primary)",
+                        border: "none",
+                        cursor: "pointer",
                     }}
-                    t={t}
-                />
-            </div>
+                    onClick={() => setIsQAOpen((v) => !v)}
+                    title="Toggle Vault Q&A"
+                >
+                    <Sparkles size={12} />
+                    Q&A
+                </button>
+            )}
+
+            {isQAOpen ? (
+                <div
+                    className="flex flex-col h-full"
+                    style={{
+                        opacity: isRightSidebarOpen ? 1 : 0,
+                        transition: "opacity 300ms ease-in-out",
+                    }}
+                >
+                    <VaultQAPanel onClose={() => setIsQAOpen(false)} />
+                </div>
+            ) : (
+                <div
+                    className="flex flex-col space-y-10 transition-all duration-300 ease-in-out"
+                    style={{
+                        flex: 1,
+                        minHeight: 0,
+                        overflowY: "auto",
+                        overflowX: "hidden",
+                        opacity: isRightSidebarOpen ? 1 : 0,
+                        transform: isRightSidebarOpen ? "translateX(0)" : "translateX(8px)",
+                    }}
+                >
+                    <NotePropertiesPanel
+                        activeNotePath={activeNote?.path}
+                        activeNoteContent={activeNoteContent}
+                        onContentChange={setActiveNoteContent}
+                    />
+                    <BacklinksSection
+                        activeNote={activeNote}
+                        backlinks={backlinks}
+                        isLoading={isLoadingBacklinks}
+                        onOpen={(path) => app.workspace.openNote(path)}
+                        t={t}
+                    />
+                    <BacklinkSuggestions
+                        activeNotePath={activeNote?.path}
+                        onOpen={(path) => app.workspace.openNote(path)}
+                    />
+                    <TagsSection activeNote={activeNote} tags={allTags} t={t} />
+                    <OutlineSection
+                        activeNote={activeNote}
+                        activeNoteContent={activeNoteContent}
+                        onNavigate={(lineNumber) => {
+                            app.editor.navigateToLine(lineNumber);
+                        }}
+                        t={t}
+                    />
+                </div>
+            )}
         </BaseSidebar>
     );
 }
