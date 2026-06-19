@@ -21,6 +21,7 @@ import {
     LayoutTemplate,
     Sparkles,
     Tags,
+    Terminal,
 } from "lucide-react";
 import { useAIStore } from "../../stores/aiStore";
 import { Plugin } from "../Plugin";
@@ -44,6 +45,7 @@ import { PublishSettings } from "../../components/Settings/PublishSettings.tsx";
 import { ExportImportSettings } from "../../components/Settings/ExportImportSettings.tsx";
 import { AISettings } from "../../components/Settings/AISettings.tsx";
 import { TagsSettings } from "../../components/Settings/TagsSettings.tsx";
+import { ScriptsSettings } from "../../components/Settings/ScriptsSettings.tsx";
 import { coreUIActionsTranslations, coreUIActionKeywords } from "./coreUIActionsTranslations.ts";
 
 export class CoreUIActionsPlugin extends Plugin {
@@ -372,6 +374,12 @@ export class CoreUIActionsPlugin extends Plugin {
             name: () => "Tags",
             icon: <Tags size={16} />,
             component: <TagsSettings />,
+        });
+        this.app.ui.registerSettingsTab(this.manifest.id, {
+            id: "Scripts",
+            name: () => "Scripts",
+            icon: <Terminal size={16} />,
+            component: <ScriptsSettings />,
         });
     }
 }

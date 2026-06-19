@@ -13,6 +13,7 @@ pub mod pdf_export;
 pub mod plugins;
 pub mod publish;
 pub mod recovery;
+pub mod scripts;
 pub mod semantic;
 pub mod sync;
 pub mod templates;
