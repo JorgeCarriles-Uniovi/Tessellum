@@ -42,6 +42,7 @@ import type { HeroProjection, WorkspaceCardItem } from "./workspaceOverview/type
 import { useAppTranslation } from "../../i18n/react.tsx";
 import { toSpellcheckLang } from "../../i18n/spellcheck";
 import { SelectionToolbar } from "./toolbar/SelectionToolbar";
+import { AIPanel } from "./AIPanel";
 import {
     buildContentPreview,
     buildShortPath,
@@ -983,7 +984,8 @@ export function Editor() {
                 editorFontSizePx={editorFontSizePx}
             />
             <RecoveryBanner />
-            <div className="flex-1 min-h-0 flex min-w-0" ref={editorContainerRef}>
+            <div className="flex-1 min-h-0 flex min-w-0 relative" ref={editorContainerRef}>
+                <AIPanel getView={() => editorRef.current?.view} />
                 {isHistoryOpen && (
                     <NoteHistoryPanel
                         notePath={activeNote.path}

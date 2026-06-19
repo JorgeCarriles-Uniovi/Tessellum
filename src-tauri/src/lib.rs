@@ -219,6 +219,7 @@ pub fn run() {
             commands::plugins::install_plugin,
             commands::plugins::uninstall_plugin,
             commands::plugins::fetch_community_registry,
+            commands::ai::ai_generate,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {

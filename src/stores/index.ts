@@ -36,6 +36,9 @@ export { usePluginsStore } from "./pluginsStore";
 export type { PluginsActions, PluginsState, PluginsStore } from "./pluginsStore";
 
 export { useNavigationHistoryStore, selectCanGoBack, selectCanGoForward } from "./navigationHistoryStore";
+
+export { useAIStore } from "./aiStore";
+export type { AiStore, AiProviderConfig } from "./aiStore";
 export type {
     EditorHistoryEntry,
     GraphHistoryEntry,

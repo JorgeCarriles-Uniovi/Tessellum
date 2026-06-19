@@ -19,7 +19,9 @@ import {
     RefreshCw,
     Globe,
     LayoutTemplate,
+    Sparkles,
 } from "lucide-react";
+import { useAIStore } from "../../stores/aiStore";
 import { Plugin } from "../Plugin";
 import type { PluginManifest } from "../types";
 import { createNoteInDir } from "../../utils/noteUtils";
@@ -39,6 +41,7 @@ import { PluginsSettings } from "../../components/Settings/PluginsSettings.tsx";
 import { SyncSettings } from "../../components/Settings/SyncSettings.tsx";
 import { PublishSettings } from "../../components/Settings/PublishSettings.tsx";
 import { ExportImportSettings } from "../../components/Settings/ExportImportSettings.tsx";
+import { AISettings } from "../../components/Settings/AISettings.tsx";
 import { coreUIActionsTranslations, coreUIActionKeywords } from "./coreUIActionsTranslations.ts";
 
 export class CoreUIActionsPlugin extends Plugin {
@@ -271,6 +274,23 @@ export class CoreUIActionsPlugin extends Plugin {
             onTrigger: newCanvas,
         });
         this.app.ui.registerPaletteCommand(this.manifest.id, {
+            id: "ai-assistant",
+            name: () => "AI Writing Assistant",
+            keywords: () => ["ai", "assistant", "write", "summarise", "expand", "rephrase"],
+            icon: <Sparkles size={16} />,
+            onTrigger: () => {
+                useAIStore.getState().openPanel();
+            },
+        });
+        this.registerCommand({
+            id: "ai:open",
+            name: "AI Writing Assistant",
+            icon: <Sparkles size={16} />,
+            callback: () => {
+                useAIStore.getState().openPanel();
+            },
+        });
+        this.app.ui.registerPaletteCommand(this.manifest.id, {
             id: "paste-files",
             name: () => t("commands.pasteFiles"),
             keywords: () => keywords("pasteFiles"),
@@ -338,6 +358,12 @@ export class CoreUIActionsPlugin extends Plugin {
             name: () => t("tabs.plugins"),
             icon: <Puzzle size={16} />,
             component: <PluginsSettings />
+        });
+        this.app.ui.registerSettingsTab(this.manifest.id, {
+            id: "AI",
+            name: () => "AI Assistant",
+            icon: <Sparkles size={16} />,
+            component: <AISettings />,
         });
     }
 }

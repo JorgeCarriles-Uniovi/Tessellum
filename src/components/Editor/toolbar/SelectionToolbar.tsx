@@ -1,7 +1,7 @@
 import type { ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import type { CSSProperties, RefObject } from "react";
 import { useRef, useState } from "react";
-import { List, ListOrdered, CheckSquare, ChevronDown } from "lucide-react";
+import { List, ListOrdered, CheckSquare, ChevronDown, Sparkles } from "lucide-react";
 import { theme } from "../../../styles/theme";
 import { useAppTranslation } from "../../../i18n/react";
 import {
@@ -14,6 +14,7 @@ import {
 } from "../utils/markdownShortcuts";
 import { useSelectionToolbar } from "./useSelectionToolbar";
 import {cn} from "../../../lib/utils.ts";
+import { useAIStore } from "../../../stores/aiStore";
 
 type SelectionToolbarProps = {
     editorRef: RefObject<ReactCodeMirrorRef>;
@@ -141,6 +142,97 @@ function ListDropdown({
     );
 }
 
+const AI_ACTIONS = [
+    { id: "summarise", label: "Summarise", prompt: "Summarise the following text concisely:" },
+    { id: "expand", label: "Expand", prompt: "Expand and elaborate on the following text:" },
+    { id: "rephrase", label: "Rephrase", prompt: "Rephrase the following text to improve clarity:" },
+    { id: "translate", label: "Translate to English", prompt: "Translate the following text to English:" },
+];
+
+function AIDropdown({ onSelect }: { onSelect: (prompt: string, context: string) => void }) {
+    const [isOpen, setIsOpen] = useState(false);
+
+    return (
+        <div className="relative flex items-center h-8">
+            <button
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => setIsOpen((v) => !v)}
+                title="AI Writing Assistant"
+                className="flex items-center gap-1 px-2 h-8 rounded-md border-none transition-colors hover:bg-black/5 text-xs font-medium"
+                style={{ color: "var(--primary)", backgroundColor: "transparent", cursor: "pointer" }}
+            >
+                <Sparkles size={13} />
+                AI
+                <ChevronDown size={11} />
+            </button>
+
+            {isOpen && (
+                <>
+                    <div
+                        className="fixed inset-0 z-40"
+                        onMouseDown={(e) => { setIsOpen(false); e.preventDefault(); }}
+                    />
+                    <div
+                        className="absolute bottom-full mb-1 left-0 flex flex-col overflow-hidden rounded-md border min-w-[160px] z-50 py-1"
+                        style={{
+                            backgroundColor: theme.colors.background.secondary,
+                            borderColor: theme.colors.border.light,
+                            boxShadow: theme.shadows.md,
+                        }}
+                    >
+                        <div
+                            className="px-3 py-1 text-[0.625rem] font-semibold uppercase tracking-widest"
+                            style={{ color: theme.colors.text.muted }}
+                        >
+                            AI Actions
+                        </div>
+                        {AI_ACTIONS.map((action) => (
+                            <button
+                                key={action.id}
+                                type="button"
+                                onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    setIsOpen(false);
+                                    onSelect(action.prompt, "");
+                                }}
+                                className="flex items-center gap-2 px-3 py-1.5 text-sm transition-colors hover:bg-black/5 w-full text-left"
+                                style={{
+                                    color: theme.colors.text.primary,
+                                    backgroundColor: "transparent",
+                                    border: "none",
+                                    cursor: "pointer",
+                                }}
+                            >
+                                {action.label}
+                            </button>
+                        ))}
+                        <div style={{ height: 1, background: theme.colors.border.light, margin: "4px 0" }} />
+                        <button
+                            type="button"
+                            onMouseDown={(e) => {
+                                e.preventDefault();
+                                setIsOpen(false);
+                                onSelect("", "");
+                            }}
+                            className="flex items-center gap-2 px-3 py-1.5 text-sm transition-colors hover:bg-black/5 w-full text-left"
+                            style={{
+                                color: "var(--primary)",
+                                backgroundColor: "transparent",
+                                border: "none",
+                                cursor: "pointer",
+                            }}
+                        >
+                            <Sparkles size={12} />
+                            Open AI Panel…
+                        </button>
+                    </div>
+                </>
+            )}
+        </div>
+    );
+}
+
 export function SelectionToolbar({ editorRef, enabled }: SelectionToolbarProps) {
     const { t } = useAppTranslation("core");
     const toolbarRef = useRef<HTMLDivElement>(null);
@@ -149,6 +241,7 @@ export function SelectionToolbar({ editorRef, enabled }: SelectionToolbarProps) 
         toolbarRef,
         enabled,
     });
+    const openAIPanel = useAIStore((s) => s.openPanel);
 
     if (!isOpen) {
         return null;
@@ -163,6 +256,17 @@ export function SelectionToolbar({ editorRef, enabled }: SelectionToolbarProps) 
         applyMarkdownShortcut(view, getMarkdownMarker(action));
         view.focus();
         requestAnimationFrame(refresh);
+    };
+
+    const handleAIAction = (prompt: string, _context: string) => {
+        const view = editorRef.current?.view;
+        const selectedText = view
+            ? view.state.sliceDoc(
+                  view.state.selection.main.from,
+                  view.state.selection.main.to
+              )
+            : "";
+        openAIPanel({ prompt, context: selectedText });
     };
 
     return (
@@ -223,6 +327,13 @@ export function SelectionToolbar({ editorRef, enabled }: SelectionToolbarProps) 
                     requestAnimationFrame(refresh);
                 }}
             />
+
+            <div
+                className="h-5 w-px mx-1"
+                style={{ backgroundColor: theme.colors.border.light }}
+            />
+
+            <AIDropdown onSelect={handleAIAction} />
         </div>
     );
 }
