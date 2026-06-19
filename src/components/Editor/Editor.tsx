@@ -43,14 +43,17 @@ import { useAppTranslation } from "../../i18n/react.tsx";
 import { toSpellcheckLang } from "../../i18n/spellcheck";
 import { SelectionToolbar } from "./toolbar/SelectionToolbar";
 import { AIPanel } from "./AIPanel";
+import { TagSuggestionBanner } from "./TagSuggestionBanner";
 import {
     buildContentPreview,
     buildShortPath,
     buildTabsFromPaths,
     createTableMarkdown,
+    extractFrontmatter,
     formatRelativeTime,
     getPrimaryAction,
     normalizeTimestampSeconds,
+    parseFrontmatterTags,
     type NoteCardMetadata,
 } from "./editorViewHelpers";
 import {
@@ -930,6 +933,42 @@ export function Editor() {
                     {t("editor.loadingNote")}
                 </div>
             )}
+            <TagSuggestionBanner
+                notePath={activeNote.path}
+                content={content}
+                existingTags={parseFrontmatterTags(extractFrontmatter(content).frontmatter)}
+                onAddTag={(tag) => {
+                    const view = editorRef.current?.view;
+                    if (!view) return;
+                    const { frontmatter } = extractFrontmatter(view.state.doc.toString());
+                    const existingTags = parseFrontmatterTags(frontmatter);
+                    const newTags = [...existingTags, tag];
+                    const tagsLine = `tags: [${newTags.join(", ")}]`;
+
+                    const doc = view.state.doc.toString();
+                    if (doc.startsWith("---")) {
+                        const endIdx = doc.indexOf("\n---", 3);
+                        const tagsMatch = doc.match(/^tags\s*:.*/m);
+                        if (tagsMatch && tagsMatch.index !== undefined && endIdx !== -1 && tagsMatch.index < endIdx) {
+                            view.dispatch({
+                                changes: {
+                                    from: tagsMatch.index,
+                                    to: tagsMatch.index + tagsMatch[0].length,
+                                    insert: tagsLine,
+                                },
+                            });
+                        } else if (endIdx !== -1) {
+                            view.dispatch({
+                                changes: { from: endIdx, insert: `\n${tagsLine}` },
+                            });
+                        }
+                    } else {
+                        view.dispatch({
+                            changes: { from: 0, insert: `---\n${tagsLine}\n---\n` },
+                        });
+                    }
+                }}
+            />
         </div>
     );
 

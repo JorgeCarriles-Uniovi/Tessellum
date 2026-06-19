@@ -1068,6 +1068,17 @@ impl Database {
         Ok(sorted_keys)
     }
     
+    /// Get all note paths that have a given tag (checked in note_tags table).
+    pub async fn get_notes_with_tag(&self, tag: &str) -> Result<Vec<String>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, (String,)>(
+            "SELECT path FROM note_tags WHERE tag = ?",
+        )
+        .bind(tag)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows.into_iter().map(|(path,)| path).collect())
+    }
+
     /// Read a single note projection for Kuzu sync.
     /// Returns (id, title, tags) where id is the note path.
     pub async fn get_note_projection(
