@@ -23,6 +23,12 @@ export function TagSuggestionBanner({
     const [visible, setVisible] = useState(false);
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastPathRef = useRef<string | undefined>(undefined);
+    const existingTagsRef = useRef<string[]>(existingTags);
+    const dismissedRef = useRef<Set<string>>(dismissed);
+
+    // Keep refs in sync so debounce callback always reads fresh values
+    existingTagsRef.current = existingTags;
+    dismissedRef.current = dismissed;
 
     // Reset dismissed set when note changes
     useEffect(() => {
@@ -43,9 +49,9 @@ export function TagSuggestionBanner({
             try {
                 const tags = await invoke<string[]>("suggest_tags", {
                     content,
-                    existingTags,
+                    existingTags: existingTagsRef.current,
                 });
-                const fresh = tags.filter((t) => !dismissed.has(t) && !existingTags.includes(t));
+                const fresh = tags.filter((t) => !dismissedRef.current.has(t) && !existingTagsRef.current.includes(t));
                 setSuggestions(fresh);
                 setVisible(fresh.length > 0);
             } catch {

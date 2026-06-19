@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
-import { Tags, Merge } from "lucide-react";
+import { Tags, GitMerge } from "lucide-react";
 import { SettingSection } from "./items/SettingSection";
 
 interface TagGroup {
@@ -130,7 +130,7 @@ export function TagsSettings() {
                                         }
                                     }}
                                 >
-                                    <Merge size={11} />
+                                    <GitMerge size={11} />
                                     {merging === group.canonical ? "Merging…" : `Merge into #${group.canonical}`}
                                 </button>
                             </div>

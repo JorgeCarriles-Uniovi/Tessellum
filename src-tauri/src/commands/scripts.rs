@@ -61,14 +61,23 @@ pub async fn list_scripts(vault_path: String) -> Result<Vec<ScriptMeta>, String>
     Ok(scripts)
 }
 
+fn validate_script_id(script_id: &str) -> Result<(), String> {
+    if script_id.contains("..") || script_id.contains('/') || script_id.contains('\\') {
+        return Err("Invalid script id: must not contain path separators or '..'".to_string());
+    }
+    Ok(())
+}
+
 #[command]
 pub async fn read_script(vault_path: String, script_id: String) -> Result<String, String> {
+    validate_script_id(&script_id)?;
     let path = scripts_dir(&vault_path).join(&script_id);
     fs::read_to_string(&path).map_err(|e| e.to_string())
 }
 
 #[command]
 pub async fn write_script(vault_path: String, script_id: String, content: String) -> Result<(), String> {
+    validate_script_id(&script_id)?;
     let dir = scripts_dir(&vault_path);
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let path = dir.join(&script_id);
@@ -77,6 +86,7 @@ pub async fn write_script(vault_path: String, script_id: String, content: String
 
 #[command]
 pub async fn delete_script(vault_path: String, script_id: String) -> Result<(), String> {
+    validate_script_id(&script_id)?;
     let path = scripts_dir(&vault_path).join(&script_id);
     if path.exists() {
         fs::remove_file(&path).map_err(|e| e.to_string())?;

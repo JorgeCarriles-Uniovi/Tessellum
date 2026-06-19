@@ -157,7 +157,7 @@ export function VaultQAPanel({ onClose }: { onClose: () => void }) {
 
     const getTitle = (path: string) => {
         const file = files.find((f) => f.path === path);
-        return file?.name?.replace(/\.md$/, "") ?? path.split("/").pop()?.replace(/\.md$/, "") ?? path;
+        return file?.filename?.replace(/\.md$/, "") ?? path.split("/").pop()?.replace(/\.md$/, "") ?? path;
     };
 
     return (

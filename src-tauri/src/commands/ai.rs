@@ -62,6 +62,16 @@ fn stream_ollama(
         .send()
         .map_err(|e| format!("Ollama request failed: {e}"))?;
 
+    let status = resp.status();
+    if !status.is_success() {
+        let body = resp.text().unwrap_or_default();
+        let msg = serde_json::from_str::<serde_json::Value>(&body)
+            .ok()
+            .and_then(|v| v["error"].as_str().map(|s| s.to_string()))
+            .unwrap_or_else(|| format!("HTTP {status}"));
+        return Err(format!("Ollama error: {msg}"));
+    }
+
     let reader = BufReader::new(resp);
     for line in reader.lines() {
         let line = line.map_err(|e| e.to_string())?;
@@ -115,11 +125,16 @@ fn stream_openai(
         format!("Context:\n{context}\n\nInstruction:\n{prompt}")
     };
 
+    let api_key = config
+        .api_key
+        .as_deref()
+        .filter(|k| !k.is_empty())
+        .ok_or_else(|| "OpenAI API key is required but not configured".to_string())?;
+
     let url = format!(
         "{}/v1/chat/completions",
         config.base_url.trim_end_matches('/')
     );
-    let api_key = config.api_key.as_deref().unwrap_or("");
     let body = serde_json::to_string(&OpenAiRequest {
         model: &config.model,
         messages: vec![Message {
@@ -139,6 +154,16 @@ fn stream_openai(
         .send()
         .map_err(|e| format!("OpenAI request failed: {e}"))?;
 
+    let status = resp.status();
+    if !status.is_success() {
+        let body = resp.text().unwrap_or_default();
+        let msg = serde_json::from_str::<serde_json::Value>(&body)
+            .ok()
+            .and_then(|v| v["error"]["message"].as_str().map(|s| s.to_string()))
+            .unwrap_or_else(|| format!("HTTP {status}"));
+        return Err(format!("OpenAI error: {msg}"));
+    }
+
     let reader = BufReader::new(resp);
     for line in reader.lines() {
         let line = line.map_err(|e| e.to_string())?;
@@ -157,22 +182,22 @@ fn stream_openai(
             continue;
         }
         let json_str = line.strip_prefix("data: ").unwrap_or(&line);
-        let value: serde_json::Value =
-            serde_json::from_str(json_str).unwrap_or(serde_json::Value::Null);
-        let token = value["choices"][0]["delta"]["content"]
-            .as_str()
-            .unwrap_or("")
-            .to_string();
-        if !token.is_empty() {
-            let _ = app.emit(
-                "ai-token",
-                AiTokenEvent {
-                    request_id: request_id.to_string(),
-                    token,
-                    done: false,
-                    error: None,
-                },
-            );
+        if let Ok(value) = serde_json::from_str::<serde_json::Value>(json_str) {
+            let token = value["choices"][0]["delta"]["content"]
+                .as_str()
+                .unwrap_or("")
+                .to_string();
+            if !token.is_empty() {
+                let _ = app.emit(
+                    "ai-token",
+                    AiTokenEvent {
+                        request_id: request_id.to_string(),
+                        token,
+                        done: false,
+                        error: None,
+                    },
+                );
+            }
         }
     }
     Ok(())

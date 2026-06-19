@@ -61,31 +61,6 @@ export function AIPanel({ getView }: AIPanelProps) {
         };
     }, [cleanupListener]);
 
-    // Global keyboard shortcuts when panel is open
-    useEffect(() => {
-        if (!isOpen) return;
-
-        const handler = (e: KeyboardEvent) => {
-            const inTextarea = e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement;
-
-            if (e.key === "Escape" && !inTextarea) {
-                e.preventDefault();
-                handleClose();
-            }
-            if (e.key === "Tab" && !inTextarea && output && !streaming) {
-                e.preventDefault();
-                handleAccept();
-            }
-            if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && !inTextarea && !streaming) {
-                e.preventDefault();
-                handleRegenerate();
-            }
-        };
-
-        window.addEventListener("keydown", handler);
-        return () => window.removeEventListener("keydown", handler);
-    }, [isOpen, output, streaming, handleClose, handleAccept, handleRegenerate]);
-
     const startGeneration = useCallback(async (promptText: string) => {
         cleanupListener();
         reset();
@@ -172,6 +147,32 @@ export function AIPanel({ getView }: AIPanelProps) {
         currentRequestId.current = null;
         closePanel();
     }, [cleanupListener, closePanel]);
+
+    // Global keyboard shortcuts when panel is open — placed after handleClose/handleAccept/handleRegenerate
+    // to avoid temporal dead zone (const declarations are not hoisted)
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const handler = (e: KeyboardEvent) => {
+            const inTextarea = e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement;
+
+            if (e.key === "Escape" && !inTextarea) {
+                e.preventDefault();
+                handleClose();
+            }
+            if (e.key === "Tab" && !inTextarea && output && !streaming) {
+                e.preventDefault();
+                handleAccept();
+            }
+            if ((e.ctrlKey || e.metaKey) && e.key === "Enter" && !inTextarea && !streaming) {
+                e.preventDefault();
+                handleRegenerate();
+            }
+        };
+
+        window.addEventListener("keydown", handler);
+        return () => window.removeEventListener("keydown", handler);
+    }, [isOpen, output, streaming, handleClose, handleAccept, handleRegenerate]);
 
     if (!isOpen) return null;
 
