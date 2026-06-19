@@ -9,6 +9,7 @@ pub mod indexer;
 pub mod links;
 pub mod notes;
 pub mod pdf_export;
+pub mod plugins;
 pub mod publish;
 pub mod recovery;
 pub mod semantic;

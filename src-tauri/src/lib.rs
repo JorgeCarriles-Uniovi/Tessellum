@@ -215,6 +215,10 @@ pub fn run() {
             commands::export::import_from_url,
             commands::semantic::semantic_search,
             commands::semantic::get_link_suggestions,
+            commands::plugins::list_installed_plugins,
+            commands::plugins::install_plugin,
+            commands::plugins::uninstall_plugin,
+            commands::plugins::fetch_community_registry,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {
