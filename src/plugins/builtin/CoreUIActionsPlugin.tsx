@@ -22,6 +22,7 @@ import {
     Sparkles,
     Tags,
     Terminal,
+    Download,
 } from "lucide-react";
 import { useAIStore } from "../../stores/aiStore";
 import { Plugin } from "../Plugin";
@@ -46,6 +47,7 @@ import { ExportImportSettings } from "../../components/Settings/ExportImportSett
 import { AISettings } from "../../components/Settings/AISettings.tsx";
 import { TagsSettings } from "../../components/Settings/TagsSettings.tsx";
 import { ScriptsSettings } from "../../components/Settings/ScriptsSettings.tsx";
+import { UpdatesSettings } from "../../components/Settings/UpdatesSettings.tsx";
 import { coreUIActionsTranslations, coreUIActionKeywords } from "./coreUIActionsTranslations.ts";
 
 export class CoreUIActionsPlugin extends Plugin {
@@ -380,6 +382,12 @@ export class CoreUIActionsPlugin extends Plugin {
             name: () => "Scripts",
             icon: <Terminal size={16} />,
             component: <ScriptsSettings />,
+        });
+        this.app.ui.registerSettingsTab(this.manifest.id, {
+            id: "Updates",
+            name: () => "Updates",
+            icon: <Download size={16} />,
+            component: <UpdatesSettings />,
         });
     }
 }

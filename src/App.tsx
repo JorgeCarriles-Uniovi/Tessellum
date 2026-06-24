@@ -34,6 +34,8 @@ import { useWikiLinkNavigation } from "./components/Editor/hooks";
 import { StatusBar } from "./components/Layout/StatusBar";
 import { RightSidebar } from "./components/Layout/RightSidebar";
 import { SettingsModal } from "./components/Settings/SettingsModal.tsx";
+import { UpdatePrompt } from "./components/Updates/UpdatePrompt.tsx";
+import { useUpdaterStore } from "./stores/updaterStore";
 import { useApplyAppearanceSettings } from "./hooks/useApplyAppearanceSettings";
 import { useApplyAccessibilitySettings } from "./hooks/useApplyAccessibilitySettings";
 import { useApplyThemeSchedule } from "./hooks/useApplyThemeSchedule";
@@ -578,6 +580,14 @@ function App() {
         document.documentElement.lang = toSpellcheckLang(locale);
     }, [locale]);
 
+    // Auto-detect updates shortly after startup (silent: no errors in dev/offline).
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            void useUpdaterStore.getState().checkForUpdates({ silent: true });
+        }, 3000);
+        return () => clearTimeout(timer);
+    }, []);
+
     return (
         <TessellumAppContext.Provider value={app}>
             {isLoaded ? (
@@ -629,6 +639,7 @@ function App() {
 
                     <CommandPalette isOpen={isCommandPaletteOpen} onClose={closeCommandPalette} />
                     <SettingsModal isOpen={isSettingsPanelOpen} onClose={closeSettingsPanel} />
+                    <UpdatePrompt />
                     <Toaster position="bottom-right" richColors />
                 </div>
             ) : null}

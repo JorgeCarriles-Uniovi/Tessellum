@@ -39,6 +39,9 @@ export { useNavigationHistoryStore, selectCanGoBack, selectCanGoForward } from "
 
 export { useAIStore } from "./aiStore";
 export type { AiStore, AiProviderConfig } from "./aiStore";
+
+export { useUpdaterStore } from "./updaterStore";
+export type { UpdaterStatus } from "./updaterStore";
 export type {
     EditorHistoryEntry,
     GraphHistoryEntry,

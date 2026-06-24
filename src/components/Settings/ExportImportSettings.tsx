@@ -3,7 +3,9 @@ import { invoke } from "@tauri-apps/api/core";
 import { useVaultStore } from "../../stores/vaultStore";
 import { useEditorStore } from "../../stores/editorStore";
 import { SettingSection } from "./items/SettingSection";
-import { SettingItem } from "./items/SettingItem";
+import { TextInputSetting } from "./items/TextInputSetting";
+import { SettingButton } from "./items/SettingButton";
+import { SettingStatus } from "./items/SettingStatus";
 
 export function ExportImportSettings() {
     const vaultPath = useVaultStore((s) => s.vaultPath);
@@ -15,30 +17,6 @@ export function ExportImportSettings() {
     const [importUrl, setImportUrl] = useState("");
     const [importStatus, setImportStatus] = useState<string | null>(null);
     const [importBusy, setImportBusy] = useState(false);
-
-    const inputStyle: React.CSSProperties = {
-        width: "100%",
-        padding: "0.375rem 0.625rem",
-        borderRadius: "0.375rem",
-        border: "1px solid var(--color-border-light)",
-        backgroundColor: "var(--color-background-secondary)",
-        color: "var(--color-text-primary)",
-        fontSize: "0.8125rem",
-        outline: "none",
-    };
-
-    const btnStyle = (primary = false): React.CSSProperties => ({
-        padding: "0.4rem 1rem",
-        borderRadius: "0.375rem",
-        fontSize: "0.8125rem",
-        fontWeight: 500,
-        cursor: "pointer",
-        backgroundColor: primary
-            ? "var(--primary)"
-            : "var(--color-background-secondary)",
-        color: primary ? "white" : "var(--color-text-secondary)",
-        border: primary ? "none" : "1px solid var(--color-border-light)",
-    });
 
     const handleExportDocx = async () => {
         if (!vaultPath || !activeNote) return;
@@ -78,50 +56,37 @@ export function ExportImportSettings() {
         }
     };
 
+    const sidePadding = { paddingLeft: "1rem", paddingRight: "1rem" } as const;
+
     return (
-        <div style={{ maxWidth: 600 }}>
+        <div className="space-y-6">
             <SettingSection
                 title="Export"
                 description="Export the active note to an external format."
             >
-                <SettingItem label="Active note">
-                    <span
-                        style={{
-                            fontSize: "0.8125rem",
-                            color: "var(--color-text-muted)",
-                        }}
-                    >
-                        {activeNote ? activeNote.path : "No note open"}
-                    </span>
-                </SettingItem>
+                <div style={{ ...sidePadding, paddingTop: "0.5rem" }}>
+                    <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                        Active note:{" "}
+                        <span style={{ color: "var(--color-text-secondary)" }}>
+                            {activeNote ? activeNote.path : "No note open"}
+                        </span>
+                    </p>
+                </div>
 
-                <div
-                    style={{
-                        display: "flex",
-                        gap: "0.75rem",
-                        marginTop: "0.75rem",
-                        alignItems: "center",
-                    }}
-                >
-                    <button
-                        style={btnStyle(true)}
+                <div className="flex items-center gap-3" style={{ ...sidePadding, paddingTop: "0.5rem" }}>
+                    <SettingButton
+                        variant="primary"
                         onClick={handleExportDocx}
                         disabled={exportBusy || !activeNote || !vaultPath}
                     >
                         {exportBusy ? "Exporting…" : "Export as DOCX"}
-                    </button>
-                    {exportStatus && (
-                        <span
-                            style={{
-                                fontSize: "0.8125rem",
-                                color: exportStatus.startsWith("Error")
-                                    ? "var(--color-alert-text)"
-                                    : "var(--color-text-muted)",
-                            }}
-                        >
-                            {exportStatus}
-                        </span>
-                    )}
+                    </SettingButton>
+                </div>
+                <div style={sidePadding}>
+                    <SettingStatus
+                        message={exportStatus}
+                        error={!!exportStatus && exportStatus.startsWith("Error")}
+                    />
                 </div>
             </SettingSection>
 
@@ -129,43 +94,28 @@ export function ExportImportSettings() {
                 title="Import"
                 description="Import a web page as a Markdown note into your vault."
             >
-                <SettingItem label="URL">
-                    <input
-                        type="url"
-                        value={importUrl}
-                        onChange={(e) => setImportUrl(e.target.value)}
-                        placeholder="https://example.com/article"
-                        style={inputStyle}
-                    />
-                </SettingItem>
+                <TextInputSetting
+                    label="URL"
+                    type="url"
+                    value={importUrl}
+                    onChange={setImportUrl}
+                    placeholder="https://example.com/article"
+                />
 
-                <div
-                    style={{
-                        display: "flex",
-                        gap: "0.75rem",
-                        marginTop: "0.75rem",
-                        alignItems: "center",
-                    }}
-                >
-                    <button
-                        style={btnStyle(true)}
+                <div className="flex items-center gap-3" style={{ ...sidePadding, paddingTop: "0.5rem" }}>
+                    <SettingButton
+                        variant="primary"
                         onClick={handleImport}
                         disabled={importBusy || !importUrl.trim() || !vaultPath}
                     >
                         {importBusy ? "Importing…" : "Import from URL"}
-                    </button>
-                    {importStatus && (
-                        <span
-                            style={{
-                                fontSize: "0.8125rem",
-                                color: importStatus.startsWith("Error")
-                                    ? "var(--color-alert-text)"
-                                    : "var(--color-text-muted)",
-                            }}
-                        >
-                            {importStatus}
-                        </span>
-                    )}
+                    </SettingButton>
+                </div>
+                <div style={sidePadding}>
+                    <SettingStatus
+                        message={importStatus}
+                        error={!!importStatus && importStatus.startsWith("Error")}
+                    />
                 </div>
             </SettingSection>
         </div>

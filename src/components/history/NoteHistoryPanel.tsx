@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useVaultStore } from "../../stores/vaultStore";
 import { X, Pin, RotateCcw } from "lucide-react";
+import { DiffView } from "./DiffView";
 
 interface SnapshotInfo {
     timestamp: string;
@@ -13,7 +14,11 @@ interface NoteHistoryPanelProps {
     notePath: string;
     onClose: () => void;
     onRestore: (content: string) => void;
+    /** Returns the current (live) note content, used to diff against a snapshot. */
+    getCurrentContent: () => string;
 }
+
+type PreviewMode = "diff" | "full";
 
 function formatTimestamp(ms: number): string {
     const d = new Date(ms);
@@ -25,11 +30,13 @@ function formatTimestamp(ms: number): string {
     });
 }
 
-export function NoteHistoryPanel({ notePath, onClose, onRestore }: NoteHistoryPanelProps) {
+export function NoteHistoryPanel({ notePath, onClose, onRestore, getCurrentContent }: NoteHistoryPanelProps) {
     const vaultPath = useVaultStore((s) => s.vaultPath);
     const [snapshots, setSnapshots] = useState<SnapshotInfo[]>([]);
     const [selected, setSelected] = useState<SnapshotInfo | null>(null);
     const [previewContent, setPreviewContent] = useState<string | null>(null);
+    const [currentContent, setCurrentContent] = useState("");
+    const [previewMode, setPreviewMode] = useState<PreviewMode>("diff");
     const [pinLabel, setPinLabel] = useState("");
     const [showPinInput, setShowPinInput] = useState(false);
 
@@ -50,6 +57,7 @@ export function NoteHistoryPanel({ notePath, onClose, onRestore }: NoteHistoryPa
     const selectSnapshot = async (snap: SnapshotInfo) => {
         setSelected(snap);
         setShowPinInput(false);
+        setCurrentContent(getCurrentContent());
         if (!vaultPath) return;
         try {
             const content = await invoke<string>("get_note_snapshot", {
@@ -102,10 +110,10 @@ export function NoteHistoryPanel({ notePath, onClose, onRestore }: NoteHistoryPa
         <div
             className="flex flex-col h-full border-l text-sm"
             style={{
-                backgroundColor: "var(--color-background-secondary)",
+                backgroundColor: "var(--color-panel-bg)",
                 borderColor: "var(--color-border-light)",
-                width: "280px",
-                minWidth: "200px",
+                width: "440px",
+                minWidth: "360px",
             }}
         >
             {/* Header */}
@@ -135,7 +143,7 @@ export function NoteHistoryPanel({ notePath, onClose, onRestore }: NoteHistoryPa
                             style={{
                                 borderColor: "var(--color-border-light)",
                                 backgroundColor: selected?.timestamp === snap.timestamp
-                                    ? "var(--color-background-primary)"
+                                    ? "var(--color-panel-active)"
                                     : "transparent",
                                 color: "var(--color-text-primary)",
                             }}
@@ -155,15 +163,41 @@ export function NoteHistoryPanel({ notePath, onClose, onRestore }: NoteHistoryPa
                 <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
                     {selected && previewContent !== null ? (
                         <>
+                            {/* View toggle */}
                             <div
-                                className="flex-1 overflow-y-auto px-2 py-2 text-xs font-mono whitespace-pre-wrap break-words"
-                                style={{ color: "var(--color-text-primary)" }}
+                                className="flex items-center gap-1 px-2 py-1.5 border-b"
+                                style={{ borderColor: "var(--color-border-light)" }}
                             >
-                                {previewContent.slice(0, 2000)}
-                                {previewContent.length > 2000 && (
-                                    <span style={{ color: "var(--color-text-muted)" }}>…</span>
-                                )}
+                                {(["diff", "full"] as PreviewMode[]).map((mode) => {
+                                    const active = previewMode === mode;
+                                    return (
+                                        <button
+                                            key={mode}
+                                            onClick={() => setPreviewMode(mode)}
+                                            className="px-2 py-0.5 rounded text-xs font-medium capitalize transition-colors"
+                                            style={{
+                                                backgroundColor: active ? "var(--primary)" : "transparent",
+                                                color: active ? "white" : "var(--color-text-muted)",
+                                            }}
+                                        >
+                                            {mode}
+                                        </button>
+                                    );
+                                })}
                             </div>
+                            {previewMode === "diff" ? (
+                                <DiffView oldText={previewContent} newText={currentContent} />
+                            ) : (
+                                <div
+                                    className="flex-1 overflow-y-auto px-2 py-2 text-xs font-mono whitespace-pre-wrap break-words"
+                                    style={{ color: "var(--color-text-primary)" }}
+                                >
+                                    {previewContent.slice(0, 2000)}
+                                    {previewContent.length > 2000 && (
+                                        <span style={{ color: "var(--color-text-muted)" }}>…</span>
+                                    )}
+                                </div>
+                            )}
                             <div className="flex flex-col gap-1 px-2 py-2 border-t" style={{ borderColor: "var(--color-border-light)" }}>
                                 <button
                                     onClick={handleRestore}
@@ -196,7 +230,7 @@ export function NoteHistoryPanel({ notePath, onClose, onRestore }: NoteHistoryPa
                                             <div className="flex gap-1">
                                                 <input
                                                     className="flex-1 min-w-0 px-1 py-0.5 text-xs rounded border"
-                                                    style={{ borderColor: "var(--color-border-light)", backgroundColor: "var(--color-background-primary)", color: "var(--color-text-primary)" }}
+                                                    style={{ borderColor: "var(--color-border-light)", backgroundColor: "var(--color-panel-bg)", color: "var(--color-text-primary)" }}
                                                     placeholder="Label…"
                                                     value={pinLabel}
                                                     onChange={(e) => setPinLabel(e.target.value)}

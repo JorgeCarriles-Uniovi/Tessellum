@@ -33,6 +33,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "windows": {
       "webviewInstallMode": {
         "type": "embedBootstrapper"
@@ -49,6 +50,15 @@
   "plugins": {
     "asset": {
       "scope": ["**"]
+    },
+    "updater": {
+      "endpoints": [
+        "https://github.com/JorgeCarriles-Uniovi/Tessellum/releases/latest/download/latest.json"
+      ],
+      "pubkey": "REPLACE_WITH_TAURI_UPDATER_PUBLIC_KEY",
+      "windows": {
+        "installMode": "passive"
+      }
     }
   }
 }

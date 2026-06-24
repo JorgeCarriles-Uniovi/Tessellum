@@ -1032,6 +1032,7 @@ export function Editor() {
                         onRestore={(content) => {
                             handleContentChangeGuarded(content);
                         }}
+                        getCurrentContent={() => editorRef.current?.view?.state.doc.toString() ?? ""}
                     />
                 )}
                 {!isMedia && (

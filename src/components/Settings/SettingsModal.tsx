@@ -1,5 +1,6 @@
 import { X, ChevronRight } from 'lucide-react';
 import { useEffect, useState, isValidElement, cloneElement } from 'react';
+import { getVersion } from '@tauri-apps/api/app';
 import { useTessellumApp } from "../../plugins/TessellumApp.ts";
 import { useAppTranslation } from "../../i18n/react.tsx";
 
@@ -10,6 +11,7 @@ interface SettingsModalProps {
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     const [activeTab, setActiveTab] = useState<string>("General");
+    const [appVersion, setAppVersion] = useState<string>("");
     const app = useTessellumApp();
     const settingsTabs = app.ui.getSettingsTabs();
     const { t } = useAppTranslation("settings");
@@ -22,6 +24,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         const fallbackTab = settingsTabs.find((tab) => tab.isActive)?.id ?? settingsTabs[0]?.id ?? "General";
         setActiveTab((current) => settingsTabs.some((tab) => tab.id === current) ? current : fallbackTab);
     }, [isOpen, settingsTabs]);
+
+    useEffect(() => {
+        getVersion().then(setAppVersion).catch(() => setAppVersion(""));
+    }, []);
 
     if (!isOpen) return null;
 
@@ -111,7 +117,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                              paddingRight: `1rem`
                          }}>
                         <p className="text-[10px] font-bold uppercase tracking-wide mb-2" style={{ color: "var(--color-text-muted)" }}>{t("version")}</p>
-                        <p className="text-xs" style={{ color: "var(--color-text-secondary)" }}>v1.2.0</p>
+                        <p className="text-xs" style={{ color: "var(--color-text-secondary)" }}>{appVersion ? `v${appVersion}` : "—"}</p>
                     </div>
                 </div>
 
