@@ -991,7 +991,7 @@ export function Editor() {
                             })}
                         </p>
                         <p className="text-xs" style={{ color: theme.colors.text.muted }}>
-                            {files.find(f => f.path === dirtyCloseConfirm)?.name ?? dirtyCloseConfirm}
+                            {files.find(f => f.path === dirtyCloseConfirm)?.filename ?? dirtyCloseConfirm}
                         </p>
                         <div className="flex gap-2 justify-end">
                             <button
@@ -1003,7 +1003,7 @@ export function Editor() {
                             </button>
                             <button
                                 className="px-3 py-1.5 rounded text-xs"
-                                style={{ backgroundColor: theme.colors.red?.[600] ?? "#dc2626", color: "#fff" }}
+                                style={{ backgroundColor: "#dc2626", color: "#fff" }}
                                 onClick={confirmDirtyClose}
                             >
                                 {t("editor.discardChanges", { defaultValue: "Discard" })}

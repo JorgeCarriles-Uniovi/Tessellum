@@ -1,9 +1,19 @@
 use git2::{
-    BranchType, Cred, FetchOptions, PushOptions, RemoteCallbacks, Repository, Signature,
-    Status, StatusOptions,
+    BranchType, Cred, FetchOptions, PushOptions, RemoteCallbacks, Repository,
+    RepositoryOpenFlags, Signature, Status, StatusOptions,
 };
 use serde::{Deserialize, Serialize};
 use std::path::Path;
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/// Open the git repo located exactly at `vault_path`.
+/// Unlike `Repository::open`, this never walks up to a parent directory,
+/// so we never accidentally operate on the wrong repo.
+fn open_vault_repo(vault_path: &str) -> Result<Repository, String> {
+    Repository::open_ext(vault_path, RepositoryOpenFlags::NO_SEARCH, std::iter::empty::<&Path>())
+        .map_err(|e| format!("open repo: {}", e))
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -72,12 +82,40 @@ fn make_callbacks<'a>(username: Option<&'a str>, password: Option<&'a str>) -> R
 
 /// Initialize a new git repo in the vault. No-op if already a repo.
 pub fn init_vault_repo(vault_path: &str) -> Result<(), String> {
-    if Repository::open(vault_path).is_ok() {
+    if open_vault_repo(vault_path).is_ok() {
         return Ok(());
     }
-    Repository::init(vault_path)
+    let mut opts = git2::RepositoryInitOptions::new();
+    opts.initial_head("main");
+    Repository::init_opts(vault_path, &opts)
         .map(|_| ())
         .map_err(|e| format!("git init failed: {}", e))
+}
+
+/// Rename the current branch to `target_branch` if it differs (e.g. master → main).
+/// No-op if already on the right branch or if there are no commits yet.
+pub fn ensure_branch_name(vault_path: &str, target_branch: &str) -> Result<(), String> {
+    let repo = open_vault_repo(vault_path)?;
+    let head = match repo.head() {
+        Ok(h) => h,
+        Err(_) => return Ok(()), // unborn branch, nothing to rename yet
+    };
+    let current = match head.shorthand() {
+        Some(n) => n.to_string(),
+        None => return Ok(()),
+    };
+    if current == target_branch {
+        return Ok(());
+    }
+    let oid = head.target().ok_or("HEAD has no target")?;
+    repo.branch(target_branch, &repo.find_commit(oid).map_err(|e| e.to_string())?, false)
+        .map_err(|e| format!("create branch '{}': {}", target_branch, e))?;
+    repo.set_head(&format!("refs/heads/{}", target_branch))
+        .map_err(|e| format!("set HEAD: {}", e))?;
+    repo.find_branch(&current, BranchType::Local)
+        .and_then(|mut b| b.delete())
+        .ok();
+    Ok(())
 }
 
 /// Stage all changes, commit them, return the commit OID as hex string.
@@ -87,12 +125,16 @@ pub fn stage_and_commit(
     author_name: &str,
     author_email: &str,
 ) -> Result<String, String> {
-    let repo = Repository::open(vault_path).map_err(|e| format!("open repo: {}", e))?;
+    let repo = open_vault_repo(vault_path)?;
 
-    // Stage all tracked + untracked files (respecting .gitignore)
+    // Stage all tracked + untracked files (respecting .gitignore).
+    // Skip nested git repos — add_all errors on them with "invalid path".
+    let vault_root = std::path::PathBuf::from(vault_path);
     let mut index = repo.index().map_err(|e| format!("index: {}", e))?;
     index
-        .add_all(["*"].iter(), git2::IndexAddOption::DEFAULT, None)
+        .add_all(["*"].iter(), git2::IndexAddOption::DEFAULT, Some(&mut |path: &Path, _| {
+            if vault_root.join(path).join(".git").exists() { 1 } else { 0 }
+        }))
         .map_err(|e| format!("add_all: {}", e))?;
     index.write().map_err(|e| format!("write index: {}", e))?;
 
@@ -145,7 +187,7 @@ pub fn sync_fetch(
     username: Option<&str>,
     password: Option<&str>,
 ) -> Result<(), String> {
-    let repo = Repository::open(vault_path).map_err(|e| format!("open repo: {}", e))?;
+    let repo = open_vault_repo(vault_path)?;
     let mut remote = repo
         .find_remote(remote_name)
         .map_err(|e| format!("find remote '{}': {}", remote_name, e))?;
@@ -164,7 +206,7 @@ pub fn sync_fetch(
 /// Fast-forward current branch to FETCH_HEAD (after a clean fetch).
 /// Returns `true` if any changes were applied.
 pub fn sync_merge_ff(vault_path: &str, remote_name: &str, branch: &str) -> Result<bool, String> {
-    let repo = Repository::open(vault_path).map_err(|e| format!("open repo: {}", e))?;
+    let repo = open_vault_repo(vault_path)?;
 
     let remote_ref_name = format!("refs/remotes/{}/{}", remote_name, branch);
     let fetch_commit_oid = match repo.refname_to_id(&remote_ref_name) {
@@ -242,26 +284,45 @@ pub fn sync_push(
     username: Option<&str>,
     password: Option<&str>,
 ) -> Result<(), String> {
-    let repo = Repository::open(vault_path).map_err(|e| format!("open repo: {}", e))?;
+    let repo = open_vault_repo(vault_path)?;
     let mut remote = repo
         .find_remote(remote_name)
         .map_err(|e| format!("find remote '{}': {}", remote_name, e))?;
 
-    let callbacks = make_callbacks(username, password);
+    let rejected: std::rc::Rc<std::cell::RefCell<Option<String>>> =
+        std::rc::Rc::new(std::cell::RefCell::new(None));
+    let rejected_cb = rejected.clone();
+
+    let mut callbacks = make_callbacks(username, password);
+    callbacks.push_update_reference(move |refname, status| {
+        if let Some(msg) = status {
+            *rejected_cb.borrow_mut() = Some(format!("{}: {}", refname, msg));
+        }
+        Ok(())
+    });
+
     let mut push_opts = PushOptions::new();
     push_opts.remote_callbacks(callbacks);
 
     let refspec = format!("refs/heads/{}:refs/heads/{}", branch, branch);
-    remote
-        .push(&[&refspec], Some(&mut push_opts))
-        .map_err(|e| format!("push: {}", e))?;
+    let push_result = remote.push(&[&refspec], Some(&mut push_opts));
+    drop(push_opts); // drop closure so Rc count returns to 1
+
+    push_result.map_err(|e| format!("push: {}", e))?;
+
+    if let Some(msg) = std::rc::Rc::try_unwrap(rejected)
+        .ok()
+        .and_then(|c| c.into_inner())
+    {
+        return Err(format!("push rejected by remote: {}", msg));
+    }
 
     Ok(())
 }
 
 /// Get current sync status (ahead/behind counts, uncommitted changes).
 pub fn get_sync_status(vault_path: &str, remote_name: &str) -> SyncStatus {
-    let repo = match Repository::open(vault_path) {
+    let repo = match open_vault_repo(vault_path) {
         Ok(r) => r,
         Err(_) => {
             return SyncStatus {
@@ -376,7 +437,7 @@ fn compute_ahead_behind(repo: &Repository, remote_name: &str) -> (u32, u32) {
 
 /// Add a remote URL.
 pub fn add_or_set_remote(vault_path: &str, remote_name: &str, url: &str) -> Result<(), String> {
-    let repo = Repository::open(vault_path).map_err(|e| format!("open repo: {}", e))?;
+    let repo = open_vault_repo(vault_path)?;
     if repo.find_remote(remote_name).is_ok() {
         repo.remote_set_url(remote_name, url)
             .map_err(|e| format!("set_url: {}", e))?;
@@ -389,7 +450,7 @@ pub fn add_or_set_remote(vault_path: &str, remote_name: &str, url: &str) -> Resu
 
 /// Get current branch name.
 pub fn current_branch(vault_path: &str) -> Result<String, String> {
-    let repo = Repository::open(vault_path).map_err(|e| format!("open repo: {}", e))?;
+    let repo = open_vault_repo(vault_path)?;
     let head = repo.head().map_err(|e| format!("HEAD: {}", e))?;
     head.shorthand()
         .map(|s| s.to_string())

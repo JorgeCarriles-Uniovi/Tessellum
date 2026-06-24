@@ -1,5 +1,5 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
-import cytoscape, { Core } from 'cytoscape';
+import cytoscape, { Core, StylesheetStyle } from 'cytoscape';
 import { invoke } from '@tauri-apps/api/core';
 import { useGraphStore } from '../../stores/graphStore';
 import { useVaultStore } from '../../stores/vaultStore';
@@ -27,7 +27,7 @@ export interface CanvasData {
     edges: CanvasEdgeDef[];
 }
 
-function getCanvasStylesheet(): cytoscape.Stylesheet[] {
+function getCanvasStylesheet(): StylesheetStyle[] {
     const root = getComputedStyle(document.documentElement);
     const bgSecondary = root.getPropertyValue('--color-background-secondary').trim() || '#f3f4f6';
     const borderLight = root.getPropertyValue('--color-border-light').trim() || '#e5e7eb';
@@ -219,8 +219,8 @@ export function CanvasView() {
                         (f) =>
                             f.path.endsWith(`/${target}.md`) ||
                             f.path.endsWith(`/${target}`) ||
-                            f.name === target ||
-                            f.name === `${target}.md`,
+                            f.filename === target ||
+                            f.filename === `${target}.md`,
                     );
                     if (file) {
                         setActiveNote(file);

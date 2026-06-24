@@ -863,7 +863,6 @@ function TerminalCallout({ block }: { block: CalloutExportBlock }) {
 function StandardCallout({ block, notePath }: { block: CalloutExportBlock; notePath: string }) {
     const callout = getCalloutType(block.calloutType);
     const calloutColor = callout?.color ?? "var(--callout-info)";
-    const iconSvg = createIconSVG(block.calloutType);
 
     return (
         <section className="cm-callout" data-callout-type={block.calloutType} style={{ ["--callout-color" as string]: calloutColor }}>

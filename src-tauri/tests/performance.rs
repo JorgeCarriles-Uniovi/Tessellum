@@ -136,7 +136,7 @@ async fn handles_concurrent_sqlite_operations_without_busy_errors() {
                 db.set_note_tags(&path, &[format!("worker-{worker}"), "perf".to_string()])
                     .await
                     .expect("set_note_tags should succeed under contention");
-                db.upsert_search_file(&path, iteration as i64, true)
+                db.upsert_search_file(&path, iteration as i64, 2000, true)
                     .await
                     .expect("upsert_search_file should succeed under contention");
 

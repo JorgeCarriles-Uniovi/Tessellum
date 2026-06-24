@@ -11,7 +11,7 @@ import { isMediaFile } from "../../../utils/fileType";
 export function useFileSynchronization(activeNote: FileMetadata | null) {
     const [content, setContent] = useState<string>("");
     const [isLoading, setIsLoading] = useState(false);
-    const saveTimeoutRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
+    const saveTimeoutRef = useRef<number | null>(null);
     const lastPersistedContentByPathRef = useRef<Map<string, string>>(new Map());
     const lastScheduledContentByPathRef = useRef<Map<string, string>>(new Map());
     const latestContentByPathRef = useRef<Map<string, string>>(new Map());

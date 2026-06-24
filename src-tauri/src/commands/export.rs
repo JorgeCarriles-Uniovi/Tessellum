@@ -1,10 +1,9 @@
 use crate::error::TessellumError;
 use docx_rs::{
     AbstractNumbering, Docx, Level, LevelJc, LevelText, NumberFormat, Numbering,
-    NumberingType, Paragraph, Run, Start,
+    Paragraph, Run, Start,
 };
 use regex::Regex;
-use std::io::Cursor;
 use std::path::PathBuf;
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -89,14 +88,12 @@ pub async fn export_note_docx(
             })?;
         }
 
-        let buf: Vec<u8> = Vec::new();
-        let cursor = Cursor::new(buf);
-        let result = doc.build().pack(cursor).map_err(|e| {
-            TessellumError::Internal(format!("Failed to build DOCX: {e}"))
+        let file = std::fs::File::create(&out_path).map_err(|e| {
+            TessellumError::Internal(format!("Failed to create DOCX file: {e}"))
         })?;
 
-        std::fs::write(&out_path, result.into_inner()).map_err(|e| {
-            TessellumError::Internal(format!("Failed to write DOCX file: {e}"))
+        doc.build().pack(file).map_err(|e| {
+            TessellumError::Internal(format!("Failed to build DOCX: {e}"))
         })?;
 
         Ok(out)

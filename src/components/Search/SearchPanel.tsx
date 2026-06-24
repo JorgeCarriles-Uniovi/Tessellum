@@ -477,7 +477,7 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
                                 const isHovered = hoveredIndex === idx;
                                 return (
                                     <div
-                                        key={`${result.fullPath}-${result.type}`}
+                                        key={`${result.type}-${result.title}-${"path" in result ? result.path : ""}`}
                                         style={createResultCardStyle(isHovered)}
                                         onMouseEnter={() => setHoveredIndex(idx)}
                                         onMouseLeave={() => setHoveredIndex(null)}

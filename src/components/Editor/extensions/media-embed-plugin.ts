@@ -12,7 +12,7 @@ import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { parseCodeBlocks } from "./code/code-parser";
 import { findLatexExpressions } from "./shared-latex-utils";
-import { collectInlineCodeSpansForLine } from "../../../../utils/inlineCodeSpans";
+import { collectInlineCodeSpansForLine } from "../../../utils/inlineCodeSpans";
 
 interface MediaEmbedConfig {
     vaultPath: string;

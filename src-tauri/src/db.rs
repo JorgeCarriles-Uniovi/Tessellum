@@ -1,5 +1,5 @@
 use std::time::Duration;
-use sqlx::Pool;
+use sqlx::{Pool, Row};
 use sqlx::QueryBuilder;
 use sqlx::sqlite::{Sqlite, SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions};
 

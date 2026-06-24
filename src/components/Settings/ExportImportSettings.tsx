@@ -45,8 +45,7 @@ export function ExportImportSettings() {
         setExportBusy(true);
         setExportStatus(null);
         try {
-            const noteTitle =
-                activeNote.name.replace(/\.md$/i, "") ?? "note";
+            const noteTitle = activeNote.filename.replace(/\.md$/i, "") || "note";
             const outputPath = `${vaultPath}/${noteTitle}.docx`;
             const result = await invoke<string>("export_note_docx", {
                 vaultPath,

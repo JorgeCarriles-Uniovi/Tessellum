@@ -7,7 +7,6 @@ import {
     RefObject
 } from 'react';
 import { EditorView, keymap } from '@codemirror/view';
-import { EditorState } from '@codemirror/state';
 import { Prec } from "@codemirror/state";
 import { TessellumApp } from "../../../plugins/TessellumApp";
 import type { Command } from "../../../plugins/types";

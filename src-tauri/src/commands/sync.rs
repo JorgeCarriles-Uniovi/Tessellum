@@ -164,6 +164,9 @@ pub async fn full_git_sync(
         let msg = format!("auto: save at {}", now_ms);
         git_adapter::stage_and_commit(&vp, &msg, &author_name, &author_email)?;
 
+        // 1b. Ensure we're on the expected branch (handles master → main for older repos)
+        git_adapter::ensure_branch_name(&vp, &branch)?;
+
         // 2. Fetch
         git_adapter::sync_fetch(&vp, &remote, username.as_deref(), password.as_deref())?;
 
