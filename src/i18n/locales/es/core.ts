@@ -103,6 +103,7 @@ const core = {
         copy: "Copiar",
     },
     pdfExport: {
+        pending: "Exportando PDF…",
         success: "PDF exportado",
         error: "No se pudo exportar el PDF",
     },

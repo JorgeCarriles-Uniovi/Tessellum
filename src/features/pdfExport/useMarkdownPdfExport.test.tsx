@@ -11,8 +11,9 @@ const pdfExportHookMocks = vi.hoisted(() => ({
         documentTitle: string;
         outline: Array<{ title: string; level: number; lineNumber: number; page: number; offsetWithinPagePx: number }>;
     }>>(),
-    toastSuccess: vi.fn<(message: string) => void>(),
-    toastError: vi.fn<(message: string) => void>(),
+    toastLoading: vi.fn<() => string>(),
+    toastSuccess: vi.fn<(message: string, options?: unknown) => void>(),
+    toastError: vi.fn<(message: string, options?: unknown) => void>(),
 }));
 
 vi.mock("../../plugins/TessellumApp", async () => {
@@ -33,6 +34,7 @@ vi.mock("./markdownPdfRenderer", () => ({
 
 vi.mock("sonner", () => ({
     toast: {
+        loading: pdfExportHookMocks.toastLoading,
         success: pdfExportHookMocks.toastSuccess,
         error: pdfExportHookMocks.toastError,
     },
@@ -44,6 +46,8 @@ describe("useMarkdownPdfExport", () => {
         useVaultStore.setState({ vaultPath: "C:/vault" });
         pdfExportHookMocks.readFile.mockReset();
         pdfExportHookMocks.renderDocument.mockReset();
+        pdfExportHookMocks.toastLoading.mockReset();
+        pdfExportHookMocks.toastLoading.mockReturnValue("toast-1");
         pdfExportHookMocks.toastSuccess.mockReset();
         pdfExportHookMocks.toastError.mockReset();
     });

@@ -2,6 +2,8 @@ import type { FileMetadata } from "../../types";
 import { buildPdfFileName } from "./pdfExportDomain";
 import type { MarkdownPdfRenderInput, MarkdownPdfRenderResult, PdfExportRequest } from "./types";
 
+export type PdfExportToastId = string | number;
+
 interface MarkdownPdfExportServiceDeps {
     readFile: (path: string) => Promise<string>;
     saveDialog: (options: {
@@ -10,8 +12,9 @@ interface MarkdownPdfExportServiceDeps {
     }) => Promise<string | null>;
     renderDocument: (input: MarkdownPdfRenderInput) => Promise<MarkdownPdfRenderResult>;
     exportPdf: (request: PdfExportRequest) => Promise<void>;
-    notifySuccess: (message: string) => void;
-    notifyError: (message: string) => void;
+    notifyPending: () => PdfExportToastId;
+    notifySuccess: (toastId: PdfExportToastId) => void;
+    notifyError: (toastId: PdfExportToastId, error: unknown) => void;
 }
 
 export function createMarkdownPdfExportService({
@@ -19,6 +22,7 @@ export function createMarkdownPdfExportService({
     saveDialog,
     renderDocument,
     exportPdf,
+    notifyPending,
     notifySuccess,
     notifyError,
 }: MarkdownPdfExportServiceDeps) {
@@ -32,6 +36,8 @@ export function createMarkdownPdfExportService({
             return;
         }
 
+        const toastId = notifyPending();
+
         try {
             const content = await readFile(file.path);
             const rendered = await renderDocument({ file, content });
@@ -43,10 +49,10 @@ export function createMarkdownPdfExportService({
                 outline: rendered.outline,
             });
 
-            notifySuccess("PDF exported");
+            notifySuccess(toastId);
         } catch (error) {
             console.error(error);
-            notifyError("Failed to export PDF");
+            notifyError(toastId, error);
         }
     }
 

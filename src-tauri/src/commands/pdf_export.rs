@@ -254,6 +254,7 @@ fn inject_outline_into_pdf(
     Ok(())
 }
 
+#[cfg(target_os = "windows")]
 fn candidate_browser_paths() -> Vec<PathBuf> {
     let mut candidates = Vec::new();
 
@@ -273,6 +274,54 @@ fn candidate_browser_paths() -> Vec<PathBuf> {
     candidates
 }
 
+#[cfg(target_os = "macos")]
+fn candidate_browser_paths() -> Vec<PathBuf> {
+    const APP_BINARIES: [&str; 4] = [
+        "Google Chrome.app/Contents/MacOS/Google Chrome",
+        "Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+        "Chromium.app/Contents/MacOS/Chromium",
+        "Brave Browser.app/Contents/MacOS/Brave Browser",
+    ];
+
+    let mut roots = vec![PathBuf::from("/Applications")];
+    if let Some(home) = env::var_os("HOME") {
+        roots.push(PathBuf::from(home).join("Applications"));
+    }
+
+    roots
+        .into_iter()
+        .flat_map(|root| APP_BINARIES.iter().map(move |binary| root.join(binary)))
+        .collect()
+}
+
+#[cfg(all(unix, not(target_os = "macos")))]
+fn candidate_browser_paths() -> Vec<PathBuf> {
+    const BROWSER_BINARIES: [&str; 6] = [
+        "google-chrome",
+        "google-chrome-stable",
+        "chromium",
+        "chromium-browser",
+        "microsoft-edge",
+        "brave-browser",
+    ];
+
+    let mut search_dirs: Vec<PathBuf> = Vec::new();
+    if let Some(path) = env::var_os("PATH") {
+        search_dirs.extend(env::split_paths(&path));
+    }
+    for fallback in ["/usr/bin", "/usr/local/bin", "/snap/bin", "/opt/google/chrome"] {
+        let fallback = PathBuf::from(fallback);
+        if !search_dirs.contains(&fallback) {
+            search_dirs.push(fallback);
+        }
+    }
+
+    search_dirs
+        .into_iter()
+        .flat_map(|dir| BROWSER_BINARIES.iter().map(move |binary| dir.join(binary)))
+        .collect()
+}
+
 fn find_print_browser() -> Result<PathBuf, TessellumError> {
     candidate_browser_paths()
         .into_iter()
@@ -289,6 +338,7 @@ fn build_print_pdf_args(html_url: &str, destination_path: &Path) -> Vec<String> 
     vec![
         "--headless".to_string(),
         "--disable-gpu".to_string(),
+        "--no-sandbox".to_string(),
         "--allow-file-access-from-files".to_string(),
         "--no-first-run".to_string(),
         "--no-pdf-header-footer".to_string(),
@@ -298,7 +348,6 @@ fn build_print_pdf_args(html_url: &str, destination_path: &Path) -> Vec<String> 
     ]
 }
 
-#[cfg(target_os = "windows")]
 async fn render_html_to_pdf(html_path: &Path, destination_path: &Path) -> Result<(), TessellumError> {
     let browser_path = find_print_browser()?;
     let html_url = Url::from_file_path(html_path).map_err(|_| {
@@ -319,13 +368,6 @@ async fn render_html_to_pdf(html_path: &Path, destination_path: &Path) -> Result
     }
 
     Ok(())
-}
-
-#[cfg(not(target_os = "windows"))]
-async fn render_html_to_pdf(_html_path: &Path, _destination_path: &Path) -> Result<(), TessellumError> {
-    Err(TessellumError::Internal(
-        "PDF export is currently supported on Windows only".to_string(),
-    ))
 }
 
 #[tauri::command]
@@ -357,8 +399,8 @@ pub async fn export_markdown_pdf(request: PdfExportRequest) -> Result<(), Tessel
 #[cfg(test)]
 mod tests {
     use super::{
-        build_print_pdf_args, heading_top_position_points, normalize_outline_entries,
-        validate_export_request, PdfExportOutlineItem, PdfExportRequest,
+        build_print_pdf_args, candidate_browser_paths, heading_top_position_points,
+        normalize_outline_entries, validate_export_request, PdfExportOutlineItem, PdfExportRequest,
     };
     use std::path::Path;
 
@@ -460,5 +502,22 @@ mod tests {
         assert!(args.iter().any(|arg| arg == "--no-pdf-header-footer"));
         assert!(args.iter().any(|arg| arg == "--print-to-pdf-no-header"));
         assert!(args.iter().any(|arg| arg == "--print-to-pdf=C:/tmp/doc.pdf"));
+    }
+
+    #[test]
+    fn build_print_pdf_args_runs_headless_without_sandbox() {
+        let args = build_print_pdf_args("file:///tmp/export.html", Path::new("C:/tmp/doc.pdf"));
+
+        assert!(args.iter().any(|arg| arg == "--headless"));
+        assert!(args.iter().any(|arg| arg == "--no-sandbox"));
+        assert_eq!(args.last().map(String::as_str), Some("file:///tmp/export.html"));
+    }
+
+    #[test]
+    fn candidate_browser_paths_are_available_for_current_platform() {
+        let candidates = candidate_browser_paths();
+
+        // Every supported platform contributes at least one browser candidate to probe.
+        assert!(!candidates.is_empty());
     }
 }

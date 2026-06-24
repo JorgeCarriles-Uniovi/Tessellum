@@ -8,6 +8,7 @@ import type { TrashItem } from "./types";
 import { formatTrashLocation } from "./formatTrashLabel";
 import { removeTrashItem, shouldShowTrashLoading } from "./state";
 import { useTessellumApp } from "../../plugins/TessellumApp";
+import { getErrorMessage } from "../../utils/errorMessage";
 
 interface TrashModalProps {
     isOpen: boolean;
@@ -36,20 +37,6 @@ const cardStyle: CSSProperties = {
     overflow: "hidden",
 };
 
-function getErrorMessage(error: unknown, fallback: string): string {
-    if (typeof error === "string" && error.trim()) {
-        return error;
-    }
-
-    if (error && typeof error === "object") {
-        const message = Reflect.get(error, "message");
-        if (typeof message === "string" && message.trim()) {
-            return message;
-        }
-    }
-
-    return fallback;
-}
 
 export function TrashModal({ isOpen, onClose, vaultPath }: TrashModalProps) {
     const app = useTessellumApp();

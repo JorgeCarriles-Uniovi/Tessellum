@@ -863,7 +863,6 @@ function TerminalCallout({ block }: { block: CalloutExportBlock }) {
 function StandardCallout({ block, notePath }: { block: CalloutExportBlock; notePath: string }) {
     const callout = getCalloutType(block.calloutType);
     const calloutColor = callout?.color ?? "var(--callout-info)";
-    const iconSvg = createIconSVG(block.calloutType);
 
     return (
         <section className="cm-callout" data-callout-type={block.calloutType} style={{ ["--callout-color" as string]: calloutColor }}>
@@ -1142,9 +1141,7 @@ function enhanceCalloutIcons(root: HTMLElement): void {
     const callouts = Array.from(root.querySelectorAll<HTMLElement>(".cm-callout"));
 
     for (const callout of callouts) {
-        const type = callout.style.getPropertyValue("--callout-color")
-            ? callout.getAttribute("data-callout-type")
-            : callout.getAttribute("data-callout-type");
+        const type = callout.getAttribute("data-callout-type");
         const calloutType = type ?? (callout.querySelector(".cm-terminal-header") ? "terminal" : "");
         if (!calloutType) {
             continue;

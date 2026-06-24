@@ -21,14 +21,17 @@ describe("markdownPdfExport", () => {
         outline: Array<{ title: string; level: number; lineNumber: number; page: number; offsetWithinPagePx: number }>;
     }>>();
     const exportPdf = vi.fn<() => Promise<void>>();
-    const notifySuccess = vi.fn<(message: string) => void>();
-    const notifyError = vi.fn<(message: string) => void>();
+    const notifyPending = vi.fn<() => string | number>();
+    const notifySuccess = vi.fn<(toastId: string | number) => void>();
+    const notifyError = vi.fn<(toastId: string | number, error: unknown) => void>();
 
     beforeEach(() => {
         readFile.mockReset();
         saveDialog.mockReset();
         renderDocument.mockReset();
         exportPdf.mockReset();
+        notifyPending.mockReset();
+        notifyPending.mockReturnValue("toast-1");
         notifySuccess.mockReset();
         notifyError.mockReset();
     });
@@ -40,6 +43,7 @@ describe("markdownPdfExport", () => {
             saveDialog,
             renderDocument,
             exportPdf,
+            notifyPending,
             notifySuccess,
             notifyError,
         });
@@ -52,6 +56,7 @@ describe("markdownPdfExport", () => {
         });
         expect(readFile).not.toHaveBeenCalled();
         expect(exportPdf).not.toHaveBeenCalled();
+        expect(notifyPending).not.toHaveBeenCalled();
     });
 
     test("exports the rendered HTML and outline when the user confirms a destination", async () => {
@@ -71,6 +76,7 @@ describe("markdownPdfExport", () => {
             saveDialog,
             renderDocument,
             exportPdf,
+            notifyPending,
             notifySuccess,
             notifyError,
         });
@@ -91,7 +97,8 @@ describe("markdownPdfExport", () => {
                 { title: "Details", level: 2, lineNumber: 3, page: 1, offsetWithinPagePx: 24 },
             ],
         });
-        expect(notifySuccess).toHaveBeenCalledWith("PDF exported");
+        expect(notifyPending).toHaveBeenCalled();
+        expect(notifySuccess).toHaveBeenCalledWith("toast-1");
         expect(notifyError).not.toHaveBeenCalled();
     });
 
@@ -103,20 +110,22 @@ describe("markdownPdfExport", () => {
             documentTitle: "Project Plan",
             outline: [],
         });
-        exportPdf.mockRejectedValueOnce(new Error("print failed"));
+        const exportError = new Error("print failed");
+        exportPdf.mockRejectedValueOnce(exportError);
 
         const service = createMarkdownPdfExportService({
             readFile,
             saveDialog,
             renderDocument,
             exportPdf,
+            notifyPending,
             notifySuccess,
             notifyError,
         });
 
         await service.exportNote(createFile("Project Plan.md"));
 
-        expect(notifyError).toHaveBeenCalledWith("Failed to export PDF");
+        expect(notifyError).toHaveBeenCalledWith("toast-1", exportError);
         expect(notifySuccess).not.toHaveBeenCalled();
     });
 });
