@@ -203,6 +203,137 @@ fn stream_openai(
     Ok(())
 }
 
+// ----- Claude (Anthropic) streaming -----
+
+fn stream_claude(
+    app: &AppHandle,
+    prompt: &str,
+    context: &str,
+    config: &AiProviderConfig,
+    request_id: &str,
+) -> Result<(), String> {
+    #[derive(Serialize)]
+    struct Message<'a> {
+        role: &'a str,
+        content: String,
+    }
+
+    #[derive(Serialize)]
+    struct ClaudeRequest<'a> {
+        model: &'a str,
+        max_tokens: u32,
+        stream: bool,
+        messages: Vec<Message<'a>>,
+    }
+
+    let user_content = if context.is_empty() {
+        prompt.to_string()
+    } else {
+        format!("Context:\n{context}\n\nInstruction:\n{prompt}")
+    };
+
+    let api_key = config
+        .api_key
+        .as_deref()
+        .filter(|k| !k.is_empty())
+        .ok_or_else(|| "Claude API key is required but not configured".to_string())?;
+
+    // Default to the public Anthropic endpoint if none is configured.
+    let base = config.base_url.trim_end_matches('/');
+    let base = if base.is_empty() {
+        "https://api.anthropic.com"
+    } else {
+        base
+    };
+    let url = format!("{base}/v1/messages");
+
+    let body = serde_json::to_string(&ClaudeRequest {
+        model: &config.model,
+        max_tokens: 4096,
+        stream: true,
+        messages: vec![Message {
+            role: "user",
+            content: user_content,
+        }],
+    })
+        .map_err(|e| e.to_string())?;
+
+    let client = reqwest::blocking::Client::new();
+    let resp = client
+        .post(&url)
+        .header("Content-Type", "application/json")
+        .header("x-api-key", api_key)
+        .header("anthropic-version", "2023-06-01")
+        .body(body)
+        .send()
+        .map_err(|e| format!("Claude request failed: {e}"))?;
+
+    let status = resp.status();
+    if !status.is_success() {
+        let body = resp.text().unwrap_or_default();
+        let msg = serde_json::from_str::<serde_json::Value>(&body)
+            .ok()
+            .and_then(|v| v["error"]["message"].as_str().map(|s| s.to_string()))
+            .unwrap_or_else(|| format!("HTTP {status}"));
+        return Err(format!("Claude error: {msg}"));
+    }
+
+    // Anthropic streams Server-Sent Events: `event:` lines describe the type and
+    // `data:` lines carry the JSON payload. We only need the `data:` lines and
+    // dispatch on the payload's own `type` field.
+    let reader = BufReader::new(resp);
+    for line in reader.lines() {
+        let line = line.map_err(|e| e.to_string())?;
+        let json_str = match line.strip_prefix("data: ") {
+            Some(s) => s,
+            None => continue,
+        };
+        let value = match serde_json::from_str::<serde_json::Value>(json_str) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        match value["type"].as_str() {
+            Some("content_block_delta") => {
+                if value["delta"]["type"] == "text_delta" {
+                    let token = value["delta"]["text"].as_str().unwrap_or("").to_string();
+                    if !token.is_empty() {
+                        let _ = app.emit(
+                            "ai-token",
+                            AiTokenEvent {
+                                request_id: request_id.to_string(),
+                                token,
+                                done: false,
+                                error: None,
+                            },
+                        );
+                    }
+                }
+            }
+            Some("message_stop") => {
+                let _ = app.emit(
+                    "ai-token",
+                    AiTokenEvent {
+                        request_id: request_id.to_string(),
+                        token: String::new(),
+                        done: true,
+                        error: None,
+                    },
+                );
+                break;
+            }
+            Some("error") => {
+                let msg = value["error"]["message"]
+                    .as_str()
+                    .unwrap_or("unknown streaming error")
+                    .to_string();
+                return Err(format!("Claude error: {msg}"));
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
 // ----- Tauri command -----
 
 #[command]
@@ -218,6 +349,7 @@ pub async fn ai_generate(
     let result = tokio::task::spawn_blocking(move || {
         match provider_config.kind.as_str() {
             "openai" => stream_openai(&app_clone, &prompt, &context, &provider_config, &req_id),
+            "claude" => stream_claude(&app_clone, &prompt, &context, &provider_config, &req_id),
             _ => stream_ollama(&app_clone, &prompt, &context, &provider_config, &req_id),
         }
     })

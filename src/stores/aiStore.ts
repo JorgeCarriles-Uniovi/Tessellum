@@ -1,8 +1,8 @@
-import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import {create} from "zustand";
+import {persist} from "zustand/middleware";
 
 export interface AiProviderConfig {
-    kind: "ollama" | "openai";
+    kind: "ollama" | "openai" | "claude";
     base_url: string;
     api_key?: string;
     model: string;
