@@ -2,11 +2,9 @@ import {
     Decoration,
     DecorationSet,
     EditorView,
-    ViewPlugin,
     WidgetType,
-    ViewUpdate,
 } from "@codemirror/view";
-import { Extension, RangeSetBuilder } from "@codemirror/state";
+import { Extension, RangeSetBuilder, StateField, EditorState } from "@codemirror/state";
 import { createRoot, Root } from "react-dom/client";
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
@@ -206,15 +204,21 @@ class DataviewWidget extends WidgetType {
 
 // ─── Plugin ───────────────────────────────────────────────────────────────────
 
-function buildDecorations(view: EditorView): DecorationSet {
+function buildDecorations(state: EditorState): DecorationSet {
     const builder = new RangeSetBuilder<Decoration>();
-    const blocks = parseCodeBlocks(view.state);
+    const selection = state.selection.main;
+    const blocks = parseCodeBlocks(state);
 
     for (const block of blocks) {
         if (block.language !== "dataview") continue;
 
+        // Keep the raw source visible/editable while the cursor is inside the
+        // block; only render the widget once the cursor leaves it.
+        const cursorOverlap = selection.from >= block.from && selection.to <= block.to;
+        if (cursorOverlap) continue;
+
         // Extract query content (between the fence lines)
-        const full = view.state.doc.sliceString(block.from, block.to);
+        const full = state.doc.sliceString(block.from, block.to);
         const lines = full.split("\n");
         const queryLines = lines.slice(1, lines.length - 1);
         const query = queryLines.join("\n").trim();
@@ -232,21 +236,22 @@ function buildDecorations(view: EditorView): DecorationSet {
     return builder.finish();
 }
 
+// Block decorations (and replacements that span line breaks) may not be
+// supplied by a ViewPlugin in CodeMirror 6 — they must come from a StateField.
+// See @codemirror/view: "Block decorations may not be specified via plugins".
+const dataviewStateField = StateField.define<DecorationSet>({
+    create(state) {
+        return buildDecorations(state);
+    },
+    update(oldState, transaction) {
+        if (transaction.docChanged || transaction.selection) {
+            return buildDecorations(transaction.state);
+        }
+        return oldState;
+    },
+    provide: (field) => EditorView.decorations.from(field),
+});
+
 export function dataviewPlugin(): Extension {
-    return ViewPlugin.fromClass(
-        class {
-            decorations: DecorationSet;
-
-            constructor(view: EditorView) {
-                this.decorations = buildDecorations(view);
-            }
-
-            update(update: ViewUpdate) {
-                if (update.docChanged || update.viewportChanged) {
-                    this.decorations = buildDecorations(update.view);
-                }
-            }
-        },
-        { decorations: (v) => v.decorations }
-    );
+    return dataviewStateField;
 }
