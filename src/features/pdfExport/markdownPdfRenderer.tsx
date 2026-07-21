@@ -1195,6 +1195,13 @@ function initializeMermaid(): void {
     mermaid.initialize({
         startOnLoad: false,
         theme: isDark ? "dark" : "default",
+        // Diagram source comes from note content, which may originate from an
+        // imported or synced vault rather than content the user typed
+        // themselves. "strict" makes mermaid sanitize its rendered SVG (via
+        // DOMPurify internally) before we assign it with innerHTML below -
+        // pin this explicitly rather than relying on the library default,
+        // which could change silently on a future upgrade.
+        securityLevel: "strict",
     });
 }
 
