@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use sqlx::Row;
 use tauri::State;
 
 use crate::error::TessellumError;

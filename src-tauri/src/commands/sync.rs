@@ -1,8 +1,6 @@
 use serde::{Deserialize, Serialize};
-use tauri::State;
 
 use crate::error::TessellumError;
-use crate::models::AppState;
 use crate::sync::git_adapter::{self, SyncStatus};
 
 const DEFAULT_REMOTE: &str = "origin";

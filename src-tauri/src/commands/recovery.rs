@@ -21,13 +21,18 @@ fn recovery_dir(vault_path: &str) -> PathBuf {
 }
 
 /// Encode a note path to a safe recovery filename by replacing `/` with `__`.
+///
+/// Handles both `/` and `\` separators so the vault prefix is stripped
+/// consistently across Windows, macOS, and Linux.
 fn encode_note_path(note_path: &str, vault_path: &str) -> String {
-    let normalized_vault = vault_path.trim_end_matches('/');
-    let normalized_note = note_path.trim_start_matches('/');
-    let relative = normalized_note
-        .strip_prefix(&format!("{}/", normalized_vault))
-        .unwrap_or(normalized_note);
-    relative.replace('/', "__")
+    let normalized_note = note_path.replace('\\', "/");
+    let normalized_vault = vault_path.replace('\\', "/");
+    let vault_prefix = normalized_vault.trim_end_matches('/');
+    normalized_note
+        .strip_prefix(vault_prefix)
+        .unwrap_or(&normalized_note)
+        .trim_start_matches('/')
+        .replace('/', "__")
 }
 
 /// Decode a recovery filename back to the relative note path.
@@ -94,7 +99,7 @@ pub async fn list_recovery_files(
         });
     }
 
-    result.sort_by(|a, b| b.saved_at_ms.cmp(&a.saved_at_ms));
+    result.sort_by_key(|r| std::cmp::Reverse(r.saved_at_ms));
     Ok(result)
 }
 

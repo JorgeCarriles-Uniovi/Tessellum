@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Tag, X } from "lucide-react";
-import { theme } from "../../styles/theme";
+import { IconButton } from "../ui";
 
 interface TagSuggestionBannerProps {
     notePath: string | undefined;
@@ -120,19 +120,9 @@ export function TagSuggestionBanner({
 
             <span style={{ flex: 1 }} />
 
-            <button
-                className="flex items-center justify-center w-5 h-5 rounded transition-colors"
-                style={{
-                    background: "transparent",
-                    border: "none",
-                    color: theme.colors.text.muted,
-                    cursor: "pointer",
-                }}
-                onClick={handleDismissAll}
-                title="Dismiss suggestions"
-            >
+            <IconButton label="Dismiss suggestions" size={20} onClick={handleDismissAll}>
                 <X size={12} />
-            </button>
+            </IconButton>
         </div>
     );
 }

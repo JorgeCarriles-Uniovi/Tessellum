@@ -5,6 +5,7 @@ import { theme } from "../../styles/theme";
 import { invoke } from "@tauri-apps/api/core";
 import { useSearchStore, useVaultStore } from "../../stores";
 import { useTessellumApp } from "../../plugins/TessellumApp";
+import { IconButton } from "../ui";
 
 interface SearchPanelProps {
     onClose: () => void;
@@ -96,16 +97,6 @@ const headerBadgeStyle: CSSProperties = {
     alignItems: "center",
     justifyContent: "center",
     color: "#fff",
-};
-
-const iconButtonStyle: CSSProperties = {
-    padding: theme.spacing[1],
-    borderRadius: theme.borderRadius.md,
-    border: "none",
-    background: "transparent",
-    color: theme.colors.text.muted,
-    cursor: "pointer",
-    transition: theme.transitions.fast,
 };
 
 const sectionDividerStyle: CSSProperties = {
@@ -359,15 +350,9 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
                     </div>
                     <h1 style={headerTitleStyle}>Search</h1>
                 </div>
-                <button
-                    onClick={onClose}
-                    style={iconButtonStyle}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = theme.colors.background.secondary)}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                    aria-label="Close search"
-                >
+                <IconButton label="Close search" onClick={onClose}>
                     <X style={{ width: "0.875rem", height: "0.875rem" }} />
-                </button>
+                </IconButton>
             </div>
 
             <div style={{ ...sectionDividerStyle, ...inputWrapperStyle }}>

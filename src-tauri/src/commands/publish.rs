@@ -156,7 +156,7 @@ fn strip_frontmatter(content: &str) -> (bool, &str) {
 
 /// Derive a human-readable title from a file stem.
 fn title_from_stem(stem: &str) -> String {
-    stem.replace('-', " ").replace('_', " ")
+    stem.replace(['-', '_'], " ")
 }
 
 #[tauri::command]

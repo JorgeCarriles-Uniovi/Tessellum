@@ -254,6 +254,7 @@ fn inject_outline_into_pdf(
     Ok(())
 }
 
+#[cfg(target_os = "windows")]
 fn candidate_browser_paths() -> Vec<PathBuf> {
     let mut candidates = Vec::new();
 
@@ -271,6 +272,39 @@ fn candidate_browser_paths() -> Vec<PathBuf> {
     }
 
     candidates
+}
+
+#[cfg(target_os = "macos")]
+fn candidate_browser_paths() -> Vec<PathBuf> {
+    [
+        "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        "/Applications/Chromium.app/Contents/MacOS/Chromium",
+    ]
+    .into_iter()
+    .map(PathBuf::from)
+    .collect()
+}
+
+#[cfg(target_os = "linux")]
+fn candidate_browser_paths() -> Vec<PathBuf> {
+    // Resolve well-known Chromium-family binaries against PATH.
+    let names = [
+        "microsoft-edge",
+        "google-chrome",
+        "google-chrome-stable",
+        "chromium",
+        "chromium-browser",
+        "brave-browser",
+    ];
+    let path_dirs: Vec<PathBuf> = env::var_os("PATH")
+        .map(|paths| env::split_paths(&paths).collect())
+        .unwrap_or_default();
+
+    names
+        .into_iter()
+        .flat_map(|name| path_dirs.iter().map(move |dir| dir.join(name)))
+        .collect()
 }
 
 fn find_print_browser() -> Result<PathBuf, TessellumError> {
@@ -298,34 +332,78 @@ fn build_print_pdf_args(html_url: &str, destination_path: &Path) -> Vec<String> 
     ]
 }
 
-#[cfg(target_os = "windows")]
-async fn render_html_to_pdf(html_path: &Path, destination_path: &Path) -> Result<(), TessellumError> {
+/// Renders the export HTML into `output_path` with a headless Chromium-family
+/// browser. `output_path` must be a fresh, app-controlled file: headless
+/// Chromium exits with code 0 even when it cannot write its target, so
+/// printing to a pre-existing (possibly locked) destination would silently
+/// leave stale content behind. Printing to a fresh temp file makes any failure
+/// detectable via `output_path.exists()`.
+async fn render_html_to_pdf(html_path: &Path, output_path: &Path) -> Result<(), TessellumError> {
     let browser_path = find_print_browser()?;
     let html_url = Url::from_file_path(html_path).map_err(|_| {
         TessellumError::Internal("Failed to convert export HTML path into a file URL".to_string())
     })?;
-    let args = build_print_pdf_args(html_url.as_str(), destination_path);
+    let args = build_print_pdf_args(html_url.as_str(), output_path);
 
-    let status = Command::new(browser_path)
+    let output = Command::new(&browser_path)
         .args(args)
-        .status()
+        .output()
         .await
         .map_err(TessellumError::Io)?;
 
-    if !status.success() || !destination_path.exists() {
-        return Err(TessellumError::Internal(
-            "Browser PDF generation failed".to_string(),
-        ));
+    if !output.status.success() || !output_path.exists() {
+        // Surface the browser's own diagnostics; without them these failures
+        // are undebuggable ("Browser PDF generation failed" alone).
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stderr_tail: String = stderr
+            .lines()
+            .rev()
+            .take(5)
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect::<Vec<_>>()
+            .join(" | ");
+        log::error!(
+            "PDF print failed: browser={}, exit={:?}, stderr: {}",
+            browser_path.display(),
+            output.status.code(),
+            stderr
+        );
+        return Err(TessellumError::Internal(format!(
+            "Browser PDF generation failed (browser: {}, exit code: {}). {}",
+            browser_path.display(),
+            output
+                .status
+                .code()
+                .map(|c| c.to_string())
+                .unwrap_or_else(|| "none".to_string()),
+            if stderr_tail.is_empty() {
+                "No browser error output was captured.".to_string()
+            } else {
+                format!("Browser output: {stderr_tail}")
+            }
+        )));
     }
 
     Ok(())
 }
 
-#[cfg(not(target_os = "windows"))]
-async fn render_html_to_pdf(_html_path: &Path, _destination_path: &Path) -> Result<(), TessellumError> {
-    Err(TessellumError::Internal(
-        "PDF export is currently supported on Windows only".to_string(),
-    ))
+/// Copies the finished PDF from the temp workspace to the user's destination,
+/// translating a locked/unwritable destination into an actionable error.
+async fn copy_pdf_to_destination(
+    rendered_path: &Path,
+    destination_path: &Path,
+) -> Result<(), TessellumError> {
+    tokio::fs::copy(rendered_path, destination_path)
+        .await
+        .map(|_| ())
+        .map_err(|e| {
+            TessellumError::Internal(format!(
+                "Could not write the PDF to '{}'. If the file is open in another program, close it and try again. ({e})",
+                destination_path.display()
+            ))
+        })
 }
 
 #[tauri::command]
@@ -348,8 +426,13 @@ pub async fn export_markdown_pdf(request: PdfExportRequest) -> Result<(), Tessel
         .await
         .map_err(TessellumError::Io)?;
 
-    render_html_to_pdf(&html_path, &destination_path).await?;
-    inject_outline_into_pdf(&destination_path, &request.outline)?;
+    // Render and post-process entirely inside the temp dir; only the final copy
+    // touches the user's destination, so a locked destination produces a clear
+    // error instead of a silently stale file.
+    let rendered_path = temp_dir.path().join("export.pdf");
+    render_html_to_pdf(&html_path, &rendered_path).await?;
+    inject_outline_into_pdf(&rendered_path, &request.outline)?;
+    copy_pdf_to_destination(&rendered_path, &destination_path).await?;
 
     Ok(())
 }
@@ -357,10 +440,83 @@ pub async fn export_markdown_pdf(request: PdfExportRequest) -> Result<(), Tessel
 #[cfg(test)]
 mod tests {
     use super::{
-        build_print_pdf_args, heading_top_position_points, normalize_outline_entries,
-        validate_export_request, PdfExportOutlineItem, PdfExportRequest,
+        build_print_pdf_args, copy_pdf_to_destination, heading_top_position_points,
+        normalize_outline_entries, validate_export_request, PdfExportOutlineItem, PdfExportRequest,
     };
     use std::path::Path;
+    use tempfile::tempdir;
+
+    /// Full end-to-end export through a real headless browser. Ignored by
+    /// default because it needs Edge/Chrome installed; run explicitly with
+    /// `cargo test pdf_export_end_to_end -- --ignored`.
+    #[tokio::test]
+    #[ignore]
+    async fn pdf_export_end_to_end_produces_pdf() {
+        let dir = tempdir().unwrap();
+        let destination = dir.path().join("out.pdf");
+        super::export_markdown_pdf(PdfExportRequest {
+            destination_path: destination.to_string_lossy().to_string(),
+            document_title: "E2E".to_string(),
+            html: "<html><body><h1>E2E export</h1></body></html>".to_string(),
+            outline: vec![PdfExportOutlineItem {
+                title: "E2E export".to_string(),
+                level: 1,
+                line_number: 1,
+                page: 1,
+                offset_within_page_px: 0.0,
+            }],
+        })
+        .await
+        .unwrap();
+
+        let bytes = std::fs::read(&destination).unwrap();
+        assert!(bytes.starts_with(b"%PDF"), "destination is not a PDF");
+    }
+
+    #[tokio::test]
+    async fn copy_pdf_to_destination_overwrites_existing_file() {
+        let dir = tempdir().unwrap();
+        let rendered = dir.path().join("rendered.pdf");
+        let destination = dir.path().join("out.pdf");
+        std::fs::write(&rendered, b"new content").unwrap();
+        std::fs::write(&destination, b"old content").unwrap();
+
+        copy_pdf_to_destination(&rendered, &destination).await.unwrap();
+
+        assert_eq!(std::fs::read(&destination).unwrap(), b"new content");
+    }
+
+    #[cfg(windows)]
+    #[tokio::test]
+    async fn copy_pdf_to_destination_reports_locked_destination() {
+        // Regression: a destination held open by a PDF viewer must produce a
+        // clear error instead of silently keeping stale content.
+        use std::fs::OpenOptions;
+        use std::os::windows::fs::OpenOptionsExt;
+
+        let dir = tempdir().unwrap();
+        let rendered = dir.path().join("rendered.pdf");
+        let destination = dir.path().join("out.pdf");
+        std::fs::write(&rendered, b"new content").unwrap();
+        std::fs::write(&destination, b"old content").unwrap();
+
+        // share_mode(1) = FILE_SHARE_READ only: readers allowed, writers blocked,
+        // mirroring how PDF viewers typically hold the file.
+        let _lock = OpenOptions::new()
+            .read(true)
+            .share_mode(1)
+            .open(&destination)
+            .unwrap();
+
+        let err = copy_pdf_to_destination(&rendered, &destination).await.unwrap_err();
+
+        assert!(
+            err.to_string().contains("open in another program"),
+            "unexpected error: {err}"
+        );
+        drop(_lock);
+        assert_eq!(std::fs::read(&destination).unwrap(), b"old content");
+    }
 
     #[test]
     fn pdf_export_validation_rejects_empty_destination() {

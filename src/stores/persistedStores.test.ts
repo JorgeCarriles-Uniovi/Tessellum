@@ -133,7 +133,8 @@ describe("persisted stores", () => {
             themeScheduleLat: 43.36,
             themeScheduleLon: -5.85,
         });
-        expect(localStorage.getItem("tessellum:appearance:terminalCustom")).toBe("true");
+        const terminalColors = JSON.parse(localStorage.getItem("tessellum:appearance:terminalColors") ?? "{}");
+        expect(terminalColors.custom).toBe(true);
         expect(localStorage.getItem("tessellum:appearance:syntaxCustom")).toBe("false");
         expect(localStorage.getItem("tessellum:appearance:inlineCodeCustom")).toBe("false");
     });

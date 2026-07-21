@@ -1,7 +1,7 @@
 use std::time::Duration;
 use sqlx::{Pool, Row};
 use sqlx::QueryBuilder;
-use sqlx::sqlite::{Sqlite, SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions};
+use sqlx::sqlite::{Sqlite, SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteSynchronous};
 
 use crate::models::{IndexedMarkdownFile, IndexedSearchFile};
 
@@ -17,6 +17,9 @@ impl Database {
             .create_if_missing(true)
             // Allow concurrent readers while writes are happening.
             .journal_mode(SqliteJournalMode::Wal)
+            // WAL + NORMAL is durable across app crashes and avoids an fsync
+            // per transaction, which speeds up index writes noticeably.
+            .synchronous(SqliteSynchronous::Normal)
             // Give SQLite write contention enough time to resolve.
             .busy_timeout(Duration::from_secs(15));
         
@@ -395,27 +398,14 @@ impl Database {
     }
     
     /// Get all indexed search files (markdown and non-markdown).
-    pub async fn get_all_search_files(&self) -> Result<Vec<(String, i64, i64)>, sqlx::Error> {
-        let rows = sqlx::query_as::<_, (String, i64, i64)>(
-            "SELECT path, modified_at, is_markdown FROM search_files",
+    /// Returns `(path, modified_at, is_markdown, file_size)` for every indexed
+    /// search file in a single query, so sync passes never need per-file lookups.
+    pub async fn get_all_search_files(&self) -> Result<Vec<(String, i64, i64, i64)>, sqlx::Error> {
+        sqlx::query_as::<_, (String, i64, i64, i64)>(
+            "SELECT path, modified_at, is_markdown, file_size FROM search_files",
         )
             .fetch_all(&self.pool)
-            .await?;
-        
-        Ok(rows)
-    }
-    
-    /// Get the stored file size for a search file (returns None if not found).
-    pub async fn get_search_file_size(&self, path: &str) -> Option<i64> {
-        sqlx::query_as::<_, (i64,)>(
-            "SELECT file_size FROM search_files WHERE path = ?",
-        )
-            .bind(path)
-            .fetch_optional(&self.pool)
             .await
-            .ok()
-            .flatten()
-            .map(|(size,)| size)
     }
 
     /// Count indexed markdown files.
@@ -909,9 +899,9 @@ impl Database {
         
         for (frontmatter_opt, inline_tags_opt) in rows {
             // Process frontmatter tags
-            if let Some(frontmatter_json) = frontmatter_opt {
-                if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&frontmatter_json) {
-                    if let Some(tags) = parsed.get("tags") {
+            if let Some(frontmatter_json) = frontmatter_opt
+                && let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&frontmatter_json)
+                    && let Some(tags) = parsed.get("tags") {
                         if let Some(tags_array) = tags.as_array() {
                             for tag in tags_array {
                                 if let Some(tag_str) = tag.as_str() {
@@ -928,17 +918,14 @@ impl Database {
                             }
                         }
                     }
-                }
-            }
             
             // Process inline tags
-            if let Some(inline_tags_json) = inline_tags_opt {
-                if let Ok(parsed) = serde_json::from_str::<Vec<String>>(&inline_tags_json) {
+            if let Some(inline_tags_json) = inline_tags_opt
+                && let Ok(parsed) = serde_json::from_str::<Vec<String>>(&inline_tags_json) {
                     for tag in parsed {
                         all_tags.insert(tag);
                     }
                 }
-            }
         }
         
         let mut sorted_tags: Vec<String> = all_tags.into_iter().collect();
@@ -961,9 +948,9 @@ impl Database {
         for (path, frontmatter_opt, inline_tags_opt) in rows {
             let mut file_tags = Vec::new();
             
-            if let Some(frontmatter_json) = frontmatter_opt {
-                if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&frontmatter_json) {
-                    if let Some(tags) = parsed.get("tags") {
+            if let Some(frontmatter_json) = frontmatter_opt
+                && let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&frontmatter_json)
+                    && let Some(tags) = parsed.get("tags") {
                         if let Some(tags_array) = tags.as_array() {
                             for tag in tags_array {
                                 if let Some(tag_str) = tag.as_str() {
@@ -976,18 +963,15 @@ impl Database {
                             }
                         }
                     }
-                }
-            }
             
-            if let Some(inline_tags_json) = inline_tags_opt {
-                if let Ok(parsed) = serde_json::from_str::<Vec<String>>(&inline_tags_json) {
+            if let Some(inline_tags_json) = inline_tags_opt
+                && let Ok(parsed) = serde_json::from_str::<Vec<String>>(&inline_tags_json) {
                     for tag in parsed {
                         if !file_tags.contains(&tag) {
                             file_tags.push(tag);
                         }
                     }
                 }
-            }
             
             result.insert(path, file_tags);
         }
@@ -1006,9 +990,9 @@ impl Database {
         let mut file_tags = Vec::new();
         
         if let Some((frontmatter_opt, inline_tags_opt)) = row {
-            if let Some(frontmatter_json) = frontmatter_opt {
-                if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&frontmatter_json) {
-                    if let Some(tags) = parsed.get("tags") {
+            if let Some(frontmatter_json) = frontmatter_opt
+                && let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&frontmatter_json)
+                    && let Some(tags) = parsed.get("tags") {
                         if let Some(tags_array) = tags.as_array() {
                             for tag in tags_array {
                                 if let Some(tag_str) = tag.as_str() {
@@ -1024,18 +1008,15 @@ impl Database {
                             }
                         }
                     }
-                }
-            }
             
-            if let Some(inline_tags_json) = inline_tags_opt {
-                if let Ok(parsed) = serde_json::from_str::<Vec<String>>(&inline_tags_json) {
+            if let Some(inline_tags_json) = inline_tags_opt
+                && let Ok(parsed) = serde_json::from_str::<Vec<String>>(&inline_tags_json) {
                     for tag in parsed {
                         if !file_tags.contains(&tag) {
                             file_tags.push(tag);
                         }
                     }
                 }
-            }
         }
         
         Ok(file_tags)
@@ -1052,15 +1033,13 @@ impl Database {
         let mut all_keys = std::collections::HashSet::new();
         
         for (frontmatter_opt,) in rows {
-            if let Some(frontmatter_json) = frontmatter_opt {
-                if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&frontmatter_json) {
-                    if let Some(obj) = parsed.as_object() {
+            if let Some(frontmatter_json) = frontmatter_opt
+                && let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&frontmatter_json)
+                    && let Some(obj) = parsed.as_object() {
                         for key in obj.keys() {
                             all_keys.insert(key.clone());
                         }
                     }
-                }
-            }
         }
         
         let mut sorted_keys: Vec<String> = all_keys.into_iter().collect();

@@ -57,7 +57,7 @@ describe("themeStore", () => {
             { isFile: true, name: "notes.txt" },
             { isFile: true, name: "bad.yaml" },
         ]);
-        readTextFileMock.mockImplementation(async (path: string) => {
+        readTextFileMock.mockImplementation(async (path = "") => {
             if (path.endsWith("ocean.json")) {
                 return JSON.stringify({
                     name: "Ocean Dark",

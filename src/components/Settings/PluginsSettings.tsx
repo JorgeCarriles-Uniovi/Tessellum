@@ -6,6 +6,7 @@ import { SettingSection } from "./items/SettingSection";
 import { ToggleSetting } from "./items/ToggleSetting";
 import { usePluginsStore } from "../../stores";
 import { useTessellumApp } from "../../plugins/TessellumApp";
+import { Button } from "../ui";
 import { useAppTranslation } from "../../i18n/react.tsx";
 import { useVaultStore } from "../../stores/vaultStore";
 
@@ -202,19 +203,16 @@ export function PluginsSettings() {
                                         </div>
                                     )}
                                 </div>
-                                <button
-                                    className="flex-shrink-0 flex items-center gap-1 text-xs px-2 py-1 rounded-lg transition-colors"
-                                    style={{
-                                        color: "var(--color-text-muted)",
-                                        background: "transparent",
-                                        border: "1px solid var(--color-border-light)",
-                                    }}
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    className="flex-shrink-0"
                                     disabled={uninstallingId === p.id}
                                     onClick={() => handleUninstall(p.id)}
                                 >
                                     <Trash2 size={12} />
                                     {uninstallingId === p.id ? "…" : t("plugins.uninstallButton")}
-                                </button>
+                                </Button>
                             </div>
                         ))}
                     </div>
@@ -243,20 +241,10 @@ export function PluginsSettings() {
                             outline: "none",
                         }}
                     />
-                    <button
-                        className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg transition-colors"
-                        style={{
-                            background: "var(--primary)",
-                            color: "#fff",
-                            border: "none",
-                            opacity: loadingRegistry ? 0.7 : 1,
-                        }}
-                        disabled={loadingRegistry}
-                        onClick={handleBrowse}
-                    >
+                    <Button variant="primary" size="sm" disabled={loadingRegistry} onClick={handleBrowse}>
                         <RefreshCw size={12} className={loadingRegistry ? "animate-spin" : ""} />
                         {t("plugins.browseButton")}
-                    </button>
+                    </Button>
                 </div>
 
                 {/* Community plugin list */}
@@ -331,16 +319,11 @@ export function PluginsSettings() {
                                             </div>
                                         )}
                                     </div>
-                                    <button
-                                        className="flex-shrink-0 flex items-center gap-1 text-xs px-2 py-1 rounded-lg transition-colors"
-                                        style={{
-                                            background: isInstalled
-                                                ? "var(--color-background-tertiary)"
-                                                : "color-mix(in srgb, var(--primary) 15%, transparent)",
-                                            color: isInstalled ? "var(--color-text-muted)" : "var(--primary)",
-                                            border: "none",
-                                            opacity: isInstalling ? 0.7 : 1,
-                                        }}
+                                    <Button
+                                        variant={isInstalled ? "ghost" : "tint"}
+                                        size="sm"
+                                        className="flex-shrink-0"
+                                        style={isInstalled ? { background: "var(--color-background-tertiary)" } : undefined}
                                         disabled={isInstalling || isInstalled}
                                         onClick={() => !isInstalled && handleInstall(p)}
                                     >
@@ -350,7 +333,7 @@ export function PluginsSettings() {
                                             : isInstalled
                                             ? t("plugins.installedBadge")
                                             : t("plugins.installButton")}
-                                    </button>
+                                    </Button>
                                 </div>
                             );
                         })}

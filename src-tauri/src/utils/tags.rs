@@ -85,10 +85,10 @@ pub fn extract_tags(content: &str) -> Vec<String> {
 	}
 	
 	// Frontmatter tags
-	if let Some((yaml, _)) = crate::utils::frontmatter::parse_frontmatter(content) {
-		if let Ok(json) = crate::utils::frontmatter::frontmatter_to_json(&yaml) {
-			if let Ok(value) = serde_json::from_str::<serde_json::Value>(&json) {
-				if let Some(tags_value) = value.get("tags") {
+	if let Some((yaml, _)) = crate::utils::frontmatter::parse_frontmatter(content)
+		&& let Ok(json) = crate::utils::frontmatter::frontmatter_to_json(&yaml)
+			&& let Ok(value) = serde_json::from_str::<serde_json::Value>(&json)
+				&& let Some(tags_value) = value.get("tags") {
 					match tags_value {
 						serde_json::Value::Array(arr) => {
 							for item in arr {
@@ -111,9 +111,6 @@ pub fn extract_tags(content: &str) -> Vec<String> {
 						_ => {}
 					}
 				}
-			}
-		}
-	}
 	
 	let mut result: Vec<String> = tags.into_iter().collect();
 	result.sort();

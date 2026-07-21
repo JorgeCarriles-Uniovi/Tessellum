@@ -317,7 +317,7 @@ mod tests {
 	
 	#[test]
 	fn auto_rename_preserves_extension_when_destination_exists() {
-		let taken = vec!["photo.png".to_string(), "photo (1).png".to_string()];
+		let taken = ["photo.png".to_string(), "photo (1).png".to_string()];
 		let next = next_available_name("photo.png", |candidate| taken.iter().any(|value| value == candidate));
 		
 		assert_eq!(next, "photo (2).png");
@@ -325,7 +325,7 @@ mod tests {
 	
 	#[test]
 	fn auto_rename_handles_extensionless_names() {
-		let taken = vec!["LICENSE".to_string()];
+		let taken = ["LICENSE".to_string()];
 		let next = next_available_name("LICENSE", |candidate| taken.iter().any(|value| value == candidate));
 		
 		assert_eq!(next, "LICENSE (1)");

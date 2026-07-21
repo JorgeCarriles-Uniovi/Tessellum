@@ -164,6 +164,7 @@ pub fn run() {
             commands::templates::create_note_from_template,
             commands::vault::list_files,
             commands::vault::list_files_tree,
+            commands::vault::list_vault_snapshot,
             commands::vault::ensure_feature_demo_in_empty_vault,
             commands::clipboard::import_clipboard_files,
             commands::clipboard::write_file_paths_to_clipboard,

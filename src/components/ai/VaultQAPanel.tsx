@@ -5,6 +5,7 @@ import { Sparkles, Send, X } from "lucide-react";
 import { theme } from "../../styles/theme";
 import { useVaultStore } from "../../stores/vaultStore";
 import { useAIStore } from "../../stores/aiStore";
+import { Button, IconButton } from "../ui";
 
 interface SemanticHit {
     path: string;
@@ -174,13 +175,9 @@ export function VaultQAPanel({ onClose }: { onClose: () => void }) {
                 <span className="text-sm font-semibold flex-1" style={{ color: theme.colors.text.primary }}>
                     Vault Q&A
                 </span>
-                <button
-                    className="flex items-center justify-center w-6 h-6 rounded transition-colors"
-                    style={{ background: "transparent", border: "none", color: theme.colors.text.muted, cursor: "pointer" }}
-                    onClick={onClose}
-                >
+                <IconButton label="Close" size={24} onClick={onClose}>
                     <X size={14} />
-                </button>
+                </IconButton>
             </div>
 
             {/* Messages */}
@@ -280,20 +277,16 @@ export function VaultQAPanel({ onClose }: { onClose: () => void }) {
                         fontFamily: "inherit",
                     }}
                 />
-                <button
-                    className="flex items-center justify-center w-9 h-9 rounded-lg flex-shrink-0"
-                    style={{
-                        background: "var(--primary)",
-                        border: "none",
-                        color: "#fff",
-                        cursor: !query.trim() || streaming ? "default" : "pointer",
-                        opacity: !query.trim() || streaming ? 0.6 : 1,
-                    }}
+                <Button
+                    variant="primary"
+                    aria-label="Send"
+                    className="flex-shrink-0"
+                    style={{ width: 36, height: 36, padding: 0 }}
                     disabled={!query.trim() || streaming}
                     onClick={handleSubmit}
                 >
                     <Send size={15} />
-                </button>
+                </Button>
             </div>
         </div>
     );

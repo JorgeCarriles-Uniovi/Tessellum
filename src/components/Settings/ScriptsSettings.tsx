@@ -5,6 +5,7 @@ import { Plus, Play, Trash2, FileCode, ChevronDown, ChevronRight } from "lucide-
 import { SettingSection } from "./items/SettingSection";
 import { useVaultStore } from "../../stores/vaultStore";
 import { runScript, type ScriptRunResult } from "../../utils/scriptRunner";
+import { Button, IconButton } from "../ui";
 
 interface ScriptMeta {
     id: string;
@@ -141,20 +142,10 @@ export function ScriptsSettings() {
                     <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>
                         {scripts.length} script{scripts.length !== 1 ? "s" : ""}
                     </span>
-                    <button
-                        className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-colors"
-                        style={{
-                            background: "color-mix(in srgb, var(--primary) 12%, transparent)",
-                            color: "var(--primary)",
-                            border: "none",
-                            cursor: "pointer",
-                        }}
-                        disabled={!vaultPath}
-                        onClick={handleNew}
-                    >
+                    <Button variant="tint" size="sm" disabled={!vaultPath} onClick={handleNew}>
                         <Plus size={12} />
                         New Script
-                    </button>
+                    </Button>
                 </div>
 
                 {loading && (
@@ -194,36 +185,21 @@ export function ScriptsSettings() {
                                     {script.id}
                                 </span>
 
-                                <button
-                                    className="flex items-center justify-center w-6 h-6 rounded transition-colors"
-                                    style={{
-                                        background: "transparent",
-                                        border: "none",
-                                        color: running === script.id ? "var(--primary)" : "var(--color-text-muted)",
-                                        cursor: running ? "default" : "pointer",
-                                    }}
+                                <IconButton
+                                    label="Run script"
+                                    size={24}
                                     disabled={!!running}
-                                    title="Run script"
+                                    style={running === script.id ? { color: "var(--primary)" } : undefined}
                                     onClick={() => handleRun(script.id)}
                                 >
                                     <Play size={12} />
-                                </button>
-                                <button
-                                    className="flex items-center justify-center w-6 h-6 rounded transition-colors"
-                                    style={{ background: "transparent", border: "none", color: "var(--color-text-muted)", cursor: "pointer" }}
-                                    title="Edit script"
-                                    onClick={() => handleEdit(script.id)}
-                                >
+                                </IconButton>
+                                <IconButton label="Edit script" size={24} onClick={() => handleEdit(script.id)}>
                                     {editingId === script.id ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                                </button>
-                                <button
-                                    className="flex items-center justify-center w-6 h-6 rounded transition-colors"
-                                    style={{ background: "transparent", border: "none", color: "var(--color-text-muted)", cursor: "pointer" }}
-                                    title="Delete script"
-                                    onClick={() => handleDelete(script.id)}
-                                >
+                                </IconButton>
+                                <IconButton label="Delete script" size={24} danger onClick={() => handleDelete(script.id)}>
                                     <Trash2 size={12} />
-                                </button>
+                                </IconButton>
                             </div>
 
                             {/* Editor */}
@@ -251,18 +227,9 @@ export function ScriptsSettings() {
                                             background: "var(--color-background-secondary)",
                                         }}
                                     >
-                                        <button
-                                            className="text-xs px-3 py-1 rounded-lg transition-colors"
-                                            style={{
-                                                background: "var(--primary)",
-                                                color: "#fff",
-                                                border: "none",
-                                                cursor: "pointer",
-                                            }}
-                                            onClick={() => handleSave(script.id)}
-                                        >
+                                        <Button variant="primary" size="sm" onClick={() => handleSave(script.id)}>
                                             Save
-                                        </button>
+                                        </Button>
                                     </div>
                                 </div>
                             )}

@@ -57,7 +57,7 @@ pub async fn list_scripts(vault_path: String) -> Result<Vec<ScriptMeta>, String>
         });
     }
 
-    scripts.sort_by(|a, b| b.modified.cmp(&a.modified));
+    scripts.sort_by_key(|s| std::cmp::Reverse(s.modified));
     Ok(scripts)
 }
 

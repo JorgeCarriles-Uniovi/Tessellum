@@ -1,6 +1,7 @@
 import { ChangeEvent, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { CYPHER_QUERY_SAMPLES } from "../../lib/cypherQuerySamples";
+import { Button } from "../ui";
 
 interface GraphQueryPanelProps {
     query: string;
@@ -63,40 +64,20 @@ export function GraphQueryPanel({
                         Cypher Query
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <button
-                            type="button"
+                        <Button
+                            variant="secondary"
+                            size="sm"
                             onClick={() => {
                                 onChange("");
                                 setIsSamplesOpen(false);
                             }}
-                            style={{
-                                fontSize: "11px",
-                                border: "1px solid var(--color-border-light)",
-                                borderRadius: "var(--radius-sm)",
-                                backgroundColor: "var(--color-bg-secondary)",
-                                color: "var(--color-text-primary)",
-                                padding: "4px 8px",
-                                cursor: "pointer",
-                            }}
                         >
                             Clear
-                        </button>
+                        </Button>
                         <div style={{ position: "relative" }}>
-                            <button
-                                type="button"
-                                onClick={() => setIsSamplesOpen((open) => !open)}
-                                style={{
-                                    fontSize: "11px",
-                                    border: "1px solid var(--color-border-light)",
-                                    borderRadius: "var(--radius-sm)",
-                                    backgroundColor: "var(--color-bg-secondary)",
-                                    color: "var(--color-text-primary)",
-                                    padding: "4px 8px",
-                                    cursor: "pointer",
-                                }}
-                            >
+                            <Button variant="secondary" size="sm" onClick={() => setIsSamplesOpen((open) => !open)}>
                                 Examples
-                            </button>
+                            </Button>
                             {isSamplesOpen && (
                                 <div
                                     style={{

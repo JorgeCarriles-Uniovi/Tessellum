@@ -22,7 +22,7 @@ export function RecoveryBanner({ onNavigate }: RecoveryBannerProps) {
     useEffect(() => {
         if (!vaultPath) return;
         invoke<RecoveryFileInfo[]>("list_recovery_files", { vaultPath })
-            .then(setItems)
+            .then((list) => setItems(Array.isArray(list) ? list : []))
             .catch(() => {/* non-critical */});
     }, [vaultPath]);
 

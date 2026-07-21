@@ -116,7 +116,7 @@ describe("markdownPdfExport", () => {
 
         await service.exportNote(createFile("Project Plan.md"));
 
-        expect(notifyError).toHaveBeenCalledWith("Failed to export PDF");
+        expect(notifyError).toHaveBeenCalledWith("Failed to export PDF: print failed");
         expect(notifySuccess).not.toHaveBeenCalled();
     });
 });

@@ -24,6 +24,7 @@ type E2EState = {
     seed?: E2ESeed;
     vault?: MockVault;
     vaultPath?: string;
+    dialogSelection?: string | null;
     seedVault?: (seed: E2ESeed) => void;
 };
 
@@ -381,6 +382,20 @@ export async function invokeMock<T>(command: string, payload?: Record<string, un
         case "list_files_tree": {
             const tree = buildTree([...vault.files.values()]);
             return tree as T;
+        }
+        case "list_vault_snapshot": {
+            const fileList = [...vault.files.values()];
+            const dirPaths = getDirectoryPaths(fileList.map((file) => file.path));
+            const dirs = dirPaths.map((dir) => ({
+                path: dir,
+                content: "",
+                isDir: true,
+                lastModified: Date.now(),
+            }));
+            return {
+                files: [...dirs, ...fileList].map(buildMetadata),
+                tree: buildTree(fileList),
+            } as T;
         }
         case "read_file": {
             const path = normalizePath(String(payload?.path ?? ""));

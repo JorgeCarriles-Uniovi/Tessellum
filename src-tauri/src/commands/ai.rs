@@ -293,8 +293,8 @@ fn stream_claude(
             Err(_) => continue,
         };
         match value["type"].as_str() {
-            Some("content_block_delta") => {
-                if value["delta"]["type"] == "text_delta" {
+            Some("content_block_delta")
+                if value["delta"]["type"] == "text_delta" => {
                     let token = value["delta"]["text"].as_str().unwrap_or("").to_string();
                     if !token.is_empty() {
                         let _ = app.emit(
@@ -308,7 +308,6 @@ fn stream_claude(
                         );
                     }
                 }
-            }
             Some("message_stop") => {
                 let _ = app.emit(
                     "ai-token",

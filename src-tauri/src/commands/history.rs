@@ -23,14 +23,19 @@ fn history_dir_for_note(vault_path: &str, note_path: &str) -> PathBuf {
 }
 
 /// Convert a note path to a flat directory name safe for use as a folder name.
+///
+/// Handles both `/` and `\` separators so vault-relative stems are computed
+/// consistently across Windows, macOS, and Linux.
 fn note_stem(note_path: &str, vault_path: &str) -> String {
-    let normalized_vault = vault_path.trim_end_matches('/');
-    let normalized_note = note_path.trim_start_matches('/');
+    let normalized_note = note_path.replace('\\', "/");
+    let normalized_vault = vault_path.replace('\\', "/");
+    let vault_prefix = normalized_vault.trim_end_matches('/');
     let relative = normalized_note
-        .strip_prefix(&format!("{}/", normalized_vault))
-        .unwrap_or(normalized_note);
+        .strip_prefix(vault_prefix)
+        .unwrap_or(&normalized_note)
+        .trim_start_matches('/');
     // Replace path separators with __ and strip extension
-    let stem = if let Some(s) = relative.strip_suffix(".md") { s } else { relative };
+    let stem = relative.strip_suffix(".md").unwrap_or(relative);
     stem.replace('/', "__")
 }
 
@@ -158,7 +163,7 @@ pub async fn list_note_snapshots(
     }
 
     // Newest first
-    snapshots.sort_by(|a, b| b.timestamp_ms.cmp(&a.timestamp_ms));
+    snapshots.sort_by_key(|s| std::cmp::Reverse(s.timestamp_ms));
     Ok(snapshots)
 }
 

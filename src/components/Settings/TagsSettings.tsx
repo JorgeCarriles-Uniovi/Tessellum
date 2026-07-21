@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
 import { Tags, GitMerge } from "lucide-react";
 import { SettingSection } from "./items/SettingSection";
+import { Button } from "../ui";
 
 interface TagGroup {
     canonical: string;
@@ -92,27 +93,12 @@ export function TagsSettings() {
                                 </div>
                             </div>
                             <div className="flex items-center gap-2 justify-end">
-                                <button
-                                    className="text-[0.6875rem] px-2 py-1 rounded-lg transition-colors"
-                                    style={{
-                                        background: "transparent",
-                                        color: "var(--color-text-muted)",
-                                        border: "1px solid var(--color-border-light)",
-                                        cursor: "pointer",
-                                    }}
-                                    onClick={() => handleDismiss(group.canonical)}
-                                >
+                                <Button variant="secondary" size="sm" onClick={() => handleDismiss(group.canonical)}>
                                     Ignore
-                                </button>
-                                <button
-                                    className="flex items-center gap-1 text-[0.6875rem] px-2 py-1 rounded-lg transition-colors"
-                                    style={{
-                                        background: "color-mix(in srgb, var(--primary) 12%, transparent)",
-                                        color: "var(--primary)",
-                                        border: "none",
-                                        cursor: merging === group.canonical ? "default" : "pointer",
-                                        opacity: merging === group.canonical ? 0.6 : 1,
-                                    }}
+                                </Button>
+                                <Button
+                                    variant="tint"
+                                    size="sm"
                                     disabled={merging === group.canonical}
                                     onClick={async () => {
                                         setMerging(group.canonical);
@@ -132,20 +118,16 @@ export function TagsSettings() {
                                 >
                                     <GitMerge size={11} />
                                     {merging === group.canonical ? "Merging…" : `Merge into #${group.canonical}`}
-                                </button>
+                                </Button>
                             </div>
                         </div>
                     ))}
                 </div>
 
                 {groups.length > 0 && !loading && (
-                    <button
-                        className="text-xs mt-2"
-                        style={{ color: "var(--color-text-muted)", background: "none", border: "none", cursor: "pointer" }}
-                        onClick={load}
-                    >
+                    <Button variant="ghost" size="sm" className="mt-2" onClick={load}>
                         Refresh
-                    </button>
+                    </Button>
                 )}
             </SettingSection>
         </div>

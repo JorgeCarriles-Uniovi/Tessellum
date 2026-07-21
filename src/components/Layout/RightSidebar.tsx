@@ -13,9 +13,10 @@ import { stringToColor } from "../../utils/graphUtils";
 import { parseOutline } from "../../utils/outline";
 import { useAppTranslation } from "../../i18n/react.tsx";
 import { getIgnoredTagLineNumbers, stripInlineCodeSpansForTagScan } from "../../utils/tagExtraction";
-import { NotePropertiesPanel } from "../sidebar/NotePropertiesPanel";
-import { BacklinkSuggestions } from "../sidebar/BacklinkSuggestions";
+import { NotePropertiesPanel } from "../Sidebar/NotePropertiesPanel";
+import { BacklinkSuggestions } from "../Sidebar/BacklinkSuggestions";
 import { VaultQAPanel } from "../ai/VaultQAPanel";
+import { Button } from "../ui";
 
 const SNIPPET_LIMIT = 20;
 const SNIPPET_MAX_LEN = 120;
@@ -547,22 +548,16 @@ export function RightSidebar() {
 
             {/* Vault Q&A toggle button */}
             {isRightSidebarOpen && (
-                <button
-                    className="absolute top-3 right-3 z-10 flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs transition-colors"
-                    style={{
-                        background: isQAOpen
-                            ? "var(--primary)"
-                            : "color-mix(in srgb, var(--primary) 12%, transparent)",
-                        color: isQAOpen ? "#fff" : "var(--primary)",
-                        border: "none",
-                        cursor: "pointer",
-                    }}
+                <Button
+                    variant={isQAOpen ? "primary" : "tint"}
+                    size="sm"
+                    className="absolute top-3 right-3 z-10"
                     onClick={() => setIsQAOpen((v) => !v)}
                     title="Toggle Vault Q&A"
                 >
                     <Sparkles size={12} />
                     Q&A
-                </button>
+                </Button>
             )}
 
             {isQAOpen ? (

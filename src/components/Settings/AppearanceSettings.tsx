@@ -200,46 +200,24 @@ export function AppearanceSettings() {
 
             <SettingSection title={t("appearance.scheduleTitle")} description={t("appearance.scheduleDescription")}>
                 <div className="grid grid-cols-4 gap-3">
-                    <button
-                        onClick={() => setThemeScheduleMode('off')}
-                        className="px-3 py-2 rounded-lg border text-xs font-semibold transition-all hover:bg-[color:var(--color-panel-hover)]"
-                        style={{
-                            ...pillStyle,
-                            ...(themeScheduleMode === "off" ? selectedScheduleStyle : idleScheduleStyle),
-                        }}
-                    >
-                        {t("appearance.off")}
-                    </button>
-                    <button
-                        onClick={() => setThemeScheduleMode('system')}
-                        className="px-3 py-2 rounded-lg border text-xs font-semibold transition-all hover:bg-[color:var(--color-panel-hover)]"
-                        style={{
-                            ...pillStyle,
-                            ...(themeScheduleMode === "system" ? selectedScheduleStyle : idleScheduleStyle),
-                        }}
-                    >
-                        {t("appearance.system")}
-                    </button>
-                    <button
-                        onClick={() => setThemeScheduleMode('sun')}
-                        className="px-3 py-2 rounded-lg border text-xs font-semibold transition-all hover:bg-[color:var(--color-panel-hover)]"
-                        style={{
-                            ...pillStyle,
-                            ...(themeScheduleMode === "sun" ? selectedScheduleStyle : idleScheduleStyle),
-                        }}
-                    >
-                        {t("appearance.sunriseSunset")}
-                    </button>
-                    <button
-                        onClick={() => setThemeScheduleMode('custom')}
-                        className="px-3 py-2 rounded-lg border text-xs font-semibold transition-all hover:bg-[color:var(--color-panel-hover)]"
-                        style={{
-                            ...pillStyle,
-                            ...(themeScheduleMode === "custom" ? selectedScheduleStyle : idleScheduleStyle),
-                        }}
-                    >
-                        {t("appearance.custom")}
-                    </button>
+                    {([
+                        ["off", t("appearance.off")],
+                        ["system", t("appearance.system")],
+                        ["sun", t("appearance.sunriseSunset")],
+                        ["custom", t("appearance.custom")],
+                    ] as const).map(([mode, label]) => (
+                        <button
+                            key={mode}
+                            onClick={() => setThemeScheduleMode(mode)}
+                            className="px-3 py-2 rounded-lg border text-xs font-semibold transition-all hover:bg-[color:var(--color-panel-hover)]"
+                            style={{
+                                ...pillStyle,
+                                ...(themeScheduleMode === mode ? selectedScheduleStyle : idleScheduleStyle),
+                            }}
+                        >
+                            {label}
+                        </button>
+                    ))}
                 </div>
                 {themeScheduleMode === 'custom' && (
                     <div

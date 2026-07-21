@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { Sparkles, X, RotateCcw, Check } from "lucide-react";
 import { theme } from "../../styles/theme";
 import { useAIStore } from "../../stores/aiStore";
+import { Button, IconButton } from "../ui";
 import type { EditorView } from "@codemirror/view";
 
 interface AiTokenPayload {
@@ -200,14 +201,9 @@ export function AIPanel({ getView }: AIPanelProps) {
                     AI Writing Assistant
                 </span>
                 <span className="flex-1" />
-                <button
-                    className="flex items-center justify-center w-6 h-6 rounded-md transition-colors"
-                    style={{ background: "transparent", border: "none", color: theme.colors.text.muted }}
-                    onClick={handleClose}
-                    title="Close (Esc)"
-                >
+                <IconButton label="Close" title="Close (Esc)" size={24} onClick={handleClose}>
                     <X size={14} />
-                </button>
+                </IconButton>
             </div>
 
             {/* Context snippet */}
@@ -252,52 +248,21 @@ export function AIPanel({ getView }: AIPanelProps) {
                     }}
                 />
                 <div className="flex items-center gap-2 mt-2">
-                    <button
-                        className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition-colors"
-                        style={{
-                            background: "var(--primary)",
-                            color: "#fff",
-                            border: "none",
-                            opacity: !prompt.trim() || streaming ? 0.6 : 1,
-                            cursor: !prompt.trim() || streaming ? "default" : "pointer",
-                        }}
-                        disabled={!prompt.trim() || streaming}
-                        onClick={handleSubmit}
-                    >
+                    <Button variant="primary" size="sm" disabled={!prompt.trim() || streaming} onClick={handleSubmit}>
                         <Sparkles size={12} />
                         {streaming ? "Generating…" : "Generate"}
-                    </button>
+                    </Button>
 
                     {output && !streaming && (
                         <>
-                            <button
-                                className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg font-medium transition-colors"
-                                style={{
-                                    background: "color-mix(in srgb, var(--primary) 15%, transparent)",
-                                    color: "var(--primary)",
-                                    border: "none",
-                                    cursor: "pointer",
-                                }}
-                                onClick={handleAccept}
-                                title="Accept (Tab)"
-                            >
+                            <Button variant="tint" size="sm" onClick={handleAccept} title="Accept (Tab)">
                                 <Check size={12} />
                                 Accept
-                            </button>
-                            <button
-                                className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg transition-colors"
-                                style={{
-                                    background: "transparent",
-                                    color: theme.colors.text.muted,
-                                    border: `1px solid ${theme.colors.border.light}`,
-                                    cursor: "pointer",
-                                }}
-                                onClick={handleRegenerate}
-                                title="Regenerate (Ctrl+Enter)"
-                            >
+                            </Button>
+                            <Button size="sm" onClick={handleRegenerate} title="Regenerate (Ctrl+Enter)">
                                 <RotateCcw size={12} />
                                 Retry
-                            </button>
+                            </Button>
                         </>
                     )}
                 </div>

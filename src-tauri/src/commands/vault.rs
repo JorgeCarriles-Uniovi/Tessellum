@@ -1,4 +1,3 @@
-use std::fs::metadata;
 use std::path::Path;
 use std::time::UNIX_EPOCH;
 use tauri_plugin_fs::FsExt;
@@ -51,7 +50,7 @@ async fn rewrite_backlinks(
 
         let new_content = re.replace_all(&content, |caps: &regex::Captures<'_>| {
             // If preceded by a backslash, the link is escaped — leave it verbatim.
-            if caps.get(1).map_or(false, |m| m.as_str() == "\\") {
+            if caps.get(1).is_some_and(|m| m.as_str() == "\\") {
                 return caps[0].to_string();
             }
             let prefix = caps.get(2).map_or("", |m| m.as_str()); // e.g. "Folder/"
@@ -59,11 +58,10 @@ async fn rewrite_backlinks(
             format!("[[{prefix}{new_stem}{alias}]]")
         });
 
-        if new_content != content {
-            if let Err(e) = tokio::fs::write(source_path, new_content.as_bytes()).await {
+        if new_content != content
+            && let Err(e) = tokio::fs::write(source_path, new_content.as_bytes()).await {
                 log::warn!("rewrite_backlinks: could not write '{source_path}': {e}");
             }
-        }
     }
     
     Ok(())
@@ -124,7 +122,7 @@ pub fn list_files(vault_path: String) -> Result<Vec<FileMetadata>, TessellumErro
         }
         
         // If able to get metadata, add it to the list
-        if let Ok(meta) = metadata(path) {
+        if let Ok(meta) = entry.metadata() {
             // Get the last modified time in milliseconds
             let modified_time = meta
                 .modified()
@@ -195,7 +193,7 @@ pub async fn rename_file(
     new_name: String,
 ) -> Result<String, TessellumError> {
     // Validate old_path is inside the vault (using canonicalize to prevent traversal)
-    validate_path_in_vault(&old_path, &vault_path).map_err(|e| TessellumError::Validation(e))?;
+    validate_path_in_vault(&old_path, &vault_path).map_err(TessellumError::Validation)?;
     
     let vault_root = Path::new(&vault_path);
     let old = Path::new(&old_path);
@@ -258,9 +256,9 @@ pub async fn rename_file(
     // Rewrite [[OldStem]] -> [[NewStem]] in all files that link to this note.
     // Use case-insensitive comparison so renames that only change case (e.g. "Note" → "note")
     // still trigger a rewrite (important on case-insensitive filesystems like Windows/macOS).
-    if is_file {
-        if let (Some(os), Some(ns)) = (&old_stem, &new_stem) {
-            if !os.eq_ignore_ascii_case(ns) {
+    if is_file
+        && let (Some(os), Some(ns)) = (&old_stem, &new_stem)
+            && !os.eq_ignore_ascii_case(ns) {
                 let backlinks = db
                     .get_backlinks(&old_path)
                     .await
@@ -268,8 +266,6 @@ pub async fn rename_file(
 
                 rewrite_backlinks(&backlinks, os, ns).await?;
             }
-        }
-    }
     
     // Update the DB index so backlinks and graph stay correct
     db
@@ -338,7 +334,7 @@ pub async fn move_items(
     }
     
     validate_path_in_vault(&dest_dir, &vault_path)
-        .map_err(|e| TessellumError::Validation(e))?;
+        .map_err(TessellumError::Validation)?;
     
     let dest_path = Path::new(&dest_dir);
     let dest_meta = tokio::fs::metadata(dest_path).await.map_err(TessellumError::from)?;
@@ -355,7 +351,7 @@ pub async fn move_items(
     
     for item_path in item_paths {
         validate_path_in_vault(&item_path, &vault_path)
-            .map_err(|e| TessellumError::Validation(e))?;
+            .map_err(TessellumError::Validation)?;
         
         let normalized_item = crate::utils::normalize_path(&item_path);
         if normalized_dest == normalized_item
@@ -468,10 +464,27 @@ pub struct TreeNode {
     pub file: Option<FileMetadata>,
 }
 
+#[derive(Serialize)]
+pub struct VaultSnapshot {
+    pub files: Vec<FileMetadata>,
+    pub tree: Vec<TreeNode>,
+}
+
+/// Returns the flat file list and the directory tree from a single vault walk,
+/// so the frontend refresh path only crosses the IPC boundary once.
+#[tauri::command]
+pub fn list_vault_snapshot(vault_path: String) -> Result<VaultSnapshot, TessellumError> {
+    let files = list_files(vault_path)?;
+    let tree = build_tree(files.clone());
+    Ok(VaultSnapshot { files, tree })
+}
+
 #[tauri::command]
 pub fn list_files_tree(vault_path: String) -> Result<Vec<TreeNode>, TessellumError> {
-    let files = list_files(vault_path.clone())?;
-    
+    Ok(build_tree(list_files(vault_path)?))
+}
+
+fn build_tree(files: Vec<FileMetadata>) -> Vec<TreeNode> {
     let mut tree_nodes: HashMap<String, TreeNode> = HashMap::new();
     
     // First, map all items
@@ -513,7 +526,7 @@ pub fn list_files_tree(vault_path: String) -> Result<Vec<TreeNode>, TessellumErr
     }
     
     // Recursive sort lambda-like equivalent function
-    fn sort_nodes(nodes: &mut Vec<TreeNode>) {
+    fn sort_nodes(nodes: &mut [TreeNode]) {
         nodes.sort_by(|a, b| {
             if a.is_dir == b.is_dir {
                 a.name.cmp(&b.name)
@@ -531,7 +544,7 @@ pub fn list_files_tree(vault_path: String) -> Result<Vec<TreeNode>, TessellumErr
     
     sort_nodes(&mut root_nodes);
     
-    Ok(root_nodes)
+    root_nodes
 }
 
 #[tauri::command]

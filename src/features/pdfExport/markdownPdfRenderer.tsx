@@ -1,4 +1,5 @@
 import { createRoot } from "react-dom/client";
+import { flushSync } from "react-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Components } from "react-markdown";
@@ -1245,7 +1246,19 @@ async function renderMermaidBlocks(root: HTMLElement): Promise<string[]> {
 }
 
 async function waitForRenderFrame(): Promise<void> {
-    await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+    // requestAnimationFrame can be throttled or fully suspended (e.g. while the
+    // window is minimized), so race it against a short timeout to avoid hangs.
+    await new Promise<void>((resolve) => {
+        let settled = false;
+        const finish = () => {
+            if (!settled) {
+                settled = true;
+                resolve();
+            }
+        };
+        window.requestAnimationFrame(finish);
+        window.setTimeout(finish, 50);
+    });
 }
 
 export async function renderMarkdownPdfDocument(
@@ -1260,12 +1273,21 @@ export async function renderMarkdownPdfDocument(
 
     const measurementContainer = createMeasureContainer(styles);
     const root = createRoot(measurementContainer);
-    root.render(
-        <ExportDocument title={documentTitle} blocks={blocks} frontmatter={frontmatter} notePath={file.path} />
-    );
-    await waitForRenderFrame();
+    // createRoot().render() commits asynchronously; flushSync forces the commit
+    // so the export DOM exists immediately (and genuine render errors surface
+    // here with their real message instead of a generic failure below).
+    flushSync(() => {
+        root.render(
+            <ExportDocument title={documentTitle} blocks={blocks} frontmatter={frontmatter} notePath={file.path} />
+        );
+    });
 
-    const exportRoot = measurementContainer.querySelector<HTMLElement>("[data-export-root='true']");
+    // Fallback for environments where the commit is still deferred.
+    let exportRoot = measurementContainer.querySelector<HTMLElement>("[data-export-root='true']");
+    for (let attempt = 0; attempt < 10 && !exportRoot; attempt++) {
+        await waitForRenderFrame();
+        exportRoot = measurementContainer.querySelector<HTMLElement>("[data-export-root='true']");
+    }
     if (!exportRoot) {
         root.unmount();
         measurementContainer.remove();

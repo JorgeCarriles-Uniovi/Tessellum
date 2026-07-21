@@ -43,14 +43,14 @@ impl AssetIndex {
 					let filename_str = filename.to_string_lossy().to_string();
 					name_to_paths
 						.entry(filename_str.clone())
-						.or_insert_with(Vec::new)
+						.or_default()
 						.push(path.to_path_buf());
 					
 					if let Some(stem) = path.file_stem() {
 						let stem_str = stem.to_string_lossy().to_string();
 						name_to_paths
 							.entry(stem_str)
-							.or_insert_with(Vec::new)
+							.or_default()
 							.push(path.to_path_buf());
 					}
 				}
@@ -79,8 +79,8 @@ impl AssetIndex {
 			if full_path.extension().is_none() {
 				for ext in SUPPORTED_EXTS {
 					full_path.set_extension(ext);
-					if full_path.exists() {
-						if let Ok(canonical_full) = canonicalize(&full_path) {
+					if full_path.exists()
+						&& let Ok(canonical_full) = canonicalize(&full_path) {
 							return if canonical_full.starts_with
 							(&canonical_vault_root) {
 								Some(full_path)
@@ -88,7 +88,6 @@ impl AssetIndex {
 								None
 							}
 						}
-					}
 				}
 			}
 			

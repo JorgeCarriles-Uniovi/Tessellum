@@ -234,15 +234,10 @@ pub async fn suggest_tags(
     let idf = compute_idf(&all_tokens);
 
     // Strip YAML frontmatter before analysis
-    let body = if content.starts_with("---") {
-        if let Some(end) = content[3..].find("\n---") {
-            &content[3 + end + 4..]
-        } else {
-            &content
-        }
-    } else {
-        &content
-    };
+    let body = content
+        .strip_prefix("---")
+        .and_then(|rest| rest.find("\n---").map(|end| &rest[end + 4..]))
+        .unwrap_or(&content);
 
     let tokens = tokenize(body);
     let tf = term_frequencies(&tokens);
@@ -296,23 +291,26 @@ pub struct TagGroup {
     pub variants: Vec<String>,
 }
 
+/// Levenshtein distance using a rolling pair of rows instead of the full
+/// (m+1)x(n+1) matrix, keeping memory linear in the shorter string.
 fn edit_distance(a: &str, b: &str) -> usize {
     let a: Vec<char> = a.chars().collect();
     let b: Vec<char> = b.chars().collect();
-    let (m, n) = (a.len(), b.len());
-    let mut dp = vec![vec![0usize; n + 1]; m + 1];
-    for i in 0..=m { dp[i][0] = i; }
-    for j in 0..=n { dp[0][j] = j; }
-    for i in 1..=m {
-        for j in 1..=n {
-            dp[i][j] = if a[i - 1] == b[j - 1] {
-                dp[i - 1][j - 1]
+    let n = b.len();
+    let mut prev: Vec<usize> = (0..=n).collect();
+    let mut curr = vec![0usize; n + 1];
+    for (i, &ca) in a.iter().enumerate() {
+        curr[0] = i + 1;
+        for (j, &cb) in b.iter().enumerate() {
+            curr[j + 1] = if ca == cb {
+                prev[j]
             } else {
-                1 + dp[i - 1][j].min(dp[i][j - 1]).min(dp[i - 1][j - 1])
+                1 + prev[j + 1].min(curr[j]).min(prev[j])
             };
         }
+        std::mem::swap(&mut prev, &mut curr);
     }
-    dp[m][n]
+    prev[n]
 }
 
 /// Returns groups of near-duplicate tags found in the vault.

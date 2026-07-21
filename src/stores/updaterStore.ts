@@ -95,10 +95,21 @@ export const useUpdaterStore = create<UpdaterState>((set, get) => ({
                         break;
                 }
             });
-            // Restart into the freshly installed version.
-            await relaunch();
         } catch (e) {
             set({ status: "error", error: String(e) });
+            return;
+        }
+
+        // Restart into the freshly installed version. If the relaunch itself
+        // fails, the update is already installed — tell the user instead of
+        // leaving the modal stuck on "downloading".
+        try {
+            await relaunch();
+        } catch (e) {
+            set({
+                status: "error",
+                error: `Update installed, but the app could not restart itself — please restart Tessellum manually. (${String(e)})`,
+            });
         }
     },
 

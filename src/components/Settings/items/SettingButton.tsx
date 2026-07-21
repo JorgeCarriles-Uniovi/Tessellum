@@ -1,3 +1,5 @@
+import { Button } from "../../ui";
+
 export function SettingButton({
     children,
     onClick,
@@ -11,20 +13,9 @@ export function SettingButton({
     disabled?: boolean;
     type?: "button" | "submit";
 }) {
-    const primary = variant === "primary";
     return (
-        <button
-            type={type}
-            onClick={onClick}
-            disabled={disabled}
-            className="px-3 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-            style={{
-                backgroundColor: primary ? "var(--primary)" : "var(--color-panel-bg)",
-                color: primary ? "white" : "var(--color-text-secondary)",
-                border: primary ? "none" : "1px solid var(--color-border-light)",
-            }}
-        >
+        <Button variant={variant} onClick={onClick} disabled={disabled} type={type} className="text-sm">
             {children}
-        </button>
+        </Button>
     );
 }

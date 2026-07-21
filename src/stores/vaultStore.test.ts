@@ -56,7 +56,7 @@ describe("vaultStore", () => {
         expect(localStorage.getItem("vaultPath")).toBeNull();
 
         useVaultStore.getState().setVaultPath("/vault-b");
-        expect(localStorage.getItem("vaultPath")).toBe("/vault-b");
+        expect(localStorage.getItem("tessellum:vault:path")).toBe("/vault-b");
     });
 
     test("preserves or falls back active tabs when file lists change", async () => {

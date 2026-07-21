@@ -77,15 +77,14 @@ pub async fn run_sync_vault(
             // Only do full Grafeo sync if this is an initial/manual sync with many changes
             // Individual note changes are synced incrementally via write_file command
             let total_changes = stats.files_indexed + stats.files_deleted;
-            if total_changes > 10 {
-                if let Err(err) = sync_full(grafeo_state, db.as_ref()).await {
+            if total_changes > 10
+                && let Err(err) = sync_full(grafeo_state, db.as_ref()).await {
                     log::warn!(
                         "Grafeo sync_full failed after vault sync for '{}': {}",
                         vault_path,
                         err
                     );
                 }
-            }
             let mut idx_guard = state.file_index.lock().await;
             *idx_guard = None;
             let mut asset_guard = state.asset_index.lock().await;
@@ -138,8 +137,8 @@ pub async fn get_index_status(
         .await
         .unwrap_or_default()
         .into_iter()
-        .filter(|(_, _, is_md)| *is_md != 0)
-        .map(|(path, modified, _)| (path, modified))
+        .filter(|(_, _, is_md, _)| *is_md != 0)
+        .map(|(path, modified, _, _)| (path, modified))
         .collect();
 
     let mut total: u64 = 0;

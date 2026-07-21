@@ -1,6 +1,6 @@
 use git2::{
     BranchType, Cred, FetchOptions, PushOptions, RemoteCallbacks, Repository,
-    RepositoryOpenFlags, Signature, Status, StatusOptions,
+    RepositoryOpenFlags, Signature, StatusOptions,
 };
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -49,6 +49,7 @@ pub struct SyncStatus {
     pub message: Option<String>,
 }
 
+#[allow(dead_code)] // kept for the sync conflict UI; not wired up yet
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConflictEntry {
     pub path: String,
@@ -156,15 +157,12 @@ pub fn stage_and_commit(
     let parent_refs: Vec<&git2::Commit> = parents.iter().collect();
 
     // Skip empty commits
-    if let Ok(head) = repo.head() {
-        if let Some(oid) = head.target() {
-            if let Ok(parent_commit) = repo.find_commit(oid) {
-                if parent_commit.tree_id() == tree_oid {
+    if let Ok(head) = repo.head()
+        && let Some(oid) = head.target()
+            && let Ok(parent_commit) = repo.find_commit(oid)
+                && parent_commit.tree_id() == tree_oid {
                     return Ok(oid.to_string());
                 }
-            }
-        }
-    }
 
     let oid = repo
         .commit(
@@ -449,6 +447,7 @@ pub fn add_or_set_remote(vault_path: &str, remote_name: &str, url: &str) -> Resu
 }
 
 /// Get current branch name.
+#[allow(dead_code)] // kept for the sync status UI; not wired up yet
 pub fn current_branch(vault_path: &str) -> Result<String, String> {
     let repo = open_vault_repo(vault_path)?;
     let head = repo.head().map_err(|e| format!("HEAD: {}", e))?;

@@ -1,6 +1,7 @@
 import { Download, X } from "lucide-react";
 import { useUpdaterStore } from "../../stores/updaterStore";
 import { SettingButton } from "../Settings/items/SettingButton";
+import { IconButton } from "../ui";
 
 /**
  * Modal shown when a newer version is available (from the launch check or the
@@ -54,12 +55,9 @@ export function UpdatePrompt() {
                         Update available
                     </h3>
                     {!downloading && (
-                        <button
-                            onClick={dismiss}
-                            className="p-1.5 rounded-lg transition-colors hover:bg-[color:var(--color-panel-hover)]"
-                        >
-                            <X size={16} style={{ color: "var(--color-text-muted)" }} />
-                        </button>
+                        <IconButton label="Dismiss update" onClick={dismiss}>
+                            <X size={16} />
+                        </IconButton>
                     )}
                 </div>
 

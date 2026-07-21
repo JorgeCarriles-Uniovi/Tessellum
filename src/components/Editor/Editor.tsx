@@ -27,6 +27,7 @@ import { EditorView } from "@codemirror/view";
 import { Extension, Prec } from "@codemirror/state";
 import { Calendar, Clock, History } from "lucide-react";
 import { theme } from "../../styles/theme";
+import { Button } from "../ui";
 import { isMediaFile } from "../../utils/fileType";
 import { MediaPreview } from "./MediaPreview";
 import { EDITOR_MODES } from "../../constants/editorModes";
@@ -245,19 +246,9 @@ function EmptyEditorState({
                     {vaultPath ? t("editor.startNewNote") : t("editor.openVaultToBegin")}
                 </div>
                 {primaryAction && (
-                    <button
-                        onClick={primaryAction.onTrigger}
-                        className="px-4 py-2 rounded-lg text-sm font-medium"
-                        style={{
-                            backgroundColor: theme.colors.blue[600],
-                            color: "#fff",
-                            border: "none",
-                            cursor: "pointer",
-                            padding: "0.5rem 1rem"
-                        }}
-                    >
+                    <Button variant="primary" onClick={primaryAction.onTrigger}>
                         {vaultPath ? t("editor.createNewNote") : t("editor.openVault")}
-                    </button>
+                    </Button>
                 )}
             </div>
         </div>
@@ -344,19 +335,17 @@ function EditorHeader({
                         </span>
                     )}
                     <AutoSaveIndicator />
-                    <button
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        className="ml-auto"
+                        style={isHistoryOpen ? { color: "var(--primary)", backgroundColor: "var(--color-background-primary)" } : undefined}
                         onClick={onHistoryToggle}
-                        className="flex items-center gap-1 ml-auto px-2 py-0.5 rounded transition-opacity hover:opacity-80"
-                        style={{
-                            color: isHistoryOpen ? "var(--primary)" : "var(--color-text-muted)",
-                            border: "1px solid var(--color-border-light)",
-                            backgroundColor: isHistoryOpen ? "var(--color-background-primary)" : "transparent",
-                        }}
                         title="Version history"
                     >
                         <History size={11} />
                         <span>History</span>
-                    </button>
+                    </Button>
                 </div>
             </div>
         </div>
@@ -994,20 +983,12 @@ export function Editor() {
                             {files.find(f => f.path === dirtyCloseConfirm)?.filename ?? dirtyCloseConfirm}
                         </p>
                         <div className="flex gap-2 justify-end">
-                            <button
-                                className="px-3 py-1.5 rounded text-xs"
-                                style={{ backgroundColor: theme.colors.background.secondary, color: theme.colors.text.primary }}
-                                onClick={() => setDirtyCloseConfirm(null)}
-                            >
+                            <Button variant="secondary" size="sm" onClick={() => setDirtyCloseConfirm(null)}>
                                 {t("common.cancel", { defaultValue: "Cancel" })}
-                            </button>
-                            <button
-                                className="px-3 py-1.5 rounded text-xs"
-                                style={{ backgroundColor: "#dc2626", color: "#fff" }}
-                                onClick={confirmDirtyClose}
-                            >
+                            </Button>
+                            <Button variant="danger" size="sm" onClick={confirmDirtyClose}>
                                 {t("editor.discardChanges", { defaultValue: "Discard" })}
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 </div>

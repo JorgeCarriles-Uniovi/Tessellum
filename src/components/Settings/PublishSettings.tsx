@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useVaultStore } from "../../stores/vaultStore";
 import { SettingSection } from "./items/SettingSection";
 import { SettingItem } from "./items/SettingItem";
+import { Button } from "../ui";
 
 interface PublishResult {
     published: number;
@@ -28,18 +29,6 @@ export function PublishSettings() {
         color: "var(--color-text-primary)",
         fontSize: "0.8125rem",
         outline: "none",
-    };
-
-    const btnStyle: React.CSSProperties = {
-        padding: "0.4rem 1rem",
-        borderRadius: "0.375rem",
-        fontSize: "0.8125rem",
-        fontWeight: 500,
-        cursor: busy ? "not-allowed" : "pointer",
-        opacity: busy ? 0.6 : 1,
-        backgroundColor: "var(--primary)",
-        color: "white",
-        border: "none",
     };
 
     const handlePublish = async () => {
@@ -93,9 +82,9 @@ export function PublishSettings() {
             </SettingSection>
 
             <div style={{ display: "flex", gap: "0.75rem", marginTop: "1.5rem", alignItems: "center" }}>
-                <button style={btnStyle} onClick={handlePublish} disabled={busy || !vaultPath}>
+                <Button variant="primary" onClick={handlePublish} disabled={busy || !vaultPath}>
                     {busy ? "Publishing…" : "Publish"}
-                </button>
+                </Button>
                 {status && (
                     <span
                         style={{

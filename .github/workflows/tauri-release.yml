@@ -76,7 +76,9 @@ jobs:
         with:
           tagName: ${{ inputs.tag || github.ref_name }}
           releaseName: Tessellum ${{ inputs.tag || github.ref_name }}
-          releaseDraft: true
+          # Must be published (not draft) so the updater endpoint
+          # releases/latest/download/latest.json resolves to this release.
+          releaseDraft: false
           prerelease: false
           # Preserve the CI frontend build (npm run build:ci) used by the project.
           args: --config src-tauri/tauri.ci.conf.json
