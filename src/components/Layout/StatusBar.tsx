@@ -1,6 +1,8 @@
 import { useMemo } from "react";
 import { useEditorStore } from "../../stores/editorStore";
 import { theme } from "../../styles/theme";
+import { IndexStatusBadge } from "../status/IndexStatusBadge";
+import { SyncStatusBadge } from "../status/SyncStatusBadge";
 
 function countWords(text: string): number {
     return text
@@ -99,6 +101,9 @@ export function StatusBar() {
                 <span className="flex items-center gap-1.5">{fileType}</span>
             </div>
             <div className="flex items-center gap-6">
+                <SyncStatusBadge />
+                <IndexStatusBadge />
+                <div className="h-3 w-[1px]" style={{ backgroundColor: theme.colors.border.light }} />
                 <div className="flex items-center gap-3">
                     <span>{wordCount} Words</span>
                     <span>{readTime} min read</span>

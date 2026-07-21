@@ -56,7 +56,7 @@ function createListView(text: string, from = 0, to = text.length) {
             },
         },
         dispatch: vi.fn(),
-    } as never;
+    } as any;
 }
 
 describe("editor pure logic", () => {
@@ -67,7 +67,7 @@ describe("editor pure logic", () => {
     test("filters source mode plugin ids and keeps non-source modes untouched", () => {
         const pluginIds = ["markdown-preview", "custom", "wikilink", "table"];
 
-        expect(getEditorExtensionPluginIds("live", pluginIds)).toEqual(pluginIds);
+        expect(getEditorExtensionPluginIds("live-preview", pluginIds)).toEqual(pluginIds);
         expect(getEditorExtensionPluginIds("source", pluginIds)).toEqual(["custom"]);
         expect(getInitialExtensionPluginIds("source", pluginIds)).toEqual(["custom"]);
         expect(isSourceModeEnabled({})).toBe(true);
@@ -180,7 +180,7 @@ describe("editor pure logic", () => {
                 },
             },
             dispatch: vi.fn(),
-        } as never;
+        } as any;
 
         expect(applyMarkdownShortcut(null, "**")).toBe(false);
         expect(applyMarkdownShortcut(shortcutView, "**")).toBe(true);

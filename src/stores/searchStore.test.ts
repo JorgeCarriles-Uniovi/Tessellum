@@ -82,7 +82,9 @@ describe("searchStore", () => {
 
         expect(invokeMock).toHaveBeenCalledTimes(1);
 
-        resolvePayload?.({
+        // TS narrows `resolvePayload` to null here because the assignment happens
+        // inside the invoke callback; the cast reflects the runtime reality.
+        (resolvePayload as unknown as (value: unknown) => void)({
             status: "ready",
             attempt_count: 2,
             max_attempts: 5,

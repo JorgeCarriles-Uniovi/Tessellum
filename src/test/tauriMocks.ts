@@ -1,23 +1,33 @@
 import { vi } from "vitest";
 
 const tauriState = vi.hoisted(() => {
-    const invokeMock = vi.fn(async () => undefined);
+    // The mocks intentionally accept any arguments and resolve `any` so test
+    // files can stub arbitrary command payloads via mockResolvedValueOnce.
+    const invokeMock = vi.fn(
+        async (_command?: string, _payload?: Record<string, unknown>): Promise<any> => undefined,
+    );
     const convertFileSrcMock = vi.fn((path: string) => `asset://${path}`);
-    const listenMock = vi.fn(async () => vi.fn(async () => undefined));
+    const listenMock = vi.fn(
+        async (_event?: string, _handler?: (...args: any[]) => void): Promise<any> =>
+            vi.fn(async () => undefined),
+    );
     const joinMock = vi.fn(async (...parts: string[]) => parts.filter(Boolean).join("/"));
     const dirnameMock = vi.fn(async (path: string) => path.split(/[\\/]/).slice(0, -1).join("/") || "");
     const extnameMock = vi.fn(async (fileName: string) => {
         const match = /\.[^.]+$/.exec(fileName);
         return match ? match[0] : "";
     });
-    const existsMock = vi.fn(async () => false);
-    const readDirMock = vi.fn(async () => []);
-    const readTextFileMock = vi.fn(async () => "");
-    const readFileMock = vi.fn(async () => new Uint8Array());
-    const mkdirMock = vi.fn(async () => undefined);
-    const watchMock = vi.fn(async () => vi.fn(async () => undefined));
-    const openDialogMock = vi.fn(async () => null);
-    const saveDialogMock = vi.fn(async () => null);
+    const existsMock = vi.fn(async (_path?: string): Promise<boolean> => false);
+    const readDirMock = vi.fn(async (_path?: string): Promise<any[]> => []);
+    const readTextFileMock = vi.fn(async (_path?: string): Promise<string> => "");
+    const readFileMock = vi.fn(async (_path?: string) => new Uint8Array());
+    const mkdirMock = vi.fn(async (_path?: string, _options?: unknown): Promise<any> => undefined);
+    const watchMock = vi.fn(
+        async (_paths?: unknown, _handler?: unknown, _options?: unknown): Promise<any> =>
+            vi.fn(async () => undefined),
+    );
+    const openDialogMock = vi.fn(async (_options?: unknown): Promise<any> => null);
+    const saveDialogMock = vi.fn(async (_options?: unknown): Promise<any> => null);
 
     const currentWindow = {
         minimize: vi.fn(async () => undefined),

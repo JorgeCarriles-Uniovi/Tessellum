@@ -26,7 +26,7 @@ const fileTreeMocks = vi.hoisted(() => ({
     renameInContext: vi.fn(),
     clipboardCopyPaths: vi.fn(),
     clipboardPasteInto: vi.fn(),
-    resolveClipboardSelection: vi.fn(() => []),
+    resolveClipboardSelection: vi.fn((..._args: unknown[]) => [] as string[]),
     appEmit: vi.fn(),
 }));
 
@@ -95,7 +95,7 @@ function createFile(path: string, isDir = false) {
     };
 }
 
-function createNode(path: string, isDir = true, children: Array<ReturnType<typeof createNode>> = []) {
+function createNode(path: string, isDir = true, children: any[] = []) {
     return {
         id: path,
         name: path.split("/").at(-1) ?? path,

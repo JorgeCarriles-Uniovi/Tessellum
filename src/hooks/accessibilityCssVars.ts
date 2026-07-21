@@ -171,27 +171,27 @@ export function buildHighContrastCssVarOverrides(): Record<string, string> {
 }
 
 function applyHighContrastOverrides(root: RootLike, enabled: boolean) {
-    Object.entries(HIGH_CONTRAST_OVERRIDES).forEach(([key, value]) => {
-        if (enabled) {
+    if (enabled) {
+        Object.entries(HIGH_CONTRAST_OVERRIDES).forEach(([key, value]) => {
             const currentValue = root.style.getPropertyValue(key);
             if (currentValue !== value) {
                 previousInlineValues.set(key, currentValue);
             }
             root.style.setProperty(key, value);
-            return;
-        }
+        });
+        return;
+    }
 
-        const previousValue = previousInlineValues.get(key);
-        if (previousValue) {
-            root.style.setProperty(key, previousValue);
+    // Restore only keys that were actually captured when HC was turned on.
+    // Never call removeProperty on keys we didn't save — that would wipe theme vars.
+    previousInlineValues.forEach((savedValue, key) => {
+        if (savedValue) {
+            root.style.setProperty(key, savedValue);
         } else {
             root.style.removeProperty(key);
         }
     });
-
-    if (!enabled) {
-        previousInlineValues.clear();
-    }
+    previousInlineValues.clear();
 }
 
 export function applyAccessibilityRootState({

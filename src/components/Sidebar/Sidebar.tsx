@@ -14,6 +14,7 @@ import { TemplatePicker } from "../TemplatePicker";
 import { getParentFromTarget } from "../../utils/pathUtils";
 import { useFileSync } from "../FileTree/hooks/useFileSync";
 import { cn } from "../../lib/utils";
+import { IconButton } from "../ui";
 import { useResizableSidebarWidth } from "../Layout/useResizableSidebarWidth";
 import { SearchPanel } from "../Search/SearchPanel";
 import { TrashModal } from "../TrashModal/TrashModal";
@@ -98,58 +99,12 @@ const vaultBadgeStyle: CSSProperties = {
     fontWeight: theme.typography.fontWeight.bold,
 };
 
-const headerActionStyle = (disabled?: boolean): CSSProperties => ({
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    width: "28px",
-    height: "28px",
-    borderRadius: theme.borderRadius.md,
-    border: "none",
-    cursor: disabled ? "not-allowed" : "pointer",
-    color: disabled ? "color-mix(in srgb, var(--color-text-muted) 60%, transparent)" : theme.colors.text.secondary,
-    backgroundColor: "transparent",
-});
-
-const actionButtonStyle = (isHovered: boolean, disabled?: boolean): CSSProperties => ({
-    display: "flex",
-    alignItems: "center",
-    gap: theme.spacing[3],
-    width: "100%",
+const actionButtonPadding: CSSProperties = {
     padding: `${theme.spacing[2]} ${theme.spacing[3]}`,
-    background: isHovered ? "color-mix(in srgb, var(--color-text-primary) 6%, transparent)" : "transparent",
-    border: `1px solid ${theme.colors.border.light}`,
-    borderRadius: theme.borderRadius.lg,
-    cursor: disabled ? "not-allowed" : "pointer",
-    color: disabled ? theme.colors.text.muted : theme.colors.text.secondary,
-    transition: theme.transitions.fast,
-    textAlign: "left",
-    opacity: disabled ? 0.6 : 1,
-});
-
-const footerButtonStyle = (isHovered: boolean, disabled?: boolean): CSSProperties => ({
-    display: "flex",
-    alignItems: "center",
-    gap: theme.spacing[3],
-    width: "100%",
-    padding: `${theme.spacing[2]} ${theme.spacing[4]}`,
-    background: isHovered ? "color-mix(in srgb, var(--color-text-primary) 6%, transparent)" : "transparent",
-    border: "none",
-    cursor: disabled ? "not-allowed" : "pointer",
-    color: disabled ? theme.colors.text.muted : theme.colors.text.secondary,
-    transition: theme.transitions.fast,
-    textAlign: "left",
-    opacity: disabled ? 0.6 : 1,
-});
-
-const actionButtonContentStyle: CSSProperties = {
-    display: "flex",
-    alignItems: "center",
-    gap: theme.spacing[3],
 };
 
-const actionLabelStyle: CSSProperties = {
-    fontSize: theme.typography.fontSize.sm,
+const footerButtonPadding: CSSProperties = {
+    padding: `${theme.spacing[2]} ${theme.spacing[4]}`,
 };
 
 const emptyStateStyle: CSSProperties = {
@@ -240,7 +195,6 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
 
     const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
     const [templatePickerParent, setTemplatePickerParent] = useState<string | undefined>(undefined);
-    const [hoveredActionId, setHoveredActionId] = useState<string | null>(null);
     const [isTrashModalOpen, setIsTrashModalOpen] = useState(false);
     const { t } = useAppTranslation("core");
     const markdownPdfExport = useMarkdownPdfExport();
@@ -340,36 +294,11 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
                     {isSearchOpen ? (
                         <div className="flex flex-col min-h-0" style={{ flex: 1 }}>
                             <SearchPanel onClose={closeSearch} />
-                            <div
-                                className="flex items-center border-t"
-                                style={{ borderColor: theme.colors.border.light, backgroundColor: theme.colors.background.primary }}
-                            >
-                                <div className="flex-1 overflow-hidden">
-                                    <VaultSwitcher vaultName={vaultName} onOpenVault={openVaultAction?.onClick} />
-                                </div>
-                                {settingsAction && (
-                                    <button
-                                        onClick={settingsAction.onClick}
-                                        title={settingsAction.tooltip || settingsAction.label}
-                                        className="rounded-md transition-colors"
-                                        style={{
-                                            marginRight: theme.spacing[2],
-                                            width: "32px",
-                                            height: "32px",
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "center",
-                                            color: theme.colors.text.secondary,
-                                            backgroundColor: theme.colors.background.primary,
-                                            cursor: settingsAction.disabled ? "not-allowed" : "pointer",
-                                            opacity: settingsAction.disabled ? 0.6 : 1,
-                                        }}
-                                        disabled={settingsAction.disabled}
-                                    >
-                                        <Settings size={SIDEBAR_ACTION_ICON_SIZE} style={SIDEBAR_ACTION_ICON_STYLE} />
-                                    </button>
-                                )}
-                            </div>
+                            <VaultFooterBar
+                                vaultName={vaultName}
+                                onOpenVault={openVaultAction?.onClick}
+                                settingsAction={settingsAction}
+                            />
                         </div>
                     ) : (
                         <>
@@ -382,15 +311,15 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
                                     {headerActions.map((action) => {
                                         const disabled = action.disabled || (!vaultPath && action.id !== "sidebar-open-vault");
                                         return (
-                                            <button
+                                            <IconButton
                                                 key={action.id}
+                                                label={action.label}
                                                 title={action.tooltip || action.label}
-                                                style={headerActionStyle(disabled)}
                                                 onClick={disabled ? undefined : action.onClick}
                                                 disabled={disabled}
                                             >
                                                 {action.icon || <FolderOpen size={SIDEBAR_ICON_SIZE} style={SIDEBAR_ICON_STYLE} />}
-                                            </button>
+                                            </IconButton>
                                         );
                                     })}
                                 </div>
@@ -412,37 +341,30 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
 
                             {sidebarActions.length > 0 && (
                                 <div style={actionSectionStyle}>
-                                    {sidebarActions.map((action) => {
-                                        const isHovered = hoveredActionId === action.id;
-                                        return (
-                                            <button
-                                                key={action.id}
-                                                style={actionButtonStyle(isHovered)}
-                                                onClick={action.onClick}
-                                                onMouseEnter={() => setHoveredActionId(action.id)}
-                                                onMouseLeave={() => setHoveredActionId(null)}
-                                            >
-                                                <span style={actionButtonContentStyle}>
-                                                    {action.icon}
-                                                    <span style={actionLabelStyle}>{action.label}</span>
-                                                </span>
-                                            </button>
-                                        );
-                                    })}
+                                    {sidebarActions.map((action) => (
+                                        <button
+                                            key={action.id}
+                                            className="ui-row-btn ui-row-btn--bordered"
+                                            style={actionButtonPadding}
+                                            onClick={action.onClick}
+                                        >
+                                            {action.icon}
+                                            <span style={{ fontSize: theme.typography.fontSize.sm }}>{action.label}</span>
+                                        </button>
+                                    ))}
                                 </div>
                             )}
 
                             <div style={footerStyle}>
                                 {footerActions.map((action) => {
-                                    const isHovered = hoveredActionId === action.id;
                                     const disabled = action.disabled || (!vaultPath && action.id === "sidebar-trash");
                                     return (
                                         <button
                                             key={action.id}
-                                            style={footerButtonStyle(isHovered, disabled)}
+                                            className="ui-row-btn"
+                                            style={footerButtonPadding}
                                             onClick={disabled ? undefined : action.onClick}
-                                            onMouseEnter={() => setHoveredActionId(action.id)}
-                                            onMouseLeave={() => setHoveredActionId(null)}
+                                            disabled={disabled}
                                             title={action.tooltip || action.label}
                                         >
                                             {action.icon || (
@@ -458,36 +380,11 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
                                 })}
                             </div>
 
-                            <div
-                                className="flex items-center border-t"
-                                style={{ borderColor: theme.colors.border.light, backgroundColor: theme.colors.background.primary }}
-                            >
-                                <div className="flex-1 overflow-hidden">
-                                    <VaultSwitcher vaultName={vaultName} onOpenVault={openVaultAction?.onClick} />
-                                </div>
-                                {settingsAction && (
-                                    <button
-                                        onClick={settingsAction.onClick}
-                                        title={settingsAction.tooltip || settingsAction.label}
-                                        className="rounded-md transition-colors"
-                                        style={{
-                                            marginRight: theme.spacing[2],
-                                            width: "32px",
-                                            height: "32px",
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "center",
-                                            color: theme.colors.text.secondary,
-                                            backgroundColor: theme.colors.background.primary,
-                                            cursor: settingsAction.disabled ? "not-allowed" : "pointer",
-                                            opacity: settingsAction.disabled ? 0.6 : 1,
-                                        }}
-                                        disabled={settingsAction.disabled}
-                                    >
-                                        <Settings size={SIDEBAR_ACTION_ICON_SIZE} style={SIDEBAR_ACTION_ICON_STYLE} />
-                                    </button>
-                                )}
-                            </div>
+                            <VaultFooterBar
+                                vaultName={vaultName}
+                                onOpenVault={openVaultAction?.onClick}
+                                settingsAction={settingsAction}
+                            />
                         </>
                     )}
                 </div>
@@ -555,6 +452,40 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
                 vaultPath={vaultPath}
             />
         </>
+    );
+}
+
+/** Bottom bar with the vault switcher and the settings shortcut. */
+function VaultFooterBar({
+    vaultName,
+    onOpenVault,
+    settingsAction,
+}: {
+    vaultName: string;
+    onOpenVault?: () => void;
+    settingsAction?: { label: string; tooltip?: string; onClick?: () => void; disabled?: boolean };
+}) {
+    return (
+        <div
+            className="flex items-center border-t"
+            style={{ borderColor: theme.colors.border.light, backgroundColor: theme.colors.background.primary }}
+        >
+            <div className="flex-1 overflow-hidden">
+                <VaultSwitcher vaultName={vaultName} onOpenVault={onOpenVault} />
+            </div>
+            {settingsAction && (
+                <IconButton
+                    label={settingsAction.label}
+                    title={settingsAction.tooltip || settingsAction.label}
+                    size={32}
+                    onClick={settingsAction.onClick}
+                    disabled={settingsAction.disabled}
+                    style={{ marginRight: theme.spacing[2] }}
+                >
+                    <Settings size={SIDEBAR_ACTION_ICON_SIZE} style={SIDEBAR_ACTION_ICON_STYLE} />
+                </IconButton>
+            )}
+        </div>
     );
 }
 

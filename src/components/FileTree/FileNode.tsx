@@ -9,6 +9,7 @@ import {
     FileText,
     FileImage,
     FileDown,
+    LayoutTemplate,
 } from 'lucide-react';
 import { TbFileTypePdf } from "react-icons/tb";
 import { useAppTranslation } from "../../i18n/react.tsx";
@@ -100,6 +101,9 @@ function renderFileIcon(isDir: boolean, isOpen: boolean, fileName?: string): JSX
         if (ext === "pdf") {
             return <TbFileTypePdf size={14} style={fileIconStyle} />;
         }
+        if (ext === "canvas") {
+            return <LayoutTemplate size={14} strokeWidth={2} style={fileIconStyle} />;
+        }
     }
 
     return <FileIcon size={14} strokeWidth={2} style={fileIconStyle} />;
@@ -131,10 +135,17 @@ function openNode(
     node: TreeNode,
     toggleFolder: (id: string, open?: boolean) => void,
     setActiveNote: (file: FileMetadata) => void,
-    setViewMode: (mode: 'editor' | 'graph') => void,
+    setViewMode: (mode: 'editor' | 'graph' | 'canvas') => void,
+    setCanvasPath: (path: string | null) => void,
 ) {
     if (node.is_dir) {
         toggleFolder(node.id);
+        return;
+    }
+    const ext = node.name.toLowerCase().split('.').pop();
+    if (ext === 'canvas') {
+        setCanvasPath(node.id);
+        setViewMode('canvas');
         return;
     }
     setActiveNote(node.file);
@@ -146,10 +157,11 @@ function selectAndOpen(
     selectOnly: (id: string) => void,
     toggleFolder: (id: string, open?: boolean) => void,
     setActiveNote: (file: FileMetadata) => void,
-    setViewMode: (mode: 'editor' | 'graph') => void,
+    setViewMode: (mode: 'editor' | 'graph' | 'canvas') => void,
+    setCanvasPath: (path: string | null) => void,
 ) {
     selectOnly(node.id);
-    openNode(node, toggleFolder, setActiveNote, setViewMode);
+    openNode(node, toggleFolder, setActiveNote, setViewMode, setCanvasPath);
 }
 
 function moveSelection(direction: 'up' | 'down', target: HTMLElement) {
@@ -175,7 +187,8 @@ function createClickHandler(params: {
     toggleSelection: (id: string) => void;
     toggleFolder: (id: string, open?: boolean) => void;
     setActiveNote: (file: FileMetadata) => void;
-    setViewMode: (mode: 'editor' | 'graph') => void;
+    setViewMode: (mode: 'editor' | 'graph' | 'canvas') => void;
+    setCanvasPath: (path: string | null) => void;
 }) {
     return (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -202,6 +215,7 @@ function createClickHandler(params: {
             params.toggleFolder,
             params.setActiveNote,
             params.setViewMode,
+            params.setCanvasPath,
         );
     };
 }
@@ -228,7 +242,8 @@ function createKeyDownHandler(params: {
     selectOnly: (id: string) => void;
     toggleFolder: (id: string, open?: boolean) => void;
     setActiveNote: (file: FileMetadata) => void;
-    setViewMode: (mode: 'editor' | 'graph') => void;
+    setViewMode: (mode: 'editor' | 'graph' | 'canvas') => void;
+    setCanvasPath: (path: string | null) => void;
     clearSelection: () => void;
 }) {
     return (e: React.KeyboardEvent) => {
@@ -246,6 +261,7 @@ function createKeyDownHandler(params: {
                     params.toggleFolder,
                     params.setActiveNote,
                     params.setViewMode,
+                    params.setCanvasPath,
                 );
                 break;
             case 'ArrowRight':
@@ -439,7 +455,7 @@ export function FileNode({
                          }: FileNodeProps) {
     const { t } = useAppTranslation("core");
     const { activeNote, setActiveNote } = useVaultStore();
-    const { setViewMode } = useGraphStore();
+    const { setViewMode, setCanvasPath } = useGraphStore();
     const { expandedFolders, toggleFolder } = useUiStore();
     const { selectedFilePaths, selectOnly, toggleSelection, rangeSelect, clearSelection } = useSelectionStore();
 
@@ -459,6 +475,7 @@ export function FileNode({
         toggleFolder,
         setActiveNote,
         setViewMode,
+        setCanvasPath,
     });
 
     const handleContextMenu = createContextMenuHandler({
@@ -475,6 +492,7 @@ export function FileNode({
         toggleFolder,
         setActiveNote,
         setViewMode,
+        setCanvasPath,
         clearSelection,
     });
 

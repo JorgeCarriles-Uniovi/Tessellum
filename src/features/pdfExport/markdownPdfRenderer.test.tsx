@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test } from "vitest";
 import type { FileMetadata } from "../../types";
 import { invokeMock } from "../../test/tauriMocks";
 import { EXPORT_PAGE_HEIGHT_PX, EXPORT_TYPOGRAPHY } from "./pdfExportDomain";

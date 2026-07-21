@@ -33,6 +33,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "windows": {
       "webviewInstallMode": {
         "type": "embedBootstrapper"
@@ -49,6 +50,15 @@
   "plugins": {
     "asset": {
       "scope": ["**"]
+    },
+    "updater": {
+      "endpoints": [
+        "https://github.com/JorgeCarriles-Uniovi/Tessellum/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDgyQkEzMkY0QUYyRUFERUEKUldUcXJTNnY5REs2Z3BBUW5leGxPUHhuVjlaOVk5VGVhKzNCaWJ2d1VXVm9DMEZ5OWxCbFdvMlAK",
+      "windows": {
+        "installMode": "passive"
+      }
     }
   }
 }

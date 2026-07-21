@@ -119,6 +119,8 @@ describe("builtin plugin interactions", () => {
             "new-folder",
             "graph-view",
             "new-note-template",
+            "new-canvas",
+            "ai-assistant",
             "paste-files",
             "settings",
         ]);
@@ -128,7 +130,14 @@ describe("builtin plugin interactions", () => {
             "Appearance",
             "Shortcuts",
             "Accessibility",
+            "Sync",
+            "Publish",
+            "Export",
             "Plugins",
+            "AI",
+            "Tags",
+            "Scripts",
+            "Updates",
         ]);
     });
 

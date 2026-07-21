@@ -1,26 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { FileMetadata, TreeNode } from "./types.ts";
 import {
     useAppearanceStore,
-    useEditorContentStore,
-    useEditorModeStore,
     useGraphStore,
     useSelectionStore,
     useSearchStore,
-    useSettingsStore,
     useThemeStore,
     useUiStore,
     useVaultStore
 } from "./stores";
-import { DEFAULT_EDITOR_MODE, isEditorMode } from "./constants/editorModes";
-import { listen } from "@tauri-apps/api/event";
-import { exists } from '@tauri-apps/plugin-fs';
-import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window';
 import { Editor } from "./components/Editor/Editor.tsx";
 import { Sidebar } from "./components/Sidebar/Sidebar.tsx";
 import { GraphView } from "./components/GraphView/GraphView.tsx";
 import { LocalGraphPanel } from "./components/GraphView/LocalGraphPanel.tsx";
+import { CanvasView } from "./components/canvas/CanvasView.tsx";
 import { Toaster } from "sonner";
 import { theme } from './styles/theme';
 import 'katex';
@@ -33,6 +25,8 @@ import { useWikiLinkNavigation } from "./components/Editor/hooks";
 import { StatusBar } from "./components/Layout/StatusBar";
 import { RightSidebar } from "./components/Layout/RightSidebar";
 import { SettingsModal } from "./components/Settings/SettingsModal.tsx";
+import { UpdatePrompt } from "./components/Updates/UpdatePrompt.tsx";
+import { useUpdaterStore } from "./stores/updaterStore";
 import { useApplyAppearanceSettings } from "./hooks/useApplyAppearanceSettings";
 import { useApplyAccessibilitySettings } from "./hooks/useApplyAccessibilitySettings";
 import { useApplyThemeSchedule } from "./hooks/useApplyThemeSchedule";
@@ -41,41 +35,25 @@ import { useWorkspaceNavigationHistory } from "./hooks/useWorkspaceNavigationHis
 import { useApplySpellCheckSettings } from "./hooks/useApplySpellCheckSettings";
 import { useClipboardFilePaste } from "./features/clipboard/useClipboardFilePaste";
 import { useClipboardFileCopy } from "./features/clipboard/useClipboardFileCopy";
-import { shouldHandleClipboardFileCopyShortcut } from "./features/clipboard/clipboardCopyShortcut";
-import { resolveClipboardSelection } from "./features/clipboard/clipboardSelection";
-import { toSpellcheckLang } from "./i18n/spellcheck";
+import { useAutoSave } from "./hooks/useAutoSave";
+import { useVaultSession } from "./hooks/useVaultSession";
+import { useGlobalShortcuts } from "./hooks/useGlobalShortcuts";
+import { useWindowStatePersistence } from "./hooks/useWindowStatePersistence";
+import { useTypographyCssVars } from "./hooks/useTypographyCssVars";
 
-const WINDOW_KEY = "tessellum-window";
 const MIN_WINDOW_WIDTH = 720;
 const MIN_WINDOW_HEIGHT = 500;
 
 function App() {
-    const {
-        vaultPath,
-        setVaultPath,
-        setFiles,
-        setFileTree,
-        activeNote,
-        setActiveNote,
-        closeTab,
-        openTabPaths,
-        files,
-        restoreWorkspaceTabs,
-    } = useVaultStore();
+    const { vaultPath, activeNote, closeTab, files } = useVaultStore();
     const selectedFilePaths = useSelectionStore((state) => state.selectedFilePaths);
-    const { expandedFolders, setExpandedFolders, openSearch, closeSearch, toggleSidebar } = useUiStore();
+    const { openSearch, closeSearch, toggleSidebar } = useUiStore();
     const { viewMode, isLocalGraphOpen, setViewMode } = useGraphStore();
-    const editorMode = useEditorModeStore((state) => state.editorMode);
-    const setEditorMode = useEditorModeStore((state) => state.setEditorMode);
     const [isLoaded, setIsLoaded] = useState(false);
-    const [workspaceRestored, setWorkspaceRestored] = useState(false);
     const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
     const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
-    const editorFontSizePx = useEditorContentStore((state) => state.editorFontSizePx);
-    const { fontFamily, editorLineHeight, editorLetterSpacing, locale } = useSettingsStore();
     const ensureSearchReadiness = useSearchStore((state) => state.ensureReadiness);
     const resetAndEnsureSearchReadiness = useSearchStore((state) => state.resetAndEnsureReadiness);
-    const resetSearchReadinessState = useSearchStore((state) => state.resetReadinessState);
     const loadThemes = useThemeStore((state) => state.loadThemes);
     const startThemeWatch = useThemeStore((state) => state.startWatching);
     const stopThemeWatch = useThemeStore((state) => state.stopWatching);
@@ -89,7 +67,7 @@ function App() {
     useApplyThemeSchedule();
     useApplyAccessibilitySettings();
     useApplySpellCheckSettings();
-    useWorkspaceNavigationHistory({ workspaceRestored });
+    useAutoSave();
 
     useEffect(() => {
         if (!vaultPath) return;
@@ -163,103 +141,23 @@ function App() {
         };
     }, [app]);
 
-    useEffect(() => {
-        const onKeyDown = (event: KeyboardEvent) => {
-            const isMac = navigator.platform.toLowerCase().includes("mac");
-            const modifier = isMac ? event.metaKey : event.ctrlKey;
-            const target = event.target as HTMLElement | null;
-
-            if (modifier && event.key.toLowerCase() === "k") {
-                event.preventDefault();
-                setIsCommandPaletteOpen((prev) => !prev);
-                return;
-            }
-
-            if (modifier && event.key.toLowerCase() === "p") {
-                event.preventDefault();
-                useUiStore.getState().toggleSearch();
-                return;
-            }
-
-            if (modifier && event.key.toLowerCase() === "t") {
-                event.preventDefault();
-                app.events.emit("ui:new-note");
-                return;
-            }
-
-            if (modifier && event.key.toLowerCase() === "j") {
-                event.preventDefault();
-                toggleSidebar();
-                return;
-            }
-
-                if (modifier && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "g") {
-                event.preventDefault();
-                setViewMode(viewMode === "graph" ? "editor" : "graph");
-                return;
-            }
-
-            if (modifier && event.key.toLowerCase() === "v") {
-                if (!clipboardFilePaste.shouldHandleShortcutPaste(target)) {
-                    return;
-                }
-
-                event.preventDefault();
-                void clipboardFilePaste.handleShortcutPaste(target);
-                return;
-            }
-
-            if (modifier && event.key.toLowerCase() === "c") {
-                if (!shouldHandleClipboardFileCopyShortcut(target)) {
-                    return;
-                }
-
-                const pathsToCopy = resolveClipboardSelection(files, selectedFilePaths);
-                if (pathsToCopy.length === 0) {
-                    return;
-                }
-
-                event.preventDefault();
-                void clipboardFileCopy.copyPaths(pathsToCopy);
-                return;
-            }
-
-            if (modifier && event.key === ",") {
-                event.preventDefault();
-                app.events.emit("ui:open-settings");
-                return;
-            }
-
-            if (modifier && event.key.toLowerCase() === "w" && activeNote?.path) {
-                event.preventDefault();
-                closeTab(activeNote.path);
-                return;
-            }
-
-            if (target) {
-                const tag = target.tagName;
-                const isEditor = target.closest(".cm-editor");
-                if ((tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable) && !isEditor) {
-                    return;
-                }
-            }
-        };
-
-        window.addEventListener("keydown", onKeyDown);
-        return () => window.removeEventListener("keydown", onKeyDown);
-    }, [activeNote, clipboardFileCopy, clipboardFilePaste, closeTab, app, files, selectedFilePaths, setViewMode, toggleSidebar, viewMode]);
-
-    useEffect(() => {
-        const blockContextMenu = (event: MouseEvent) => {
-            event.preventDefault();
-        };
-
-        // Prevent native webview context actions like refresh/inspect on right-click.
-        window.addEventListener("contextmenu", blockContextMenu);
-        return () => {
-            window.removeEventListener("contextmenu", blockContextMenu);
-        };
-    }, []);
+    const { workspaceRestored } = useVaultSession(app);
+    useWorkspaceNavigationHistory({ workspaceRestored });
+    useGlobalShortcuts({
+        app,
+        files,
+        selectedFilePaths,
+        activeNotePath: activeNote?.path,
+        viewMode,
+        setViewMode,
+        toggleSidebar,
+        toggleCommandPalette: () => setIsCommandPaletteOpen((prev) => !prev),
+        closeTab,
+        clipboardFilePaste,
+        clipboardFileCopy,
+    });
+    useWindowStatePersistence({ minWidth: MIN_WINDOW_WIDTH, minHeight: MIN_WINDOW_HEIGHT });
+    useTypographyCssVars();
 
     useEffect(() => {
         const ref = app.events.on("ui:open-command-palette", () => {
@@ -302,17 +200,6 @@ function App() {
     }, [app]);
 
     useEffect(() => {
-        const ref = app.events.on("vault:refresh-files", () => {
-            if (!vaultPath) {
-                return;
-            }
-            refreshFiles(vaultPath, false);
-            invoke('sync_vault', { vaultPath }).catch(console.error);
-        });
-        return () => app.events.off(ref);
-    }, [app, vaultPath]);
-
-    useEffect(() => {
         const ref = app.events.on("ui:set-theme", (nextTheme: string) => {
             if (typeof nextTheme === "string") {
                 useThemeStore.getState().setActiveTheme(nextTheme);
@@ -322,258 +209,16 @@ function App() {
     }, [app]);
 
     useEffect(() => {
-        document.documentElement.style.setProperty("--editor-font-size", `${editorFontSizePx}px`);
-    }, [editorFontSizePx]);
-
-    useEffect(() => {
-        const root = document.documentElement;
-        const fallback = "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Helvetica Neue', sans-serif";
-        const hasComma = fontFamily.includes(",");
-        const needsQuotes = fontFamily.includes(" ");
-        const family = hasComma ? fontFamily : `${needsQuotes ? `"${fontFamily}"` : fontFamily}, ${fallback}`;
-        root.style.setProperty("--font-sans", family);
-        root.style.setProperty("--editor-line-height", String(editorLineHeight));
-        root.style.setProperty("--editor-letter-spacing", `${editorLetterSpacing}em`);
-    }, [fontFamily, editorLineHeight, editorLetterSpacing]);
-
-    useEffect(() => {
-        const appWindow = getCurrentWindow();
-        const isUsableDimension = (value: unknown, min: number): value is number =>
-            typeof value === "number" && Number.isFinite(value) && value >= min;
-
-        const restore = async () => {
-            try {
-                const raw = localStorage.getItem(WINDOW_KEY);
-                if (raw) {
-                    const state = JSON.parse(raw) as {
-                        width?: number;
-                        height?: number;
-                        isMaximized?: boolean;
-                    };
-                    if (state.isMaximized) {
-                        await appWindow.maximize();
-                        return;
-                    }
-                    if (isUsableDimension(state.width, MIN_WINDOW_WIDTH) && isUsableDimension(state.height, MIN_WINDOW_HEIGHT)) {
-                        await appWindow.setSize(new LogicalSize(state.width, state.height));
-                    }
-                }
-
-                // Recover from stale persisted tiny sizes (custom state or plugin state).
-                const size = await appWindow.outerSize();
-                if (size.width < MIN_WINDOW_WIDTH || size.height < MIN_WINDOW_HEIGHT) {
-                    await appWindow.setSize(new LogicalSize(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT));
-                }
-            } catch (e) {
-                console.error(e);
-            }
-        };
-
-        const persist = async () => {
-            try {
-                const isMaximized = await appWindow.isMaximized();
-                const size = await appWindow.outerSize();
-                if (size.width < MIN_WINDOW_WIDTH || size.height < MIN_WINDOW_HEIGHT) {
-                    // Ignore transient tiny dimensions to avoid restoring collapsed windows.
-                    return;
-                }
-                localStorage.setItem(WINDOW_KEY, JSON.stringify({
-                    width: size.width,
-                    height: size.height,
-                    isMaximized,
-                }));
-            } catch (e) {
-                console.error(e);
-            }
-        };
-
-        restore();
-        const unlistenResize = appWindow.listen('tauri://resize', persist);
-        const unlistenMove = appWindow.listen('tauri://move', persist);
-        return () => {
-            unlistenResize.then((f) => f());
-            unlistenMove.then((f) => f());
-        };
-    }, []);
-
-    useEffect(() => {
-        if (vaultPath) {
-            exists(vaultPath).then((doesExist: boolean) => {
-                if (!doesExist) {
-                    console.warn(`Vault path ${vaultPath} no longer exists. Clearing.`);
-                    setVaultPath(null);
-                    return;
-                }
-                invoke("set_vault_path", { path: vaultPath })
-                    .then(() => app.events.emit("vault:scope-ready", vaultPath))
-                    .catch(console.error);
-            }).catch(console.error);
-        }
-    }, [vaultPath, setVaultPath, app]);
-
-    useEffect(() => {
-        if (!vaultPath) {
-            resetSearchReadinessState();
-        }
-    }, [resetSearchReadinessState, vaultPath]);
-
-    useEffect(() => {
-        if (vaultPath) {
-            invoke('watch_vault', { vaultPath }).catch(console.error);
-            setWorkspaceRestored(false);
-            refreshFiles(vaultPath, true);
-        } else {
-            setActiveNote(null);
-            setExpandedFolders({});
-            setWorkspaceRestored(false);
-        }
-
-        return () => {
-            invoke('unwatch_vault').catch(() => {
-                // Ignore teardown errors during dev reload/unmount.
-            });
-        };
-    }, [vaultPath]);
-
-    useEffect(() => {
-        const onBeforeUnload = () => {
-            invoke('unwatch_vault').catch(() => {
-                // Ignore teardown errors during browser unload/HMR.
-            });
-        };
-
-        window.addEventListener('beforeunload', onBeforeUnload);
-        return () => {
-            window.removeEventListener('beforeunload', onBeforeUnload);
-        };
-    }, []);
-
-    useEffect(() => {
-        let syncTimer: number | null = null;
-        const unlistenPromise = listen('file-changed', () => {
-            if (!vaultPath) return;
-            refreshFiles(vaultPath, false);
-            if (syncTimer) window.clearTimeout(syncTimer);
-            syncTimer = window.setTimeout(() => {
-                invoke('sync_vault', { vaultPath }).catch(console.error);
-            }, 400);
-        });
-        return () => {
-            if (syncTimer) {
-                window.clearTimeout(syncTimer);
-            }
-            unlistenPromise.then(unlisten => unlisten());
-        };
-    }, [vaultPath]);
-
-    useEffect(() => {
-        if (!vaultPath || !workspaceRestored) return;
-        invoke('sync_vault', { vaultPath }).catch(console.error);
-        const interval = setInterval(() => {
-            invoke('sync_vault', { vaultPath }).catch(console.error);
-        }, 300_000);
-        return () => clearInterval(interval);
-    }, [vaultPath, workspaceRestored]);
-
-    useEffect(() => {
         TessellumApp.instance.workspace.onLinkClick = navigateToWikiLink;
     }, [navigateToWikiLink]);
 
+    // Auto-detect updates shortly after startup (silent: no errors in dev/offline).
     useEffect(() => {
-        if (!vaultPath || !workspaceRestored) return;
-        const keyPrefix = `tessellum:${vaultPath}`;
-        localStorage.setItem(`${keyPrefix}:expandedFolders`, JSON.stringify(expandedFolders));
-        localStorage.setItem(`${keyPrefix}:viewMode`, viewMode);
-        localStorage.setItem(`${keyPrefix}:editorMode`, editorMode);
-        localStorage.setItem(`${keyPrefix}:openTabs`, JSON.stringify(openTabPaths));
-        if (activeNote?.path) {
-            localStorage.setItem(`${keyPrefix}:lastNote`, activeNote.path);
-            localStorage.setItem(`${keyPrefix}:activeTabPath`, activeNote.path);
-        }
-    }, [vaultPath, expandedFolders, viewMode, editorMode, openTabPaths, activeNote, workspaceRestored]);
-
-    async function refreshFiles(vaultPath: string, restoreState: boolean): Promise<void> {
-        try {
-            if (restoreState) {
-                await invoke<boolean>('ensure_feature_demo_in_empty_vault', { vaultPath });
-            }
-
-            const [flatFiles, treeFiles] = await Promise.all([
-                invoke<FileMetadata[]>('list_files', { vaultPath }),
-                invoke<TreeNode[]>('list_files_tree', { vaultPath })
-            ]);
-            setFiles(flatFiles);
-            setFileTree(treeFiles);
-
-            if (restoreState) {
-                const keyPrefix = `tessellum:${vaultPath}`;
-                const storedExpanded = localStorage.getItem(`${keyPrefix}:expandedFolders`);
-                const storedViewMode = localStorage.getItem(`${keyPrefix}:viewMode`);
-                const storedEditorMode = localStorage.getItem(`${keyPrefix}:editorMode`);
-                const storedOpenTabs = localStorage.getItem(`${keyPrefix}:openTabs`);
-                const storedActiveTabPath = localStorage.getItem(`${keyPrefix}:activeTabPath`);
-                const storedLastNote = localStorage.getItem(`${keyPrefix}:lastNote`);
-
-                if (storedExpanded) {
-                    setExpandedFolders(JSON.parse(storedExpanded));
-                }
-                if (storedViewMode === 'graph' || storedViewMode === 'editor') {
-                    setViewMode(storedViewMode);
-                }
-                if (isEditorMode(storedEditorMode)) {
-                    setEditorMode(storedEditorMode);
-                } else {
-                    setEditorMode(DEFAULT_EDITOR_MODE);
-                }
-
-                let restoredTabs = false;
-                if (storedOpenTabs) {
-                    try {
-                        const parsedTabs = JSON.parse(storedOpenTabs);
-                        if (Array.isArray(parsedTabs)) {
-                            const tabPaths = parsedTabs.filter((tabPath): tabPath is string => typeof tabPath === "string");
-                            restoreWorkspaceTabs(tabPaths, storedActiveTabPath ?? storedLastNote);
-                            restoredTabs = true;
-                        }
-                    } catch (e) {
-                        console.error(e);
-                    }
-                }
-
-                if (!restoredTabs && storedLastNote) {
-                    const note = flatFiles.find((f) => f.path === storedLastNote) || null;
-                    setActiveNote(note);
-                }
-                setWorkspaceRestored(true);
-                seedTemplatesIfEmpty(vaultPath).catch(console.error);
-            }
-        } catch (e) { console.error(e); }
-    }
-
-    async function seedTemplatesIfEmpty(vaultPath: string): Promise<void> {
-        try {
-            const templates = await invoke<{ name: string; path: string }[]>('list_templates', { vaultPath });
-            if (templates.length > 0) return;
-            const baseDir = vaultPath.replace(/\\/g, "/") + "/.tessellum/templates";
-            const templatesToSeed = [
-                { name: "Daily Note", content: "# {{date}}\n\n## Highlights\n- \n\n## Notes\n- \n" },
-                { name: "Meeting Notes", content: "# {{title}}\n\n**Date:** {{date}}\n\n## Agenda\n- \n\n## Notes\n- \n\n## Action Items\n- [ ] \n" },
-                { name: "Project Brief", content: "# {{title}}\n\n## Goal\n\n## Scope\n\n## Milestones\n- \n" },
-                { name: "Task List", content: "# {{title}}\n\n- [ ] \n- [ ] \n" },
-                { name: "Procrastination Plan", content: "# {{title}}\n\n## Things I should do\n- [ ] \n\n## What I will probably do instead\n- [ ] \n" },
-            ];
-            for (const tmpl of templatesToSeed) {
-                const path = `${baseDir}/${tmpl.name}.md`;
-                await invoke('write_file', { vaultPath, path, content: tmpl.content });
-            }
-        } catch (e) {
-            console.error(e);
-        }
-    }
-
-    useEffect(() => {
-        document.documentElement.lang = toSpellcheckLang(locale);
-    }, [locale]);
+        const timer = setTimeout(() => {
+            void useUpdaterStore.getState().checkForUpdates({ silent: true });
+        }, 3000);
+        return () => clearTimeout(timer);
+    }, []);
 
     return (
         <TessellumAppContext.Provider value={app}>
@@ -602,6 +247,10 @@ function App() {
                                     <div className="flex-1 h-full min-w-0 relative flex flex-col min-h-0 overflow-hidden">
                                         <GraphView />
                                     </div>
+                                ) : viewMode === 'canvas' ? (
+                                    <div className="flex-1 h-full min-w-0 relative flex flex-col min-h-0 overflow-hidden">
+                                        <CanvasView />
+                                    </div>
                                 ) : (
                                     <>
                                         <div className="flex-1 h-full min-w-0 relative flex min-h-0 overflow-hidden">
@@ -622,6 +271,7 @@ function App() {
 
                     <CommandPalette isOpen={isCommandPaletteOpen} onClose={closeCommandPalette} />
                     <SettingsModal isOpen={isSettingsPanelOpen} onClose={closeSettingsPanel} />
+                    <UpdatePrompt />
                     <Toaster position="bottom-right" richColors />
                 </div>
             ) : null}

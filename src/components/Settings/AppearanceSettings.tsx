@@ -3,7 +3,7 @@ import { ToggleSetting } from "./items/ToggleSetting.tsx";
 import { SettingItem } from "./items/SettingItem.tsx";
 import { ThemePreview } from "./ThemePreview.tsx";
 import { Check } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useAppearanceStore, useThemeStore } from "../../stores";
 import { useAppTranslation } from "../../i18n/react.tsx";
 
@@ -64,6 +64,13 @@ export function AppearanceSettings() {
     const setThemeScheduleLightStart = useAppearanceStore((state) => state.setThemeScheduleLightStart);
     const themeScheduleDarkStart = useAppearanceStore((state) => state.themeScheduleDarkStart);
     const setThemeScheduleDarkStart = useAppearanceStore((state) => state.setThemeScheduleDarkStart);
+
+    const [draftAccentColor, setDraftAccentColor] = useState(accentColor);
+    const isValidHex = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(draftAccentColor);
+
+    useEffect(() => {
+        setDraftAccentColor(accentColor);
+    }, [accentColor]);
 
     const pillStyle = {
         paddingTop: `0.5rem`,
@@ -193,46 +200,24 @@ export function AppearanceSettings() {
 
             <SettingSection title={t("appearance.scheduleTitle")} description={t("appearance.scheduleDescription")}>
                 <div className="grid grid-cols-4 gap-3">
-                    <button
-                        onClick={() => setThemeScheduleMode('off')}
-                        className="px-3 py-2 rounded-lg border text-xs font-semibold transition-all hover:bg-[color:var(--color-panel-hover)]"
-                        style={{
-                            ...pillStyle,
-                            ...(themeScheduleMode === "off" ? selectedScheduleStyle : idleScheduleStyle),
-                        }}
-                    >
-                        {t("appearance.off")}
-                    </button>
-                    <button
-                        onClick={() => setThemeScheduleMode('system')}
-                        className="px-3 py-2 rounded-lg border text-xs font-semibold transition-all hover:bg-[color:var(--color-panel-hover)]"
-                        style={{
-                            ...pillStyle,
-                            ...(themeScheduleMode === "system" ? selectedScheduleStyle : idleScheduleStyle),
-                        }}
-                    >
-                        {t("appearance.system")}
-                    </button>
-                    <button
-                        onClick={() => setThemeScheduleMode('sun')}
-                        className="px-3 py-2 rounded-lg border text-xs font-semibold transition-all hover:bg-[color:var(--color-panel-hover)]"
-                        style={{
-                            ...pillStyle,
-                            ...(themeScheduleMode === "sun" ? selectedScheduleStyle : idleScheduleStyle),
-                        }}
-                    >
-                        {t("appearance.sunriseSunset")}
-                    </button>
-                    <button
-                        onClick={() => setThemeScheduleMode('custom')}
-                        className="px-3 py-2 rounded-lg border text-xs font-semibold transition-all hover:bg-[color:var(--color-panel-hover)]"
-                        style={{
-                            ...pillStyle,
-                            ...(themeScheduleMode === "custom" ? selectedScheduleStyle : idleScheduleStyle),
-                        }}
-                    >
-                        {t("appearance.custom")}
-                    </button>
+                    {([
+                        ["off", t("appearance.off")],
+                        ["system", t("appearance.system")],
+                        ["sun", t("appearance.sunriseSunset")],
+                        ["custom", t("appearance.custom")],
+                    ] as const).map(([mode, label]) => (
+                        <button
+                            key={mode}
+                            onClick={() => setThemeScheduleMode(mode)}
+                            className="px-3 py-2 rounded-lg border text-xs font-semibold transition-all hover:bg-[color:var(--color-panel-hover)]"
+                            style={{
+                                ...pillStyle,
+                                ...(themeScheduleMode === mode ? selectedScheduleStyle : idleScheduleStyle),
+                            }}
+                        >
+                            {label}
+                        </button>
+                    ))}
                 </div>
                 {themeScheduleMode === 'custom' && (
                     <div
@@ -303,12 +288,22 @@ export function AppearanceSettings() {
                     />
                     <input
                         type="text"
-                        value={accentColor}
+                        value={draftAccentColor}
                         onChange={(e) => {
-                            setAccentColor(e.target.value);
+                            const val = e.target.value;
+                            setDraftAccentColor(val);
+                            if (/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(val)) {
+                                setAccentColor(val);
+                            }
                         }}
                         className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)] focus:border-transparent transition-all w-32"
-                        style={{ ...pillStyle, ...inputBaseStyle }}
+                        style={{
+                            ...pillStyle,
+                            ...inputBaseStyle,
+                            ...(isValidHex ? {} : { borderColor: "var(--color-error, #dc2626)" }),
+                        }}
+                        placeholder="#000000"
+                        maxLength={7}
                     />
                     <div
                         className="size-8 rounded-md border"

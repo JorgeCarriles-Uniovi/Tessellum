@@ -5,6 +5,7 @@ import { theme } from "../../styles/theme";
 import { invoke } from "@tauri-apps/api/core";
 import { useSearchStore, useVaultStore } from "../../stores";
 import { useTessellumApp } from "../../plugins/TessellumApp";
+import { IconButton } from "../ui";
 
 interface SearchPanelProps {
     onClose: () => void;
@@ -98,16 +99,6 @@ const headerBadgeStyle: CSSProperties = {
     color: "#fff",
 };
 
-const iconButtonStyle: CSSProperties = {
-    padding: theme.spacing[1],
-    borderRadius: theme.borderRadius.md,
-    border: "none",
-    background: "transparent",
-    color: theme.colors.text.muted,
-    cursor: "pointer",
-    transition: theme.transitions.fast,
-};
-
 const sectionDividerStyle: CSSProperties = {
     borderBottom: `1px solid ${theme.colors.border.light}`,
 };
@@ -195,6 +186,12 @@ function normalizeTag(tag: string): string {
     return tag.trim().replace(/^#/, "").toLowerCase();
 }
 
+function escapeTantivyTerm(term: string): string {
+    // Escape characters that have special meaning in Tantivy's query parser so
+    // queries like "c++" or "(algorithm)" don't silently return zero results.
+    return term.replace(/[+\-:!"()\[\]{}^~*?\\]/g, "\\$&");
+}
+
 function splitQuery(query: string) {
     const parts = query.split(/\s+/).filter(Boolean);
     const tags: string[] = [];
@@ -207,10 +204,10 @@ function splitQuery(query: string) {
         }
         if (part.startsWith("content:")) {
             const raw = part.slice("content:".length);
-            if (raw) terms.push(raw);
+            if (raw) terms.push(escapeTantivyTerm(raw));
             return;
         }
-        terms.push(part);
+        terms.push(escapeTantivyTerm(part));
     });
     return { terms, tags };
 }
@@ -353,15 +350,9 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
                     </div>
                     <h1 style={headerTitleStyle}>Search</h1>
                 </div>
-                <button
-                    onClick={onClose}
-                    style={iconButtonStyle}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = theme.colors.background.secondary)}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                    aria-label="Close search"
-                >
+                <IconButton label="Close search" onClick={onClose}>
                     <X style={{ width: "0.875rem", height: "0.875rem" }} />
-                </button>
+                </IconButton>
             </div>
 
             <div style={{ ...sectionDividerStyle, ...inputWrapperStyle }}>
@@ -471,7 +462,7 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
                                 const isHovered = hoveredIndex === idx;
                                 return (
                                     <div
-                                        key={`${result.type}-${idx}`}
+                                        key={`${result.type}-${result.title}-${"path" in result ? result.path : ""}`}
                                         style={createResultCardStyle(isHovered)}
                                         onMouseEnter={() => setHoveredIndex(idx)}
                                         onMouseLeave={() => setHoveredIndex(null)}

@@ -8,12 +8,15 @@ const SHADOW_KEY = "tessellum:appearance:shadow";
 const ICON_STYLE_KEY = "tessellum:appearance:iconStyle";
 const SIDEBAR_POSITION_KEY = "tessellum:appearance:sidebarPosition";
 const TOOLBAR_VISIBLE_KEY = "tessellum:appearance:toolbarVisible";
+// Legacy per-field keys kept for migration reads only.
 const TERMINAL_HEADER_BG_KEY = "tessellum:appearance:terminalHeaderBg";
 const TERMINAL_LINE_BG_KEY = "tessellum:appearance:terminalLineBg";
 const TERMINAL_BORDER_KEY = "tessellum:appearance:terminalBorder";
 const TERMINAL_TEXT_KEY = "tessellum:appearance:terminalText";
 const TERMINAL_MUTED_KEY = "tessellum:appearance:terminalMuted";
 const TERMINAL_CUSTOM_KEY = "tessellum:appearance:terminalCustom";
+// Single key for all terminal color fields — avoids multi-write window.
+const TERMINAL_COLORS_KEY = "tessellum:appearance:terminalColors";
 const SYNTAX_COMMENT_KEY = "tessellum:appearance:syntaxComment";
 const SYNTAX_KEYWORD_KEY = "tessellum:appearance:syntaxKeyword";
 const SYNTAX_OPERATOR_KEY = "tessellum:appearance:syntaxOperator";
@@ -142,6 +145,47 @@ function readOptionalNumber(key: string): number | null {
     return Number.isFinite(value) ? value : null;
 }
 
+interface TerminalColors {
+    custom: boolean;
+    headerBg: string;
+    lineBg: string;
+    border: string;
+    text: string;
+    muted: string;
+}
+
+function readTerminalColors(): TerminalColors {
+    const raw = localStorage.getItem(TERMINAL_COLORS_KEY);
+    if (raw) {
+        try {
+            const parsed = JSON.parse(raw) as Partial<TerminalColors>;
+            return {
+                custom: parsed.custom ?? false,
+                headerBg: parsed.headerBg ?? DEFAULT_TERMINAL_HEADER_BG,
+                lineBg: parsed.lineBg ?? DEFAULT_TERMINAL_LINE_BG,
+                border: parsed.border ?? DEFAULT_TERMINAL_BORDER,
+                text: parsed.text ?? DEFAULT_TERMINAL_TEXT,
+                muted: parsed.muted ?? DEFAULT_TERMINAL_MUTED,
+            };
+        } catch { /* fall through to legacy migration */ }
+    }
+    // Migrate from legacy per-field keys.
+    const colors: TerminalColors = {
+        custom: readBoolean(TERMINAL_CUSTOM_KEY, false),
+        headerBg: readString(TERMINAL_HEADER_BG_KEY, DEFAULT_TERMINAL_HEADER_BG),
+        lineBg: readString(TERMINAL_LINE_BG_KEY, DEFAULT_TERMINAL_LINE_BG),
+        border: readString(TERMINAL_BORDER_KEY, DEFAULT_TERMINAL_BORDER),
+        text: readString(TERMINAL_TEXT_KEY, DEFAULT_TERMINAL_TEXT),
+        muted: readString(TERMINAL_MUTED_KEY, DEFAULT_TERMINAL_MUTED),
+    };
+    localStorage.setItem(TERMINAL_COLORS_KEY, JSON.stringify(colors));
+    return colors;
+}
+
+function writeTerminalColors(colors: TerminalColors): void {
+    localStorage.setItem(TERMINAL_COLORS_KEY, JSON.stringify(colors));
+}
+
 export const useAppearanceStore = create<AppearanceStore>((set) => ({
     accentColor: readString(ACCENT_COLOR_KEY, DEFAULT_ACCENT_COLOR),
     accentSource: readAccentSource(),
@@ -151,12 +195,17 @@ export const useAppearanceStore = create<AppearanceStore>((set) => ({
     iconStyle: readString(ICON_STYLE_KEY, "outline") as IconStyle,
     sidebarPosition: readString(SIDEBAR_POSITION_KEY, "left") as SidebarPosition,
     toolbarVisible: readBoolean(TOOLBAR_VISIBLE_KEY, true),
-    terminalCustom: readBoolean(TERMINAL_CUSTOM_KEY, false),
-    terminalHeaderBg: readString(TERMINAL_HEADER_BG_KEY, DEFAULT_TERMINAL_HEADER_BG),
-    terminalLineBg: readString(TERMINAL_LINE_BG_KEY, DEFAULT_TERMINAL_LINE_BG),
-    terminalBorder: readString(TERMINAL_BORDER_KEY, DEFAULT_TERMINAL_BORDER),
-    terminalText: readString(TERMINAL_TEXT_KEY, DEFAULT_TERMINAL_TEXT),
-    terminalMuted: readString(TERMINAL_MUTED_KEY, DEFAULT_TERMINAL_MUTED),
+    ...(() => {
+        const tc = readTerminalColors();
+        return {
+            terminalCustom: tc.custom,
+            terminalHeaderBg: tc.headerBg,
+            terminalLineBg: tc.lineBg,
+            terminalBorder: tc.border,
+            terminalText: tc.text,
+            terminalMuted: tc.muted,
+        };
+    })(),
     syntaxComment: readString(SYNTAX_COMMENT_KEY, DEFAULT_SYNTAX_COMMENT),
     syntaxKeyword: readString(SYNTAX_KEYWORD_KEY, DEFAULT_SYNTAX_KEYWORD),
     syntaxOperator: readString(SYNTAX_OPERATOR_KEY, DEFAULT_SYNTAX_OPERATOR),
@@ -207,33 +256,70 @@ export const useAppearanceStore = create<AppearanceStore>((set) => ({
         localStorage.setItem(TOOLBAR_VISIBLE_KEY, String(toolbarVisible));
         return { toolbarVisible };
     }),
-    setTerminalCustom: (terminalCustom) => set(() => {
-        localStorage.setItem(TERMINAL_CUSTOM_KEY, String(terminalCustom));
+    setTerminalCustom: (terminalCustom) => set((state) => {
+        writeTerminalColors({
+            custom: terminalCustom,
+            headerBg: state.terminalHeaderBg,
+            lineBg: state.terminalLineBg,
+            border: state.terminalBorder,
+            text: state.terminalText,
+            muted: state.terminalMuted,
+        });
         return { terminalCustom };
     }),
-    setTerminalHeaderBg: (terminalHeaderBg) => set(() => {
-        localStorage.setItem(TERMINAL_HEADER_BG_KEY, terminalHeaderBg);
-        localStorage.setItem(TERMINAL_CUSTOM_KEY, "true");
+    setTerminalHeaderBg: (terminalHeaderBg) => set((state) => {
+        writeTerminalColors({
+            custom: true,
+            headerBg: terminalHeaderBg,
+            lineBg: state.terminalLineBg,
+            border: state.terminalBorder,
+            text: state.terminalText,
+            muted: state.terminalMuted,
+        });
         return { terminalHeaderBg, terminalCustom: true };
     }),
-    setTerminalLineBg: (terminalLineBg) => set(() => {
-        localStorage.setItem(TERMINAL_LINE_BG_KEY, terminalLineBg);
-        localStorage.setItem(TERMINAL_CUSTOM_KEY, "true");
+    setTerminalLineBg: (terminalLineBg) => set((state) => {
+        writeTerminalColors({
+            custom: true,
+            headerBg: state.terminalHeaderBg,
+            lineBg: terminalLineBg,
+            border: state.terminalBorder,
+            text: state.terminalText,
+            muted: state.terminalMuted,
+        });
         return { terminalLineBg, terminalCustom: true };
     }),
-    setTerminalBorder: (terminalBorder) => set(() => {
-        localStorage.setItem(TERMINAL_BORDER_KEY, terminalBorder);
-        localStorage.setItem(TERMINAL_CUSTOM_KEY, "true");
+    setTerminalBorder: (terminalBorder) => set((state) => {
+        writeTerminalColors({
+            custom: true,
+            headerBg: state.terminalHeaderBg,
+            lineBg: state.terminalLineBg,
+            border: terminalBorder,
+            text: state.terminalText,
+            muted: state.terminalMuted,
+        });
         return { terminalBorder, terminalCustom: true };
     }),
-    setTerminalText: (terminalText) => set(() => {
-        localStorage.setItem(TERMINAL_TEXT_KEY, terminalText);
-        localStorage.setItem(TERMINAL_CUSTOM_KEY, "true");
+    setTerminalText: (terminalText) => set((state) => {
+        writeTerminalColors({
+            custom: true,
+            headerBg: state.terminalHeaderBg,
+            lineBg: state.terminalLineBg,
+            border: state.terminalBorder,
+            text: terminalText,
+            muted: state.terminalMuted,
+        });
         return { terminalText, terminalCustom: true };
     }),
-    setTerminalMuted: (terminalMuted) => set(() => {
-        localStorage.setItem(TERMINAL_MUTED_KEY, terminalMuted);
-        localStorage.setItem(TERMINAL_CUSTOM_KEY, "true");
+    setTerminalMuted: (terminalMuted) => set((state) => {
+        writeTerminalColors({
+            custom: true,
+            headerBg: state.terminalHeaderBg,
+            lineBg: state.terminalLineBg,
+            border: state.terminalBorder,
+            text: state.terminalText,
+            muted: terminalMuted,
+        });
         return { terminalMuted, terminalCustom: true };
     }),
     setSyntaxComment: (syntaxComment) => set(() => {

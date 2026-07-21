@@ -74,7 +74,7 @@ impl FileIndex {
             let mut full_path = vault_root.join(link_target);
             
             // Add .md extension if not present
-            if !full_path.extension().map_or(false, |ext| ext == "md") {
+            if full_path.extension().is_none_or(|ext| ext != "md") {
                 full_path.set_extension("md");
             }
             
@@ -106,11 +106,7 @@ impl FileIndex {
         }
         
         // Simple filename lookup
-        let search_key = if link_target.ends_with(".md") {
-            link_target.to_string()
-        } else {
-            link_target.to_string()
-        };
+        let search_key = link_target.to_string();
         
         if let Some(candidates) = self.name_to_paths.get(&search_key) {
             if candidates.is_empty() {

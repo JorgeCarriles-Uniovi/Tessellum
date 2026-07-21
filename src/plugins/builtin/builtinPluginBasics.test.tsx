@@ -118,15 +118,9 @@ describe("builtin plugin basics", () => {
             selectedGraphNode: null,
         });
         useUiStore.setState({
-            sidebarOpen: true,
-            rightSidebarOpen: false,
+            isSidebarOpen: true,
+            isRightSidebarOpen: false,
             expandedFolders: {},
-            openPanels: {},
-            setSidebarOpen: useUiStore.getState().setSidebarOpen,
-            setRightSidebarOpen: useUiStore.getState().setRightSidebarOpen,
-            toggleFolder: useUiStore.getState().toggleFolder,
-            setExpandedFolders: useUiStore.getState().setExpandedFolders,
-            togglePanel: useUiStore.getState().togglePanel,
         });
     });
 

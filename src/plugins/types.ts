@@ -9,6 +9,23 @@ export interface PluginManifest {
     description: string;
     version: string;
     source: "builtin" | "external";
+    author?: string;
+    homepage?: string;
+    keywords?: string[];
+    permissions?: string[];
+    entry?: string;
+}
+
+export interface CommunityPluginManifest {
+    id: string;
+    name: string;
+    description: string;
+    version: string;
+    author: string;
+    homepage?: string;
+    keywords?: string[];
+    entry: string;
+    permissions?: string[];
 }
 
 // ---------| Event System |---------

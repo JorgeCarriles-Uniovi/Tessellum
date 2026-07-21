@@ -31,7 +31,7 @@ function createApp(initialItems: PluginListItem[], result = { ok: true }) {
                 return result;
             }),
         },
-    } as never;
+    } as any;
 }
 
 describe("pluginsStore", () => {

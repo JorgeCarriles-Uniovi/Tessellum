@@ -33,8 +33,10 @@ pub fn init_connection(db_path: PathBuf) -> Result<(), String> {
     }
 
     // Create configuration for Grafeo database
-    let mut config = Config::default();
-    config.path = Some(db_path);
+    let config = Config {
+        path: Some(db_path),
+        ..Default::default()
+    };
 
     // Create or open the Grafeo database
     let db = GrafeoDB::with_config(config)

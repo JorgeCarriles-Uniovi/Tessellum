@@ -445,6 +445,7 @@ const StringInput = ({ value, onChange, className, readOnly }: { value: string, 
 export class FrontmatterWidget extends WidgetType {
     root: Root | null = null;
     dom: HTMLElement | null = null;
+    private destroyed = false;
 
     constructor(public block: FrontmatterBlock, private readOnly: boolean) {
         super();
@@ -474,9 +475,13 @@ export class FrontmatterWidget extends WidgetType {
     }
 
     destroy(_dom: HTMLElement) {
-        if (this.root) {
-            // Need to wait for React to be done potentially updating before unmount
-            setTimeout(() => this.root?.unmount(), 0);
+        this.destroyed = true;
+        const root = this.root;
+        this.root = null;
+        if (root) {
+            setTimeout(() => {
+                if (this.destroyed) root.unmount();
+            }, 0);
         }
     }
 }

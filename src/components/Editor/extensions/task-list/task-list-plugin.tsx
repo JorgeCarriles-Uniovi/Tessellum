@@ -51,6 +51,7 @@ function buildTaskListDecorations(state: EditorView["state"]): DecorationSet {
 class TaskListCheckboxWidget extends WidgetType {
     private root: Root | null = null;
     private dom: HTMLElement | null = null;
+    private destroyed = false;
 
     constructor(private readonly range: TaskListPreviewRange) {
         super();
@@ -83,13 +84,15 @@ class TaskListCheckboxWidget extends WidgetType {
     }
 
     destroy(): void {
+        this.destroyed = true;
         const root = this.root;
         this.root = null;
         this.dom = null;
 
         if (root) {
-            // Avoid synchronous unmount during React render phases triggered by editor updates.
-            setTimeout(() => root.unmount(), 0);
+            setTimeout(() => {
+                if (this.destroyed) root.unmount();
+            }, 0);
         }
     }
 

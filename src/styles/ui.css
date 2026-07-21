@@ -1,0 +1,326 @@
+/*
+ * Shared UI primitive styles (src/components/ui).
+ * All colors come from the theme CSS variables in globals.css so every
+ * primitive automatically follows light/dark/custom themes.
+ */
+
+/* ---------- Button ---------- */
+.ui-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-lg);
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease, opacity 150ms ease;
+}
+
+.ui-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.ui-btn:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+.ui-btn--sm {
+    padding: 4px 10px;
+    font-size: 12px;
+    line-height: 18px;
+}
+
+.ui-btn--md {
+    padding: 8px 16px;
+    font-size: 14px;
+    line-height: 20px;
+}
+
+.ui-btn--primary {
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+}
+
+.ui-btn--primary:hover:not(:disabled) {
+    filter: brightness(0.92);
+}
+
+.ui-btn--secondary {
+    background-color: transparent;
+    border-color: var(--color-border-light);
+    color: var(--color-text-secondary);
+}
+
+.ui-btn--secondary:hover:not(:disabled) {
+    background-color: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+}
+
+.ui-btn--ghost {
+    background-color: transparent;
+    color: var(--color-text-muted);
+}
+
+.ui-btn--ghost:hover:not(:disabled) {
+    background-color: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+}
+
+.ui-btn--tint {
+    background-color: color-mix(in srgb, var(--primary) 12%, transparent);
+    color: var(--primary);
+}
+
+.ui-btn--tint:hover:not(:disabled) {
+    background-color: color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+.ui-btn--danger {
+    background-color: var(--color-alert-text);
+    color: var(--color-bg-primary);
+}
+
+.ui-btn--danger:hover:not(:disabled) {
+    filter: brightness(0.92);
+}
+
+.ui-btn--full {
+    width: 100%;
+}
+
+/* ---------- Icon button ---------- */
+.ui-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background-color: transparent;
+    border-radius: var(--radius-md);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    padding: 0;
+    transition: background-color 150ms ease, color 150ms ease;
+}
+
+.ui-icon-btn:hover:not(:disabled) {
+    background-color: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+}
+
+.ui-icon-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.ui-icon-btn:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 1px;
+}
+
+.ui-icon-btn--danger:hover:not(:disabled) {
+    background-color: var(--color-alert-bg);
+    color: var(--color-alert-text);
+}
+
+/* ---------- Text input ---------- */
+.ui-input {
+    width: 100%;
+    padding: 12px 16px;
+    font-size: 14px;
+    line-height: 20px;
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-medium);
+    border-radius: var(--radius-lg);
+    color: var(--color-text-primary);
+    outline: none;
+    box-sizing: border-box;
+    transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.ui-input::placeholder {
+    color: var(--color-text-muted);
+}
+
+.ui-input:focus {
+    background-color: var(--color-bg-primary);
+    border-color: var(--color-blue-500);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-blue-500) 20%, transparent);
+}
+
+.ui-input:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.ui-input--compact {
+    padding: 8px 12px;
+}
+
+/* ---------- Select ---------- */
+.ui-select {
+    width: 100%;
+    padding: 8px 12px;
+    font-size: 14px;
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-lg);
+    background-color: var(--color-panel-bg);
+    color: var(--color-text-primary);
+    cursor: pointer;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.ui-select:focus {
+    outline: none;
+    border-color: transparent;
+    box-shadow: 0 0 0 2px var(--primary);
+}
+
+.ui-select:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* ---------- Toggle switch ---------- */
+.ui-toggle {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    height: 24px;
+    width: 44px;
+    flex-shrink: 0;
+    border: none;
+    border-radius: 9999px;
+    background-color: var(--color-border-medium);
+    cursor: pointer;
+    transition: background-color 150ms ease;
+    padding: 0;
+}
+
+.ui-toggle[aria-checked="true"] {
+    background-color: var(--primary);
+}
+
+.ui-toggle:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.ui-toggle:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+.ui-toggle__thumb {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border-radius: 9999px;
+    background-color: var(--color-panel-bg);
+    box-shadow: var(--shadow-sm);
+    transform: translateX(4px);
+    transition: transform 150ms ease;
+}
+
+.ui-toggle[aria-checked="true"] .ui-toggle__thumb {
+    transform: translateX(24px);
+}
+
+/* ---------- Modal ---------- */
+.ui-modal-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ui-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+}
+
+.ui-modal-panel {
+    position: relative;
+    width: 100%;
+    margin: 0 16px;
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-xl);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    max-height: 85vh;
+}
+
+/* ---------- Row button (full-width action rows in sidebars/menus) ---------- */
+.ui-row-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--color-text-secondary);
+    transition: background-color 150ms ease;
+    text-align: left;
+    font-size: 14px;
+}
+
+.ui-row-btn:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+}
+
+.ui-row-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    color: var(--color-text-muted);
+}
+
+.ui-row-btn--bordered {
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-lg);
+}
+
+/* ---------- Option row (selectable list items) ---------- */
+.ui-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 12px 16px;
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: background-color 150ms ease;
+    text-align: left;
+}
+
+.ui-option:hover,
+.ui-option:focus-visible {
+    background-color: var(--color-bg-tertiary);
+}
+
+.ui-option:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 1px;
+}
+
+/* ---------- Kbd ---------- */
+.ui-kbd {
+    padding: 2px 6px;
+    font-size: 10px;
+    font-family: var(--font-mono);
+    background-color: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-base);
+    color: var(--color-text-muted);
+}

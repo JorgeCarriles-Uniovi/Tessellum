@@ -116,9 +116,13 @@ export function useApplyThemeSchedule() {
         };
 
         const applyVariant = (variant: ThemeVariant) => {
-            const nextTheme = resolveThemeForVariant(themes, activeThemeName, variant);
-            if (normalizeName(nextTheme) !== normalizeName(activeThemeName)) {
-                setActiveTheme(nextTheme);
+            // Read live store values at fire time so a stale closure doesn't
+            // overwrite a theme the user changed between timer setup and firing.
+            const { themes: liveThemes, activeThemeName: liveName, setActiveTheme: liveSet } =
+                useThemeStore.getState();
+            const nextTheme = resolveThemeForVariant(liveThemes, liveName, variant);
+            if (normalizeName(nextTheme) !== normalizeName(liveName)) {
+                liveSet(nextTheme);
             }
         };
 

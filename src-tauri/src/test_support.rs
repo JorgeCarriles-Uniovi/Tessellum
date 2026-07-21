@@ -11,6 +11,8 @@ pub struct TestVault {
 }
 
 impl TestVault {
+    /// Named `new` for ergonomics at call sites even though it returns a builder.
+    #[allow(clippy::new_ret_no_self)]
     pub fn new() -> TestVaultBuilder {
         TestVaultBuilder {
             markdown_files: Vec::new(),

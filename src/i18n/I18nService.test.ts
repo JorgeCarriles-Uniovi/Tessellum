@@ -70,7 +70,7 @@ describe("I18nService", () => {
         expect(() =>
             service.registerPluginTranslations("broken-plugin", {
                 es: { greeting: "Hola" },
-            } as PluginTranslationBundles),
+            } as unknown as PluginTranslationBundles),
         ).toThrow('Plugin "broken-plugin" must provide English translations');
     });
 });

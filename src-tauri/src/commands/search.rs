@@ -184,8 +184,8 @@ async fn compute_markdown_coherence(state: &State<'_, AppState>) -> Result<Coher
 		.map_err(TessellumError::from)?;
 	let expected_markdown_paths: HashSet<String> = expected_search_files
 		.into_iter()
-		.filter(|(_, _, is_markdown)| *is_markdown == 1)
-		.map(|(path, _, _)| normalize_path(&path))
+		.filter(|(_, _, is_markdown, _)| *is_markdown == 1)
+		.map(|(path, _, _, _)| normalize_path(&path))
 		.collect();
 	let expected_markdown_count = expected_markdown_paths.len();
 	let threshold = mismatch_threshold(expected_markdown_count);
@@ -413,7 +413,7 @@ pub async fn search_full_text(
 	})
 		.await
 		.map_err(|e| TessellumError::Internal(format!("Search task failed: {e}")))?
-		.map_err(|e| TessellumError::Internal(e))?;
+		.map_err(TessellumError::Internal)?;
 	
 	let mut hits = Vec::new();
 	for (doc, score) in results {
@@ -517,7 +517,8 @@ async fn rebuild_search_index_internal(
 				.duration_since(std::time::UNIX_EPOCH)
 				.unwrap_or_default()
 				.as_secs() as i64;
-			
+			let file_size = metadata.len() as i64;
+
 			let is_markdown = path.extension().and_then(|s| s.to_str()) == Some("md");
 			let title = path
 				.file_name()
@@ -549,15 +550,15 @@ async fn rebuild_search_index_internal(
 				});
 			}
 			
-			seen_paths.push((path_str, modified, is_markdown));
+			seen_paths.push((path_str, modified, file_size, is_markdown));
 		}
 		
 		guard.index_batch(&docs, &[])?;
-		Ok::<(usize, Vec<(String, i64, bool)>), String>((docs.len(), seen_paths))
+		Ok::<(usize, Vec<(String, i64, i64, bool)>), String>((docs.len(), seen_paths))
 	})
 		.await
 		.map_err(|e| TessellumError::Internal(format!("Rebuild task failed: {e}")))?
-		.map_err(|e| TessellumError::Internal(e))?;
+		.map_err(TessellumError::Internal)?;
 	
 	let (indexed_count, seen_paths) = result;
 	let db = state.db.clone();
@@ -566,9 +567,9 @@ async fn rebuild_search_index_internal(
 		.await
 		.map_err(TessellumError::from)?;
 	let existing_set: std::collections::HashSet<String> =
-		existing.into_iter().map(|(p, _, _)| p).collect();
+		existing.into_iter().map(|(p, _, _, _)| p).collect();
 	let seen_set: std::collections::HashSet<String> =
-		seen_paths.iter().map(|(p, _, _)| p.clone()).collect();
+		seen_paths.iter().map(|(p, _, _, _)| p.clone()).collect();
 	let deleted: Vec<String> = existing_set
 		.difference(&seen_set)
 		.cloned()
@@ -579,9 +580,9 @@ async fn rebuild_search_index_internal(
 			.await
 			.map_err(TessellumError::from)?;
 	}
-	for (path, modified, is_md) in seen_paths {
+	for (path, modified, file_size, is_md) in seen_paths {
 		db
-			.upsert_search_file(&path, modified, is_md)
+			.upsert_search_file(&path, modified, file_size, is_md)
 			.await
 			.map_err(TessellumError::from)?;
 	}

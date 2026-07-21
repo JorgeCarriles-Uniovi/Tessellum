@@ -1,7 +1,9 @@
 import { X, ChevronRight } from 'lucide-react';
 import { useEffect, useState, isValidElement, cloneElement } from 'react';
+import { getVersion } from '@tauri-apps/api/app';
 import { useTessellumApp } from "../../plugins/TessellumApp.ts";
 import { useAppTranslation } from "../../i18n/react.tsx";
+import { IconButton } from "../ui";
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -10,6 +12,7 @@ interface SettingsModalProps {
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     const [activeTab, setActiveTab] = useState<string>("General");
+    const [appVersion, setAppVersion] = useState<string>("");
     const app = useTessellumApp();
     const settingsTabs = app.ui.getSettingsTabs();
     const { t } = useAppTranslation("settings");
@@ -22,6 +25,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         const fallbackTab = settingsTabs.find((tab) => tab.isActive)?.id ?? settingsTabs[0]?.id ?? "General";
         setActiveTab((current) => settingsTabs.some((tab) => tab.id === current) ? current : fallbackTab);
     }, [isOpen, settingsTabs]);
+
+    useEffect(() => {
+        getVersion().then(setAppVersion).catch(() => setAppVersion(""));
+    }, []);
 
     if (!isOpen) return null;
 
@@ -37,8 +44,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             />
 
             {/* Modal */}
-            <div className="relative w-[900px] h-[640px] flex overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+            <div className="relative flex overflow-hidden animate-in fade-in zoom-in-95 duration-200"
                  style={{
+                     width: "min(900px, calc(100vw - 2rem))",
+                     height: "min(640px, calc(100vh - 2rem))",
                      backgroundColor: "var(--color-panel-bg)",
                      borderRadius: "var(--radius-xl)",
                      boxShadow: "var(--shadow-modal)",
@@ -46,7 +55,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             >
                 {/* Sidebar */}
                 <div
-                    className="w-[240px] border-r p-6 flex flex-col"
+                    className="w-[240px] shrink-0 border-r p-6 flex flex-col overflow-y-auto max-sm:w-[180px]"
                     style={{
                         backgroundColor: "var(--color-panel-bg)",
                         borderColor: "var(--color-panel-border)",
@@ -111,7 +120,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                              paddingRight: `1rem`
                          }}>
                         <p className="text-[10px] font-bold uppercase tracking-wide mb-2" style={{ color: "var(--color-text-muted)" }}>{t("version")}</p>
-                        <p className="text-xs" style={{ color: "var(--color-text-secondary)" }}>v1.2.0</p>
+                        <p className="text-xs" style={{ color: "var(--color-text-secondary)" }}>{appVersion ? `v${appVersion}` : "—"}</p>
                     </div>
                 </div>
 
@@ -128,19 +137,14 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                         <h3 className="text-lg font-bold" style={{ color: "var(--color-text-primary)" }}>
                             {selectedTab?.name}
                         </h3>
-                        <button
+                        <IconButton
+                            label="Close settings"
                             onClick={onClose}
-                            className="p-2 rounded-lg transition-colors group hover:bg-[color:var(--color-panel-hover)]"
-                            style={{
-                                backgroundColor: "var(--color-panel-bg)",
-                                paddingTop: `0.5rem`,
-                                paddingBottom: `0.5rem`,
-                                paddingLeft: `1rem`,
-                                paddingRight: `1rem`
-                            }}
+                            size={36}
+                            style={{ backgroundColor: "var(--color-panel-bg)" }}
                         >
-                            <X className="size-4 transition-colors group-hover:text-[color:var(--color-text-primary)]" style={{ color: "var(--color-text-muted)" }} />
-                        </button>
+                            <X className="size-4" />
+                        </IconButton>
                     </div>
 
                     {/* Settings Content */}

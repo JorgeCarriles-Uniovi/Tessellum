@@ -1,4 +1,5 @@
 use notify::RecommendedWatcher;
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -57,6 +58,9 @@ pub struct AppState {
     pub asset_index: Arc<Mutex<Option<AssetIndex>>>,
     pub search_index: Arc<Mutex<SearchIndex>>,
     pub search_readiness: Mutex<SearchReadinessState>,
+    /// Guard against concurrent full_sync calls: the filesystem-watcher may
+    /// trigger a second sync while a manual rebuild is already running.
+    pub sync_in_progress: Arc<AtomicBool>,
 }
 
 impl AppState {
@@ -68,6 +72,7 @@ impl AppState {
             asset_index: Arc::new(Mutex::new(None)),
             search_index: Arc::new(Mutex::new(search_index)),
             search_readiness: Mutex::new(SearchReadinessState::default()),
+            sync_in_progress: Arc::new(AtomicBool::new(false)),
         }
     }
 }

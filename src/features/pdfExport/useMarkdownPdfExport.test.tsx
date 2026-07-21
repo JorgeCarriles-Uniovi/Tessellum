@@ -6,7 +6,7 @@ import { useMarkdownPdfExport } from "./useMarkdownPdfExport";
 
 const pdfExportHookMocks = vi.hoisted(() => ({
     readFile: vi.fn<() => Promise<string>>(),
-    renderDocument: vi.fn<() => Promise<{
+    renderDocument: vi.fn<(input?: unknown) => Promise<{
         html: string;
         documentTitle: string;
         outline: Array<{ title: string; level: number; lineNumber: number; page: number; offsetWithinPagePx: number }>;

@@ -40,9 +40,15 @@ export class WorkspaceAPI {
     }
 
     /** Set the current view mode. */
-    setViewMode(mode: 'editor' | 'graph'): void {
+    setViewMode(mode: 'editor' | 'graph' | 'canvas'): void {
         const state = useGraphStore.getState();
         state.setViewMode(mode);
+    }
+
+    /** Set the active canvas file path (call before setViewMode('canvas')). */
+    setCanvasPath(path: string | null): void {
+        const state = useGraphStore.getState();
+        state.setCanvasPath(path);
     }
 
     /** Get the current editor mode. */

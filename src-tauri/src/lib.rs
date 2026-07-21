@@ -4,6 +4,7 @@ pub mod error;
 mod indexer;
 mod grafeo_projection;
 mod search;
+mod sync;
 mod trash;
 pub mod models;
 mod test_support;
@@ -48,6 +49,8 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_persisted_scope::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
             let setup_result: Result<(), std::io::Error> = (|| {
                 let app_handle = app.handle();
@@ -161,6 +164,7 @@ pub fn run() {
             commands::templates::create_note_from_template,
             commands::vault::list_files,
             commands::vault::list_files_tree,
+            commands::vault::list_vault_snapshot,
             commands::vault::ensure_feature_demo_in_empty_vault,
             commands::clipboard::import_clipboard_files,
             commands::clipboard::write_file_paths_to_clipboard,
@@ -181,6 +185,8 @@ pub fn run() {
             commands::notes::get_all_property_keys,
             commands::pdf_export::export_markdown_pdf,
             commands::indexer::sync_vault,
+            commands::indexer::get_index_status,
+            commands::dataview::execute_dataview_query,
             commands::graph::get_graph_data,
             commands::graph::execute_graph_query,
             commands::vault::set_vault_path,
@@ -190,6 +196,40 @@ pub fn run() {
             commands::search::ensure_search_ready,
             commands::search::get_search_readiness,
             commands::search::reset_search_readiness_attempts,
+            commands::recovery::write_recovery_file,
+            commands::recovery::list_recovery_files,
+            commands::recovery::read_recovery_file,
+            commands::recovery::clear_recovery_file,
+            commands::sync::init_vault_repo,
+            commands::sync::set_sync_remote,
+            commands::sync::get_sync_status,
+            commands::sync::sync_commit,
+            commands::sync::sync_pull,
+            commands::sync::sync_push,
+            commands::sync::get_conflict_list,
+            commands::sync::full_git_sync,
+            commands::history::write_note_snapshot,
+            commands::history::list_note_snapshots,
+            commands::history::get_note_snapshot,
+            commands::history::pin_snapshot,
+            commands::history::unpin_snapshot,
+            commands::publish::publish_vault,
+            commands::export::export_note_docx,
+            commands::export::import_from_url,
+            commands::semantic::semantic_search,
+            commands::semantic::get_link_suggestions,
+            commands::semantic::suggest_tags,
+            commands::semantic::get_similar_tag_groups,
+            commands::semantic::merge_tags,
+            commands::scripts::list_scripts,
+            commands::scripts::read_script,
+            commands::scripts::write_script,
+            commands::scripts::delete_script,
+            commands::plugins::list_installed_plugins,
+            commands::plugins::install_plugin,
+            commands::plugins::uninstall_plugin,
+            commands::plugins::fetch_community_registry,
+            commands::ai::ai_generate,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {

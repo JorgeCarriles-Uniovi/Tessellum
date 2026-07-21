@@ -45,7 +45,7 @@ function createFile(path: string, isDir = false) {
     };
 }
 
-function createNode(path: string, children: Array<ReturnType<typeof createNode>> = []) {
+function createNode(path: string, children: any[] = []) {
     return {
         id: path,
         name: path.split("/").at(-1) ?? path,

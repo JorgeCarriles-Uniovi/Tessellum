@@ -1,7 +1,7 @@
 use std::time::Duration;
-use sqlx::Pool;
+use sqlx::{Pool, Row};
 use sqlx::QueryBuilder;
-use sqlx::sqlite::{Sqlite, SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions};
+use sqlx::sqlite::{Sqlite, SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteSynchronous};
 
 use crate::models::{IndexedMarkdownFile, IndexedSearchFile};
 
@@ -17,6 +17,9 @@ impl Database {
             .create_if_missing(true)
             // Allow concurrent readers while writes are happening.
             .journal_mode(SqliteJournalMode::Wal)
+            // WAL + NORMAL is durable across app crashes and avoids an fsync
+            // per transaction, which speeds up index writes noticeably.
+            .synchronous(SqliteSynchronous::Normal)
             // Give SQLite write contention enough time to resolve.
             .busy_timeout(Duration::from_secs(15));
         
@@ -64,11 +67,19 @@ impl Database {
             "CREATE TABLE IF NOT EXISTS search_files (
                 path TEXT PRIMARY KEY,
                 modified_at INTEGER,
-                is_markdown INTEGER
+                is_markdown INTEGER,
+                file_size INTEGER NOT NULL DEFAULT 0
             );",
         )
             .execute(&pool)
             .await?;
+
+        // Migrate existing databases that lack the file_size column.
+        let _ = sqlx::query(
+            "ALTER TABLE search_files ADD COLUMN file_size INTEGER NOT NULL DEFAULT 0",
+        )
+            .execute(&pool)
+            .await; // Ignore error — column may already exist.
         
         // Create links table with RESOLVED target paths
         sqlx::query(
@@ -387,35 +398,89 @@ impl Database {
     }
     
     /// Get all indexed search files (markdown and non-markdown).
-    pub async fn get_all_search_files(&self) -> Result<Vec<(String, i64, i64)>, sqlx::Error> {
-        let rows = sqlx::query_as::<_, (String, i64, i64)>(
-            "SELECT path, modified_at, is_markdown FROM search_files",
+    /// Returns `(path, modified_at, is_markdown, file_size)` for every indexed
+    /// search file in a single query, so sync passes never need per-file lookups.
+    pub async fn get_all_search_files(&self) -> Result<Vec<(String, i64, i64, i64)>, sqlx::Error> {
+        sqlx::query_as::<_, (String, i64, i64, i64)>(
+            "SELECT path, modified_at, is_markdown, file_size FROM search_files",
         )
             .fetch_all(&self.pool)
-            .await?;
-        
-        Ok(rows)
+            .await
     }
-    
+
+    /// Count indexed markdown files.
+    pub async fn count_indexed_markdown_files(&self) -> Result<i64, sqlx::Error> {
+        let (count,) = sqlx::query_as::<_, (i64,)>(
+            "SELECT COUNT(*) FROM search_files WHERE is_markdown = 1",
+        )
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(count)
+    }
+
+    /// Execute a pre-built dataview query and return rows.
+    pub async fn run_dataview_query(
+        &self,
+        sql: &str,
+        params: &[String],
+        columns: &[String],
+    ) -> Result<Vec<crate::commands::dataview::DataviewRow>, sqlx::Error> {
+        let mut q = sqlx::query(sql);
+        for p in params {
+            q = q.bind(p);
+        }
+        let raw_rows = q.fetch_all(&self.pool).await?;
+
+        let mut result = Vec::with_capacity(raw_rows.len());
+        for row in raw_rows {
+            let path: String = row.try_get("path").unwrap_or_default();
+            let frontmatter_str: Option<String> = row.try_get("frontmatter").ok().flatten();
+            let frontmatter: serde_json::Value = frontmatter_str
+                .and_then(|s| serde_json::from_str(&s).ok())
+                .unwrap_or(serde_json::Value::Object(serde_json::Map::new()));
+
+            let title = std::path::Path::new(&path)
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .trim_end_matches(".md")
+                .to_string();
+
+            let mut props = serde_json::Map::new();
+            for col in columns {
+                if col == "title" { continue; }
+                let val = frontmatter.get(col).cloned().unwrap_or(serde_json::Value::Null);
+                props.insert(col.clone(), val);
+            }
+
+            result.push(crate::commands::dataview::DataviewRow { path, title, props });
+        }
+
+        Ok(result)
+    }
+
     /// Upsert search file metadata.
     pub async fn upsert_search_file(
         &self,
         path: &str,
         modified: i64,
+        file_size: i64,
         is_markdown: bool,
     ) -> Result<(), sqlx::Error> {
         sqlx::query(
-            "INSERT INTO search_files (path, modified_at, is_markdown) VALUES (?, ?, ?)
-             ON CONFLICT(path) DO UPDATE SET modified_at = ?, is_markdown = ?",
+            "INSERT INTO search_files (path, modified_at, file_size, is_markdown) VALUES (?, ?, ?, ?)
+             ON CONFLICT(path) DO UPDATE SET modified_at = ?, file_size = ?, is_markdown = ?",
         )
             .bind(path)
             .bind(modified)
+            .bind(file_size)
             .bind(if is_markdown { 1 } else { 0 })
             .bind(modified)
+            .bind(file_size)
             .bind(if is_markdown { 1 } else { 0 })
             .execute(&self.pool)
             .await?;
-        
+
         Ok(())
     }
 
@@ -487,12 +552,14 @@ impl Database {
             }
 
             sqlx::query(
-                "INSERT INTO search_files (path, modified_at, is_markdown) VALUES (?, ?, 1)
-                 ON CONFLICT(path) DO UPDATE SET modified_at = ?, is_markdown = 1",
+                "INSERT INTO search_files (path, modified_at, file_size, is_markdown) VALUES (?, ?, ?, 1)
+                 ON CONFLICT(path) DO UPDATE SET modified_at = ?, file_size = ?, is_markdown = 1",
             )
             .bind(&entry.path)
             .bind(entry.modified)
+            .bind(entry.size as i64)
             .bind(entry.modified)
+            .bind(entry.size as i64)
             .execute(&mut *tx)
             .await?;
         }
@@ -544,12 +611,13 @@ impl Database {
             notes_query.build().execute(&mut *tx).await?;
 
             let mut search_query = QueryBuilder::<Sqlite>::new(
-                "INSERT INTO search_files (path, modified_at, is_markdown) ",
+                "INSERT INTO search_files (path, modified_at, file_size, is_markdown) ",
             );
             search_query.push_values(chunk.iter(), |mut builder, entry| {
                 builder
                     .push_bind(&entry.path)
                     .push_bind(entry.modified)
+                    .push_bind(entry.size as i64)
                     .push_bind(1);
             });
             search_query.build().execute(&mut *tx).await?;
@@ -612,13 +680,15 @@ impl Database {
 
         for entry in entries {
             sqlx::query(
-                "INSERT INTO search_files (path, modified_at, is_markdown) VALUES (?, ?, ?)
-                 ON CONFLICT(path) DO UPDATE SET modified_at = ?, is_markdown = ?",
+                "INSERT INTO search_files (path, modified_at, file_size, is_markdown) VALUES (?, ?, ?, ?)
+                 ON CONFLICT(path) DO UPDATE SET modified_at = ?, file_size = ?, is_markdown = ?",
             )
             .bind(&entry.path)
             .bind(entry.modified)
+            .bind(entry.size as i64)
             .bind(if entry.is_markdown { 1 } else { 0 })
             .bind(entry.modified)
+            .bind(entry.size as i64)
             .bind(if entry.is_markdown { 1 } else { 0 })
             .execute(&mut *tx)
             .await?;
@@ -829,9 +899,9 @@ impl Database {
         
         for (frontmatter_opt, inline_tags_opt) in rows {
             // Process frontmatter tags
-            if let Some(frontmatter_json) = frontmatter_opt {
-                if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&frontmatter_json) {
-                    if let Some(tags) = parsed.get("tags") {
+            if let Some(frontmatter_json) = frontmatter_opt
+                && let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&frontmatter_json)
+                    && let Some(tags) = parsed.get("tags") {
                         if let Some(tags_array) = tags.as_array() {
                             for tag in tags_array {
                                 if let Some(tag_str) = tag.as_str() {
@@ -848,17 +918,14 @@ impl Database {
                             }
                         }
                     }
-                }
-            }
             
             // Process inline tags
-            if let Some(inline_tags_json) = inline_tags_opt {
-                if let Ok(parsed) = serde_json::from_str::<Vec<String>>(&inline_tags_json) {
+            if let Some(inline_tags_json) = inline_tags_opt
+                && let Ok(parsed) = serde_json::from_str::<Vec<String>>(&inline_tags_json) {
                     for tag in parsed {
                         all_tags.insert(tag);
                     }
                 }
-            }
         }
         
         let mut sorted_tags: Vec<String> = all_tags.into_iter().collect();
@@ -881,9 +948,9 @@ impl Database {
         for (path, frontmatter_opt, inline_tags_opt) in rows {
             let mut file_tags = Vec::new();
             
-            if let Some(frontmatter_json) = frontmatter_opt {
-                if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&frontmatter_json) {
-                    if let Some(tags) = parsed.get("tags") {
+            if let Some(frontmatter_json) = frontmatter_opt
+                && let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&frontmatter_json)
+                    && let Some(tags) = parsed.get("tags") {
                         if let Some(tags_array) = tags.as_array() {
                             for tag in tags_array {
                                 if let Some(tag_str) = tag.as_str() {
@@ -896,18 +963,15 @@ impl Database {
                             }
                         }
                     }
-                }
-            }
             
-            if let Some(inline_tags_json) = inline_tags_opt {
-                if let Ok(parsed) = serde_json::from_str::<Vec<String>>(&inline_tags_json) {
+            if let Some(inline_tags_json) = inline_tags_opt
+                && let Ok(parsed) = serde_json::from_str::<Vec<String>>(&inline_tags_json) {
                     for tag in parsed {
                         if !file_tags.contains(&tag) {
                             file_tags.push(tag);
                         }
                     }
                 }
-            }
             
             result.insert(path, file_tags);
         }
@@ -926,9 +990,9 @@ impl Database {
         let mut file_tags = Vec::new();
         
         if let Some((frontmatter_opt, inline_tags_opt)) = row {
-            if let Some(frontmatter_json) = frontmatter_opt {
-                if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&frontmatter_json) {
-                    if let Some(tags) = parsed.get("tags") {
+            if let Some(frontmatter_json) = frontmatter_opt
+                && let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&frontmatter_json)
+                    && let Some(tags) = parsed.get("tags") {
                         if let Some(tags_array) = tags.as_array() {
                             for tag in tags_array {
                                 if let Some(tag_str) = tag.as_str() {
@@ -944,18 +1008,15 @@ impl Database {
                             }
                         }
                     }
-                }
-            }
             
-            if let Some(inline_tags_json) = inline_tags_opt {
-                if let Ok(parsed) = serde_json::from_str::<Vec<String>>(&inline_tags_json) {
+            if let Some(inline_tags_json) = inline_tags_opt
+                && let Ok(parsed) = serde_json::from_str::<Vec<String>>(&inline_tags_json) {
                     for tag in parsed {
                         if !file_tags.contains(&tag) {
                             file_tags.push(tag);
                         }
                     }
                 }
-            }
         }
         
         Ok(file_tags)
@@ -972,15 +1033,13 @@ impl Database {
         let mut all_keys = std::collections::HashSet::new();
         
         for (frontmatter_opt,) in rows {
-            if let Some(frontmatter_json) = frontmatter_opt {
-                if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&frontmatter_json) {
-                    if let Some(obj) = parsed.as_object() {
+            if let Some(frontmatter_json) = frontmatter_opt
+                && let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&frontmatter_json)
+                    && let Some(obj) = parsed.as_object() {
                         for key in obj.keys() {
                             all_keys.insert(key.clone());
                         }
                     }
-                }
-            }
         }
         
         let mut sorted_keys: Vec<String> = all_keys.into_iter().collect();
@@ -988,6 +1047,17 @@ impl Database {
         Ok(sorted_keys)
     }
     
+    /// Get all note paths that have a given tag (checked in note_tags table).
+    pub async fn get_notes_with_tag(&self, tag: &str) -> Result<Vec<String>, sqlx::Error> {
+        let rows = sqlx::query_as::<_, (String,)>(
+            "SELECT path FROM note_tags WHERE tag = ?",
+        )
+        .bind(tag)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows.into_iter().map(|(path,)| path).collect())
+    }
+
     /// Read a single note projection for Kuzu sync.
     /// Returns (id, title, tags) where id is the note path.
     pub async fn get_note_projection(

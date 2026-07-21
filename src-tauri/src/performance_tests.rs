@@ -117,7 +117,7 @@ async fn benchmark_sqlite_concurrency() {
             for j in 0..50 {
                 let path = format!("Thread_{}_Note_{}.md", i, j);
                 // upsert_search_file runs an INSERT OR REPLACE
-                db_clone.upsert_search_file(&path, 123456789, true)
+                db_clone.upsert_search_file(&path, 123456789, 0, true)
                     .await
                     .expect("Database write should not hit SQLITE_BUSY lock");
             }

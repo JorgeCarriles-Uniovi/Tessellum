@@ -46,7 +46,8 @@ export function createMarkdownPdfExportService({
             notifySuccess("PDF exported");
         } catch (error) {
             console.error(error);
-            notifyError("Failed to export PDF");
+            const detail = error instanceof Error ? error.message : String(error);
+            notifyError(`Failed to export PDF: ${detail}`);
         }
     }
 

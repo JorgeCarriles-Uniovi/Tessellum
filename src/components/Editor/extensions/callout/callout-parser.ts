@@ -38,16 +38,42 @@ export function parseCalloutBlocks(view: EditorView): CalloutBlock[] {
                 let contentFrom = -1;
                 let contentTo = -1;
 
-                // Scan continuation lines
+                // Scan continuation lines.
+                // Track open fenced blocks (``` or ~~~) so their interior lines
+                // are not mistaken for the end of the callout even when they
+                // don't start with '>'.
                 let nextPos = line.to + 1;
+                let fenceMarker: string | null = null;
                 while (nextPos <= state.doc.length) {
                     const nextLine = state.doc.lineAt(nextPos);
                     const contMatch = nextLine.text.match(CALLOUT_CONTINUATION_RE);
                     if (contMatch) {
+                        const stripped = contMatch[1];
                         if (contentFrom === -1) contentFrom = nextLine.from;
-                        contentLines.push(contMatch[1]); // stripped content
+                        contentLines.push(stripped);
                         contentTo = nextLine.to;
                         nextPos = nextLine.to + 1;
+                        // Detect fence open/close for ``` or ~~~
+                        const fenceMatch = stripped.match(/^(`{3,}|~{3,})/);
+                        if (fenceMatch) {
+                            const marker = fenceMatch[1][0].repeat(3);
+                            if (fenceMarker === null) {
+                                fenceMarker = marker;
+                            } else if (fenceMarker === marker) {
+                                fenceMarker = null;
+                            }
+                        }
+                    } else if (fenceMarker !== null) {
+                        // Inside a fenced block — continuation lines don't need '>'
+                        const stripped = nextLine.text;
+                        if (contentFrom === -1) contentFrom = nextLine.from;
+                        contentLines.push(stripped);
+                        contentTo = nextLine.to;
+                        nextPos = nextLine.to + 1;
+                        const fenceMatch = stripped.match(/^(`{3,}|~{3,})/);
+                        if (fenceMatch && fenceMatch[1][0].repeat(3) === fenceMarker) {
+                            fenceMarker = null;
+                        }
                     } else {
                         break;
                     }

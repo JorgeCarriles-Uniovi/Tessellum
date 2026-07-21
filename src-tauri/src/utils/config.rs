@@ -13,6 +13,7 @@ pub struct DailyNotesConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct AppConfig {
 	#[serde(default)]
 	pub daily_notes: DailyNotesConfig,
@@ -27,13 +28,6 @@ impl Default for DailyNotesConfig {
 	}
 }
 
-impl Default for AppConfig {
-	fn default() -> Self {
-		Self {
-			daily_notes: DailyNotesConfig::default(),
-		}
-	}
-}
 
 fn default_daily_notes_path_template() -> String {
 	"Daily/{YYYY}/{MM}/{DD}.md".to_string()

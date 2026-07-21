@@ -21,7 +21,7 @@ use crate::search::SearchDoc;
 use crate::trash::{
     build_restored_destination_path, generate_unique_trash_path, parse_trash_entry_name,
     parse_trash_timestamp, permanently_delete_trash_entry, rename_recursively,
-    restore_trashed_names_recursively,
+    restore_trashed_names_recursively, ParsedTrashName,
 };
 use crate::utils::config::load_or_init_config;
 use crate::utils::{extract_tags, sanitize_string, validate_path_in_vault};
@@ -94,11 +94,35 @@ fn candidate_directory_priority(path: &Path) -> (usize, String) {
     )
 }
 
-fn resolve_restore_directory(vault_root: &Path, parent_label: &str) -> PathBuf {
-    if parent_label.eq_ignore_ascii_case("Root") {
+fn resolve_restore_directory(vault_root: &Path, parsed: &ParsedTrashName) -> PathBuf {
+    // New format: use the encoded relative path directly.
+    if let Some(rel_dir) = &parsed.relative_dir {
+        if rel_dir.is_empty() {
+            return vault_root.to_path_buf();
+        }
+        let full_path = vault_root.join(rel_dir);
+        if full_path.is_dir() {
+            return full_path;
+        }
+        // Original path no longer exists — fall back to name-search heuristic below.
+        log::warn!(
+            "Restore path '{}' no longer exists; falling back to name search",
+            full_path.display()
+        );
+    }
+
+    // Legacy format or missing path: search for a folder with the bare parent name.
+    let parent_label = if let Some(encoded) = parsed.parent_label.strip_prefix("p:") {
+        // Extract last segment of encoded path as a human-readable hint.
+        decoded_last_segment(encoded)
+    } else {
+        parsed.parent_label.clone()
+    };
+
+    if parent_label.eq_ignore_ascii_case("root") || parent_label.is_empty() {
         return vault_root.to_path_buf();
     }
-    
+
     let mut matches: Vec<PathBuf> = WalkDir::new(vault_root)
         .into_iter()
         .filter_map(|entry| entry.ok())
@@ -112,12 +136,22 @@ fn resolve_restore_directory(vault_root: &Path, parent_label: &str) -> PathBuf {
                 .unwrap_or(false)
         })
         .collect();
-    
+
     matches.sort_by_key(|path| candidate_directory_priority(path));
     matches
         .into_iter()
         .next()
-        .unwrap_or_else(|| vault_root.join(parent_label))
+        .unwrap_or_else(|| vault_root.to_path_buf())
+}
+
+fn decoded_last_segment(encoded: &str) -> String {
+    use crate::trash::decode_relative_dir;
+    let decoded = decode_relative_dir(encoded);
+    decoded
+        .split('/')
+        .next_back()
+        .unwrap_or("")
+        .to_string()
 }
 
 fn build_trash_item_metadata(vault_root: &Path, entry_path: &Path) -> Option<TrashItemMetadata> {
@@ -125,7 +159,7 @@ fn build_trash_item_metadata(vault_root: &Path, entry_path: &Path) -> Option<Tra
     let is_dir = entry_path.is_dir();
     let timestamp = parse_trash_timestamp(&filename)?;
     let parsed = parse_trash_entry_name(&filename, is_dir)?;
-    let restore_dir = resolve_restore_directory(vault_root, &parsed.parent_label);
+    let restore_dir = resolve_restore_directory(vault_root, &parsed);
     let restore_path = restore_dir.join(&parsed.original_name);
     
     Some(TrashItemMetadata {
@@ -156,7 +190,7 @@ fn list_trash_items_internal(vault_root: &Path) -> Result<Vec<TrashItemMetadata>
         }
     }
     
-    items.sort_by(|left, right| right.timestamp.cmp(&left.timestamp));
+    items.sort_by_key(|item| std::cmp::Reverse(item.timestamp));
     Ok(items)
 }
 
@@ -172,7 +206,7 @@ fn restore_trash_item_internal_for_tests(
     let is_dir = resolved_entry.is_dir();
     let parsed = parse_trash_entry_name(filename, is_dir)
         .ok_or_else(|| TessellumError::Validation("Invalid trash entry format".to_string()))?;
-    let restore_dir = resolve_restore_directory(vault_root, &parsed.parent_label);
+    let restore_dir = resolve_restore_directory(vault_root, &parsed);
     fs::create_dir_all(&restore_dir).map_err(TessellumError::Io)?;
     let destination = build_restored_destination_path(&restore_dir, &parsed.original_name)
         .ok_or_else(|| TessellumError::Validation("Failed to resolve restore destination".to_string()))?;
@@ -223,6 +257,50 @@ fn build_daily_note_relative_path(template: &str, now: chrono::DateTime<Local>) 
     path
 }
 
+/// Lexically validates a vault-relative note path: it must not be absolute and
+/// may only contain normal components (no `..`, no drive prefixes). Unlike
+/// `validate_path_in_vault` this does not require the path to exist, so it can
+/// run *before* the target directories are created.
+fn validate_relative_note_path(relative: &str) -> Result<(), TessellumError> {
+    let path = Path::new(relative);
+    if path.is_absolute() {
+        return Err(TessellumError::Validation(
+            "Daily note path must be relative".to_string(),
+        ));
+    }
+    let only_normal_components = path
+        .components()
+        .all(|c| matches!(c, Component::Normal(_) | Component::CurDir));
+    if !only_normal_components {
+        return Err(TessellumError::Validation(
+            "Daily note path must be relative and cannot contain '..' components".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+/// Creates the daily note's parent directories after lexically validating the
+/// template-derived relative path, then re-validates the (now existing) parent
+/// canonically as defense in depth against symlinks.
+async fn ensure_daily_note_parent(
+    vault_path: &str,
+    relative_path: &str,
+    full_path: &Path,
+) -> Result<(), TessellumError> {
+    validate_relative_note_path(relative_path)?;
+
+    if let Some(parent) = full_path.parent() {
+        tokio::fs::create_dir_all(parent)
+            .await
+            .map_err(TessellumError::from)?;
+
+        let parent_str = crate::utils::normalize_path(&parent.to_string_lossy());
+        validate_path_in_vault(&parent_str, vault_path).map_err(TessellumError::Validation)?;
+    }
+
+    Ok(())
+}
+
 fn validate_template_name(template_name: &str) -> Result<(), TessellumError> {
     let trimmed = template_name.trim();
     if trimmed.is_empty() {
@@ -253,8 +331,7 @@ async fn index_note_content(
         .map_err(TessellumError::from)?;
     
     let metadata = tokio::fs::metadata(&path).await.map_err(|e| {
-        TessellumError::Io(std::io::Error::new(
-            std::io::ErrorKind::Other,
+        TessellumError::Io(std::io::Error::other(
             format!("Failed to get metadata for {}: {}", path, e),
         ))
     })?;
@@ -263,8 +340,7 @@ async fn index_note_content(
     let modified = metadata
         .modified()
         .map_err(|e| {
-            TessellumError::Io(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            TessellumError::Io(std::io::Error::other(
                 format!("Failed to get modified time: {}", e),
             ))
         })?
@@ -275,8 +351,8 @@ async fn index_note_content(
     let mut frontmatter_json_str = None;
     let mut body_content = content;
     
-    if let Some((yaml, _)) = crate::utils::frontmatter::parse_frontmatter(&content) {
-        body_content = crate::utils::frontmatter::strip_frontmatter(&content);
+    if let Some((yaml, _)) = crate::utils::frontmatter::parse_frontmatter(content) {
+        body_content = crate::utils::frontmatter::strip_frontmatter(content);
         if let Ok(json) = crate::utils::frontmatter::frontmatter_to_json(&yaml) {
             frontmatter_json_str = Some(json);
         }
@@ -297,7 +373,7 @@ async fn index_note_content(
         Some(idx) => idx.clone(),
         None => {
             drop(index_guard);
-            let idx = FileIndex::build(&vault_path).map_err(|e| {
+            let idx = FileIndex::build(vault_path).map_err(|e| {
                 TessellumError::Internal(format!("Failed to build file index: {}", e))
             })?;
             let mut guard = state.file_index.lock().await;
@@ -311,7 +387,7 @@ async fn index_note_content(
         .map(|link| {
             crate::utils::normalize_path(
                 &file_index
-                    .resolve_or_default(&vault_path, &link.target)
+                    .resolve_or_default(vault_path, &link.target)
                     .to_string_lossy(),
             )
         })
@@ -322,7 +398,7 @@ async fn index_note_content(
     
     db
         .index_file(
-            &path,
+            path,
             modified,
             size,
             frontmatter_json_str.as_deref(),
@@ -333,14 +409,14 @@ async fn index_note_content(
         .map_err(TessellumError::from)?;
     
     db
-        .set_note_tags(&path, &inline_tags)
+        .set_note_tags(path, &inline_tags)
         .await
         .map_err(TessellumError::from)?;
     db
-        .upsert_search_file(&path, modified, true)
+        .upsert_search_file(path, modified, size as i64, true)
         .await
         .map_err(TessellumError::from)?;
-    
+
     let title = Path::new(path)
         .file_name()
         .unwrap_or_default()
@@ -425,7 +501,7 @@ pub async fn create_note(
     vault_path: String,
     title: String,
 ) -> Result<String, TessellumError> {
-    validate_path_in_vault(&vault_path, &vault_path).map_err(|e| TessellumError::Validation(e))?;
+    validate_path_in_vault(&vault_path, &vault_path).map_err(TessellumError::Validation)?;
     
     let clean_title = sanitize_string(title);
     
@@ -470,7 +546,7 @@ pub async fn create_note(
         .await
         .unwrap_or_else(|e| log::warn!("Failed to index new tags: {}", e));
     db
-        .upsert_search_file(&path_str, 0, true)
+        .upsert_search_file(&path_str, 0, 0, true)
         .await
         .unwrap_or_else(|e| log::warn!("Failed to index search file: {}", e));
     
@@ -513,29 +589,15 @@ pub async fn get_or_create_daily_note(
     kuzu_state: State<'_, ManagedGrafeoConnection>,
     vault_path: String,
 ) -> Result<FileMetadata, TessellumError> {
-    validate_path_in_vault(&vault_path, &vault_path).map_err(|e| TessellumError::Validation(e))?;
+    validate_path_in_vault(&vault_path, &vault_path).map_err(TessellumError::Validation)?;
     
     let config = load_or_init_config(&vault_path)?;
     let now = Local::now();
     let relative_path = build_daily_note_relative_path(&config.daily_notes.path_template, now);
     let full_path = Path::new(&vault_path).join(&relative_path);
-    if Path::new(&relative_path).is_absolute() {
-        return Err(TessellumError::Validation(
-            "Daily note path must be relative".to_string(),
-        ));
-    }
-    
     let full_path_str = crate::utils::normalize_path(&full_path.to_string_lossy());
-    
-    if let Some(parent) = full_path.parent() {
-        tokio::fs::create_dir_all(parent)
-            .await
-            .map_err(TessellumError::from)?;
-        
-        let parent_str = crate::utils::normalize_path(&parent.to_string_lossy());
-        validate_path_in_vault(&parent_str, &vault_path)
-            .map_err(|e| TessellumError::Validation(e))?;
-    }
+
+    ensure_daily_note_parent(&vault_path, &relative_path, &full_path).await?;
     
     if !full_path.exists() {
         let title = now.format("%Y-%m-%d").to_string();
@@ -568,8 +630,7 @@ pub async fn get_or_create_daily_note(
     }
     
     let metadata = tokio::fs::metadata(&full_path).await.map_err(|e| {
-        TessellumError::Io(std::io::Error::new(
-            std::io::ErrorKind::Other,
+        TessellumError::Io(std::io::Error::other(
             format!("Failed to get metadata for {}: {}", full_path_str, e),
         ))
     })?;
@@ -588,8 +649,7 @@ pub async fn get_or_create_daily_note(
         last_modified: metadata
             .modified()
             .map_err(|e| {
-                TessellumError::Io(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                TessellumError::Io(std::io::Error::other(
                     format!("Failed to get modified time: {}", e),
                 ))
             })?
@@ -610,7 +670,7 @@ async fn trash_item_internal(
     item_path: String,
     vault_path: String,
 ) -> Result<(), TessellumError> {
-    validate_path_in_vault(&item_path, &vault_path).map_err(|e| TessellumError::Validation(e))?;
+    validate_path_in_vault(&item_path, &vault_path).map_err(TessellumError::Validation)?;
     
     let item = Path::new(&item_path);
     if !item.exists() {
@@ -621,18 +681,15 @@ async fn trash_item_internal(
     
     let vault_root = Path::new(&vault_path);
     let trash_dir = vault_root.join(".trash");
-    
-    if !trash_dir.exists() {
-        fs::create_dir_all(&trash_dir)
-            .map_err(TessellumError::Io)?;
-    }
+
+    fs::create_dir_all(&trash_dir).map_err(TessellumError::Io)?;
     
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_millis();
     
-    let trash_path = generate_unique_trash_path(&trash_dir, item, timestamp)
+    let trash_path = generate_unique_trash_path(&trash_dir, item, vault_root, timestamp)
         .ok_or_else(|| TessellumError::Validation("Failed to generate trash name".to_string()))?;
     
     tokio::fs::rename(item, &trash_path)
@@ -650,28 +707,25 @@ async fn trash_item_internal(
     
     match timeout(Duration::from_secs(5), db.delete_file(&item_path)).await {
         Ok(Ok(())) => {}
-        Ok(Err(_)) => {},
-        Err(_) => todo!()
+        Ok(Err(e)) => log::warn!("DB error during trash cleanup for {}: {}", item_path, e),
+        Err(_) => log::warn!("DB timeout during trash cleanup for {} — index may be stale", item_path),
     }
-    
+
     match timeout(
         Duration::from_secs(5),
-        db.delete_search_files(&[item_path.clone()]),
+        db.delete_search_files(std::slice::from_ref(&item_path)),
     )
-        .await
+    .await
     {
         Ok(Ok(_)) => {}
-        Err(_) => {
-        }
-        _ => {}
+        Ok(Err(e)) => log::warn!("DB error clearing search files for {}: {}", item_path, e),
+        Err(_) => log::warn!("DB timeout clearing search files for {}", item_path),
     }
-    
-    
+
     let search_index = state.search_index.clone();
     let path = item_path.clone();
-    async_runtime::spawn_blocking(move || {
-        let guard = async_runtime::block_on(search_index.lock());
-        guard.delete_path(&path).ok();
+    tauri::async_runtime::spawn(async move {
+        search_index.lock().await.delete_path(&path).ok();
     });
     
     // Invalidate the cache
@@ -722,7 +776,7 @@ pub async fn trash_items(
     let mut deleted_paths = Vec::new();
     let mut failed = Vec::new();
     
-    for (_index, item_path) in item_paths.into_iter().enumerate() {
+    for item_path in item_paths.into_iter() {
         
         match trash_item_internal(
             state.clone(),
@@ -752,7 +806,7 @@ pub async fn trash_items(
 
 #[tauri::command]
 pub async fn list_trash_items(vault_path: String) -> Result<Vec<TrashItemMetadata>, TessellumError> {
-    validate_path_in_vault(&vault_path, &vault_path).map_err(|error| TessellumError::Validation(error))?;
+    validate_path_in_vault(&vault_path, &vault_path).map_err(TessellumError::Validation)?;
     list_trash_items_internal(Path::new(&vault_path))
 }
 
@@ -763,7 +817,7 @@ pub async fn restore_trash_item(
     trash_item_path: String,
     vault_path: String,
 ) -> Result<String, TessellumError> {
-    validate_path_in_vault(&vault_path, &vault_path).map_err(|error| TessellumError::Validation(error))?;
+    validate_path_in_vault(&vault_path, &vault_path).map_err(TessellumError::Validation)?;
     let vault_root = Path::new(&vault_path);
     let restored_path = restore_trash_item_internal_for_tests(vault_root, Path::new(&trash_item_path))?;
     let normalized_restored_path = crate::utils::normalize_path(&restored_path.to_string_lossy());
@@ -776,7 +830,7 @@ pub async fn delete_trash_item_permanently(
     trash_item_path: String,
     vault_path: String,
 ) -> Result<(), TessellumError> {
-    validate_path_in_vault(&vault_path, &vault_path).map_err(|error| TessellumError::Validation(error))?;
+    validate_path_in_vault(&vault_path, &vault_path).map_err(TessellumError::Validation)?;
     let resolved_entry = validate_top_level_trash_entry(Path::new(&trash_item_path), Path::new(&vault_path))?;
     permanently_delete_trash_entry(&resolved_entry).map_err(TessellumError::Io)
 }
@@ -786,7 +840,7 @@ pub async fn delete_trash_item_permanently(
 #[tauri::command]
 pub async fn read_file(vault_path: String, path: String) -> Result<String, TessellumError> {
     // Validate path inside vault
-    validate_path_in_vault(&path, &vault_path).map_err(|e| TessellumError::Validation(e))?;
+    validate_path_in_vault(&path, &vault_path).map_err(TessellumError::Validation)?;
     
     tokio::fs::read_to_string(&path)
         .await
@@ -804,16 +858,46 @@ pub async fn write_file(
     content: String,
 ) -> Result<(), TessellumError> {
     // Validate path inside vault
-    validate_path_in_vault(&path, &vault_path).map_err(|e| TessellumError::Validation(e))?;
-    
-    // Write file
-    tokio::fs::write(&path, &content)
+    validate_path_in_vault(&path, &vault_path).map_err(TessellumError::Validation)?;
+
+    // Atomic write: write to a temp file first, update the index, then rename into place.
+    // This ensures the file and its index entry never diverge — if indexing fails, the
+    // original file is untouched.
+    let tmp_path = format!("{}.tessellum-tmp", path);
+    tokio::fs::write(&tmp_path, &content)
         .await
-        .map_err(TessellumError::from)?;
-    
-    let delta = index_note_content(&state, &vault_path, &path, &content).await?;
+        .map_err(|e| TessellumError::Internal(format!("Failed to write '{}': {}", tmp_path, e)))?;
+
+    let delta = match index_note_content(&state, &vault_path, &path, &content).await {
+        Ok(d) => d,
+        Err(e) => {
+            // Index update failed — remove the temp file and leave the original intact.
+            let _ = tokio::fs::remove_file(&tmp_path).await;
+            return Err(e);
+        }
+    };
+
+    // Index committed — atomically replace the original file.
+    tokio::fs::rename(&tmp_path, &path)
+        .await
+        .map_err(|e| TessellumError::Internal(format!("Failed to rename '{}' to '{}': {}", tmp_path, path, e)))?;
+
     sync_note_delta_non_critical(&state, &kuzu_state, delta).await;
-    
+
+    // Non-critical: write a version-history snapshot in the background.
+    {
+        let vault_path_snap = vault_path.clone();
+        let path_snap = path.clone();
+        let content_snap = content.clone();
+        tokio::spawn(async move {
+            if let Err(e) = crate::commands::history::write_note_snapshot(
+                vault_path_snap, path_snap, content_snap,
+            ).await {
+                log::warn!("Failed to write version snapshot: {e}");
+            }
+        });
+    }
+
     Ok(())
 }
 
@@ -920,11 +1004,60 @@ pub async fn get_all_property_keys(
 
 #[cfg(test)]
 mod tests {
-    use super::{build_daily_note_relative_path, list_trash_items_internal, restore_trash_item_internal_for_tests};
+    use super::{
+        build_daily_note_relative_path, ensure_daily_note_parent, list_trash_items_internal,
+        restore_trash_item_internal_for_tests, validate_relative_note_path,
+    };
     use chrono::TimeZone;
     use std::fs;
     use tempfile::tempdir;
-    
+
+    #[tokio::test]
+    async fn ensure_daily_note_parent_creates_missing_directories_in_fresh_vault() {
+        // Regression: the first daily note of a month/year needs folders that do
+        // not exist yet; validation must not fail on the missing parent.
+        let vault = tempdir().unwrap();
+        let vault_path = vault.path().to_string_lossy().to_string();
+        let full_path = vault.path().join("Daily/2026/07/21.md");
+
+        ensure_daily_note_parent(&vault_path, "Daily/2026/07/21.md", &full_path)
+            .await
+            .unwrap();
+
+        assert!(vault.path().join("Daily/2026/07").is_dir());
+    }
+
+    #[tokio::test]
+    async fn ensure_daily_note_parent_rejects_traversal_templates() {
+        let vault = tempdir().unwrap();
+        let vault_path = vault.path().to_string_lossy().to_string();
+        let relative = "../outside/21.md";
+        let full_path = vault.path().join(relative);
+
+        let err = ensure_daily_note_parent(&vault_path, relative, &full_path)
+            .await
+            .unwrap_err();
+
+        assert!(err.to_string().to_lowercase().contains("relative"), "unexpected error: {err}");
+        assert!(!vault.path().parent().unwrap().join("outside").exists());
+    }
+
+    #[test]
+    fn validate_relative_note_path_accepts_plain_nested_paths() {
+        assert!(validate_relative_note_path("Daily/2026/07/21.md").is_ok());
+        assert!(validate_relative_note_path("Note.md").is_ok());
+    }
+
+    #[test]
+    fn validate_relative_note_path_rejects_absolute_and_parent_components() {
+        assert!(validate_relative_note_path("/etc/evil.md").is_err());
+        assert!(validate_relative_note_path("../evil.md").is_err());
+        assert!(validate_relative_note_path("Daily/../../evil.md").is_err());
+        if cfg!(windows) {
+            assert!(validate_relative_note_path("C:\\evil.md").is_err());
+        }
+    }
+
     #[test]
     fn test_build_daily_note_relative_path() {
         let now = chrono::Local

@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./ui.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -164,6 +165,14 @@ body {
     --syntax-number: #986801;
     --syntax-variable: #e45649;
     --syntax-function: #4078f2;
+
+    /* Diff (version history) - GitHub light palette */
+    --color-diff-add-bg: #e6ffec;
+    --color-diff-add-text: #1a7f37;
+    --color-diff-add-word-bg: #abf2bc;
+    --color-diff-remove-bg: #ffebe9;
+    --color-diff-remove-text: #cf222e;
+    --color-diff-remove-word-bg: #ff9492;
 }
 
 .dark {
@@ -218,6 +227,14 @@ body {
     --graph-edge: var(--color-border-medium);
     --graph-edge-broken: var(--color-gray-600);
     --graph-node-active: var(--color-blue-500);
+
+    /* Diff (version history) - GitHub dark palette */
+    --color-diff-add-bg: rgba(46, 160, 67, 0.15);
+    --color-diff-add-text: #3fb950;
+    --color-diff-add-word-bg: rgba(46, 160, 67, 0.4);
+    --color-diff-remove-bg: rgba(248, 81, 73, 0.15);
+    --color-diff-remove-text: #f85149;
+    --color-diff-remove-word-bg: rgba(248, 81, 73, 0.4);
 }
 
 @theme inline {
@@ -1237,6 +1254,14 @@ body {
     --hc-color-alert-border: #000000;
     --hc-color-alert-text: #ffffff;
 
+    /* Diff (version history) - high contrast (light) */
+    --color-diff-add-bg: #d6ffd6;
+    --color-diff-add-text: #00661a;
+    --color-diff-add-word-bg: #7bff7b;
+    --color-diff-remove-bg: #ffd6d6;
+    --color-diff-remove-text: #8b0000;
+    --color-diff-remove-word-bg: #ff7b7b;
+
     --hc-callout-color: #000000;
     --hc-callout-info: #0f3d99;
     --hc-callout-tip: #166534;
@@ -1354,6 +1379,14 @@ body {
     --hc-color-alert-bg: #ffffff;
     --hc-color-alert-border: #ffffff;
     --hc-color-alert-text: #000000;
+
+    /* Diff (version history) - high contrast (dark) */
+    --color-diff-add-bg: #00330d;
+    --color-diff-add-text: #4dff79;
+    --color-diff-add-word-bg: #006619;
+    --color-diff-remove-bg: #330000;
+    --color-diff-remove-text: #ff6b6b;
+    --color-diff-remove-word-bg: #660000;
 
     --hc-callout-color: #ffffff;
     --hc-callout-info: #bfdbfe;

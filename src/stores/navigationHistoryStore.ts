@@ -121,11 +121,11 @@ export const useNavigationHistoryStore = create<NavigationHistoryStore>((set, ge
             return;
         }
 
-        set({ isReplaying: true });
+        // Set isReplaying and update cursor atomically before calling applyEntry
+        // so that any subscribers see a consistent state (no intermediate render
+        // between the flag set and the cursor update).
+        set((current) => ({ isReplaying: true, ...withCursor(current, targetIndex) }));
         applyEntry(state.entries[targetIndex]);
-        set((current) => ({
-            ...withCursor(current, targetIndex),
-        }));
     },
 
     goForward: () => {
@@ -139,11 +139,8 @@ export const useNavigationHistoryStore = create<NavigationHistoryStore>((set, ge
             return;
         }
 
-        set({ isReplaying: true });
+        set((current) => ({ isReplaying: true, ...withCursor(current, targetIndex) }));
         applyEntry(state.entries[targetIndex]);
-        set((current) => ({
-            ...withCursor(current, targetIndex),
-        }));
     },
 
     // Replay stays active until the observer syncs its baseline to the replayed state.

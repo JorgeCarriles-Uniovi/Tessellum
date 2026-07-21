@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { HeroProjection, WorkspaceCardItem } from "./types";
 import { stringToColor } from "../../../utils/graphUtils";
 import { useAppTranslation } from "../../../i18n/react.tsx";
+import { IconButton } from "../../ui";
 
 interface WorkspaceOverviewProps {
     cards: WorkspaceCardItem[];
@@ -217,18 +218,17 @@ export function WorkspaceOverview({
                              }}>
                             {t("workspaceOverview.title")}
                         </div>
-                        <button
+                        <IconButton
+                            label={t("workspaceOverview.close")}
+                            size={32}
                             onClick={onClose}
-                            className="inline-flex items-center justify-center rounded-md h-8 w-8 border cursor-pointer"
                             style={{
-                                borderColor: "var(--color-border-light)",
+                                border: "1px solid var(--color-border-light)",
                                 backgroundColor: "var(--color-bg-secondary)",
-                                color: "var(--color-text-muted)",
                             }}
-                            aria-label={t("workspaceOverview.close")}
                         >
                             <X size={14} />
-                        </button>
+                        </IconButton>
                     </div>
 
                     <div className="flex-1 min-h-0 overflow-auto">

@@ -25,28 +25,36 @@ import { TessellumApp, useTessellumApp } from "../../plugins/TessellumApp";
 import { PaletteCommand } from "../../plugins/api/UIAPI";
 import { EditorView } from "@codemirror/view";
 import { Extension, Prec } from "@codemirror/state";
-import { Calendar, Clock } from "lucide-react";
+import { Calendar, Clock, History } from "lucide-react";
 import { theme } from "../../styles/theme";
+import { Button } from "../ui";
 import { isMediaFile } from "../../utils/fileType";
 import { MediaPreview } from "./MediaPreview";
 import { EDITOR_MODES } from "../../constants/editorModes";
 import { useEditorModeStore } from "../../stores";
 import { markdownPreviewForceHideFacet } from "./extensions/markdown-preview-plugin";
 import { TabStrip } from "./TabStrip";
+import { useEditorContentStore } from "../../stores/editorContentStore";
+import { RecoveryBanner } from "./RecoveryBanner";
+import { NoteHistoryPanel } from "../history/NoteHistoryPanel";
 import { useAccessibilityStore, useSettingsStore } from "../../stores";
 import { WorkspaceOverview } from "./workspaceOverview/WorkspaceOverview";
 import type { HeroProjection, WorkspaceCardItem } from "./workspaceOverview/types";
 import { useAppTranslation } from "../../i18n/react.tsx";
 import { toSpellcheckLang } from "../../i18n/spellcheck";
 import { SelectionToolbar } from "./toolbar/SelectionToolbar";
+import { AIPanel } from "./AIPanel";
+import { TagSuggestionBanner } from "./TagSuggestionBanner";
 import {
     buildContentPreview,
     buildShortPath,
     buildTabsFromPaths,
     createTableMarkdown,
+    extractFrontmatter,
     formatRelativeTime,
     getPrimaryAction,
     normalizeTimestampSeconds,
+    parseFrontmatterTags,
     type NoteCardMetadata,
 } from "./editorViewHelpers";
 import {
@@ -57,15 +65,23 @@ import {
 } from "./utils/markdownShortcuts.ts";
 
 function useEditorViewRegistration(editorRef: React.RefObject<ReactCodeMirrorRef>) {
+    // React does not re-run effects when a ref's .current property changes.
+    // Running without a dependency array checks the view on every render and
+    // registers it only when it actually changes value (idempotent setView).
+    const lastViewRef = useRef<EditorView | null | undefined>(null);
     useEffect(() => {
         const view = editorRef.current?.view;
-        if (view) {
-            TessellumApp.instance.editor.setView(view);
+        if (view !== lastViewRef.current) {
+            lastViewRef.current = view;
+            TessellumApp.instance.editor.setView(view ?? null);
         }
+    });
+
+    useEffect(() => {
         return () => {
             TessellumApp.instance.editor.setView(null);
         };
-    }, [editorRef.current?.view]);
+    }, []);
 }
 
 function useSlashInsertions(
@@ -230,22 +246,29 @@ function EmptyEditorState({
                     {vaultPath ? t("editor.startNewNote") : t("editor.openVaultToBegin")}
                 </div>
                 {primaryAction && (
-                    <button
-                        onClick={primaryAction.onTrigger}
-                        className="px-4 py-2 rounded-lg text-sm font-medium"
-                        style={{
-                            backgroundColor: theme.colors.blue[600],
-                            color: "#fff",
-                            border: "none",
-                            cursor: "pointer",
-                            padding: "0.5rem 1rem"
-                        }}
-                    >
+                    <Button variant="primary" onClick={primaryAction.onTrigger}>
                         {vaultPath ? t("editor.createNewNote") : t("editor.openVault")}
-                    </button>
+                    </Button>
                 )}
             </div>
         </div>
+    );
+}
+
+function AutoSaveIndicator() {
+    const status = useEditorContentStore((s) => s.autoSaveStatus);
+    if (status.status === "idle" || status.status === "saved") return null;
+    const labels: Record<string, string> = {
+        pending: "Auto-save pending…",
+        saving: "Auto-saving…",
+        error: `Auto-save failed: ${status.errorMessage ?? "unknown error"}`,
+    };
+    const label = labels[status.status];
+    const color = status.status === "error" ? "var(--color-error, #dc2626)" : "inherit";
+    return (
+        <span style={{ color }} className="flex items-center gap-1">
+            {label}
+        </span>
     );
 }
 
@@ -261,6 +284,8 @@ function EditorHeader({
                           spellCheckLanguage,
                           t,
                           locale,
+                          isHistoryOpen,
+                          onHistoryToggle,
                       }: {
     title: string;
     onTitleChange: (value: string) => void;
@@ -273,6 +298,8 @@ function EditorHeader({
     spellCheckLanguage: string;
     t: (key: string, options?: Record<string, unknown>) => string;
     locale: string;
+    isHistoryOpen: boolean;
+    onHistoryToggle: () => void;
 }) {
     return (
         <div className="w-full mx-auto px-12 pt-20 pb-16 flex-shrink-0" style={{ borderColor: theme.colors.border.light }}>
@@ -307,6 +334,18 @@ function EditorHeader({
                             {t("editor.edited", { value: editedAt })}
                         </span>
                     )}
+                    <AutoSaveIndicator />
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        className="ml-auto"
+                        style={isHistoryOpen ? { color: "var(--primary)", backgroundColor: "var(--color-background-primary)" } : undefined}
+                        onClick={onHistoryToggle}
+                        title="Version history"
+                    >
+                        <History size={11} />
+                        <span>History</span>
+                    </Button>
                 </div>
             </div>
         </div>
@@ -461,6 +500,7 @@ export function Editor() {
         setActiveNote,
         reorderOpenTabs,
         closeTab,
+        isDirty,
         editorFontSizePx,
     } = useEditorStore();
     const editorMode = useEditorModeStore((state) => state.editorMode);
@@ -479,6 +519,8 @@ export function Editor() {
     const [heroProjection] = useState<HeroProjection | null>(null);
     const [reducedMotionFade, setReducedMotionFade] = useState(false);
     const [tabMetadataByPath, setTabMetadataByPath] = useState<Record<string, NoteCardMetadata>>({});
+    const [dirtyCloseConfirm, setDirtyCloseConfirm] = useState<string | null>(null);
+    const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const transitionTimersRef = useRef<number[]>([]);
 
     const handleSlashSelectRef = useRef<(cmd: Command, view?: EditorView) => void>();
@@ -775,7 +817,19 @@ export function Editor() {
     };
 
     const handleTabClose = (id: string) => {
+        // Guard against silently discarding unsaved changes on the active note.
+        if (id === activeNote?.path && isDirty) {
+            setDirtyCloseConfirm(id);
+            return;
+        }
         closeTab(id);
+    };
+
+    const confirmDirtyClose = () => {
+        if (dirtyCloseConfirm) {
+            closeTab(dirtyCloseConfirm);
+        }
+        setDirtyCloseConfirm(null);
     };
 
     const handleTabReorder = (sourceId: string, targetIndex: number) => {
@@ -837,6 +891,8 @@ export function Editor() {
                 spellCheckLanguage={spellCheckLanguage}
                 t={t}
                 locale={i18n.language}
+                isHistoryOpen={isHistoryOpen}
+                onHistoryToggle={() => setIsHistoryOpen((v) => !v)}
             />
             <div className="w-full border-b" style={dividerStyle} />
             <EditorBody
@@ -866,11 +922,77 @@ export function Editor() {
                     {t("editor.loadingNote")}
                 </div>
             )}
+            <TagSuggestionBanner
+                notePath={activeNote.path}
+                content={content}
+                existingTags={parseFrontmatterTags(extractFrontmatter(content).frontmatter)}
+                onAddTag={(tag) => {
+                    const view = editorRef.current?.view;
+                    if (!view) return;
+                    const { frontmatter } = extractFrontmatter(view.state.doc.toString());
+                    const existingTags = parseFrontmatterTags(frontmatter);
+                    const newTags = [...existingTags, tag];
+                    const tagsLine = `tags: [${newTags.join(", ")}]`;
+
+                    const doc = view.state.doc.toString();
+                    if (doc.startsWith("---")) {
+                        const endIdx = doc.indexOf("\n---", 3);
+                        const tagsMatch = doc.match(/^tags\s*:.*/m);
+                        if (tagsMatch && tagsMatch.index !== undefined && endIdx !== -1 && tagsMatch.index < endIdx) {
+                            view.dispatch({
+                                changes: {
+                                    from: tagsMatch.index,
+                                    to: tagsMatch.index + tagsMatch[0].length,
+                                    insert: tagsLine,
+                                },
+                            });
+                        } else if (endIdx !== -1) {
+                            view.dispatch({
+                                changes: { from: endIdx, insert: `\n${tagsLine}` },
+                            });
+                        }
+                    } else {
+                        view.dispatch({
+                            changes: { from: 0, insert: `---\n${tagsLine}\n---\n` },
+                        });
+                    }
+                }}
+            />
         </div>
     );
 
     return (
         <div className="h-full w-full flex flex-col overflow-hidden pt-1">
+            {dirtyCloseConfirm && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center"
+                    style={{ backgroundColor: "rgba(0,0,0,0.45)" }}
+                    onClick={() => setDirtyCloseConfirm(null)}
+                >
+                    <div
+                        className="rounded-lg p-5 shadow-xl flex flex-col gap-3 min-w-[280px] max-w-xs"
+                        style={{ backgroundColor: theme.colors.background.primary, border: `1px solid ${theme.colors.border.light}` }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <p className="text-sm font-medium" style={{ color: theme.colors.text.primary }}>
+                            {t("editor.unsavedChangesPrompt", {
+                                defaultValue: "Discard unsaved changes?",
+                            })}
+                        </p>
+                        <p className="text-xs" style={{ color: theme.colors.text.muted }}>
+                            {files.find(f => f.path === dirtyCloseConfirm)?.filename ?? dirtyCloseConfirm}
+                        </p>
+                        <div className="flex gap-2 justify-end">
+                            <Button variant="secondary" size="sm" onClick={() => setDirtyCloseConfirm(null)}>
+                                {t("common.cancel", { defaultValue: "Cancel" })}
+                            </Button>
+                            <Button variant="danger" size="sm" onClick={confirmDirtyClose}>
+                                {t("editor.discardChanges", { defaultValue: "Discard" })}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
             <TabStrip
                 tabs={tabs}
                 activeTabId={activeNote.path}
@@ -881,9 +1003,21 @@ export function Editor() {
                 isOverviewOpen={isOverviewOpen}
                 editorFontSizePx={editorFontSizePx}
             />
-            <div className="flex-1 min-h-0 relative" ref={editorContainerRef}>
+            <RecoveryBanner />
+            <div className="flex-1 min-h-0 flex min-w-0 relative" ref={editorContainerRef}>
+                <AIPanel getView={() => editorRef.current?.view} />
+                {isHistoryOpen && (
+                    <NoteHistoryPanel
+                        notePath={activeNote.path}
+                        onClose={() => setIsHistoryOpen(false)}
+                        onRestore={(content) => {
+                            handleContentChangeGuarded(content);
+                        }}
+                        getCurrentContent={() => editorRef.current?.view?.state.doc.toString() ?? ""}
+                    />
+                )}
                 {!isMedia && (
-                    <div className="flex h-full px-3 py-3 gap-2">
+                    <div className="flex flex-1 min-w-0 h-full px-3 py-3 gap-2">
                         <div
                             className="flex-1 min-w-0 h-full overflow-y-auto editor-scroll-shell"
                             style={{

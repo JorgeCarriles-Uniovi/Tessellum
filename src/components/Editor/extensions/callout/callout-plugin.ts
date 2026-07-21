@@ -145,7 +145,10 @@ function buildDecorations(view: EditorView, filePath: string): DecorationSet {
                     const langDesc = getLanguageForTitle(block.title);
                     if (langDesc) {
                         if (langDesc.support) {
-                            const fullCode = block.contentLines.join("\n");
+                            // Normalize CRLF → LF before computing offsets so that
+                            // token positions produced by the parser match character
+                            // indices in `lines`.
+                            const fullCode = block.contentLines.join("\n").replace(/\r\n?/g, "\n");
                             const tree = langDesc.support.language.parser.parse(fullCode);
                             const lines = fullCode.split("\n");
 

@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { useEditorStore } from '../../stores/editorStore';
 import { stringToColor } from '../../utils/graphUtils';
 import { useAppTranslation } from '../../i18n/react.tsx';
+import { IconButton } from '../ui';
 
 interface NodeInfoPanelProps {
     nodePath: string;
@@ -85,20 +86,9 @@ export function NodeInfoPanel({ nodePath, tags, onClose }: NodeInfoPanelProps) {
                 >
                     {getLabel(nodePath)}
                 </span>
-                <button
-                    onClick={onClose}
-                    style={{
-                        background: 'none',
-                        border: 'none',
-                        cursor: 'pointer',
-                        color: 'var(--color-text-muted)',
-                        fontSize: '16px',
-                        lineHeight: 1,
-                        padding: '0 2px',
-                    }}
-                >
+                <IconButton label="Close" size={20} onClick={onClose} style={{ fontSize: '16px' }}>
                     ×
-                </button>
+                </IconButton>
             </div>
 
             {/* Content */}

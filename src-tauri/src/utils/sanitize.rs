@@ -21,7 +21,7 @@ pub fn sanitize_string(s: String) -> String {
         })
         .collect();
     sanitized
-        .trim_end_matches(|c| c == '.' || c == ' ')
+        .trim_end_matches(['.', ' '])
         .to_string()
 }
 

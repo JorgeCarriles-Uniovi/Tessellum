@@ -49,12 +49,12 @@ impl VaultIndexer {
         log::debug!("Found {} files in filesystem", fs_files.len());
         
         // 2. Get all indexed search files from database
-        let db_files: HashMap<String, (i64, bool)> = db
+        let db_files: HashMap<String, (i64, bool, i64)> = db
             .get_all_search_files()
             .await
             .map_err(|e| format!("Failed to get indexed files: {}", e))?
             .into_iter()
-            .map(|(path, modified, is_markdown)| (path, (modified, is_markdown != 0)))
+            .map(|(path, modified, is_markdown, size)| (path, (modified, is_markdown != 0, size)))
             .collect();
         log::debug!("Found {} files in database", db_files.len());
         let is_initial_sync = db_files.is_empty();
@@ -74,8 +74,13 @@ impl VaultIndexer {
         
         for (path, (modified_time, size, is_markdown)) in &fs_files {
             let needs_index = match db_files.get(path) {
-                None => true,                                                 // New file
-                Some((db_modified, _)) => *modified_time > *db_modified, // Modified file
+                None => true, // New file
+                // Re-index if mtime changed OR if mtime is equal but size changed
+                // (handles same-second edits that only touch frontmatter).
+                Some((db_modified, _, db_size)) => {
+                    *modified_time > *db_modified
+                        || (*modified_time == *db_modified && *db_size != *size as i64)
+                }
             };
             
             if needs_index {
@@ -111,6 +116,7 @@ impl VaultIndexer {
                     other_file_updates.push(IndexedSearchFile {
                         path: path.clone(),
                         modified: *modified_time,
+                        size: *size,
                         is_markdown: false,
                     });
                     files_indexed += 1;
@@ -145,11 +151,10 @@ impl VaultIndexer {
             log::debug!("Removing {} deleted files from index", deleted_paths.len());
             let mut markdown_deleted: Vec<String> = Vec::new();
             for path in &deleted_paths {
-                if let Some((_, is_md)) = db_files.get(path) {
-                    if *is_md {
+                if let Some((_, is_md, _)) = db_files.get(path)
+                    && *is_md {
                         markdown_deleted.push(path.clone());
                     }
-                }
             }
             if !markdown_deleted.is_empty() {
                 files_deleted = db
@@ -164,22 +169,16 @@ impl VaultIndexer {
         
         // Update search index in batch
         if !docs_to_index.is_empty() || !deleted_paths.is_empty() {
-            let docs = docs_to_index.clone();
-            let deletes = deleted_paths.clone();
-            tauri::async_runtime::spawn_blocking(move || {
-                let guard = tauri::async_runtime::block_on(search_index.lock());
-                if is_initial_sync {
-                    guard
-                        .rebuild_all(&docs)
-                        .map_err(|e| format!("Failed to rebuild search index: {}", e))
-                } else {
-                    guard
-                        .index_batch(&docs, &deletes)
-                        .map_err(|e| format!("Failed to update search index: {}", e))
-                }
-            })
-                .await
-                .map_err(|e| format!("Search index task failed: {}", e))??;
+            let guard = search_index.lock().await;
+            if is_initial_sync {
+                guard
+                    .rebuild_all(&docs_to_index)
+                    .map_err(|e| format!("Failed to rebuild search index: {}", e))?;
+            } else {
+                guard
+                    .index_batch(&docs_to_index, &deleted_paths)
+                    .map_err(|e| format!("Failed to update search index: {}", e))?;
+            }
         }
         
         let duration_ms = start.elapsed().as_millis();
@@ -212,29 +211,30 @@ impl VaultIndexer {
         
         for entry in WalkDir::new(vault_path).into_iter().filter_map(|e| e.ok()) {
             let path = entry.path();
-            let path_str = path.to_string_lossy().to_string();
-            
+
             // Skip hidden files/dirs (.git, .trash, etc.)
             let rel_path = path.strip_prefix(vault_path).unwrap_or(path);
             if is_hidden_or_special(rel_path) {
                 continue;
             }
-            
-            if path.is_file() {
-                let is_markdown = path.extension().and_then(|s| s.to_str()) == Some("md");
-                if let Ok(metadata) = fs::metadata(path) {
-                    let modified_time = metadata
-                        .modified()
-                        .unwrap_or(UNIX_EPOCH)
-                        .duration_since(UNIX_EPOCH)
-                        .unwrap_or_default()
-                        .as_secs() as i64;
-                    
-                    files.insert(
-                        crate::utils::normalize_path(&path_str),
-                        (modified_time, metadata.len(), is_markdown),
-                    );
-                }
+
+            if !entry.file_type().is_file() {
+                continue;
+            }
+
+            let is_markdown = path.extension().and_then(|s| s.to_str()) == Some("md");
+            if let Ok(metadata) = entry.metadata() {
+                let modified_time = metadata
+                    .modified()
+                    .unwrap_or(UNIX_EPOCH)
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs() as i64;
+
+                files.insert(
+                    crate::utils::normalize_path(&path.to_string_lossy()),
+                    (modified_time, metadata.len(), is_markdown),
+                );
             }
         }
         
@@ -334,8 +334,8 @@ mod tests {
         assert!(files.contains_key(&note_path));
         assert!(files.contains_key(&image_path));
         assert!(!files.contains_key(&hidden_path));
-        assert_eq!(files[&note_path].2, true);
-        assert_eq!(files[&image_path].2, false);
+        assert!(files[&note_path].2);
+        assert!(!files[&image_path].2);
     }
 
     #[tokio::test]

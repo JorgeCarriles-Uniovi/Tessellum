@@ -1,7 +1,7 @@
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
-import { theme } from "../styles/theme";
 import { useAppTranslation } from "../i18n/react.tsx";
+import { Button, KeyHint, Modal, ModalFooter, ModalHeader, TextInput } from "./ui";
 
 interface InputModalProps {
     isOpen: boolean;
@@ -14,24 +14,17 @@ interface InputModalProps {
 }
 
 export function InputModal({
-                               isOpen,
-                               onClose,
-                               onSubmit,
-                               title,
-                               placeholder,
-                               defaultValue = "",
-                               submitLabel,
-                           }: InputModalProps) {
+    isOpen,
+    onClose,
+    onSubmit,
+    title,
+    placeholder,
+    defaultValue = "",
+    submitLabel,
+}: InputModalProps) {
     const { t } = useAppTranslation("core");
     const [value, setValue] = useState(defaultValue);
-    const [isFocused, setIsFocused] = useState(false);
-    const [cancelHovered, setCancelHovered] = useState(false);
-    const [submitHovered, setSubmitHovered] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
-
-    const resolvedTitle = title ?? t("inputModal.enterName");
-    const resolvedPlaceholder = placeholder ?? t("inputModal.enterNamePlaceholder");
-    const resolvedSubmitLabel = submitLabel ?? t("inputModal.create");
 
     useEffect(() => {
         if (isOpen) {
@@ -43,20 +36,6 @@ export function InputModal({
         }
     }, [isOpen, defaultValue]);
 
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (!isOpen) return;
-            if (e.key === "Escape") {
-                onClose();
-            }
-        };
-
-        document.addEventListener("keydown", handleKeyDown);
-        return () => document.removeEventListener("keydown", handleKeyDown);
-    }, [isOpen, onClose]);
-
-    if (!isOpen) return null;
-
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (value.trim()) {
@@ -66,213 +45,35 @@ export function InputModal({
     };
 
     return (
-        <div
-            style={{
-                position: "fixed",
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                zIndex: 50,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-            }}
-        >
-            {/* Backdrop */}
-            <div
-                style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundColor: "rgba(0, 0, 0, 0.5)",
-                    backdropFilter: "blur(4px)",
-                }}
-                onClick={onClose}
-            />
+        <Modal isOpen={isOpen} onClose={onClose} maxWidth={420}>
+            <form onSubmit={handleSubmit}>
+                <ModalHeader title={title ?? t("inputModal.enterName")} />
 
-            {/* Modal */}
-            <div
-                style={{
-                    position: "relative",
-                    width: "100%",
-                    maxWidth: "420px",
-                    margin: "0 16px",
-                    backgroundColor: theme.colors.background.primary,
-                    border: `1px solid ${theme.colors.border.light}`,
-                    borderRadius: theme.borderRadius.xl,
-                    boxShadow: theme.shadows.xl,
-                    overflow: "hidden",
-                }}
-            >
-                <form onSubmit={handleSubmit}>
-                    {/* Header */}
-                    <div
-                        style={{
-                            padding: "24px 24px 16px 24px",
-                        }}
-                    >
-                        <h2
-                            style={{
-                                margin: 0,
-                                fontSize: "18px",
-                                lineHeight: "28px",
-                                color: theme.colors.text.primary,
-                                fontWeight: theme.typography.fontWeight.semibold,
-                            }}
-                        >
-                            {resolvedTitle}
-                        </h2>
-                    </div>
+                <div style={{ padding: "4px 24px 16px 24px" }}>
+                    <TextInput
+                        ref={inputRef}
+                        value={value}
+                        onChange={(e) => setValue(e.target.value)}
+                        placeholder={placeholder ?? t("inputModal.enterNamePlaceholder")}
+                    />
+                </div>
 
-                    {/* Input */}
-                    <div
-                        style={{
-                            padding: "0 24px 16px 24px",
-                        }}
-                    >
-                        <input
-                            ref={inputRef}
-                            type="text"
-                            value={value}
-                            onChange={(e) => setValue(e.target.value)}
-                            onFocus={() => setIsFocused(true)}
-                            onBlur={() => setIsFocused(false)}
-                            placeholder={resolvedPlaceholder}
-                            style={{
-                                width: "100%",
-                                padding: "12px 16px",
-                                fontSize: "14px",
-                                lineHeight: "20px",
-                                backgroundColor: isFocused
-                                    ? theme.colors.background.primary
-                                    : theme.colors.background.secondary,
-                                border: `1px solid ${isFocused ? theme.colors.blue[500] : theme.colors.border.medium}`,
-                                borderRadius: theme.borderRadius.lg,
-                                color: theme.colors.text.primary,
-                                outline: "none",
-                                boxShadow: isFocused
-                                    ? `0 0 0 3px ${theme.colors.blue[500]}33`
-                                    : "none",
-                                transition: "all 150ms ease",
-                                boxSizing: "border-box",
-                            }}
-                        />
-                    </div>
-
-                    {/* Footer */}
-                    <div
-                        style={{
-                            padding: "0 24px 24px 24px",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                        }}
-                    >
-                        {/* Keyboard hints */}
-                        <div
-                            style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "12px",
-                                fontSize: "12px",
-                                color: theme.colors.text.muted,
-                            }}
-                        >
-                            <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                                <kbd
-                                    style={{
-                                        padding: "2px 6px",
-                                        fontSize: "10px",
-                                        fontFamily: theme.typography.fontFamily.mono,
-                                        backgroundColor: theme.colors.background.tertiary,
-                                        border: `1px solid ${theme.colors.border.light}`,
-                                        borderRadius: theme.borderRadius.base,
-                                        color: theme.colors.text.muted,
-                                    }}
-                                >
-                                    Enter
-                                </kbd>
-                                <span>{t("inputModal.confirm")}</span>
-                            </span>
-                            <span style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                                <kbd
-                                    style={{
-                                        padding: "2px 6px",
-                                        fontSize: "10px",
-                                        fontFamily: theme.typography.fontFamily.mono,
-                                        backgroundColor: theme.colors.background.tertiary,
-                                        border: `1px solid ${theme.colors.border.light}`,
-                                        borderRadius: theme.borderRadius.base,
-                                        color: theme.colors.text.muted,
-                                    }}
-                                >
-                                    Esc
-                                </kbd>
-                                <span>{t("inputModal.cancelHint")}</span>
-                            </span>
-                        </div>
-
-                        {/* Actions */}
-                        <div
-                            style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "8px",
-                            }}
-                        >
-                            <button
-                                type="button"
-                                onClick={onClose}
-                                onMouseEnter={() => setCancelHovered(true)}
-                                onMouseLeave={() => setCancelHovered(false)}
-                                style={{
-                                    padding: "8px 16px",
-                                    fontSize: "14px",
-                                    backgroundColor: cancelHovered
-                                        ? theme.colors.background.tertiary
-                                        : "transparent",
-                                    color: cancelHovered
-                                        ? theme.colors.text.primary
-                                        : theme.colors.text.muted,
-                                    border: "none",
-                                    borderRadius: theme.borderRadius.lg,
-                                    fontWeight: theme.typography.fontWeight.medium,
-                                    cursor: "pointer",
-                                    transition: "all 150ms ease",
-                                }}
-                            >
-                                {t("inputModal.cancel")}
-                            </button>
-                            <button
-                                type="submit"
-                                disabled={!value.trim()}
-                                onMouseEnter={() => setSubmitHovered(true)}
-                                onMouseLeave={() => setSubmitHovered(false)}
-                                style={{
-                                    padding: "8px 16px",
-                                    fontSize: "14px",
-                                    backgroundColor:
-                                        submitHovered && value.trim()
-                                            ? theme.colors.blue[700]
-                                            : theme.colors.blue[600],
-                                    color: "var(--primary-foreground)",
-                                    border: "none",
-                                    borderRadius: theme.borderRadius.lg,
-                                    fontWeight: theme.typography.fontWeight.medium,
-                                    cursor: value.trim() ? "pointer" : "not-allowed",
-                                    opacity: value.trim() ? 1 : 0.5,
-                                    transition: "all 150ms ease",
-                                }}
-                            >
-                                {resolvedSubmitLabel}
-                            </button>
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </div>
+                <ModalFooter
+                    hints={
+                        <>
+                            <KeyHint keys="Enter">{t("inputModal.confirm")}</KeyHint>
+                            <KeyHint keys="Esc">{t("inputModal.cancelHint")}</KeyHint>
+                        </>
+                    }
+                >
+                    <Button variant="ghost" onClick={onClose}>
+                        {t("inputModal.cancel")}
+                    </Button>
+                    <Button variant="primary" type="submit" disabled={!value.trim()}>
+                        {submitLabel ?? t("inputModal.create")}
+                    </Button>
+                </ModalFooter>
+            </form>
+        </Modal>
     );
 }

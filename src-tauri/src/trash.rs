@@ -15,29 +15,44 @@ pub struct PurgeReport {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParsedTrashName {
 	pub original_name: String,
+	/// Either a `p:<relative-dir>` encoded path (new format) or a bare folder name (legacy).
 	pub parent_label: String,
+	/// Full relative directory path decoded from the `p:` prefix; `None` for legacy names.
+	pub relative_dir: Option<String>,
 }
 
-/// Generates a unique trash name using the current naming format:
-/// "<stem-or-dirname> (<parent>) <timestamp>[.<original-ext>]"
-pub fn generate_trash_name(path: &Path, timestamp: u128) -> Option<String> {
+/// Percent-encodes a relative directory path for storage in a trash filename.
+/// Only `/` and `%` are encoded; all other characters are kept as-is.
+fn encode_relative_dir(rel_dir: &str) -> String {
+	rel_dir.replace('%', "%25").replace('/', "%2F")
+}
+
+/// Decodes a percent-encoded relative directory path from a trash filename.
+pub fn decode_relative_dir(encoded: &str) -> String {
+	encoded.replace("%2F", "/").replace("%2f", "/").replace("%25", "%")
+}
+
+/// Generates a unique trash name that encodes the full relative path from the vault root.
+/// New format: "<stem> (p:<encoded-rel-dir>) <timestamp>[.<ext>]"
+/// Items at vault root use an empty relative dir: "<stem> (p:) <timestamp>[.<ext>]"
+pub fn generate_trash_name(path: &Path, vault_root: &Path, timestamp: u128) -> Option<String> {
 	let filename = path.file_name()?.to_string_lossy();
-	
-	let raw_parent = path
+
+	let rel_dir = path
 		.parent()
-		.and_then(|p| p.file_name())
-		.map(|n| n.to_string_lossy())
-		.unwrap_or_else(|| "root".into());
-	
-	// Strip a previous trailing " (<something>)" chain to keep names readable.
-	let clean_parent = raw_parent.split(" (").next().unwrap_or(&raw_parent);
-	
+		.and_then(|parent| parent.strip_prefix(vault_root).ok())
+		.map(|rel| rel.to_string_lossy().replace('\\', "/"))
+		.unwrap_or_default();
+
+	let encoded = encode_relative_dir(&rel_dir);
+	let label = format!("p:{encoded}");
+
 	if path.is_dir() {
-		Some(format!("{} ({}) {}", filename, clean_parent, timestamp))
+		Some(format!("{} ({}) {}", filename, label, timestamp))
 	} else {
 		let (stem, extension) = split_name_parts(&filename);
 		let suffix = extension.map(|ext| format!(".{ext}")).unwrap_or_default();
-		Some(format!("{} ({}) {}{}", stem, clean_parent, timestamp, suffix))
+		Some(format!("{} ({}) {}{}", stem, label, timestamp, suffix))
 	}
 }
 
@@ -78,32 +93,35 @@ fn strip_collision_suffix_for_parsing(name: &str) -> &str {
 
 /// Builds a unique destination path inside `.trash`, avoiding name collisions when
 /// multiple items resolve to the same trash name.
-pub fn generate_unique_trash_path(trash_dir: &Path, source_path: &Path, timestamp: u128) -> Option<PathBuf> {
-	let base_name = generate_trash_name(source_path, timestamp)?;
+pub fn generate_unique_trash_path(trash_dir: &Path, source_path: &Path, vault_root: &Path, timestamp: u128) -> Option<PathBuf> {
+	let base_name = generate_trash_name(source_path, vault_root, timestamp)?;
 	let mut candidate = trash_dir.join(&base_name);
 	let mut collision_index = 1;
-	
+
 	while candidate.exists() {
 		let next_name = with_collision_suffix(&base_name, collision_index);
 		candidate = trash_dir.join(next_name);
 		collision_index += 1;
 	}
-	
+
 	Some(candidate)
 }
 
 /// Recursively renames children of a trashed directory with the same timestamp.
+/// `vault_root` here is the trashed directory itself — path encoding is relative to it.
 pub fn rename_recursively(dir: &Path, timestamp: u128) -> std::io::Result<()> {
 	if !dir.is_dir() {
 		return Ok(());
 	}
-	
+
 	let entries: Vec<PathBuf> = fs::read_dir(dir)?
 		.filter_map(|e| e.ok().map(|entry| entry.path()))
 		.collect();
-	
+
 	for path in entries {
-		if let Some(new_name) = generate_trash_name(&path, timestamp) {
+		// Use the containing dir as vault_root so nested items encode their
+		// relative position inside the trashed directory tree.
+		if let Some(new_name) = generate_trash_name(&path, dir, timestamp) {
 			let new_path = path.parent().unwrap_or(dir).join(new_name);
 			fs::rename(&path, &new_path)?;
 			if new_path.is_dir() {
@@ -111,7 +129,7 @@ pub fn rename_recursively(dir: &Path, timestamp: u128) -> std::io::Result<()> {
 			}
 		}
 	}
-	
+
 	Ok(())
 }
 
@@ -141,19 +159,28 @@ pub fn parse_trash_entry_name(name: &str, is_dir: bool) -> Option<ParsedTrashNam
 	let close_index = name_and_parent.rfind(')')?;
 	let open_index = name_and_parent[..close_index].rfind(" (")?;
 	let base_name = name_and_parent[..open_index].trim();
-	let parent_label = name_and_parent[open_index + 2..close_index].trim();
-	if base_name.is_empty() || parent_label.is_empty() {
+	let parent_label_raw = name_and_parent[open_index + 2..close_index].trim();
+	if base_name.is_empty() || parent_label_raw.is_empty() {
 		return None;
 	}
-	
+
 	let original_name = match extension {
 		Some(ext) => format!("{base_name}.{ext}"),
 		None => base_name.to_string(),
 	};
-	
+
+	// New format: parent label starts with "p:" — decode the full relative dir.
+	let (parent_label, relative_dir) = if let Some(encoded) = parent_label_raw.strip_prefix("p:") {
+		let decoded = decode_relative_dir(encoded);
+		(parent_label_raw.to_string(), Some(decoded))
+	} else {
+		(parent_label_raw.to_string(), None)
+	};
+
 	Some(ParsedTrashName {
 		original_name,
-		parent_label: parent_label.to_string(),
+		parent_label,
+		relative_dir,
 	})
 }
 
@@ -443,21 +470,46 @@ mod tests {
 		let vault = dir.path();
 		let trash = vault.join(".trash");
 		fs::create_dir_all(&trash).unwrap();
-		
+
 		let source_dir = vault.join("Folder A");
 		fs::create_dir_all(&source_dir).unwrap();
 		let source_file = source_dir.join("Note.md");
 		fs::write(&source_file, "note").unwrap();
-		
+
 		let timestamp = 1_740_681_450_123_u128;
-		let first_name = generate_trash_name(&source_file, timestamp).unwrap();
+		let first_name = generate_trash_name(&source_file, vault, timestamp).unwrap();
 		fs::write(trash.join(&first_name), "existing").unwrap();
-		
-		let unique_path = generate_unique_trash_path(&trash, &source_file, timestamp).unwrap();
-		assert_eq!(
-			unique_path.file_name().and_then(|name| name.to_str()),
-			Some("Note (Folder A) 1740681450123 [1].md")
+
+		let unique_path = generate_unique_trash_path(&trash, &source_file, vault, timestamp).unwrap();
+		// New format encodes "Folder A" as "p:Folder%20A" is wrong — spaces are not encoded.
+		// The new format: "Note (p:Folder A) <ts> [1].md"
+		let file_name = unique_path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+		assert!(file_name.starts_with("Note (p:Folder A)") && file_name.ends_with("[1].md"),
+			"unexpected name: {file_name}");
+	}
+
+	#[test]
+	fn generate_trash_name_encodes_full_relative_path() {
+		let dir = tempdir().unwrap();
+		let vault = dir.path();
+		let nested = vault.join("Projects").join("2024").join("Q1");
+		fs::create_dir_all(&nested).unwrap();
+		let file = nested.join("Meeting Notes.md");
+		fs::write(&file, "").unwrap();
+
+		let name = generate_trash_name(&file, vault, 1000).unwrap();
+		assert!(
+			name.contains("(p:Projects%2F2024%2FQ1)"),
+			"expected encoded path in trash name, got: {name}"
 		);
+	}
+
+	#[test]
+	fn parse_trash_entry_name_decodes_relative_dir() {
+		let parsed =
+			parse_trash_entry_name("Meeting Notes (p:Projects%2F2024%2FQ1) 1000.md", false).unwrap();
+		assert_eq!(parsed.original_name, "Meeting Notes.md");
+		assert_eq!(parsed.relative_dir.as_deref(), Some("Projects/2024/Q1"));
 	}
 	
 	#[test]

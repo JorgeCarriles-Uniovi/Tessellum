@@ -1,8 +1,10 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
+import { invoke } from "@tauri-apps/api/core";
 import {
     ArrowLeft,
     ArrowRight,
+    ArrowUpDown,
     FolderOpen,
     Plus,
     FolderPlus,
@@ -14,7 +16,15 @@ import {
     Palette,
     User, FileText, Keyboard, Eye,
     Puzzle,
+    RefreshCw,
+    Globe,
+    LayoutTemplate,
+    Sparkles,
+    Tags,
+    Terminal,
+    Download,
 } from "lucide-react";
+import { useAIStore } from "../../stores/aiStore";
 import { Plugin } from "../Plugin";
 import type { PluginManifest } from "../types";
 import { createNoteInDir } from "../../utils/noteUtils";
@@ -31,6 +41,13 @@ import {
     AccessibilitySettings
 } from "../../components/Settings/AccessibilitySettings.tsx";
 import { PluginsSettings } from "../../components/Settings/PluginsSettings.tsx";
+import { SyncSettings } from "../../components/Settings/SyncSettings.tsx";
+import { PublishSettings } from "../../components/Settings/PublishSettings.tsx";
+import { ExportImportSettings } from "../../components/Settings/ExportImportSettings.tsx";
+import { AISettings } from "../../components/Settings/AISettings.tsx";
+import { TagsSettings } from "../../components/Settings/TagsSettings.tsx";
+import { ScriptsSettings } from "../../components/Settings/ScriptsSettings.tsx";
+import { UpdatesSettings } from "../../components/Settings/UpdatesSettings.tsx";
 import { coreUIActionsTranslations, coreUIActionKeywords } from "./coreUIActionsTranslations.ts";
 
 export class CoreUIActionsPlugin extends Plugin {
@@ -107,6 +124,29 @@ export class CoreUIActionsPlugin extends Plugin {
 
         const pasteFiles = () => {
             this.app.events.emit("ui:paste-files");
+        };
+
+        const newCanvas = async () => {
+            const vaultPath = this.app.workspace.getVaultPath();
+            if (!vaultPath) {
+                toast.error(t("errors.openVaultFirst"));
+                return;
+            }
+            try {
+                const activeNote = this.app.workspace.getActiveNote();
+                const targetDir = activeNote ? getParentFromTarget(activeNote) : vaultPath;
+                const canvasPath = `${targetDir}/Untitled.canvas`;
+                await invoke("write_file", {
+                    vaultPath,
+                    path: canvasPath,
+                    content: JSON.stringify({ nodes: [], edges: [] }, null, 2),
+                });
+                this.app.workspace.setCanvasPath(canvasPath);
+                this.app.workspace.setViewMode("canvas");
+            } catch (e) {
+                console.error(e);
+                toast.error("Failed to create canvas");
+            }
         };
 
         this.app.events.on("ui:new-note", newNote);
@@ -233,6 +273,30 @@ export class CoreUIActionsPlugin extends Plugin {
             onTrigger: openTemplatePicker,
         });
         this.app.ui.registerPaletteCommand(this.manifest.id, {
+            id: "new-canvas",
+            name: () => "New Canvas",
+            keywords: () => ["canvas", "new canvas", "spatial", "board"],
+            icon: <LayoutTemplate size={16} />,
+            onTrigger: newCanvas,
+        });
+        this.app.ui.registerPaletteCommand(this.manifest.id, {
+            id: "ai-assistant",
+            name: () => "AI Writing Assistant",
+            keywords: () => ["ai", "assistant", "write", "summarise", "expand", "rephrase"],
+            icon: <Sparkles size={16} />,
+            onTrigger: () => {
+                useAIStore.getState().openPanel();
+            },
+        });
+        this.registerCommand({
+            id: "ai:open",
+            name: "AI Writing Assistant",
+            icon: <Sparkles size={16} />,
+            callback: () => {
+                useAIStore.getState().openPanel();
+            },
+        });
+        this.app.ui.registerPaletteCommand(this.manifest.id, {
             id: "paste-files",
             name: () => t("commands.pasteFiles"),
             keywords: () => keywords("pasteFiles"),
@@ -278,10 +342,52 @@ export class CoreUIActionsPlugin extends Plugin {
             component: <AccessibilitySettings></AccessibilitySettings>
         });
         this.app.ui.registerSettingsTab(this.manifest.id, {
+            id: "Sync",
+            name: () => "Sync",
+            icon: <RefreshCw size={16} />,
+            component: <SyncSettings />
+        });
+        this.app.ui.registerSettingsTab(this.manifest.id, {
+            id: "Publish",
+            name: () => "Publish",
+            icon: <Globe size={16} />,
+            component: <PublishSettings />,
+        });
+        this.app.ui.registerSettingsTab(this.manifest.id, {
+            id: "Export",
+            name: () => "Export & Import",
+            icon: <ArrowUpDown size={16} />,
+            component: <ExportImportSettings />,
+        });
+        this.app.ui.registerSettingsTab(this.manifest.id, {
             id: "Plugins",
             name: () => t("tabs.plugins"),
             icon: <Puzzle size={16} />,
             component: <PluginsSettings />
+        });
+        this.app.ui.registerSettingsTab(this.manifest.id, {
+            id: "AI",
+            name: () => "AI Assistant",
+            icon: <Sparkles size={16} />,
+            component: <AISettings />,
+        });
+        this.app.ui.registerSettingsTab(this.manifest.id, {
+            id: "Tags",
+            name: () => "Tags",
+            icon: <Tags size={16} />,
+            component: <TagsSettings />,
+        });
+        this.app.ui.registerSettingsTab(this.manifest.id, {
+            id: "Scripts",
+            name: () => "Scripts",
+            icon: <Terminal size={16} />,
+            component: <ScriptsSettings />,
+        });
+        this.app.ui.registerSettingsTab(this.manifest.id, {
+            id: "Updates",
+            name: () => "Updates",
+            icon: <Download size={16} />,
+            component: <UpdatesSettings />,
         });
     }
 }

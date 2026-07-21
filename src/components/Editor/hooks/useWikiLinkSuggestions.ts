@@ -13,7 +13,6 @@ import { WikiLinkSuggestion } from '../WikiLinkSuggestionsMenu.tsx';
 import {
     getSafeWikiLinkCursorCoords,
     getWikiLinkContext,
-    type WikiLinkContext,
 } from "./wikiLinkSuggestionsLogic";
 
 interface MenuCoords {

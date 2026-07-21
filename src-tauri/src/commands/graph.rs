@@ -60,7 +60,7 @@ pub async fn get_graph_data(
 #[tauri::command]
 pub fn execute_graph_query(cypher: String) -> Result<serde_json::Value, TessellumError> {
 	crate::grafeo_projection::execute_query(&cypher)
-		.map_err(|e| TessellumError::Internal(e))
+		.map_err(TessellumError::Internal)
 }
 
 pub async fn build_graph_data(

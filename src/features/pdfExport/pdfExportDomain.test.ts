@@ -2,7 +2,6 @@ import { describe, expect, test } from "vitest";
 import type { FileMetadata } from "../../types";
 import {
     EXPORT_PAGE_CONTENT_HEIGHT_PX,
-    EXPORT_PAGE_HEIGHT_PX,
     EXPORT_TYPOGRAPHY,
     buildPdfFileName,
     buildPdfOutlineEntries,

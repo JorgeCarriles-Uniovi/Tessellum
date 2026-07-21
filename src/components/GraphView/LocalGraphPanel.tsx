@@ -13,6 +13,7 @@ import { applyFilterToGraphData } from '../../lib/cypherGraphFilter';
 import { runCypherGraphFilter } from '../../lib/cypherGraphFilter';
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { normalizeCypherQuery } from "../../lib/cypherQueryNormalizer";
+import { IconButton } from "../ui";
 
 export function LocalGraphPanel({ isOpen }: { isOpen: boolean }) {
     const { vaultPath, activeNote, setActiveNote, files, addFileIfMissing } = useVaultStore();
@@ -239,29 +240,9 @@ export function LocalGraphPanel({ isOpen }: { isOpen: boolean }) {
                     >
                         Local Graph — {noteLabel}
                     </span>
-                    <button
-                        onClick={toggleLocalGraph}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            width: 22,
-                            height: 22,
-                            background: 'none',
-                            border: 'none',
-                            cursor: 'pointer',
-                            color: 'var(--color-text-muted)',
-                            borderRadius: 'var(--radius-sm)',
-                        }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.backgroundColor = 'var(--color-bg-tertiary)';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.backgroundColor = 'transparent';
-                        }}
-                    >
+                    <IconButton label="Close local graph" size={22} onClick={toggleLocalGraph}>
                         <X size={14} />
-                    </button>
+                    </IconButton>
                 </div>
 
                 {/* Graph */}

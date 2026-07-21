@@ -49,9 +49,9 @@ describe("useApplyThemeSchedule", () => {
         useThemeStore.setState({
             ...useThemeStore.getState(),
             themes: [
-                { name: "Nord Light", variant: "light", tokens: {} as never },
-                { name: "Nord Dark", variant: "dark", tokens: {} as never },
-                { name: "Slate", variant: "dark", tokens: {} as never },
+                { name: "Nord Light", variant: "light", tokens: {} as never, source: "builtin" },
+                { name: "Nord Dark", variant: "dark", tokens: {} as never, source: "builtin" },
+                { name: "Slate", variant: "dark", tokens: {} as never, source: "builtin" },
             ],
             activeThemeName: "Nord Light",
         });
@@ -74,7 +74,7 @@ describe("useApplyThemeSchedule", () => {
                 });
                 useApplyThemeSchedule();
             },
-            { initialProps: { mode: "off" as const } },
+            { initialProps: { mode: "off" as "off" | "system" } },
         );
 
         expect(setActiveTheme).not.toHaveBeenCalled();
@@ -96,7 +96,7 @@ describe("useApplyThemeSchedule", () => {
         const { useApplyThemeSchedule } = await import("./useApplyThemeSchedule");
         const setActiveTheme = vi.spyOn(useThemeStore.getState(), "setActiveTheme");
         const geolocation = {
-            getCurrentPosition: vi.fn((success: (position: GeolocationPosition) => void) => {
+            getCurrentPosition: vi.fn((success: (position: GeolocationPosition) => void, _error?: () => void) => {
                 success({
                     coords: {
                         latitude: 43.36,
@@ -129,7 +129,7 @@ describe("useApplyThemeSchedule", () => {
         expect(setActiveTheme).not.toHaveBeenCalled();
 
         setActiveTheme.mockClear();
-        geolocation.getCurrentPosition.mockImplementation((_success, error: () => void) => error());
+        geolocation.getCurrentPosition.mockImplementation((_success, error) => error?.());
 
         act(() => {
             useAppearanceStore.setState({

@@ -13,6 +13,7 @@ import { CALLOUT_HEADER_RE } from "./callout/callout-parser";
 import { getTableLinePositions } from "./table/table-plugin";
 import { findTaskListItems } from "./task-list/task-list-parser";
 import { findLatexExpressions } from "./shared-latex-utils";
+import { collectInlineCodeSpansForLine } from "../../../utils/inlineCodeSpans";
 
 // Set of mark types we want to hide
 const HIDDEN_MARKS = new Set([
@@ -62,50 +63,10 @@ interface DocRange {
 }
 
 function collectInlineCodeTextSpans(lineText: string, lineFrom: number): DocRange[] {
-    const spans: DocRange[] = [];
-    let i = 0;
-    let inCode = false;
-    let delimiterLen = 0;
-    let codeStart = -1;
-
-    while (i < lineText.length) {
-        if (lineText[i] !== "`") {
-            i += 1;
-            continue;
-        }
-
-        const runStart = i;
-        while (i < lineText.length && lineText[i] === "`") {
-            i += 1;
-        }
-        const runLen = i - runStart;
-
-        if (!inCode) {
-            inCode = true;
-            delimiterLen = runLen;
-            codeStart = runStart;
-            continue;
-        }
-
-        if (runLen === delimiterLen) {
-            spans.push({
-                from: lineFrom + codeStart,
-                to: lineFrom + i,
-            });
-            inCode = false;
-            delimiterLen = 0;
-            codeStart = -1;
-        }
-    }
-
-    if (inCode && codeStart >= 0) {
-        spans.push({
-            from: lineFrom + codeStart,
-            to: lineFrom + lineText.length,
-        });
-    }
-
-    return spans;
+    return collectInlineCodeSpansForLine(lineText).map(({ from, to }) => ({
+        from: lineFrom + from,
+        to: lineFrom + to,
+    }));
 }
 
 function overlapsRange(from: number, to: number, range: DocRange): boolean {

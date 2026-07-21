@@ -15,7 +15,7 @@ const fileTreeComponentMocks = vi.hoisted(() => {
     return {
         onDragStartIntent,
         useFileTreeDrag: vi.fn(() => ({
-            dragOver: { path: null, position: null },
+            dragOver: { path: null, position: null } as { path: string | null; position: string | null },
             onDragStartIntent,
         })),
     };
