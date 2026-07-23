@@ -11,7 +11,7 @@
     justify-content: center;
     gap: 6px;
     border: 1px solid transparent;
-    border-radius: var(--radius-lg);
+    border-radius: 9px;
     font-weight: 500;
     cursor: pointer;
     white-space: nowrap;
@@ -50,13 +50,13 @@
 }
 
 .ui-btn--secondary {
-    background-color: transparent;
+    background-color: var(--color-bg-elevated);
     border-color: var(--color-border-light);
     color: var(--color-text-secondary);
 }
 
 .ui-btn--secondary:hover:not(:disabled) {
-    background-color: var(--color-bg-tertiary);
+    border-color: var(--color-text-muted);
     color: var(--color-text-primary);
 }
 
@@ -99,7 +99,7 @@
     justify-content: center;
     border: none;
     background-color: transparent;
-    border-radius: var(--radius-md);
+    border-radius: 7px;
     color: var(--color-text-muted);
     cursor: pointer;
     padding: 0;
@@ -107,7 +107,7 @@
 }
 
 .ui-icon-btn:hover:not(:disabled) {
-    background-color: var(--color-bg-tertiary);
+    background-color: var(--color-bg-hover);
     color: var(--color-text-primary);
 }
 
@@ -132,9 +132,9 @@
     padding: 12px 16px;
     font-size: 14px;
     line-height: 20px;
-    background-color: var(--color-bg-secondary);
-    border: 1px solid var(--color-border-medium);
-    border-radius: var(--radius-lg);
+    background-color: var(--color-bg-elevated);
+    border: 1px solid var(--color-border-light);
+    border-radius: 9px;
     color: var(--color-text-primary);
     outline: none;
     box-sizing: border-box;
@@ -146,9 +146,8 @@
 }
 
 .ui-input:focus {
-    background-color: var(--color-bg-primary);
-    border-color: var(--color-blue-500);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-blue-500) 20%, transparent);
+    border-color: var(--color-accent-default);
+    box-shadow: 0 0 0 3px var(--color-accent-soft);
 }
 
 .ui-input:disabled {
@@ -241,18 +240,18 @@
 .ui-modal-backdrop {
     position: absolute;
     inset: 0;
-    background-color: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(4px);
+    background-color: var(--color-overlay-scrim);
+    backdrop-filter: blur(3px);
 }
 
 .ui-modal-panel {
     position: relative;
     width: 100%;
     margin: 0 16px;
-    background-color: var(--color-bg-primary);
+    background-color: var(--color-bg-secondary);
     border: 1px solid var(--color-border-light);
-    border-radius: var(--radius-xl);
-    box-shadow: var(--shadow-xl);
+    border-radius: 16px;
+    box-shadow: var(--shadow-lg);
     overflow: hidden;
     display: flex;
     flex-direction: column;

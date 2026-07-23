@@ -80,6 +80,7 @@ body {
     --color-bg-active: rgba(52, 82, 214, 0.10);
 
     --color-accent-2: #5468e0;
+    --color-accent-default: #3452d6;
     --color-accent-soft: rgba(52, 82, 214, 0.12);
     --color-amber: #b4762a;
     --color-amber-soft: rgba(180, 118, 42, 0.13);
@@ -213,6 +214,7 @@ body {
     --color-bg-hover: rgba(255, 255, 255, 0.055);
     --color-bg-active: rgba(124, 140, 240, 0.16);
     --color-accent-2: #95a2f4;
+    --color-accent-default: #7c8cf0;
     --color-accent-soft: rgba(124, 140, 240, 0.15);
     --color-amber: #d9a05a;
     --color-amber-soft: rgba(217, 160, 90, 0.15);
@@ -328,6 +330,7 @@ body {
     --color-bg-hover: var(--color-bg-hover);
     --color-bg-active: var(--color-bg-active);
     --color-accent-2: var(--color-accent-2);
+    --color-accent-default: var(--color-accent-default);
     --color-accent-soft: var(--color-accent-soft);
     --color-amber: var(--color-amber);
     --color-green: var(--color-green);
@@ -1475,8 +1478,8 @@ body {
 
 /* Scrollbar styling */
 ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 9px;
+    height: 9px;
 }
 
 ::-webkit-scrollbar-track {
@@ -1484,12 +1487,15 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-    background: var(--color-gray-400);
-    border-radius: var(--radius-base);
+    background: var(--color-border-medium);
+    border-radius: 20px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: var(--color-gray-500);
+    background: var(--color-text-muted);
+    background-clip: padding-box;
 }
 /* --- Named Themes --- */
 .theme-warm-paper {
