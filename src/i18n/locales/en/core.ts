@@ -48,6 +48,10 @@ const core = {
         switchVault: "Switch Vault",
         noVaultAction: "No action",
         noVault: "No vault",
+        workspaceHeader: "Workspace",
+        searchPlaceholder: "Search or jump to…",
+        notesCount: "{{count}} note(s)",
+        newFromTemplate: "New note from template",
         modal: {
             createFolder: "Create New Folder",
             folderPlaceholder: "Enter folder name...",

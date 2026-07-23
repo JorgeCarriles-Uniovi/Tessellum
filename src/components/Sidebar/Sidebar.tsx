@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import type { CSSProperties } from "react";
-import { Settings, Trash2, Network, FolderOpen } from "lucide-react";
+import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
+import { ChevronsUpDown, FolderOpen, LayoutTemplate, Plus, Search } from "lucide-react";
 import { useUiStore, useVaultStore } from "../../stores";
 import { FileTree } from "../FileTree/FileTree";
 import { SidebarContextMenu } from "./SidebarContextMenu";
@@ -14,7 +14,7 @@ import { TemplatePicker } from "../TemplatePicker";
 import { getParentFromTarget } from "../../utils/pathUtils";
 import { useFileSync } from "../FileTree/hooks/useFileSync";
 import { cn } from "../../lib/utils";
-import { IconButton } from "../ui";
+import { IconButton, Kbd } from "../ui";
 import { useResizableSidebarWidth } from "../Layout/useResizableSidebarWidth";
 import { SearchPanel } from "../Search/SearchPanel";
 import { TrashModal } from "../TrashModal/TrashModal";
@@ -28,83 +28,154 @@ const LEFT_SIDEBAR_MIN = 220;
 const LEFT_SIDEBAR_MAX = 420;
 const SIDEBAR_ICON_SIZE = 16;
 const SIDEBAR_ICON_STYLE = { width: "1rem", height: "1rem" };
-const SIDEBAR_ACTION_ICON_SIZE = 18;
-const SIDEBAR_ACTION_ICON_STYLE = { width: "1.125rem", height: "1.125rem" };
 const SIDEBAR_EMPTY_ICON_SIZE = 26;
 const SIDEBAR_EMPTY_ICON_STYLE = { width: "1.625rem", height: "1.625rem" };
 
-const headerStyle: CSSProperties = {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: `${theme.spacing[4]}`,
-    borderBottom: `1px solid ${theme.colors.border.light}`,
-    backgroundColor: theme.colors.background.primary,
+const vaultCardSectionStyle: CSSProperties = {
+    padding: "14px",
 };
 
-const headerLeftStyle: CSSProperties = {
+const vaultCardButtonStyle: CSSProperties = {
+    width: "100%",
     display: "flex",
     alignItems: "center",
-    gap: theme.spacing[2],
+    gap: "10px",
+    padding: "7px 9px",
+    border: `1px solid ${theme.colors.border.medium}`,
+    background: theme.colors.background.elevated,
+    borderRadius: "9px",
+    cursor: "pointer",
+    textAlign: "left",
+    transition: theme.transitions.fast,
 };
 
-const logoStyle: CSSProperties = {
-    width: "24px",
-    height: "24px",
+const vaultCardBadgeStyle: CSSProperties = {
+    width: 26,
+    height: 26,
+    minWidth: 26,
     borderRadius: theme.borderRadius.md,
-    backgroundColor: theme.colors.blue[600],
+    background: theme.colors.accent.default,
     color: "#fff",
+    fontWeight: theme.typography.fontWeight.semibold,
+    fontSize: theme.typography.fontSize.sm,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: theme.typography.fontSize.xs,
-    fontWeight: theme.typography.fontWeight.bold,
 };
 
-const fileTreeStyle: CSSProperties = {
+const vaultCardTextWrapStyle: CSSProperties = {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "flex-start",
+    minWidth: 0,
+    flex: 1,
+};
+
+const vaultCardNameStyle: CSSProperties = {
+    fontSize: "13px",
+    fontWeight: 600,
+    color: theme.colors.text.primary,
+    maxWidth: "100%",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+};
+
+const vaultCardCountStyle: CSSProperties = {
+    fontSize: "11px",
+    color: theme.colors.text.tertiary,
+};
+
+const searchSectionStyle: CSSProperties = {
+    padding: "0 14px 10px",
+};
+
+const searchButtonStyle: CSSProperties = {
+    width: "100%",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    padding: "7px 10px",
+    background: theme.colors.background.elevated,
+    border: `1px solid ${theme.colors.border.light}`,
+    borderRadius: "9px",
+    cursor: "pointer",
+    textAlign: "left",
+    transition: theme.transitions.fast,
+};
+
+const searchPlaceholderStyle: CSSProperties = {
+    fontSize: "12.5px",
+    color: theme.colors.text.muted,
+    flex: 1,
+};
+
+const scrollRegionStyle: CSSProperties = {
     flex: 1,
     minHeight: 0,
     overflowY: "auto",
-    padding: `${theme.spacing[1]} 0`, // Reduced padding for tighter layout
+    padding: "2px 8px 8px",
+    display: "flex",
+    flexDirection: "column",
+};
+
+const workspaceHeaderRowStyle: CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "6px 4px",
+};
+
+const workspaceHeaderTitleStyle: CSSProperties = {
+    fontSize: "10.5px",
+    fontWeight: 600,
+    textTransform: "uppercase",
+    letterSpacing: "0.09em",
+    color: theme.colors.text.muted,
+};
+
+const workspaceActionsRowStyle: CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    gap: "2px",
+};
+
+const fileTreeWrapStyle: CSSProperties = {
+    padding: `${theme.spacing[1]} 0`,
 };
 
 const actionSectionStyle: CSSProperties = {
     display: "flex",
     flexDirection: "column",
     gap: theme.spacing[1],
-    padding: `0 ${theme.spacing[4]} ${theme.spacing[2]}`,
+    padding: `0 0 ${theme.spacing[2]}`,
 };
 
 const footerStyle: CSSProperties = {
     borderTop: `1px solid ${theme.colors.border.light}`,
-    padding: `${theme.spacing[2]} 0`,
-    backgroundColor: theme.colors.background.primary,
+    padding: "10px",
 };
 
-const vaultSwitcherStyle: CSSProperties = {
-    padding: theme.spacing[4],
-    backgroundColor: theme.colors.background.primary,
-    cursor: "pointer",
-    border: "none",
+const footerButtonStyle: CSSProperties = {
     width: "100%",
-    textAlign: "left",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "6px",
+    padding: "9px",
+    background: theme.colors.accent.default,
+    color: "#fff",
+    border: "none",
+    borderRadius: "9px",
+    fontSize: "13px",
+    fontWeight: 600,
+    boxShadow: theme.shadows.sm,
+    cursor: "pointer",
     transition: theme.transitions.fast,
-};
-
-const vaultBadgeStyle: CSSProperties = {
-    width: 32,
-    height: 32,
-    backgroundColor: theme.colors.blue[50],
-    color: theme.colors.blue[600],
-    fontWeight: theme.typography.fontWeight.bold,
 };
 
 const actionButtonPadding: CSSProperties = {
     padding: `${theme.spacing[2]} ${theme.spacing[3]}`,
-};
-
-const footerButtonPadding: CSSProperties = {
-    padding: `${theme.spacing[2]} ${theme.spacing[4]}`,
 };
 
 const emptyStateStyle: CSSProperties = {
@@ -141,10 +212,22 @@ const emptyStateTextStyle: CSSProperties = {
     lineHeight: 1.5,
 };
 
+/** Sets the icon color to the accent on hover for "ghost" icon buttons, reverting on leave. */
+function handleGhostIconEnter(disabled: boolean) {
+    return (e: ReactMouseEvent<HTMLButtonElement>) => {
+        if (disabled) return;
+        e.currentTarget.style.color = theme.colors.accent.default;
+    };
+}
+
+function handleGhostIconLeave(e: ReactMouseEvent<HTMLButtonElement>) {
+    e.currentTarget.style.color = "";
+}
+
 export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
     useFileSync();
     const { vaultPath } = useVaultStore();
-    const { isSidebarOpen, isSearchOpen, closeSearch } = useUiStore();
+    const { isSidebarOpen, isSearchOpen, closeSearch, openSearch } = useUiStore();
     const sidebarContentRef = useRef<HTMLDivElement>(null);
     const { sidebarWidth, isResizing, onResizeStart } = useResizableSidebarWidth({
         side,
@@ -160,12 +243,22 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
     const sidebarActions = app.ui.getSidebarActions();
     const allHeaderActions = app.ui.getUIActions("sidebar-header");
     const headerActions = allHeaderActions.filter(a => a.id !== "sidebar-open-vault");
-    const footerActions = app.ui.getUIActions("sidebar-footer").filter(a => a.id !== "sidebar-settings");
-    const settingsAction = app.ui.getUIActions("sidebar-footer").find(a => a.id === "sidebar-settings");
     const openVaultAction =
         allHeaderActions.find((action) => action.id === "sidebar-open-vault")
         ?? app.ui.getUIActions("titlebar-right").find((action) => action.id === "open-vault")
         ?? app.ui.getUIActions("titlebar-left").find((action) => action.id === "open-vault");
+
+    // The v2 "Workspace" action cluster shows New note / New folder / New daily note (in that
+    // order) followed by any other sidebar-header actions a plugin might contribute.
+    const newNoteAction = headerActions.find((a) => a.id === "sidebar-new-note");
+    const newFolderAction = headerActions.find((a) => a.id === "sidebar-new-folder");
+    const dailyNoteAction = headerActions.find((a) => a.id === "sidebar-create-daily-note");
+    const otherHeaderActions = headerActions.filter(
+        (a) => a.id !== "sidebar-new-note" && a.id !== "sidebar-new-folder" && a.id !== "sidebar-create-daily-note"
+    );
+    const workspaceActions = [newNoteAction, newFolderAction, dailyNoteAction, ...otherHeaderActions].filter(
+        (action): action is NonNullable<typeof action> => Boolean(action)
+    );
 
     const {
         files,
@@ -262,6 +355,9 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
         </div>
     );
 
+    const isTemplateActionDisabled = !vaultPath;
+    const isNewNoteDisabled = !vaultPath || !newNoteAction;
+
     return (
         <>
             <BaseSidebar
@@ -294,97 +390,118 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
                     {isSearchOpen ? (
                         <div className="flex flex-col min-h-0" style={{ flex: 1 }}>
                             <SearchPanel onClose={closeSearch} />
-                            <VaultFooterBar
-                                vaultName={vaultName}
-                                onOpenVault={openVaultAction?.onClick}
-                                settingsAction={settingsAction}
-                            />
                         </div>
                     ) : (
                         <>
-                            <div style={headerStyle}>
-                                <div style={headerLeftStyle}>
-                                    <div style={logoStyle}>T</div>
-                                    <span style={{ fontWeight: 600, fontSize: theme.typography.fontSize.sm }}>Tessellum</span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                    {headerActions.map((action) => {
-                                        const disabled = action.disabled || (!vaultPath && action.id !== "sidebar-open-vault");
-                                        return (
-                                            <IconButton
-                                                key={action.id}
-                                                label={action.label}
-                                                title={action.tooltip || action.label}
-                                                onClick={disabled ? undefined : action.onClick}
-                                                disabled={disabled}
-                                            >
-                                                {action.icon || <FolderOpen size={SIDEBAR_ICON_SIZE} style={SIDEBAR_ICON_STYLE} />}
-                                            </IconButton>
-                                        );
-                                    })}
-                                </div>
+                            <div style={vaultCardSectionStyle}>
+                                <button
+                                    type="button"
+                                    style={vaultCardButtonStyle}
+                                    onClick={openVaultAction?.onClick}
+                                    title={openVaultAction ? t("sidebar.switchVault") : t("sidebar.noVaultAction")}
+                                >
+                                    <div style={vaultCardBadgeStyle}>{vaultName.charAt(0).toUpperCase()}</div>
+                                    <div style={vaultCardTextWrapStyle}>
+                                        <span style={vaultCardNameStyle}>{vaultName}</span>
+                                        <span style={vaultCardCountStyle}>{t("sidebar.notesCount", { count: files.length })}</span>
+                                    </div>
+                                    <ChevronsUpDown size={14} style={{ color: theme.colors.text.muted, flexShrink: 0 }} />
+                                </button>
                             </div>
 
-                            <div style={fileTreeStyle}>
-                                {files.length === 0 ? (
-                                    <div style={emptyStateStyle}>
-                                        <div style={emptyStateIconStyle}>
-                                            <FolderOpen size={SIDEBAR_EMPTY_ICON_SIZE} style={SIDEBAR_EMPTY_ICON_STYLE} />
-                                        </div>
-                                        <div style={emptyStateTitleStyle}>{t("sidebar.emptyTitle")}</div>
-                                        <div style={emptyStateTextStyle}>{t("sidebar.emptyDescription")}</div>
+                            <div style={searchSectionStyle}>
+                                <button type="button" style={searchButtonStyle} onClick={openSearch}>
+                                    <Search size={14} style={{ color: theme.colors.text.muted, flexShrink: 0 }} />
+                                    <span style={searchPlaceholderStyle}>{t("sidebar.searchPlaceholder")}</span>
+                                    <Kbd>⌘K</Kbd>
+                                </button>
+                            </div>
+
+                            <div style={scrollRegionStyle}>
+                                <div style={workspaceHeaderRowStyle}>
+                                    <span style={workspaceHeaderTitleStyle}>{t("sidebar.workspaceHeader")}</span>
+                                    <div style={workspaceActionsRowStyle}>
+                                        {workspaceActions.map((action) => {
+                                            const disabled = action.disabled || !vaultPath;
+                                            return (
+                                                <IconButton
+                                                    key={action.id}
+                                                    label={action.label}
+                                                    title={action.tooltip || action.label}
+                                                    size={23}
+                                                    onClick={disabled ? undefined : action.onClick}
+                                                    disabled={disabled}
+                                                    onMouseEnter={handleGhostIconEnter(disabled)}
+                                                    onMouseLeave={handleGhostIconLeave}
+                                                >
+                                                    {action.icon || <FolderOpen size={SIDEBAR_ICON_SIZE} style={SIDEBAR_ICON_STYLE} />}
+                                                </IconButton>
+                                            );
+                                        })}
+                                        <IconButton
+                                            label={t("sidebar.newFromTemplate")}
+                                            title={t("sidebar.newFromTemplate")}
+                                            size={23}
+                                            onClick={isTemplateActionDisabled ? undefined : () => openTemplatePicker(undefined)}
+                                            disabled={isTemplateActionDisabled}
+                                            onMouseEnter={handleGhostIconEnter(isTemplateActionDisabled)}
+                                            onMouseLeave={handleGhostIconLeave}
+                                        >
+                                            <LayoutTemplate size={SIDEBAR_ICON_SIZE} style={SIDEBAR_ICON_STYLE} />
+                                        </IconButton>
                                     </div>
-                                ) : (
-                                    <FileTree data={treeData} onContextMenu={handleContextMenu} />
+                                </div>
+
+                                <div style={fileTreeWrapStyle}>
+                                    {files.length === 0 ? (
+                                        <div style={emptyStateStyle}>
+                                            <div style={emptyStateIconStyle}>
+                                                <FolderOpen size={SIDEBAR_EMPTY_ICON_SIZE} style={SIDEBAR_EMPTY_ICON_STYLE} />
+                                            </div>
+                                            <div style={emptyStateTitleStyle}>{t("sidebar.emptyTitle")}</div>
+                                            <div style={emptyStateTextStyle}>{t("sidebar.emptyDescription")}</div>
+                                        </div>
+                                    ) : (
+                                        <FileTree data={treeData} onContextMenu={handleContextMenu} />
+                                    )}
+                                </div>
+
+                                {sidebarActions.length > 0 && (
+                                    <div style={actionSectionStyle}>
+                                        {sidebarActions.map((action) => (
+                                            <button
+                                                key={action.id}
+                                                type="button"
+                                                className="ui-row-btn ui-row-btn--bordered"
+                                                style={actionButtonPadding}
+                                                onClick={action.onClick}
+                                            >
+                                                {action.icon}
+                                                <span style={{ fontSize: theme.typography.fontSize.sm }}>{action.label}</span>
+                                            </button>
+                                        ))}
+                                    </div>
                                 )}
                             </div>
 
-                            {sidebarActions.length > 0 && (
-                                <div style={actionSectionStyle}>
-                                    {sidebarActions.map((action) => (
-                                        <button
-                                            key={action.id}
-                                            className="ui-row-btn ui-row-btn--bordered"
-                                            style={actionButtonPadding}
-                                            onClick={action.onClick}
-                                        >
-                                            {action.icon}
-                                            <span style={{ fontSize: theme.typography.fontSize.sm }}>{action.label}</span>
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-
                             <div style={footerStyle}>
-                                {footerActions.map((action) => {
-                                    const disabled = action.disabled || (!vaultPath && action.id === "sidebar-trash");
-                                    return (
-                                        <button
-                                            key={action.id}
-                                            className="ui-row-btn"
-                                            style={footerButtonPadding}
-                                            onClick={disabled ? undefined : action.onClick}
-                                            disabled={disabled}
-                                            title={action.tooltip || action.label}
-                                        >
-                                            {action.icon || (
-                                                action.id === "sidebar-graph"
-                                                    ? <Network size={SIDEBAR_ACTION_ICON_SIZE} style={SIDEBAR_ACTION_ICON_STYLE} />
-                                                    : action.id === "sidebar-settings"
-                                                        ? <Settings size={SIDEBAR_ACTION_ICON_SIZE} style={SIDEBAR_ACTION_ICON_STYLE} />
-                                                        : <Trash2 size={SIDEBAR_ACTION_ICON_SIZE} style={SIDEBAR_ACTION_ICON_STYLE} />
-                                            )}
-                                            <span>{action.label}</span>
-                                        </button>
-                                    );
-                                })}
+                                <button
+                                    type="button"
+                                    style={footerButtonStyle}
+                                    disabled={isNewNoteDisabled}
+                                    onClick={isNewNoteDisabled ? undefined : newNoteAction?.onClick}
+                                    onMouseEnter={(e) => {
+                                        if (isNewNoteDisabled) return;
+                                        e.currentTarget.style.background = theme.colors.accent.secondary;
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.background = theme.colors.accent.default;
+                                    }}
+                                >
+                                    <Plus size={15} />
+                                    {newNoteAction?.label}
+                                </button>
                             </div>
-
-                            <VaultFooterBar
-                                vaultName={vaultName}
-                                onOpenVault={openVaultAction?.onClick}
-                                settingsAction={settingsAction}
-                            />
                         </>
                     )}
                 </div>
@@ -452,59 +569,5 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
                 vaultPath={vaultPath}
             />
         </>
-    );
-}
-
-/** Bottom bar with the vault switcher and the settings shortcut. */
-function VaultFooterBar({
-    vaultName,
-    onOpenVault,
-    settingsAction,
-}: {
-    vaultName: string;
-    onOpenVault?: () => void;
-    settingsAction?: { label: string; tooltip?: string; onClick?: () => void; disabled?: boolean };
-}) {
-    return (
-        <div
-            className="flex items-center border-t"
-            style={{ borderColor: theme.colors.border.light, backgroundColor: theme.colors.background.primary }}
-        >
-            <div className="flex-1 overflow-hidden">
-                <VaultSwitcher vaultName={vaultName} onOpenVault={onOpenVault} />
-            </div>
-            {settingsAction && (
-                <IconButton
-                    label={settingsAction.label}
-                    title={settingsAction.tooltip || settingsAction.label}
-                    size={32}
-                    onClick={settingsAction.onClick}
-                    disabled={settingsAction.disabled}
-                    style={{ marginRight: theme.spacing[2] }}
-                >
-                    <Settings size={SIDEBAR_ACTION_ICON_SIZE} style={SIDEBAR_ACTION_ICON_STYLE} />
-                </IconButton>
-            )}
-        </div>
-    );
-}
-
-function VaultSwitcher({ vaultName, onOpenVault }: { vaultName: string; onOpenVault?: () => void }) {
-    const { t } = useAppTranslation("core");
-
-    return (
-        <button
-            style={vaultSwitcherStyle}
-            onClick={onOpenVault}
-            title={onOpenVault ? t("sidebar.switchVault") : t("sidebar.noVaultAction")}
-        >
-            <div style={{ display: "flex", alignItems: "center", gap: theme.spacing[3] }}>
-                <div style={{ ...logoStyle, ...vaultBadgeStyle }}>{vaultName.charAt(0).toUpperCase()}</div>
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
-                    <span style={{ fontSize: theme.typography.fontSize.sm, fontWeight: 600 }}>{vaultName}</span>
-                    <span style={{ fontSize: theme.typography.fontSize.xs, color: theme.colors.text.muted }}>{t("sidebar.openVault")}</span>
-                </div>
-            </div>
-        </button>
     );
 }
