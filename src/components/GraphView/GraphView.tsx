@@ -216,7 +216,7 @@ export function GraphView() {
             >
                 <button
                     onClick={() => setViewMode('editor')}
-                    className="flex items-center gap-1.5 border border-[var(--color-border-light)] bg-[var(--color-bg-elevated)] cursor-pointer text-[var(--color-text-secondary)] text-[12px] font-medium rounded-[var(--radius-md)] transition-colors duration-150 hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
+                    className="flex items-center gap-1.5 border border-[var(--color-border-light)] bg-[var(--color-bg-elevated)] cursor-pointer text-[var(--color-text-tertiary)] text-[12px] font-medium rounded-[var(--radius-md)] transition-colors duration-150 hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
                     style={{
                         padding: "5px 10px"
                     }}

@@ -55,7 +55,7 @@ export function NodeInfoPanel({ nodePath, tags, onClose }: NodeInfoPanelProps) {
                 maxHeight: 360,
                 backgroundColor: 'var(--color-bg-secondary)',
                 border: '1px solid var(--color-border-light)',
-                borderRadius: 12,
+                borderRadius: 'var(--radius-lg)',
                 boxShadow: 'var(--shadow-lg)',
                 overflow: 'hidden',
                 display: 'flex',
