@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import { useEditorStore } from "../../stores/editorStore";
-import { theme } from "../../styles/theme";
 import { IndexStatusBadge } from "../status/IndexStatusBadge";
 import { SyncStatusBadge } from "../status/SyncStatusBadge";
 
@@ -81,35 +80,35 @@ export function StatusBar() {
 
     return (
         <footer
-            className="h-8 shrink-0 flex items-center justify-between px-6 border-t text-[0.625rem] font-bold uppercase tracking-widest"
+            className="h-[30px] shrink-0 flex items-center justify-between text-[11px]"
             style={{
-                backgroundColor: theme.colors.background.secondary,
-                borderColor: theme.colors.border.light,
-                color: theme.colors.text.muted,
-                paddingLeft: 16,
-                paddingRight: 16
+                background: "var(--color-bg-app)",
+                borderTop: "1px solid var(--color-border-light)",
+                color: "var(--color-text-tertiary)",
+                paddingLeft: 14,
+                paddingRight: 14
             }}
         >
             <div className="flex items-center gap-4">
                 <span className="flex items-center gap-1.5">
                     <span
                         className="inline-block rounded-full"
-                        style={{ width: 6, height: 6, backgroundColor: theme.colors.blue[600] }}
+                        style={{ width: 6, height: 6, backgroundColor: "var(--color-green)" }}
                     />
                     {encoding}
                 </span>
                 <span className="flex items-center gap-1.5">{fileType}</span>
             </div>
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-4">
                 <SyncStatusBadge />
                 <IndexStatusBadge />
-                <div className="h-3 w-[1px]" style={{ backgroundColor: theme.colors.border.light }} />
+                <div className="h-3 w-[1px]" style={{ backgroundColor: "var(--color-border-light)" }} />
                 <div className="flex items-center gap-3">
                     <span>{wordCount} Words</span>
                     <span>{readTime} min read</span>
                 </div>
-                <div className="h-3 w-[1px]" style={{ backgroundColor: theme.colors.border.light }} />
-                <div style={{ color: isDirty ? theme.colors.text.muted : theme.colors.blue[600] }}>
+                <div className="h-3 w-[1px]" style={{ backgroundColor: "var(--color-border-light)" }} />
+                <div style={{ color: isDirty ? "var(--color-text-tertiary)" : "var(--color-green)", fontWeight: isDirty ? undefined : 500 }}>
                     {isDirty ? "Unsaved changes" : "All changes saved"}
                 </div>
             </div>
