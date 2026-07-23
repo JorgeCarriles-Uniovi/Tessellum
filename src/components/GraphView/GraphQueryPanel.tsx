@@ -40,10 +40,10 @@ export function GraphQueryPanel({
                 style={{
                     width: 320,
                     marginRight: 8,
-                    backgroundColor: "var(--color-bg-primary)",
+                    backgroundColor: "var(--color-bg-secondary)",
                     border: "1px solid var(--color-border-light)",
-                    borderRadius: "var(--radius-md)",
-                    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.08)",
+                    borderRadius: 12,
+                    boxShadow: "var(--shadow-lg)",
                     padding: "10px 12px",
                     pointerEvents: isOpen ? "auto" : "none",
                     opacity: isOpen ? 1 : 0,
@@ -88,9 +88,9 @@ export function GraphQueryPanel({
                                         maxHeight: 220,
                                         overflowY: "auto",
                                         border: "1px solid var(--color-border-light)",
-                                        borderRadius: "var(--radius-sm)",
-                                        backgroundColor: "var(--color-bg-primary)",
-                                        boxShadow: "0 8px 18px rgba(0, 0, 0, 0.14)",
+                                        borderRadius: "var(--radius-md)",
+                                        backgroundColor: "var(--color-bg-elevated)",
+                                        boxShadow: "var(--shadow-lg)",
                                         zIndex: 5,
                                     }}
                                 >
@@ -133,7 +133,7 @@ export function GraphQueryPanel({
                         resize: "none",
                         border: "1px solid var(--color-border-light)",
                         borderRadius: "var(--radius-sm)",
-                        backgroundColor: "var(--color-bg-secondary)",
+                        backgroundColor: "var(--color-bg-app)",
                         padding: "8px",
                         fontFamily:
                             'var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace)',
@@ -165,15 +165,15 @@ export function GraphQueryPanel({
                     height: 58,
                     border: "1px solid var(--color-border-light)",
                     borderRight: "none",
-                    borderTopLeftRadius: "var(--radius-sm)",
-                    borderBottomLeftRadius: "var(--radius-sm)",
-                    backgroundColor: "var(--color-bg-primary)",
+                    borderTopLeftRadius: 10,
+                    borderBottomLeftRadius: 10,
+                    backgroundColor: "var(--color-bg-secondary)",
                     color: "var(--color-text-muted)",
                     cursor: "pointer",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    boxShadow: "0 4px 10px rgba(0, 0, 0, 0.08)",
+                    boxShadow: "var(--shadow-lg)",
                 }}
                 aria-label={isOpen ? "Hide query panel" : "Show query panel"}
             >
