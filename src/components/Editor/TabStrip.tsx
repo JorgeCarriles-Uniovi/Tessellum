@@ -235,7 +235,7 @@ export function TabStrip({
                                 style={{
                                     fontSize: `calc(${tabFontSizePx}px * var(--ui-scale, 1))`,
                                     fontWeight: isActive ? 500 : 400,
-                                    color: isActive ? "var(--color-text-primary)" : "var(--color-text-tertiary)",
+                                    color: isActive || isHovered ? "var(--color-text-primary)" : "var(--color-text-tertiary)",
                                 }}
                             >
                                 {tab.title}
