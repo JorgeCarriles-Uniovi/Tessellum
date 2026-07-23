@@ -8,7 +8,7 @@ describe("E2E-003 search and graph", () => {
 
     it("finds notes by search and opens graph view", () => {
         cy.get('button[title="Search"]').click();
-        cy.get('input[placeholder="Search notes, folders, tags..."]', { timeout: 10000 })
+        cy.get('input[placeholder="Search notes, tags, and folders…"]', { timeout: 10000 })
             .should("be.visible")
             .type("graph #feature");
 
