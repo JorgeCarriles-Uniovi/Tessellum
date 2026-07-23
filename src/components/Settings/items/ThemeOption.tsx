@@ -21,14 +21,14 @@ export function ThemeOption({
                 alignItems: 'center',
                 display: 'flex',
                 flexDirection: 'column',
-                borderColor: selected ? "var(--primary)" : "var(--color-border-light)",
-                backgroundColor: selected ? "color-mix(in srgb, var(--primary) 10%, transparent)" : "var(--color-panel-bg)",
+                borderColor: selected ? "var(--color-accent-default)" : "var(--color-border-light)",
+                backgroundColor: selected ? "var(--color-accent-soft)" : "var(--color-bg-elevated)",
             }}
         >
             {Icon && (
                 <Icon
                     className="size-6 mx-auto mb-2"
-                    style={{ color: selected ? "var(--primary)" : "var(--color-text-muted)" }}
+                    style={{ color: selected ? "var(--color-accent-default)" : "var(--color-text-muted)" }}
                 />
             )}
             <p className="text-xs font-semibold"
@@ -36,7 +36,7 @@ export function ThemeOption({
                    paddingTop: `0.75rem`,
                    paddingLeft: `1rem`,
                    paddingRight: `1rem`,
-                   color: selected ? "var(--primary)" : "var(--color-text-secondary)",
+                   color: selected ? "var(--color-accent-default)" : "var(--color-text-secondary)",
                }}
             >
                 {label}

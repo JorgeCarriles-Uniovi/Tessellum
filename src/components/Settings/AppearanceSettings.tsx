@@ -2,7 +2,7 @@ import { SettingSection } from "./items/SettingSection.tsx";
 import { ToggleSetting } from "./items/ToggleSetting.tsx";
 import { SettingItem } from "./items/SettingItem.tsx";
 import { ThemePreview } from "./ThemePreview.tsx";
-import { Check } from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 import { useAppearanceStore, useThemeStore } from "../../stores";
 import { useAppTranslation } from "../../i18n/react.tsx";
@@ -86,6 +86,22 @@ export function AppearanceSettings() {
         backgroundColor: "var(--color-panel-bg)",
         color: "var(--color-text-primary)",
     };
+    const selectChipStyle = {
+        appearance: "none" as const,
+        WebkitAppearance: "none" as const,
+        backgroundColor: "var(--color-bg-elevated)",
+        borderColor: "var(--color-border-light)",
+        color: "var(--color-text-primary)",
+        borderRadius: "var(--radius-lg)",
+        paddingRight: "32px",
+    };
+    const SelectChevron = () => (
+        <ChevronDown
+            size={14}
+            className="pointer-events-none absolute top-1/2 -translate-y-1/2"
+            style={{ right: "10px", color: "var(--color-text-muted)" }}
+        />
+    );
     const timeInputStyle = {
         paddingTop: `0.5rem`,
         paddingBottom: `0.5rem`,
@@ -166,10 +182,10 @@ export function AppearanceSettings() {
                                 onClick={() => setActiveTheme(theme.name)}
                                 className="p-3 rounded-xl border-2 transition-all group"
                                 style={{
-                                    borderColor: isActive ? "var(--primary)" : "var(--color-border-light)",
+                                    borderColor: isActive ? "var(--color-accent-default)" : "var(--color-border-light)",
                                     backgroundColor: isActive
-                                        ? "color-mix(in srgb, var(--primary) 2%, transparent)"
-                                        : "var(--color-panel-bg)",
+                                        ? "var(--color-accent-soft)"
+                                        : "var(--color-bg-elevated)",
                                 }}
                             >
                                 <div className="flex items-center gap-3">
@@ -185,11 +201,11 @@ export function AppearanceSettings() {
                                     <div
                                         className="flex-shrink-0 size-4 rounded-full border-2 flex items-center justify-center transition-all"
                                         style={{
-                                            borderColor: isActive ? "var(--primary)" : "var(--color-border-light)",
-                                            backgroundColor: isActive ? "var(--primary)" : "transparent",
+                                            borderColor: isActive ? "var(--color-accent-default)" : "var(--color-border-light)",
+                                            backgroundColor: isActive ? "var(--color-accent-default)" : "transparent",
                                         }}
                                     >
-                                        {isActive && <Check className="size-2.5 text-[color:var(--primary-foreground)]" />}
+                                        {isActive && <Check className="size-2.5" style={{ color: "var(--color-bg-elevated)" }} />}
                                     </div>
                                 </div>
                             </button>
@@ -267,11 +283,11 @@ export function AppearanceSettings() {
                             className="size-10 rounded-lg border-2 transition-all relative group"
                             style={{
                                 backgroundColor: token,
-                                borderColor: accentColor === value ? "var(--primary)" : "var(--color-border-light)",
+                                borderColor: accentColor === value ? "var(--color-accent-default)" : "var(--color-border-light)",
                             }}
                         >
                             {accentColor === value && (
-                                <Check className="size-4 text-[color:var(--primary-foreground)] absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                                <Check className="size-4 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" style={{ color: "#fff" }} />
                             )}
                         </button>
                     ))}
@@ -372,50 +388,62 @@ export function AppearanceSettings() {
             <SettingSection title={t("appearance.visualStyleTitle")} description={t("appearance.visualStyleDescription")}>
                 <div className="grid grid-cols-2 gap-4">
                     <SettingItem label={t("appearance.density")}>
-                        <select
-                            value={density}
-                            onChange={(e) => setDensity(e.target.value as 'compact' | 'comfortable')}
-                            className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)] focus:border-transparent transition-all cursor-pointer"
-                            style={{ ...pillStyle, ...inputBaseStyle }}
-                        >
-                            <option value="compact">{t("appearance.compact")}</option>
-                            <option value="comfortable">{t("appearance.comfortable")}</option>
-                        </select>
+                        <div className="relative inline-block">
+                            <select
+                                value={density}
+                                onChange={(e) => setDensity(e.target.value as 'compact' | 'comfortable')}
+                                className="px-3 py-2 border text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)] focus:border-transparent transition-all cursor-pointer"
+                                style={selectChipStyle}
+                            >
+                                <option value="compact">{t("appearance.compact")}</option>
+                                <option value="comfortable">{t("appearance.comfortable")}</option>
+                            </select>
+                            <SelectChevron />
+                        </div>
                     </SettingItem>
                     <SettingItem label={t("appearance.cornerRadius")}>
-                        <select
-                            value={radius}
-                            onChange={(e) => setRadius(e.target.value as '6' | '10' | '16')}
-                            className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)] focus:border-transparent transition-all cursor-pointer"
-                            style={{ ...pillStyle, ...inputBaseStyle }}
-                        >
-                            <option value="6">{t("appearance.sharp")}</option>
-                            <option value="10">{t("appearance.balanced")}</option>
-                            <option value="16">{t("appearance.soft")}</option>
-                        </select>
+                        <div className="relative inline-block">
+                            <select
+                                value={radius}
+                                onChange={(e) => setRadius(e.target.value as '6' | '10' | '16')}
+                                className="px-3 py-2 border text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)] focus:border-transparent transition-all cursor-pointer"
+                                style={selectChipStyle}
+                            >
+                                <option value="6">{t("appearance.sharp")}</option>
+                                <option value="10">{t("appearance.balanced")}</option>
+                                <option value="16">{t("appearance.soft")}</option>
+                            </select>
+                            <SelectChevron />
+                        </div>
                     </SettingItem>
                     <SettingItem label={t("appearance.shadows")}>
-                        <select
-                            value={shadow}
-                            onChange={(e) => setShadow(e.target.value as 'subtle' | 'medium' | 'strong')}
-                            className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)] focus:border-transparent transition-all cursor-pointer"
-                            style={{ ...pillStyle, ...inputBaseStyle }}
-                        >
-                            <option value="subtle">{t("appearance.subtle")}</option>
-                            <option value="medium">{t("appearance.medium")}</option>
-                            <option value="strong">{t("appearance.strong")}</option>
-                        </select>
+                        <div className="relative inline-block">
+                            <select
+                                value={shadow}
+                                onChange={(e) => setShadow(e.target.value as 'subtle' | 'medium' | 'strong')}
+                                className="px-3 py-2 border text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)] focus:border-transparent transition-all cursor-pointer"
+                                style={selectChipStyle}
+                            >
+                                <option value="subtle">{t("appearance.subtle")}</option>
+                                <option value="medium">{t("appearance.medium")}</option>
+                                <option value="strong">{t("appearance.strong")}</option>
+                            </select>
+                            <SelectChevron />
+                        </div>
                     </SettingItem>
                     <SettingItem label={t("appearance.iconStyle")}>
-                        <select
-                            value={iconStyle}
-                            onChange={(e) => setIconStyle(e.target.value as 'outline' | 'filled')}
-                            className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)] focus:border-transparent transition-all cursor-pointer"
-                            style={{ ...pillStyle, ...inputBaseStyle }}
-                        >
-                            <option value="outline">{t("appearance.outline")}</option>
-                            <option value="filled">{t("appearance.filled")}</option>
-                        </select>
+                        <div className="relative inline-block">
+                            <select
+                                value={iconStyle}
+                                onChange={(e) => setIconStyle(e.target.value as 'outline' | 'filled')}
+                                className="px-3 py-2 border text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)] focus:border-transparent transition-all cursor-pointer"
+                                style={selectChipStyle}
+                            >
+                                <option value="outline">{t("appearance.outline")}</option>
+                                <option value="filled">{t("appearance.filled")}</option>
+                            </select>
+                            <SelectChevron />
+                        </div>
                     </SettingItem>
                 </div>
             </SettingSection>
