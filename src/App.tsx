@@ -10,6 +10,7 @@ import {
 } from "./stores";
 import { Editor } from "./components/Editor/Editor.tsx";
 import { Sidebar } from "./components/Sidebar/Sidebar.tsx";
+import { IconRail } from "./components/IconRail/IconRail.tsx";
 import { GraphView } from "./components/GraphView/GraphView.tsx";
 import { LocalGraphPanel } from "./components/GraphView/LocalGraphPanel.tsx";
 import { CanvasView } from "./components/canvas/CanvasView.tsx";
@@ -52,6 +53,7 @@ function App() {
     const [isLoaded, setIsLoaded] = useState(false);
     const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
     const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
+    const [_isVaultSwitcherOpen, setIsVaultSwitcherOpen] = useState(false);
     const ensureSearchReadiness = useSearchStore((state) => state.ensureReadiness);
     const resetAndEnsureSearchReadiness = useSearchStore((state) => state.resetAndEnsureReadiness);
     const loadThemes = useThemeStore((state) => state.loadThemes);
@@ -235,6 +237,8 @@ function App() {
 
                     <div className="flex-1 flex overflow-hidden w-full relative" style={{ backgroundColor: theme.colors.background.primary }}>
                         <div className="flex w-full h-full overflow-hidden">
+                            <IconRail onOpenVaultSwitcher={() => setIsVaultSwitcherOpen(true)} />
+
                             {/* Sidebar */}
                             {layoutAppearance.sidebarPosition === "left" && <Sidebar side="left" />}
 
