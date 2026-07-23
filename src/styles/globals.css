@@ -58,6 +58,18 @@ body {
     --color-bg-primary: #ffffff;
     --color-bg-secondary: #f9fafb;
     --color-bg-tertiary: #f3f4f6;
+    --color-bg-app: #f2f0ea;
+    --color-bg-elevated: #ffffff;
+    --color-bg-hover: rgba(32, 28, 22, 0.055);
+    --color-bg-active: rgba(52, 82, 214, 0.10);
+
+    --color-accent-2: #5468e0;
+    --color-accent-soft: rgba(52, 82, 214, 0.12);
+    --color-amber: #b4762a;
+    --color-amber-soft: rgba(180, 118, 42, 0.13);
+    --color-green: #3f8f57;
+    --color-pink: #b0468a;
+    --color-pink-soft: rgba(176, 70, 138, 0.12);
 
     --color-text-primary: #111827;
     --color-text-secondary: #1f2937;
@@ -179,6 +191,17 @@ body {
     --color-bg-primary: #0f0f0f;
     --color-bg-secondary: #1a1a1a;
     --color-bg-tertiary: #262626;
+    --color-bg-app: #141310;
+    --color-bg-elevated: #211f1b;
+    --color-bg-hover: rgba(255, 255, 255, 0.055);
+    --color-bg-active: rgba(124, 140, 240, 0.16);
+    --color-accent-2: #95a2f4;
+    --color-accent-soft: rgba(124, 140, 240, 0.15);
+    --color-amber: #d9a05a;
+    --color-amber-soft: rgba(217, 160, 90, 0.15);
+    --color-green: #5cb377;
+    --color-pink: #d97fbb;
+    --color-pink-soft: rgba(217, 127, 187, 0.15);
 
     --color-text-primary: #fafafa;
     --color-text-secondary: #e5e5e5;
@@ -280,6 +303,17 @@ body {
     --color-text-muted: var(--color-text-muted);
     --color-border-light: var(--color-border-light);
     --color-border-medium: var(--color-border-medium);
+
+    /* v2 theme token colors */
+    --color-bg-app: var(--color-bg-app);
+    --color-bg-elevated: var(--color-bg-elevated);
+    --color-bg-hover: var(--color-bg-hover);
+    --color-bg-active: var(--color-bg-active);
+    --color-accent-2: var(--color-accent-2);
+    --color-accent-soft: var(--color-accent-soft);
+    --color-amber: var(--color-amber);
+    --color-green: var(--color-green);
+    --color-pink: var(--color-pink);
 
     /* Blue color tokens */
     --color-blue-500: var(--color-blue-500);
