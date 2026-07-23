@@ -16,7 +16,6 @@ import { getIgnoredTagLineNumbers, stripInlineCodeSpansForTagScan } from "../../
 import { NotePropertiesPanel } from "../Sidebar/NotePropertiesPanel";
 import { BacklinkSuggestions } from "../Sidebar/BacklinkSuggestions";
 import { VaultQAPanel } from "../ai/VaultQAPanel";
-import { Button } from "../ui";
 
 const SNIPPET_LIMIT = 20;
 const SNIPPET_MAX_LEN = 120;
@@ -24,8 +23,6 @@ const SNIPPET_WORDS = 20;
 const RIGHT_SIDEBAR_WIDTH_KEY = "tessellum:right-sidebar-width";
 const RIGHT_SIDEBAR_MIN = 240;
 const RIGHT_SIDEBAR_MAX = 520;
-const SIDEBAR_ICON_SIZE = 14;
-const SIDEBAR_ICON_STYLE = { width: "0.875rem", height: "0.875rem" };
 
 interface BacklinkItem {
     path: string;
@@ -78,8 +75,11 @@ function getTagStyles(tag: string) {
         backgroundColor: `hsla(${h}, ${saturation}, ${lightnessBg}, 0.15)`,
         color: `hsl(${h}, ${saturation}, ${lightnessText})`,
         border: `1px solid hsla(${h}, ${saturation}, ${lightnessBg}, 0.3)`,
-        paddingLeft: "0.5rem",
-        paddingRight: "0.5rem",
+        borderRadius: "20px",
+        paddingLeft: "0.625rem",
+        paddingRight: "0.625rem",
+        paddingTop: "0.1875rem",
+        paddingBottom: "0.1875rem",
     };
 }
 
@@ -264,26 +264,48 @@ function useBackendTags(app: ReturnType<typeof useTessellumApp>, activePath?: st
     return backendTags;
 }
 
-function SidebarSectionHeader({ title, icon }: { title: string; icon: ReactNode }) {
+function SidebarSectionHeader({ title, icon, count }: { title: string; icon: ReactNode; count?: number }) {
     return (
-        <div className="flex items-center justify-between">
-            <h3
-                className="text-[0.75rem] font-semibold uppercase tracking-[0.24em]"
-                style={{
-                    color: theme.colors.text.muted,
-                    padding: "1rem",
-                }}
-            >
-                {title}
-            </h3>
-            {icon}
+        <div className="flex items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2">
+                {icon}
+                <h3
+                    className="truncate"
+                    style={{
+                        fontSize: "10.5px",
+                        fontWeight: 600,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.11em",
+                        color: theme.colors.text.muted,
+                    }}
+                >
+                    {title}
+                </h3>
+            </div>
+            {typeof count === "number" && (
+                <span
+                    className="shrink-0 text-center"
+                    style={{
+                        fontSize: "10.5px",
+                        fontWeight: 600,
+                        color: theme.colors.text.muted,
+                        background: theme.colors.background.app,
+                        border: `1px solid ${theme.colors.border.light}`,
+                        borderRadius: "20px",
+                        padding: "1px 7px",
+                        minWidth: "1.25rem",
+                    }}
+                >
+                    {count}
+                </span>
+            )}
         </div>
     );
 }
 
 function EmptyState({ children }: { children: ReactNode }) {
     return (
-        <div className="text-[0.6875rem]" style={{ color: theme.colors.text.muted, paddingLeft: "1rem" }}>
+        <div className="text-[0.6875rem]" style={{ color: theme.colors.text.muted }}>
             {children}
         </div>
     );
@@ -303,10 +325,11 @@ function BacklinksSection({
     t: (key: string, values?: Record<string, unknown>) => string;
 }) {
     return (
-        <section className="space-y-4">
+        <section className="space-y-3">
             <SidebarSectionHeader
                 title={t("rightSidebar.backlinks")}
-                icon={<Link2 size={SIDEBAR_ICON_SIZE} style={{ ...SIDEBAR_ICON_STYLE, color: theme.colors.text.muted, marginRight: "1rem" }} />}
+                icon={<Link2 size={13} style={{ color: theme.colors.text.muted }} />}
+                count={activeNote && !isLoading ? backlinks.length : undefined}
             />
             {isLoading ? (
                 <EmptyState>{t("rightSidebar.loadingBacklinks")}</EmptyState>
@@ -315,24 +338,27 @@ function BacklinksSection({
             ) : backlinks.length === 0 ? (
                 <EmptyState>{t("rightSidebar.noBacklinks")}</EmptyState>
             ) : (
-                <div className="space-y-3" style={{ padding: "1rem" }}>
+                <div className="flex flex-col gap-2">
                     {backlinks.map((item) => (
                         <button
                             key={item.path}
-                            className="w-full text-left p-4 rounded-2xl border transition-colors"
+                            type="button"
+                            className="w-full text-left transition-colors bg-[color:var(--color-bg-elevated)] hover:bg-[color:var(--color-bg-hover)]"
                             onClick={() => onOpen(item.path)}
                             style={{
-                                backgroundColor: theme.colors.background.secondary,
-                                borderColor: theme.colors.border.light,
-                                padding: "1rem",
-                                marginBottom: "1rem",
+                                borderRadius: "10px",
+                                border: `1px solid ${theme.colors.border.light}`,
+                                padding: "10px 11px",
                             }}
                         >
-                            <p className="text-[0.8125rem] font-semibold" style={{ color: theme.colors.text.secondary }}>
+                            <p style={{ fontSize: "12.5px", fontWeight: 600, color: theme.colors.text.primary }}>
                                 {item.label}.md
                             </p>
                             {item.snippet && (
-                                <p className="text-[0.6875rem] mt-2 leading-5" style={{ color: theme.colors.text.muted }}>
+                                <p
+                                    className="leading-5"
+                                    style={{ fontSize: "11.5px", color: theme.colors.text.tertiary, marginTop: "4px" }}
+                                >
                                     {item.snippet}
                                 </p>
                             )}
@@ -346,21 +372,22 @@ function BacklinksSection({
 
 function TagsSection({ activeNote, tags, t }: { activeNote: { path: string } | null; tags: string[]; t: (key: string) => string }) {
     return (
-        <section className="space-y-4">
+        <section className="space-y-3">
             <SidebarSectionHeader
                 title={t("rightSidebar.tags")}
-                icon={<Tag size={SIDEBAR_ICON_SIZE} style={{ ...SIDEBAR_ICON_STYLE, color: theme.colors.text.muted, marginRight: "1rem" }} />}
+                icon={<Tag size={13} style={{ color: theme.colors.text.muted }} />}
+                count={activeNote ? tags.length : undefined}
             />
             {!activeNote ? (
                 <EmptyState>{t("rightSidebar.selectNoteForTags")}</EmptyState>
             ) : tags.length === 0 ? (
                 <EmptyState>{t("rightSidebar.noTags")}</EmptyState>
             ) : (
-                <div className="flex flex-wrap gap-2" style={{ padding: "1rem" }}>
+                <div className="flex flex-wrap gap-2">
                     {tags.map((tag) => (
                         <span
                             key={tag}
-                            className="inline-flex gap-1.5 items-center px-3 py-1 rounded-full text-[0.8125rem] font-medium text-foreground group/pill"
+                            className="inline-flex gap-1.5 items-center text-[0.8125rem] font-medium"
                             style={getTagStyles(tag)}
                         >
                             {tag}
@@ -445,17 +472,18 @@ function OutlineSection({
     }
 
     return (
-        <section className="space-y-4">
+        <section className="space-y-3">
             <SidebarSectionHeader
                 title={t("rightSidebar.outline")}
-                icon={<List size={SIDEBAR_ICON_SIZE} style={{ ...SIDEBAR_ICON_STYLE, color: theme.colors.text.muted, marginRight: "1rem" }} />}
+                icon={<List size={13} style={{ color: theme.colors.text.muted }} />}
+                count={activeNote ? outlineItems.length : undefined}
             />
             {!activeNote ? (
                 <EmptyState>{t("rightSidebar.selectNoteForOutline")}</EmptyState>
             ) : outlineItems.length === 0 ? (
                 <EmptyState>{t("rightSidebar.noHeaders")}</EmptyState>
             ) : (
-                <div className="space-y-1" style={{ padding: "1rem" }}>
+                <div className="flex flex-col">
                     {visibleOutlineItems.map((item) => {
                         const outlineIndex = outlineItems.findIndex(
                             (outlineItem) =>
@@ -470,25 +498,43 @@ function OutlineSection({
                                 className="flex items-center gap-1"
                                 style={{ paddingLeft: getOutlineIndent(item.level) }}
                             >
-                                {canCollapse ? (
-                                    <button
-                                        type="button"
-                                        aria-label={isCollapsed ? t("rightSidebar.expandSection", { title: item.title }) : t("rightSidebar.collapseSection", { title: item.title })}
-                                        onClick={() => toggleCollapsed(item.title, item.lineNumber)}
-                                        className="flex h-5 w-5 items-center justify-center rounded-md transition-colors hover:bg-[color:var(--color-background-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--primary)]"
-                                        style={{ color: theme.colors.text.muted }}
-                                    >
-                                        {isCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
-                                    </button>
-                                ) : (
-                                    <span className="h-5 w-5 shrink-0" aria-hidden="true" />
-                                )}
+                                {/* guide-line rail + collapse toggle / dot marker, aligned per heading level */}
+                                <span className="relative flex h-5 w-5 shrink-0 items-center justify-center">
+                                    <span
+                                        aria-hidden="true"
+                                        style={{
+                                            position: "absolute",
+                                            left: "50%",
+                                            top: "-4px",
+                                            bottom: "-4px",
+                                            width: "1px",
+                                            background: theme.colors.border.light,
+                                            transform: "translateX(-50%)",
+                                        }}
+                                    />
+                                    {canCollapse ? (
+                                        <button
+                                            type="button"
+                                            aria-label={isCollapsed ? t("rightSidebar.expandSection", { title: item.title }) : t("rightSidebar.collapseSection", { title: item.title })}
+                                            onClick={() => toggleCollapsed(item.title, item.lineNumber)}
+                                            className="relative z-10 flex h-5 w-5 items-center justify-center rounded-md transition-colors bg-[color:var(--color-bg-secondary)] hover:bg-[color:var(--color-bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--primary)]"
+                                            style={{ color: theme.colors.text.muted }}
+                                        >
+                                            {isCollapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+                                        </button>
+                                    ) : (
+                                        <span
+                                            className="relative z-10 shrink-0 rounded-full"
+                                            style={{ width: 6, height: 6, background: theme.colors.text.secondary }}
+                                            aria-hidden="true"
+                                        />
+                                    )}
+                                </span>
                                 <button
                                     type="button"
                                     onClick={() => onNavigate(item.lineNumber)}
-                                    className="flex-1 rounded-lg text-left text-[0.75rem] transition-all duration-150 hover:bg-[color:var(--color-background-secondary)] hover:text-[color:var(--color-text-primary)] hover:shadow-sm hover:translate-x-1 focus-visible:bg-[color:var(--color-background-secondary)] focus-visible:text-[color:var(--color-text-primary)] focus-visible:shadow-sm focus-visible:translate-x-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--primary)]"
+                                    className="flex-1 rounded-lg text-left text-[0.75rem] transition-colors text-[color:var(--color-text-secondary)] hover:bg-[color:var(--color-bg-hover)] hover:text-[color:var(--color-text-primary)] focus-visible:bg-[color:var(--color-bg-hover)] focus-visible:text-[color:var(--color-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--primary)]"
                                     style={{
-                                        color: theme.colors.text.muted,
                                         paddingTop: "0.375rem",
                                         paddingRight: "0.5rem",
                                         paddingBottom: "0.375rem",
@@ -526,9 +572,9 @@ export function RightSidebar() {
             isResizing={isResizing}
             className="hidden xl:flex flex-col relative"
             style={{
-                backgroundColor: theme.colors.background.primary,
+                backgroundColor: theme.colors.background.secondary,
                 borderColor: theme.colors.border.light,
-                padding: isQAOpen ? "0" : (isRightSidebarOpen ? "1.75rem" : "0"),
+                padding: 0,
                 overflow: "visible",
             }}
         >
@@ -546,69 +592,80 @@ export function RightSidebar() {
                 )} />
             </div>
 
-            {/* Vault Q&A toggle button */}
-            {isRightSidebarOpen && (
-                <Button
-                    variant={isQAOpen ? "primary" : "tint"}
-                    size="sm"
-                    className="absolute top-3 right-3 z-10"
-                    onClick={() => setIsQAOpen((v) => !v)}
-                    title="Toggle Vault Q&A"
-                >
-                    <Sparkles size={12} />
-                    Q&A
-                </Button>
-            )}
+            <div
+                className="flex flex-col h-full transition-all duration-300 ease-in-out"
+                style={{
+                    opacity: isRightSidebarOpen ? 1 : 0,
+                    transform: isRightSidebarOpen ? "translateX(0)" : "translateX(8px)",
+                }}
+            >
+                {/* "Ask this vault" — full-width entry point into Vault Q&A. Hidden while
+                    the Q&A panel itself is open since it renders its own header/close. */}
+                {!isQAOpen && isRightSidebarOpen && (
+                    <div style={{ padding: "16px 16px 12px" }}>
+                        <button
+                            type="button"
+                            onClick={() => setIsQAOpen(true)}
+                            title="Ask this vault"
+                            className="flex w-full items-center justify-center gap-2 transition-colors bg-[color:var(--color-bg-elevated)] hover:bg-[color:var(--color-bg-hover)]"
+                            style={{
+                                borderRadius: "10px",
+                                border: `1px solid ${theme.colors.border.light}`,
+                                padding: "9px 12px",
+                                fontSize: "12.5px",
+                                fontWeight: 600,
+                                color: theme.colors.text.secondary,
+                            }}
+                        >
+                            <Sparkles size={14} style={{ color: theme.colors.accent.default }} />
+                            Ask this vault
+                        </button>
+                    </div>
+                )}
 
-            {isQAOpen ? (
-                <div
-                    className="flex flex-col h-full"
-                    style={{
-                        opacity: isRightSidebarOpen ? 1 : 0,
-                        transition: "opacity 300ms ease-in-out",
-                    }}
-                >
-                    <VaultQAPanel onClose={() => setIsQAOpen(false)} />
-                </div>
-            ) : (
-                <div
-                    className="flex flex-col space-y-10 transition-all duration-300 ease-in-out"
-                    style={{
-                        flex: 1,
-                        minHeight: 0,
-                        overflowY: "auto",
-                        overflowX: "hidden",
-                        opacity: isRightSidebarOpen ? 1 : 0,
-                        transform: isRightSidebarOpen ? "translateX(0)" : "translateX(8px)",
-                    }}
-                >
-                    <NotePropertiesPanel
-                        activeNotePath={activeNote?.path}
-                        activeNoteContent={activeNoteContent}
-                        onContentChange={setActiveNoteContent}
-                    />
-                    <BacklinksSection
-                        activeNote={activeNote}
-                        backlinks={backlinks}
-                        isLoading={isLoadingBacklinks}
-                        onOpen={(path) => app.workspace.openNote(path)}
-                        t={t}
-                    />
-                    <BacklinkSuggestions
-                        activeNotePath={activeNote?.path}
-                        onOpen={(path) => app.workspace.openNote(path)}
-                    />
-                    <TagsSection activeNote={activeNote} tags={allTags} t={t} />
-                    <OutlineSection
-                        activeNote={activeNote}
-                        activeNoteContent={activeNoteContent}
-                        onNavigate={(lineNumber) => {
-                            app.editor.navigateToLine(lineNumber);
+                {isQAOpen ? (
+                    <div className="flex flex-1 flex-col" style={{ minHeight: 0 }}>
+                        <VaultQAPanel onClose={() => setIsQAOpen(false)} />
+                    </div>
+                ) : (
+                    <div
+                        className="flex flex-col space-y-10"
+                        style={{
+                            flex: 1,
+                            minHeight: 0,
+                            overflowY: "auto",
+                            overflowX: "hidden",
+                            padding: "0 16px 16px",
                         }}
-                        t={t}
-                    />
-                </div>
-            )}
+                    >
+                        <NotePropertiesPanel
+                            activeNotePath={activeNote?.path}
+                            activeNoteContent={activeNoteContent}
+                            onContentChange={setActiveNoteContent}
+                        />
+                        <BacklinksSection
+                            activeNote={activeNote}
+                            backlinks={backlinks}
+                            isLoading={isLoadingBacklinks}
+                            onOpen={(path) => app.workspace.openNote(path)}
+                            t={t}
+                        />
+                        <BacklinkSuggestions
+                            activeNotePath={activeNote?.path}
+                            onOpen={(path) => app.workspace.openNote(path)}
+                        />
+                        <TagsSection activeNote={activeNote} tags={allTags} t={t} />
+                        <OutlineSection
+                            activeNote={activeNote}
+                            activeNoteContent={activeNoteContent}
+                            onNavigate={(lineNumber) => {
+                                app.editor.navigateToLine(lineNumber);
+                            }}
+                            t={t}
+                        />
+                    </div>
+                )}
+            </div>
         </BaseSidebar>
     );
 }
