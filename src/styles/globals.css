@@ -81,6 +81,7 @@ body {
 
     --color-accent-2: #5468e0;
     --color-accent-default: #3452d6;
+    --color-overlay-scrim: color-mix(in srgb, var(--color-text-primary) 20%, transparent);
     --color-accent-soft: rgba(52, 82, 214, 0.12);
     --color-amber: #b4762a;
     --color-amber-soft: rgba(180, 118, 42, 0.13);
@@ -215,6 +216,7 @@ body {
     --color-bg-active: rgba(124, 140, 240, 0.16);
     --color-accent-2: #95a2f4;
     --color-accent-default: #7c8cf0;
+    --color-overlay-scrim: color-mix(in srgb, var(--color-text-primary) 30%, transparent);
     --color-accent-soft: rgba(124, 140, 240, 0.15);
     --color-amber: #d9a05a;
     --color-amber-soft: rgba(217, 160, 90, 0.15);
