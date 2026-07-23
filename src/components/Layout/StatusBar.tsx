@@ -2,17 +2,7 @@ import { useMemo } from "react";
 import { useEditorStore } from "../../stores/editorStore";
 import { IndexStatusBadge } from "../status/IndexStatusBadge";
 import { SyncStatusBadge } from "../status/SyncStatusBadge";
-
-function countWords(text: string): number {
-    return text
-        .trim()
-        .split(/\s+/)
-        .filter(Boolean).length;
-}
-
-function readTimeMinutes(words: number): number {
-    return Math.max(1, Math.round(words / 200));
-}
+import { countWords, readTimeMinutes } from "../../utils/readingStats";
 
 function getExtension(filename?: string | null): string {
     if (!filename) return "";
