@@ -1,5 +1,6 @@
 import { useThemeStore } from "../stores/themeStore";
 import type { ThemeDefinition } from "../themes/builtinThemes";
+import { DEFAULT_THEME_NAME } from "../themes/builtinThemes";
 
 const PAIRS: Record<string, string> = {
     "Warm Paper": "Warm Paper Dark",
@@ -29,7 +30,7 @@ export function useColorMode() {
     const setActiveTheme = useThemeStore((s) => s.setActiveTheme);
     const variant: "light" | "dark" = activeTheme?.variant === "dark" ? "dark" : "light";
     const toggle = () => {
-        const name = getSiblingThemeName(activeTheme?.name ?? "Warm Paper", themes);
+        const name = getSiblingThemeName(activeTheme?.name ?? DEFAULT_THEME_NAME, themes);
         setActiveTheme(name);
     };
     return { variant, toggle };
