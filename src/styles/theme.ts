@@ -66,6 +66,7 @@ export const theme = {
         fontFamily: {
             sans: "var(--font-sans)",
             mono: "var(--font-mono)",
+            editor: "var(--font-editor)",
         },
         fontSize: {
             xs: '0.75rem',      // 12px
