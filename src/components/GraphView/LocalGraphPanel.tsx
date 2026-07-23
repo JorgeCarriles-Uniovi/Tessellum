@@ -6,7 +6,7 @@ import { GraphCanvas } from './GraphCanvas';
 import { NodeInfoPanel } from './NodeInfoPanel';
 import { GraphQueryPanel } from './GraphQueryPanel';
 import { mapGraphDataToElements, GraphData } from '../../utils/graphUtils';
-import { X } from 'lucide-react';
+import { X, GitFork } from 'lucide-react';
 import cytoscape from 'cytoscape';
 import { createNoteInDir } from "../../utils/noteUtils";
 import { applyFilterToGraphData } from '../../lib/cypherGraphFilter';
@@ -171,6 +171,14 @@ export function LocalGraphPanel({ isOpen }: { isOpen: boolean }) {
         ? activeNote.filename.replace(/\.md$/, '')
         : 'No note selected';
 
+    const focusId = activeNote ? activeNote.path.replace(/\\/g, '/') : null;
+    const linkedCount = graphData
+        ? graphData.nodes.filter((node) => node.exists && node.id !== focusId).length
+        : 0;
+    const unresolvedCount = graphData
+        ? graphData.nodes.filter((node) => !node.exists).length
+        : 0;
+
     return (
         <div
             style={{
@@ -179,7 +187,7 @@ export function LocalGraphPanel({ isOpen }: { isOpen: boolean }) {
                 display: 'flex',
                 flexDirection: 'column',
                 borderLeft: isOpen ? '1px solid var(--color-border-light)' : 'none',
-                backgroundColor: 'var(--color-bg-primary)',
+                backgroundColor: 'var(--color-bg-secondary)',
                 flexShrink: 0,
                 position: 'relative',
                 transition: 'width 300ms ease-in-out',
@@ -222,7 +230,7 @@ export function LocalGraphPanel({ isOpen }: { isOpen: boolean }) {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        padding: '8px 12px',
+                        padding: '9px 12px',
                         borderBottom: '1px solid var(--color-border-light)',
                         backgroundColor: 'var(--color-bg-secondary)',
                         flexShrink: 0,
@@ -230,7 +238,10 @@ export function LocalGraphPanel({ isOpen }: { isOpen: boolean }) {
                 >
                     <span
                         style={{
-                            fontSize: '12px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            fontSize: '11px',
                             fontWeight: 600,
                             color: 'var(--color-text-primary)',
                             overflow: 'hidden',
@@ -238,7 +249,10 @@ export function LocalGraphPanel({ isOpen }: { isOpen: boolean }) {
                             whiteSpace: 'nowrap',
                         }}
                     >
-                        Local Graph — {noteLabel}
+                        <GitFork size={13} color="var(--color-accent-default)" style={{ flexShrink: 0 }} />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            Local graph — {noteLabel}
+                        </span>
                     </span>
                     <IconButton label="Close local graph" size={22} onClick={toggleLocalGraph}>
                         <X size={14} />
@@ -246,7 +260,7 @@ export function LocalGraphPanel({ isOpen }: { isOpen: boolean }) {
                 </div>
 
                 {/* Graph */}
-                <div style={{ flex: 1, position: 'relative', minHeight: 0 }}>
+                <div style={{ flex: 1, position: 'relative', minHeight: 0, backgroundColor: 'var(--color-bg-primary)' }}>
                     {!activeNote ? (
                         <div
                             style={{
@@ -304,6 +318,48 @@ export function LocalGraphPanel({ isOpen }: { isOpen: boolean }) {
                             />
                         );
                     })()}
+                </div>
+
+                {/* Footer legend */}
+                <div
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        padding: '8px 13px',
+                        borderTop: '1px solid var(--color-border-light)',
+                        backgroundColor: 'var(--color-bg-secondary)',
+                        fontSize: '10px',
+                        color: 'var(--color-text-muted)',
+                        flexShrink: 0,
+                    }}
+                >
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <span
+                            aria-hidden
+                            style={{
+                                width: '6px',
+                                height: '6px',
+                                borderRadius: '50%',
+                                backgroundColor: 'var(--color-accent-2)',
+                                flexShrink: 0,
+                            }}
+                        />
+                        {linkedCount} linked
+                    </span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <span
+                            aria-hidden
+                            style={{
+                                width: '6px',
+                                height: '6px',
+                                borderRadius: '50%',
+                                border: '1px dashed var(--color-text-muted)',
+                                flexShrink: 0,
+                            }}
+                        />
+                        {unresolvedCount} unresolved
+                    </span>
                 </div>
             </div>
         </div>
