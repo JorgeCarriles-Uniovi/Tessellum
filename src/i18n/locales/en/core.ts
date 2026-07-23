@@ -64,6 +64,11 @@ const core = {
         placeholder: "Type a command...",
         empty: "No commands found",
     },
+    vaultSwitcher: {
+        currentVault: "Current vault",
+        active: "Active",
+        openFolderAsVault: "Open folder as vault…",
+    },
     rightSidebar: {
         backlinks: "Backlinks",
         loadingBacklinks: "Loading backlinks",

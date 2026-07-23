@@ -224,7 +224,13 @@ function handleGhostIconLeave(e: ReactMouseEvent<HTMLButtonElement>) {
     e.currentTarget.style.color = "";
 }
 
-export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
+export function Sidebar({
+    side = "left",
+    onOpenVaultSwitcher,
+}: {
+    side?: "left" | "right";
+    onOpenVaultSwitcher?: () => void;
+}) {
     useFileSync();
     const { vaultPath } = useVaultStore();
     const { isSidebarOpen, isSearchOpen, closeSearch, openSearch } = useUiStore();
@@ -397,8 +403,12 @@ export function Sidebar({ side = "left" }: { side?: "left" | "right" }) {
                                 <button
                                     type="button"
                                     style={vaultCardButtonStyle}
-                                    onClick={openVaultAction?.onClick}
-                                    title={openVaultAction ? t("sidebar.switchVault") : t("sidebar.noVaultAction")}
+                                    onClick={onOpenVaultSwitcher ?? openVaultAction?.onClick}
+                                    title={
+                                        onOpenVaultSwitcher || openVaultAction
+                                            ? t("sidebar.switchVault")
+                                            : t("sidebar.noVaultAction")
+                                    }
                                 >
                                     <div style={vaultCardBadgeStyle}>{vaultName.charAt(0).toUpperCase()}</div>
                                     <div style={vaultCardTextWrapStyle}>

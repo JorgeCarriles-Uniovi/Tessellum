@@ -26,6 +26,7 @@ import { useWikiLinkNavigation } from "./components/Editor/hooks";
 import { StatusBar } from "./components/Layout/StatusBar";
 import { RightSidebar } from "./components/Layout/RightSidebar";
 import { SettingsModal } from "./components/Settings/SettingsModal.tsx";
+import { VaultSwitcherPopover } from "./components/vault/VaultSwitcherPopover";
 import { UpdatePrompt } from "./components/Updates/UpdatePrompt.tsx";
 import { useUpdaterStore } from "./stores/updaterStore";
 import { useApplyAppearanceSettings } from "./hooks/useApplyAppearanceSettings";
@@ -53,7 +54,7 @@ function App() {
     const [isLoaded, setIsLoaded] = useState(false);
     const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
     const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
-    const [_isVaultSwitcherOpen, setIsVaultSwitcherOpen] = useState(false);
+    const [isVaultSwitcherOpen, setIsVaultSwitcherOpen] = useState(false);
     const ensureSearchReadiness = useSearchStore((state) => state.ensureReadiness);
     const resetAndEnsureSearchReadiness = useSearchStore((state) => state.resetAndEnsureReadiness);
     const loadThemes = useThemeStore((state) => state.loadThemes);
@@ -240,7 +241,9 @@ function App() {
                             <IconRail onOpenVaultSwitcher={() => setIsVaultSwitcherOpen(true)} />
 
                             {/* Sidebar */}
-                            {layoutAppearance.sidebarPosition === "left" && <Sidebar side="left" />}
+                            {layoutAppearance.sidebarPosition === "left" && (
+                                <Sidebar side="left" onOpenVaultSwitcher={() => setIsVaultSwitcherOpen(true)} />
+                            )}
 
                             {/* Main content area */}
                             <div
@@ -268,13 +271,18 @@ function App() {
                                 <StatusBar />
                             </div>
 
-                            {layoutAppearance.sidebarPosition === "right" && <Sidebar side="right" />}
+                            {layoutAppearance.sidebarPosition === "right" && (
+                                <Sidebar side="right" onOpenVaultSwitcher={() => setIsVaultSwitcherOpen(true)} />
+                            )}
                             <RightSidebar />
                         </div>
                     </div>
 
                     <CommandPalette isOpen={isCommandPaletteOpen} onClose={closeCommandPalette} />
                     <SettingsModal isOpen={isSettingsPanelOpen} onClose={closeSettingsPanel} />
+                    {isVaultSwitcherOpen && (
+                        <VaultSwitcherPopover open onClose={() => setIsVaultSwitcherOpen(false)} />
+                    )}
                     <UpdatePrompt />
                     <Toaster position="bottom-right" richColors />
                 </div>

@@ -64,6 +64,11 @@ const core = {
         placeholder: "Escribe un comando...",
         empty: "No se encontraron comandos",
     },
+    vaultSwitcher: {
+        currentVault: "Bóveda actual",
+        active: "Activa",
+        openFolderAsVault: "Abrir carpeta como bóveda…",
+    },
     rightSidebar: {
         backlinks: "Backlinks",
         loadingBacklinks: "Cargando backlinks",
