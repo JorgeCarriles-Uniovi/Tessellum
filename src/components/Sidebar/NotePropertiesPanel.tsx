@@ -1,8 +1,20 @@
 import { useState, useCallback, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useVaultStore } from "../../stores/vaultStore";
-import { ChevronDown, ChevronRight, SlidersHorizontal } from "lucide-react";
+import {
+    ChevronDown,
+    ChevronRight,
+    SlidersHorizontal,
+    AlignLeft,
+    Hash,
+    CalendarDays,
+    Link2,
+    ToggleLeft,
+    List,
+    CircleDot,
+} from "lucide-react";
 import { theme } from "../../styles/theme";
+import { stringToColor } from "../../utils/graphUtils";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -86,12 +98,35 @@ function updateFrontmatterProp(content: string, key: string, newValue: unknown):
 
 // ─── Property Row ─────────────────────────────────────────────────────────────
 
+/** Icon shown next to the property key — mirrors the type-based icons used by
+ * the inline frontmatter widget (Tags/AlignLeft), extended per-type for the
+ * v2 properties card. */
+function getPropIcon(prop: Property) {
+    if (prop.key.toLowerCase() === "status") return CircleDot;
+    switch (prop.type) {
+        case "boolean":
+            return ToggleLeft;
+        case "date":
+            return CalendarDays;
+        case "url":
+            return Link2;
+        case "number":
+            return Hash;
+        case "array":
+            return List;
+        default:
+            return AlignLeft;
+    }
+}
+
 function PropertyRow({
     prop,
     onChange,
+    isLast,
 }: {
     prop: Property;
     onChange: (key: string, value: unknown) => void;
+    isLast: boolean;
 }) {
     const [localVal, setLocalVal] = useState(
         prop.type === "array" ? (prop.value as string[]).join(", ") : String(prop.value ?? "")
@@ -114,33 +149,67 @@ function PropertyRow({
         [prop.key, prop.type, onChange]
     );
 
+    const isStatus = prop.key.toLowerCase() === "status";
+    const isUrl = prop.type === "url";
+    const Icon = getPropIcon(prop);
+
+    // Notion-inline card: borderless, inline text — the row/grid/divider
+    // supplies the visual boundary, not the input itself.
     const inputStyle = {
-        backgroundColor: "var(--color-background-secondary)",
-        color: "var(--color-text-primary)",
-        border: "1px solid var(--color-border-light)",
-        borderRadius: "0.375rem",
-        fontSize: "0.75rem",
-        padding: "0.25rem 0.5rem",
+        background: "transparent",
+        color: isUrl ? "var(--color-accent-default)" : "var(--color-text-primary)",
+        border: "none",
+        borderRadius: 0,
+        fontSize: "0.8125rem",
+        padding: 0,
         width: "100%",
         outline: "none",
+        textDecoration: isUrl && localVal ? "underline" : "none",
     };
 
     return (
-        <div className="flex flex-col gap-0.5">
-            <label className="text-[0.625rem] uppercase tracking-wider" style={{ color: theme.colors.text.muted }}>
-                {prop.key}
-            </label>
+        <div
+            className="grid items-center relative"
+            style={{ gridTemplateColumns: "128px 1fr", padding: "9px 12px" }}
+        >
+            <div
+                className="flex items-center gap-2 shrink-0 font-normal"
+                style={{ fontSize: "12.5px", color: "var(--color-text-tertiary)" }}
+            >
+                <Icon size={13} style={{ flexShrink: 0 }} />
+                <span className="truncate">{prop.key}</span>
+            </div>
             {prop.type === "boolean" ? (
                 <div className="flex items-center gap-2">
                     <input
                         type="checkbox"
                         checked={prop.value === true || prop.value === "true"}
                         onChange={(e) => onChange(prop.key, e.target.checked)}
-                        style={{ accentColor: "var(--primary)", width: 14, height: 14 }}
+                        style={{ accentColor: "var(--color-accent-default)", width: 14, height: 14 }}
                     />
-                    <span className="text-xs" style={{ color: "var(--color-text-secondary)" }}>
+                    <span style={{ fontSize: "0.8125rem", color: "var(--color-text-secondary)" }}>
                         {prop.value === true || prop.value === "true" ? "true" : "false"}
                     </span>
+                </div>
+            ) : isStatus ? (
+                <div className="flex items-center gap-2">
+                    <span
+                        style={{
+                            width: 7,
+                            height: 7,
+                            borderRadius: "50%",
+                            flexShrink: 0,
+                            backgroundColor: `hsl(${stringToColor(String(prop.value ?? "")).h}, 70%, 50%)`,
+                        }}
+                    />
+                    <input
+                        type="text"
+                        value={localVal}
+                        onChange={(e) => setLocalVal(e.target.value)}
+                        onBlur={(e) => commit(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") commit(localVal); }}
+                        style={inputStyle}
+                    />
                 </div>
             ) : prop.type === "date" ? (
                 <input
@@ -170,6 +239,18 @@ function PropertyRow({
                     onKeyDown={(e) => { if (e.key === "Enter") commit(localVal); }}
                     style={inputStyle}
                     placeholder={prop.type === "array" ? "item1, item2, …" : ""}
+                />
+            )}
+            {!isLast && (
+                <div
+                    style={{
+                        position: "absolute",
+                        left: 12,
+                        right: 12,
+                        bottom: 0,
+                        height: 1,
+                        background: "var(--color-border-light)",
+                    }}
                 />
             )}
         </div>
@@ -248,9 +329,22 @@ export function NotePropertiesPanel({
                 }
             </button>
             {isOpen && (
-                <div className="flex flex-col gap-3 pt-1">
-                    {properties.map((prop) => (
-                        <PropertyRow key={prop.key} prop={prop} onChange={handleChange} />
+                <div
+                    className="flex flex-col mt-1"
+                    style={{
+                        border: "1px solid var(--color-border-light)",
+                        borderRadius: "12px",
+                        background: "var(--color-bg-app)",
+                        padding: "6px 4px",
+                    }}
+                >
+                    {properties.map((prop, idx) => (
+                        <PropertyRow
+                            key={prop.key}
+                            prop={prop}
+                            onChange={handleChange}
+                            isLast={idx === properties.length - 1}
+                        />
                     ))}
                 </div>
             )}

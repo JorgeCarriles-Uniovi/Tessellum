@@ -1119,35 +1119,58 @@ body {
     }
 
     /* --- Frontmatter --- */
+    /* v2 "Notion-inline card": a single rounded card containing all properties,
+       with a 128px/1fr grid per row and a hairline inset divider between rows. */
     .cm-frontmatter-widget {
         @apply my-6 w-full select-none cursor-pointer;
         font-family: var(--font-sans);
+        border: 1px solid var(--color-border-light);
+        border-radius: 12px;
+        background: var(--color-bg-app);
+        padding: 6px 4px;
     }
 
     .cm-frontmatter-header {
-        @apply font-bold text-foreground mb-3 px-1;
-        font-size: 0.9375rem;
+        @apply font-bold text-foreground;
+        font-size: 0.8125rem;
+        padding: 6px 12px 4px;
     }
 
     .cm-frontmatter-props {
-        @apply flex flex-col gap-2;
+        @apply flex flex-col;
     }
 
     .cm-frontmatter-prop-row {
-        @apply flex items-center min-h-[2.25rem] bg-secondary/10 border border-solid border-border rounded-md px-3 py-1 hover:bg-secondary/30 transition-colors w-full max-w-2xl;
+        @apply relative grid items-center w-full max-w-2xl transition-colors;
+        grid-template-columns: 128px 1fr;
+        padding: 9px 12px;
+    }
+
+    .cm-frontmatter-prop-row:not(:last-child)::after {
+        content: "";
+        position: absolute;
+        left: 12px;
+        right: 12px;
+        bottom: 0;
+        height: 1px;
+        background: var(--color-border-light);
     }
 
     .cm-frontmatter-prop-key {
-        @apply flex items-center gap-2 w-32 shrink-0 text-muted-foreground mr-4 font-normal text-[0.8125rem] opacity-80;
+        @apply flex items-center gap-2 shrink-0 font-normal;
+        font-size: 12.5px;
+        color: var(--color-text-tertiary);
     }
 
     .cm-frontmatter-prop-value {
         @apply flex-1 flex flex-wrap gap-1.5 items-center min-h-[22px] overflow-visible;
+        font-size: 0.8125rem;
     }
 
     .cm-frontmatter-prop-pill {
-        @apply inline-flex items-center px-2 py-0.5 rounded-full text-[0.8125rem] font-medium bg-secondary/60 text-foreground;
-        background-color: var(--color-bg-tertiary);
+        @apply inline-flex items-center px-2 py-0.5 rounded-full text-[0.8125rem] font-medium;
+        background-color: var(--color-accent-soft);
+        color: var(--color-accent-default);
     }
 
     .cm-frontmatter-prop-pill-close {
@@ -1155,7 +1178,8 @@ body {
     }
 
     .cm-frontmatter-add-row {
-        @apply flex items-center gap-2 text-muted-foreground mt-1 px-1 hover:text-foreground transition-colors w-max text-[0.84375rem] font-medium opacity-80;
+        @apply flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors w-max text-[0.8125rem] font-medium opacity-80;
+        padding: 6px 12px;
     }
 
     .cm-frontmatter-hidden-line {
