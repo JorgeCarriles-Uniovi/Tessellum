@@ -8,6 +8,7 @@ const core = {
         backToFiles: "Back to files",
         toggleRightSidebar: "Toggle Right Sidebar",
         toggleLocalGraph: "Toggle Local Graph",
+        toggleTheme: "Toggle theme",
         changeEditorMode: "Change editor mode",
         editorMode: "Editor Mode",
         comingSoon: "Coming soon",
