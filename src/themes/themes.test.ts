@@ -97,3 +97,40 @@ empty:
         expect(BUILTIN_THEMES.some((theme) => theme.variant === "dark")).toBe(true);
     });
 });
+
+function themeByName(name: string) {
+    const t = BUILTIN_THEMES.find((x) => x.name === name);
+    if (!t) throw new Error(`missing theme ${name}`);
+    return t;
+}
+
+describe("Warm Paper v2 palette", () => {
+    test("is the default theme", () => {
+        expect(DEFAULT_THEME_NAME).toBe("Warm Paper");
+    });
+
+    test("light uses the v2 paper backgrounds and blue accent", () => {
+        const t = themeByName("Warm Paper");
+        expect(t.tokens["background.app"]).toBe("#f2f0ea");
+        expect(t.tokens["background.secondary"]).toBe("#f7f5f0");
+        expect(t.tokens["background.primary"]).toBe("#fdfcf9");
+        expect(t.tokens["background.elevated"]).toBe("#ffffff");
+        expect(t.tokens["accent.default"]).toBe("#3452d6");
+        expect(t.tokens["semantic.green"]).toBe("#3f8f57");
+    });
+
+    test("dark uses the v2 warm-charcoal backgrounds", () => {
+        const t = themeByName("Warm Paper Dark");
+        expect(t.tokens["background.app"]).toBe("#141310");
+        expect(t.tokens["background.primary"]).toBe("#100f0d");
+        expect(t.tokens["accent.default"]).toBe("#7c8cf0");
+    });
+
+    test("every builtin theme defines the new base tokens", () => {
+        for (const t of BUILTIN_THEMES) {
+            expect(t.tokens["background.app"]).toBeTruthy();
+            expect(t.tokens["background.elevated"]).toBeTruthy();
+            expect(t.tokens["semantic.green"]).toBeTruthy();
+        }
+    });
+});
