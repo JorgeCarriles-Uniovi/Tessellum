@@ -129,14 +129,15 @@ describe("editor interaction hooks", () => {
 
         const { result } = renderHook(() => useEditorExtensions("source"));
 
-        expect(result.current).toEqual([
-            {
-                pluginExtensions: ["visible-plugin"],
-                codeLanguages: ["cached-language"],
-                vimMode: false,
-                lineNumbers: false,
-            },
-        ]);
+        // The hook appends a data-editor-mode `EditorView.editorAttributes` extension
+        // after whatever `buildEditorExtensions` returns, so expect one extra entry.
+        expect(result.current).toHaveLength(2);
+        expect(result.current[0]).toEqual({
+            pluginExtensions: ["visible-plugin"],
+            codeLanguages: ["cached-language"],
+            vimMode: false,
+            lineNumbers: false,
+        });
 
         await waitFor(() => {
             expect(editorHookModuleMocks.buildEditorExtensions).toHaveBeenLastCalledWith({

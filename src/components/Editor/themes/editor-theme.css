@@ -45,6 +45,14 @@
     font-feature-settings: 'kern' 1, 'liga' 1;
 }
 
+/* Serif reading theme: applies to reading/live-preview modes only.
+   Source mode keeps the base var(--font-sans)/unscaled rules above. */
+.cm-editor:not([data-editor-mode="source"]) .cm-content {
+    font-family: var(--font-editor);
+    font-size: calc(var(--editor-font-size, 16px) * 1.1875);
+    line-height: var(--editor-line-height, 1.7);
+}
+
 .cm-scroller {
     height: 100%;
     overflow: auto;
@@ -231,8 +239,8 @@
     justify-content: center;
     width: 1.1rem;
     height: 1.1rem;
-    border-radius: 0.35rem;
-    border: 1px solid color-mix(in srgb, var(--foreground) 22%, transparent);
+    border-radius: 0.375rem;
+    border: 2px solid var(--color-border-medium);
     background: color-mix(in srgb, var(--background) 82%, var(--foreground) 3%);
     color: transparent;
     box-shadow: 0 1px 0 color-mix(in srgb, var(--background) 75%, transparent) inset;
@@ -259,14 +267,14 @@
 }
 
 .cm-task-list-checkbox-input[data-checked="true"] .cm-task-list-checkbox-box {
-    border-color: color-mix(in srgb, var(--primary) 80%, transparent);
-    background: var(--primary);
+    border-color: color-mix(in srgb, var(--color-accent-default) 80%, transparent);
+    background: var(--color-accent-default);
     color: var(--primary-foreground, #ffffff);
     box-shadow: none;
 }
 
 .cm-task-list-checkbox-input[data-checked="true"]:hover .cm-task-list-checkbox-box {
-    background: color-mix(in srgb, var(--primary) 88%, black 12%);
+    background: color-mix(in srgb, var(--color-accent-default) 88%, black 12%);
 }
 
 .cm-task-list-checkbox-input:focus-visible .cm-task-list-checkbox-box {

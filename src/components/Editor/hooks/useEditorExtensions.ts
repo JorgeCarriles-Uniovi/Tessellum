@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { EditorView } from "@codemirror/view";
 import { TessellumApp } from "../../../plugins/TessellumApp";
 import type { EditorMode } from "../../../constants/editorModes";
 import { getInitialExtensionPluginIds } from "./sourceModeExtensions";
@@ -53,11 +54,16 @@ export function useEditorExtensions(editorMode: EditorMode) {
             app.editor.getRegisteredExtensionPluginIds()
         );
 
-        return buildEditorExtensions({
-            pluginExtensions: app.editor.getInitialExtensionsForPluginIds(visiblePluginIds),
-            vimMode,
-            lineNumbers,
-            codeLanguages,
-        });
+        return [
+            ...buildEditorExtensions({
+                pluginExtensions: app.editor.getInitialExtensionsForPluginIds(visiblePluginIds),
+                vimMode,
+                lineNumbers,
+                codeLanguages,
+            }),
+            EditorView.editorAttributes.of(() => ({
+                "data-editor-mode": editorMode,
+            })),
+        ];
     }, [codeLanguages, editorMode, vimMode, lineNumbers]);
 }
