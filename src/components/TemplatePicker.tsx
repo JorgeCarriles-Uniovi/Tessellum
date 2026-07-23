@@ -2,11 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-import { theme } from "../styles/theme";
+import { File, FileText, X } from "lucide-react";
 import { useEditorStore } from "../stores/editorStore";
 import { useCreateNote } from "./Sidebar/hooks/useCreateNote";
 import { useCreateNoteFromTemplate } from "./Sidebar/hooks/useCreateNoteFromTemplate";
-import { Button, Modal, ModalFooter, ModalHeader, TextInput } from "./ui";
+import { Button, IconButton, Modal, ModalFooter } from "./ui";
 
 interface TemplateInfo {
     name: string;
@@ -17,6 +17,21 @@ interface TemplatePickerProps {
     isOpen: boolean;
     onClose: () => void;
     parentPath?: string;
+}
+
+/** v2: icon tile tint rotates through the soft accent tokens so cards read as distinct at a glance. */
+const ICON_TILE_TOKENS = [
+    { bg: "var(--color-accent-soft)", fg: "var(--color-accent-default)" },
+    { bg: "var(--color-amber-soft)", fg: "var(--color-amber)" },
+    { bg: "var(--color-pink-soft)", fg: "var(--color-pink)" },
+];
+
+/** Last path segment of the target folder, for the footer's "Creating in {folder}" hint. */
+function folderDisplayName(parentPath?: string): string | null {
+    if (!parentPath) return null;
+    const trimmed = parentPath.replace(/[\\/]+$/, "");
+    const segments = trimmed.split(/[\\/]/).filter(Boolean);
+    return segments.length > 0 ? segments[segments.length - 1] : null;
 }
 
 function useTemplates(isOpen: boolean, vaultPath: string | null, loadErrorMessage: string) {
@@ -80,68 +95,175 @@ export function TemplatePicker({ isOpen, onClose, parentPath }: TemplatePickerPr
         onClose();
     };
 
+    const folderLabel = folderDisplayName(parentPath) ?? t("templatePicker.vaultRoot", "vault root");
+
     return (
-        <Modal isOpen={isOpen} onClose={onClose} maxWidth={520}>
-            <ModalHeader
-                title={t("templatePicker.title", "New Note From Template")}
-                description={t("templatePicker.description", "Pick a template and name your note.")}
-            />
-
-            <div style={{ padding: "4px 24px 16px 24px" }}>
-                <TextInput
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder={t("templatePicker.untitled", "Untitled")}
-                />
-            </div>
-
-            <div style={{ padding: "0 16px 16px 16px", maxHeight: "320px", overflowY: "auto" }}>
-                {(isLoading || listItems.length === 1) && (
-                    <div
+        <Modal isOpen={isOpen} onClose={onClose} maxWidth={660}>
+            <div style={{ padding: "20px 24px 16px 24px" }}>
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px" }}>
+                    <div style={{ minWidth: 0 }}>
+                        <h2
+                            style={{
+                                margin: 0,
+                                fontSize: "18px",
+                                lineHeight: "26px",
+                                fontWeight: 600,
+                                color: "var(--color-text-primary)",
+                            }}
+                        >
+                            {t("templatePicker.title", "New note")}
+                        </h2>
+                        <p
+                            style={{
+                                margin: "6px 0 0 0",
+                                fontSize: "13px",
+                                lineHeight: "18px",
+                                color: "var(--color-text-muted)",
+                            }}
+                        >
+                            {t("templatePicker.description", "Name it and pick a starting point.")}
+                        </p>
+                    </div>
+                    <IconButton
+                        label={t("templatePicker.close", "Close")}
+                        onClick={onClose}
+                        size={32}
                         style={{
-                            padding: "12px",
-                            color: theme.colors.text.muted,
-                            fontSize: theme.typography.fontSize.sm,
+                            flexShrink: 0,
+                            border: "1px solid var(--color-border-light)",
+                            borderRadius: "9px",
+                            backgroundColor: "var(--color-bg-elevated)",
                         }}
                     >
+                        <X size={16} />
+                    </IconButton>
+                </div>
+
+                <div
+                    style={{
+                        marginTop: "16px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        padding: "10px 12px",
+                        border: "1px solid var(--color-border-light)",
+                        borderRadius: "10px",
+                        backgroundColor: "var(--color-bg-elevated)",
+                    }}
+                >
+                    <FileText size={16} style={{ color: "var(--color-text-muted)", flexShrink: 0 }} />
+                    <input
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        placeholder={t("templatePicker.untitled", "Untitled")}
+                        style={{
+                            flex: 1,
+                            minWidth: 0,
+                            border: "none",
+                            outline: "none",
+                            background: "transparent",
+                            fontSize: "14px",
+                            color: "var(--color-text-primary)",
+                        }}
+                    />
+                    <span
+                        style={{
+                            flexShrink: 0,
+                            fontFamily: "var(--font-mono)",
+                            fontSize: "11px",
+                            color: "var(--color-text-muted)",
+                            backgroundColor: "var(--color-bg-tertiary)",
+                            border: "1px solid var(--color-border-light)",
+                            borderRadius: "6px",
+                            padding: "2px 6px",
+                        }}
+                    >
+                        .md
+                    </span>
+                </div>
+            </div>
+
+            <div style={{ padding: "0 24px 20px 24px", maxHeight: "360px", overflowY: "auto" }}>
+                {(isLoading || listItems.length === 1) && (
+                    <div style={{ padding: "12px 2px", color: "var(--color-text-muted)", fontSize: "13px" }}>
                         {isLoading
                             ? t("templatePicker.loading", "Loading templates...")
                             : t("templatePicker.noTemplatesFound", "No templates found. Add .md files to .tessellum/templates.")}
                     </div>
                 )}
 
-                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                    {listItems.map((template, index) => (
-                        <button
-                            key={`${template.name}-${index}`}
-                            type="button"
-                            className="ui-option"
-                            onClick={() => handleSelect(template.path)}
-                        >
-                            <span
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "10px" }}>
+                    {listItems.map((template, index) => {
+                        const isBlank = template.path === "";
+                        const tile = ICON_TILE_TOKENS[index % ICON_TILE_TOKENS.length];
+                        const Icon = isBlank ? File : FileText;
+
+                        return (
+                            <button
+                                key={`${template.name}-${index}`}
+                                type="button"
+                                onClick={() => handleSelect(template.path)}
+                                className="cursor-pointer text-left transition-colors hover:border-[color:var(--color-accent-default)] hover:bg-[color:var(--color-accent-soft)] focus-visible:outline-2 focus-visible:outline-[color:var(--color-accent-default)]"
                                 style={{
-                                    fontSize: theme.typography.fontSize.sm,
-                                    color: theme.colors.text.primary,
-                                    fontWeight: template.path
-                                        ? theme.typography.fontWeight.medium
-                                        : theme.typography.fontWeight.semibold,
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    alignItems: "flex-start",
+                                    gap: "8px",
+                                    border: "2px solid var(--color-border-light)",
+                                    borderRadius: "13px",
+                                    padding: "13px",
+                                    backgroundColor: "transparent",
+                                    minWidth: 0,
                                 }}
                             >
-                                {template.name}
-                            </span>
-                            <span style={{ fontSize: theme.typography.fontSize.xs, color: theme.colors.text.muted }}>
-                                {template.path
-                                    ? t("templatePicker.useTemplate", "Use")
-                                    : t("templatePicker.startFresh", "Start fresh")}
-                            </span>
-                        </button>
-                    ))}
+                                <div
+                                    style={{
+                                        width: "38px",
+                                        height: "38px",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        borderRadius: "10px",
+                                        backgroundColor: tile.bg,
+                                        color: tile.fg,
+                                        flexShrink: 0,
+                                    }}
+                                >
+                                    <Icon size={17} />
+                                </div>
+                                <div style={{ minWidth: 0 }}>
+                                    <div
+                                        style={{
+                                            fontSize: "14px",
+                                            fontWeight: 500,
+                                            color: "var(--color-text-primary)",
+                                        }}
+                                    >
+                                        {template.name}
+                                    </div>
+                                    <div
+                                        style={{
+                                            marginTop: "2px",
+                                            fontSize: "12px",
+                                            color: "var(--color-text-muted)",
+                                        }}
+                                    >
+                                        {isBlank
+                                            ? t("templatePicker.startFresh", "Start fresh")
+                                            : t("templatePicker.useTemplate", "Use")}
+                                    </div>
+                                </div>
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
 
-            <ModalFooter>
+            <ModalFooter
+                hints={t("templatePicker.creatingIn", "Creating in {{folder}}", { folder: folderLabel })}
+            >
                 <Button variant="ghost" onClick={onClose}>
-                    {t("templatePicker.close", "Close")}
+                    {t("templatePicker.cancel", "Cancel")}
                 </Button>
             </ModalFooter>
         </Modal>

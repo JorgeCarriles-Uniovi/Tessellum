@@ -146,8 +146,8 @@ const core = {
         empty: "Empty",
     },
     templatePicker: {
-        title: "New Note From Template",
-        description: "Pick a template and name your note.",
+        title: "New note",
+        description: "Name it and pick a starting point.",
         untitled: "Untitled",
         emptyTitleError: "Title cannot be empty",
         loadError: "Failed to load templates",
@@ -157,6 +157,9 @@ const core = {
         useTemplate: "Use",
         startFresh: "Start fresh",
         close: "Close",
+        cancel: "Cancel",
+        creatingIn: "Creating in {{folder}}",
+        vaultRoot: "vault root",
     },
 };
 

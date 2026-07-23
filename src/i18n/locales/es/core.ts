@@ -146,8 +146,8 @@ const core = {
         empty: "Vacío",
     },
     templatePicker: {
-        title: "Nueva nota desde plantilla",
-        description: "Elige una plantilla y dale un nombre a tu nota.",
+        title: "Nota nueva",
+        description: "Ponle un nombre y elige un punto de partida.",
         untitled: "Sin título",
         emptyTitleError: "El título no puede estar vacío",
         loadError: "Error al cargar las plantillas",
@@ -157,6 +157,9 @@ const core = {
         useTemplate: "Usar",
         startFresh: "Empezar en blanco",
         close: "Cerrar",
+        cancel: "Cancelar",
+        creatingIn: "Creando en {{folder}}",
+        vaultRoot: "raíz del vault",
     },
 };
 
