@@ -27,12 +27,11 @@ export function GraphQueryPanel({
         <div
             style={{
                 position: "absolute",
-                top: "50%",
-                right: 0,
-                transform: "translateY(-50%)",
+                top: 16,
+                right: 16,
                 zIndex: 20,
                 display: "flex",
-                alignItems: "center",
+                alignItems: "flex-start",
                 pointerEvents: "none",
             }}
         >
