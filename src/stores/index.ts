@@ -26,6 +26,8 @@ export type { UiActions, UiState, UiStore } from "./uiStore";
 export { useGraphStore } from "./graphStore";
 export type { GraphActions, GraphState, GraphStore } from "./graphStore";
 
+export * from "./graphDataStore";
+
 export { useSelectionStore } from "./selectionStore";
 export type { SelectionActions, SelectionState, SelectionStore } from "./selectionStore";
 

@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { useGraphStore, useVaultStore } from "../../stores";
+import { useGraphDataStore, useGraphStore, useVaultStore } from "../../stores";
 import { GraphCanvas } from './GraphCanvas';
 import { NodeInfoPanel } from './NodeInfoPanel';
 import { GraphQueryPanel } from './GraphQueryPanel';
@@ -42,10 +42,17 @@ export function GraphView() {
     const { t } = useAppTranslation("core");
     const { vaultPath, files, setActiveNote, addFileIfMissing } = useVaultStore();
     const { setViewMode, selectedGraphNode, setSelectedGraphNode } = useGraphStore();
+    const {
+        graphData,
+        isFetching: loading,
+        setGraphData,
+        markStale,
+        setFetching,
+        setError,
+        clearForVaultChange,
+    } = useGraphDataStore();
 
-    const [graphData, setGraphData] = useState<GraphData | null>(null);
     const [elements, setElements] = useState<cytoscape.ElementDefinition[]>([]);
-    const [loading, setLoading] = useState(true);
     const [query, setQuery] = useState('');
     const [queryError, setQueryError] = useState<string | null>(null);
     const [isCypherRunning, setIsCypherRunning] = useState(false);
@@ -54,21 +61,33 @@ export function GraphView() {
     const debouncedFileChangeTick = useDebouncedValue(fileChangeTick, 250);
     const latestQueryRequestIdRef = useRef(0);
 
+    useEffect(() => {
+        clearForVaultChange(vaultPath);
+    }, [vaultPath, clearForVaultChange]);
+
     const fetchGraphData = useCallback(async () => {
         if (!vaultPath) {
             setElements([]);
-            setLoading(false);
+            setFetching(false);
             return;
         }
+        // Cache hit: use it, skip the invoke
+        const state = useGraphDataStore.getState();
+        if (state.graphData && state.cachedForVault === vaultPath && !state.isStale) {
+            setFetching(false);
+            return;
+        }
+        setFetching(true);
         try {
             const data = await invoke<GraphData>('get_graph_data', { vaultPath });
-            setGraphData(data);
+            setGraphData(data, vaultPath);
         } catch (e) {
             console.error('Failed to fetch graph data:', e);
+            setError(e instanceof Error ? e.message : String(e));
         } finally {
-            setLoading(false);
+            setFetching(false);
         }
-    }, [vaultPath]);
+    }, [vaultPath, setGraphData, setError, setFetching]);
 
     useEffect(() => {
         fetchGraphData();
@@ -85,8 +104,9 @@ export function GraphView() {
 
     useEffect(() => {
         if (debouncedFileChangeTick === 0) return;
+        markStale();
         fetchGraphData();
-    }, [debouncedFileChangeTick, fetchGraphData]);
+    }, [debouncedFileChangeTick, markStale, fetchGraphData]);
 
     const handleNodeClick = useCallback(
         (nodeId: string) => {
