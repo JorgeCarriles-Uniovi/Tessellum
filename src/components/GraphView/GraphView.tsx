@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { useGraphDataStore, useGraphStore, useVaultStore } from "../../stores";
@@ -65,6 +65,22 @@ export function GraphView() {
     const debouncedFileChangeTick = useDebouncedValue(fileChangeTick, 250);
     const latestQueryRequestIdRef = useRef(0);
     const [cy, setCy] = useState<cytoscape.Core | null>(null);
+
+    const { visibleNodeIds, visibleEdgeIds, filteredGraphData } = useMemo(() => {
+        if (!graphData) return { visibleNodeIds: null, visibleEdgeIds: null, filteredGraphData: null };
+        if (graphFilter === "all") return { visibleNodeIds: null, visibleEdgeIds: null, filteredGraphData: graphData };
+        const passes = (n: GraphData['nodes'][number]) =>
+            graphFilter === "orphans" ? n.orphan : /* unresolved */ !n.exists;
+        const nodes = graphData.nodes.filter(passes);
+        const nodeIds = new Set(nodes.map((n) => n.id));
+        const edges = graphData.edges.filter((e) => nodeIds.has(e.source) && nodeIds.has(e.target));
+        const edgeIds = new Set(edges.map((e) => `${e.source}->${e.target}`));
+        return {
+            visibleNodeIds: nodeIds,
+            visibleEdgeIds: edgeIds,
+            filteredGraphData: { nodes, edges } as GraphData,
+        };
+    }, [graphData, graphFilter]);
 
     useEffect(() => {
         clearForVaultChange(vaultPath);
@@ -357,7 +373,7 @@ export function GraphView() {
                     </div>
                 ) : graphMode === "mosaic" ? (
                     <MosaicCanvas
-                        graphData={graphData}
+                        graphData={filteredGraphData}
                         selectedNodeId={selectedGraphNode}
                         onNodeClick={handleNodeClick}
                         onNodeDoubleClick={handleNodeDoubleClick}
@@ -366,6 +382,8 @@ export function GraphView() {
                     <GraphCanvas
                         elements={elements}
                         mode="global"
+                        visibleNodeIds={visibleNodeIds}
+                        visibleEdgeIds={visibleEdgeIds}
                         selectedNodeId={selectedGraphNode ?? undefined}
                         onNodeClick={handleNodeClick}
                         onNodeDoubleClick={handleNodeDoubleClick}
