@@ -76,6 +76,7 @@ export function MosaicCanvas({ graphData, selectedNodeId, onNodeClick, onNodeDou
             <div style={{ position: "relative", width: layout.width, height: layout.height, margin: "40px auto" }}>
                 {selectedTile && (
                     <div
+                        data-testid="mosaic-halo"
                         style={{
                             position: "absolute",
                             left: selectedTile.x - HALO_MARGIN / 2,

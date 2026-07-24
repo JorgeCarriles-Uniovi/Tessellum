@@ -2,6 +2,22 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { MosaicCanvas } from "./MosaicCanvas";
 import type { GraphData } from "../../utils/graphUtils";
+import { computeTagClusters, bucketNodesByDominantTag } from "../../utils/graphStats";
+import { packHexClusters, HEX_TILE_WIDTH, HEX_TILE_HEIGHT } from "../../utils/hexGrid";
+
+// Mirrors MosaicCanvas's private HALO_MARGIN constant (not exported from the component).
+const HALO_MARGIN = 13;
+
+// Replicates MosaicCanvas's layout pipeline (minus pickVisibleNodes, a no-op for graphs
+// under the 200-tile cap used by these fixtures) so tests can assert exact tile
+// coordinates without hardcoding brittle pixel values that would drift if the hex
+// packing algorithm ever changes.
+function computeExpectedTilePositions(data: GraphData): Map<string, { x: number; y: number }> {
+    const clusters = computeTagClusters(data.nodes);
+    const buckets = bucketNodesByDominantTag(data.nodes, clusters).map((b) => ({ items: b.nodeIds }));
+    const { tiles } = packHexClusters(buckets);
+    return new Map(tiles.map((tile) => [tile.item, { x: tile.x, y: tile.y }]));
+}
 
 function makeData(count: number): GraphData {
     return {
@@ -67,8 +83,43 @@ describe("MosaicCanvas", () => {
         expect(soloTile.style.background).toContain("linear-gradient(147deg");
     });
 
-    it("shows a floating label with the selected note's title when a node is selected", () => {
+    it("shows a floating label with the selected note's title, centered above the tile", () => {
         render(<MosaicCanvas graphData={makeMultiTagData()} selectedNodeId="combo" onNodeClick={vi.fn()} onNodeDoubleClick={vi.fn()} />);
-        expect(screen.getByText("Combo")).toBeInTheDocument();
+        const label = screen.getByText("Combo");
+        const comboPos = computeExpectedTilePositions(makeMultiTagData()).get("combo")!;
+
+        expect(label.style.top).toBe(`${comboPos.y - 36}px`);
+        expect(label.style.left).toBe(`${comboPos.x + HEX_TILE_WIDTH / 2}px`);
+        expect(label.style.transform).toBe("translateX(-50%)");
+    });
+
+    it("renders a halo behind the selected tile in DOM order, sized and offset around it", () => {
+        const { container } = render(
+            <MosaicCanvas graphData={makeMultiTagData()} selectedNodeId="combo" onNodeClick={vi.fn()} onNodeDoubleClick={vi.fn()} />,
+        );
+
+        const halo = container.querySelector<HTMLElement>('[data-testid="mosaic-halo"]');
+        expect(halo).not.toBeNull();
+
+        // DOM order, not z-index: the halo must precede the tile button so it paints
+        // underneath -- this is the mechanism the component relies on for the halo to
+        // sit behind the tile, and a stray reorder or z-index addition would break it
+        // without this check ever catching it.
+        const comboTile = screen.getByRole("button", { name: "Combo" });
+        const relation = halo!.compareDocumentPosition(comboTile);
+        expect(relation & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+        const comboPos = computeExpectedTilePositions(makeMultiTagData()).get("combo")!;
+        expect(halo!.style.left).toBe(`${comboPos.x - HALO_MARGIN / 2}px`);
+        expect(halo!.style.top).toBe(`${comboPos.y - HALO_MARGIN / 2}px`);
+        expect(halo!.style.width).toBe(`${HEX_TILE_WIDTH + HALO_MARGIN}px`);
+        expect(halo!.style.height).toBe(`${HEX_TILE_HEIGHT + HALO_MARGIN}px`);
+    });
+
+    it("renders no halo when nothing is selected", () => {
+        const { container } = render(
+            <MosaicCanvas graphData={makeMultiTagData()} selectedNodeId={null} onNodeClick={vi.fn()} onNodeDoubleClick={vi.fn()} />,
+        );
+        expect(container.querySelector('[data-testid="mosaic-halo"]')).toBeNull();
     });
 });
