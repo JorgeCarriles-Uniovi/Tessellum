@@ -60,4 +60,20 @@ describe("useDraggablePosition", () => {
         act(() => result.current.handlePointerUp(fakeEvent(20, 0)));
         expect(localStorage.length).toBe(0);
     });
+
+    it("falls back to initial when the stored value is not valid JSON", () => {
+        localStorage.setItem("test:dragPos", "not valid json");
+        const { result } = renderHook(() =>
+            useDraggablePosition({ initial: { x: 16, y: 16 }, storageKey: "test:dragPos" }),
+        );
+        expect(result.current.position).toEqual({ x: 16, y: 16 });
+    });
+
+    it("falls back to initial when the stored value is valid JSON but the wrong shape", () => {
+        localStorage.setItem("test:dragPos", JSON.stringify({ foo: "bar" }));
+        const { result } = renderHook(() =>
+            useDraggablePosition({ initial: { x: 16, y: 16 }, storageKey: "test:dragPos" }),
+        );
+        expect(result.current.position).toEqual({ x: 16, y: 16 });
+    });
 });
