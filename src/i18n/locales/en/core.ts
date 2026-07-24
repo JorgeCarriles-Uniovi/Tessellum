@@ -95,6 +95,13 @@ const core = {
         graphView: "Graph View",
         loadingGraph: "Loading graph...",
         noGraphData: "No graph data yet. Create notes and links to see connections.",
+        networkMode: "Network",
+        mosaicMode: "Mosaic",
+        filterAll: "All tags",
+        filterOrphans: "Orphans",
+        filterUnresolved: "Unresolved",
+        notesCount: "{{count}} note(s)",
+        tagClusters: "{{count}} tag cluster(s)",
     },
     workspaceOverview: {
         title: "Workspace Overview",

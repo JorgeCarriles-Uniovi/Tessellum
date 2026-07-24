@@ -5,7 +5,7 @@ import { useGraphDataStore, useGraphStore, useVaultStore } from "../../stores";
 import { GraphCanvas } from './GraphCanvas';
 import { NodeInfoPanel } from './NodeInfoPanel';
 import { GraphQueryPanel } from './GraphQueryPanel';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, GitFork, Grid2x2 } from 'lucide-react';
 import cytoscape from 'cytoscape';
 import { mapGraphDataToElements, GraphData } from "../../utils/graphUtils.ts";
 import { createNoteInDir } from "../../utils/noteUtils";
@@ -14,6 +14,13 @@ import { normalizeCypherQuery } from "../../lib/cypherQueryNormalizer";
 import { useAppTranslation } from "../../i18n/react.tsx";
 
 type QueryRow = Record<string, unknown>;
+
+// TEMP: real implementation lands in Task 6 (`src/utils/graphStats.ts`)
+function computeTagClusters(nodes: GraphData['nodes']): Set<string> {
+    const set = new Set<string>();
+    nodes.forEach((n) => n.tags.forEach((t) => set.add(t)));
+    return set;
+}
 
 function extractMatchingNodeIds(rows: QueryRow[], graphData: GraphData): Set<string> {
     const idsFromColumns = new Set<string>();
@@ -41,7 +48,7 @@ function extractMatchingNodeIds(rows: QueryRow[], graphData: GraphData): Set<str
 export function GraphView() {
     const { t } = useAppTranslation("core");
     const { vaultPath, files, setActiveNote, addFileIfMissing } = useVaultStore();
-    const { setViewMode, selectedGraphNode, setSelectedGraphNode } = useGraphStore();
+    const { setViewMode, selectedGraphNode, setSelectedGraphNode, graphMode, setGraphMode, graphFilter, setGraphFilter } = useGraphStore();
     const {
         graphData,
         isFetching: loading,
@@ -238,22 +245,107 @@ export function GraphView() {
     return (
         <div className="w-full h-full relative flex flex-col">
             <div
-                className="flex items-center gap-3 px-4 border-b border-[var(--color-border-light)] bg-[var(--color-bg-app)] shrink-0"
-                style={{ height: 52 }}
+                className="flex items-center gap-4 shrink-0"
+                style={{
+                    height: 52,
+                    padding: "0 18px",
+                    background: "var(--color-bg-app)",
+                    borderBottom: "1px solid var(--color-border-light)",
+                }}
             >
+                {/* Back button */}
                 <button
                     onClick={() => setViewMode('editor')}
-                    className="flex items-center gap-1.5 border border-[var(--color-border-light)] bg-[var(--color-bg-elevated)] cursor-pointer text-[var(--color-text-tertiary)] text-[12px] font-medium rounded-[var(--radius-md)] transition-colors duration-150 hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
                     style={{
-                        padding: "5px 10px"
+                        display: "flex", alignItems: "center", gap: 7,
+                        padding: "6px 11px",
+                        border: "1px solid var(--color-border-light)",
+                        background: "var(--color-bg-elevated)",
+                        color: "var(--color-text-tertiary)",
+                        borderRadius: 8,
+                        fontSize: 12.5, fontWeight: 500,
+                        fontFamily: "var(--font-sans)", cursor: "pointer",
                     }}
                 >
                     <ArrowLeft size={14} />
                     {t("graph.backToEditor")}
                 </button>
-                <span className="text-[15px] font-semibold text-[var(--color-text-primary)]">
-                    {t("graph.graphView")}
-                </span>
+
+                {/* Title + stats subtitle */}
+                <div style={{ display: "flex", alignItems: "baseline", gap: 9 }}>
+                    <span style={{ fontSize: 15, fontWeight: 600, color: "var(--color-text-primary)" }}>
+                        {t("graph.graphView")}
+                    </span>
+                    <span style={{ fontSize: 12, color: "var(--color-text-tertiary)" }}>
+                        {graphData
+                            ? `${t("graph.notesCount", { count: graphData.nodes.length })} · ${t("graph.tagClusters", { count: computeTagClusters(graphData.nodes).size })}`
+                            : ""}
+                    </span>
+                </div>
+
+                {/* Mosaic / Network segmented control */}
+                <div
+                    style={{
+                        display: "flex", alignItems: "center", gap: 2,
+                        background: "var(--color-bg-panel, var(--color-bg-secondary))",
+                        border: "1px solid var(--color-border-light)",
+                        borderRadius: 9, padding: 2, marginLeft: 6,
+                    }}
+                >
+                    {(["mosaic", "network"] as const).map((m) => {
+                        const active = graphMode === m;
+                        return (
+                            <button
+                                key={m}
+                                type="button"
+                                onClick={() => setGraphMode(m)}
+                                aria-pressed={active}
+                                style={{
+                                    display: "flex", alignItems: "center", gap: 6,
+                                    padding: "5px 11px",
+                                    border: "none", borderRadius: 7,
+                                    fontSize: 11.5, fontWeight: 600,
+                                    fontFamily: "var(--font-sans)", cursor: "pointer",
+                                    background: active ? "var(--color-bg-elevated)" : "transparent",
+                                    color: active ? "var(--color-text-primary)" : "var(--color-text-tertiary)",
+                                    boxShadow: active ? "var(--shadow-sm)" : "none",
+                                }}
+                            >
+                                {m === "mosaic" ? <Grid2x2 size={13} /> : <GitFork size={13} />}
+                                {t(`graph.${m}Mode`)}
+                            </button>
+                        );
+                    })}
+                </div>
+
+                <div style={{ flex: 1 }} />
+
+                {/* Filter chips */}
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    {(["all", "orphans", "unresolved"] as const).map((f) => {
+                        const active = graphFilter === f;
+                        return (
+                            <button
+                                key={f}
+                                type="button"
+                                onClick={() => setGraphFilter(f)}
+                                aria-pressed={active}
+                                style={{
+                                    fontSize: 11, fontWeight: active ? 600 : 500,
+                                    color: active ? "var(--color-accent-default)" : "var(--color-text-tertiary)",
+                                    background: active ? "var(--color-accent-soft)" : "var(--color-bg-panel, var(--color-bg-secondary))",
+                                    border: active
+                                        ? "1px solid color-mix(in srgb, var(--color-accent-default) 22%, transparent)"
+                                        : "1px solid var(--color-border-light)",
+                                    borderRadius: 20, padding: "3px 11px",
+                                    cursor: "pointer",
+                                }}
+                            >
+                                {t(`graph.filter${f.charAt(0).toUpperCase() + f.slice(1)}`)}
+                            </button>
+                        );
+                    })}
+                </div>
             </div>
 
             <div className="flex-1 relative">

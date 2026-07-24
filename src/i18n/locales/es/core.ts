@@ -95,6 +95,13 @@ const core = {
         graphView: "Vista de grafo",
         loadingGraph: "Cargando grafo...",
         noGraphData: "Todavía no hay datos de grafo. Crea notas y enlaces para ver conexiones.",
+        networkMode: "Red",
+        mosaicMode: "Mosaico",
+        filterAll: "Todas las etiquetas",
+        filterOrphans: "Huérfanos",
+        filterUnresolved: "No resueltos",
+        notesCount: "{{count}} nota(s)",
+        tagClusters: "{{count}} grupo(s) de etiquetas",
     },
     workspaceOverview: {
         title: "Resumen del espacio de trabajo",
