@@ -15,6 +15,8 @@ interface GraphCanvasProps {
     mode: 'global' | 'local';
     focusNodeId?: string;
     selectedNodeId?: string;
+    initialPositions?: Record<string, { x: number; y: number }> | null;
+    onPositionsStable?: (positions: Record<string, { x: number; y: number }>) => void;
     onNodeClick: (nodeId: string) => void;
     onNodeDoubleClick: (nodeId: string) => void;
 }
@@ -27,6 +29,8 @@ export function GraphCanvas({
                                 mode,
                                 focusNodeId,
                                 selectedNodeId,
+                                initialPositions,
+                                onPositionsStable,
                                 onNodeClick,
                                 onNodeDoubleClick,
                             }: GraphCanvasProps) {
@@ -46,19 +50,24 @@ export function GraphCanvas({
         selectedNodeIdRef.current = selectedNodeId ?? null;
     }, [selectedNodeId]);
 
-    const getLayoutOptions = () => ({
-        name: 'cose',
-        animate: !isTestEnv,
-        animationDuration: 500,
-        randomize: true,
-        nodeRepulsion: () => (mode === 'global' ? 6000 : 4000),
-        idealEdgeLength: () => (mode === 'global' ? 70 : 60),
-        gravity: mode === 'global' ? 1.0 : 0.8,
-        numIter: mode === 'global' ? 1000 : 500,
-        nodeDimensionsIncludeLabels: true,
-        componentSpacing: mode === 'global' ? 80 : 50,
-        padding: 40,
-    } as any);
+    const getLayoutOptions = (usePreset: boolean) => {
+        if (usePreset) {
+            return { name: 'preset', fit: true, padding: 40 } as any;
+        }
+        return {
+            name: 'cose',
+            animate: !isTestEnv,
+            animationDuration: 500,
+            randomize: true,
+            nodeRepulsion: () => (mode === 'global' ? 6000 : 4000),
+            idealEdgeLength: () => (mode === 'global' ? 70 : 60),
+            gravity: mode === 'global' ? 1.0 : 0.8,
+            numIter: mode === 'global' ? 1000 : 500,
+            nodeDimensionsIncludeLabels: true,
+            componentSpacing: mode === 'global' ? 80 : 50,
+            padding: 40,
+        } as any;
+    };
 
     // Initialize Cytoscape once
     useEffect(() => {
@@ -68,10 +77,16 @@ export function GraphCanvas({
             container: containerRef.current,
             elements: [],
             style: getCytoscapeStylesheet(),
-            layout: getLayoutOptions(),
+            layout: getLayoutOptions(false),
             minZoom: 0.1,
             maxZoom: 5,
             wheelSensitivity: 0.3,
+            // Perf: skip expensive redraws while panning/zooming on large graphs
+            hideEdgesOnViewport: true,
+            hideLabelsOnViewport: true,
+            textureOnViewport: true,
+            motionBlur: false,
+            pixelRatio: 'auto',
         });
 
         cyRef.current = cy;
@@ -87,6 +102,19 @@ export function GraphCanvas({
 
         // After layout finishes, reposition orphan nodes in a circle around the main cluster
         const handleLayoutStop = () => {
+            // Persist stable positions so future opens skip cose layout entirely.
+            // Called once the layout (and any orphan-repositioning animation) has
+            // fully settled, so the captured positions are final, not mid-animation.
+            const capturePositions = () => {
+                if (!onPositionsStable) return;
+                const positions: Record<string, { x: number; y: number }> = {};
+                cy.nodes().forEach((node) => {
+                    const p = node.position();
+                    positions[node.id()] = { x: p.x, y: p.y };
+                });
+                onPositionsStable(positions);
+            };
+
             const orphans = cy.nodes('.orphan').not('.filtered-out');
 
             if (orphans.length === 0) {
@@ -97,6 +125,8 @@ export function GraphCanvas({
                         cy.animate({ fit: { eles: cy.elements(), padding: 60 }, duration: 300 } as any);
                     }
                 }
+                // No node-position animation on this path — positions are already final.
+                capturePositions();
                 return;
             }
 
@@ -136,11 +166,17 @@ export function GraphCanvas({
 
             if (isTestEnv) {
                 cy.fit(cy.elements(), 60);
+                // Test env applies node positions synchronously (no animate), so
+                // positions are already final here.
+                capturePositions();
             } else {
                 scheduleTimeout(() => {
                     if (cyRef.current) {
                         cy.animate({ fit: { eles: cy.elements(), padding: 60 }, duration: 300 } as any);
                     }
+                    // Fires after the orphan-repositioning animation has had time to
+                    // settle, so this captures the final positions, not mid-animation.
+                    capturePositions();
                 }, 420);
             }
         };
@@ -266,7 +302,20 @@ export function GraphCanvas({
                     activeLayoutRef.current.stop();
                 } catch (e) {}
             }
-            const layout = cy.layout(getLayoutOptions());
+            // Apply cached positions first (if any). Preset-layout requires positions on every node.
+            let allPositioned = false;
+            if (initialPositions) {
+                allPositioned = true;
+                cy.nodes().forEach((node) => {
+                    const pos = initialPositions[node.id()];
+                    if (pos) {
+                        node.position(pos);
+                    } else {
+                        allPositioned = false;
+                    }
+                });
+            }
+            const layout = cy.layout(getLayoutOptions(allPositioned));
             activeLayoutRef.current = layout;
             layout.run();
         }

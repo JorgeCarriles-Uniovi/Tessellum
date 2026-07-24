@@ -272,6 +272,8 @@ export function GraphView() {
                         selectedNodeId={selectedGraphNode ?? undefined}
                         onNodeClick={handleNodeClick}
                         onNodeDoubleClick={handleNodeDoubleClick}
+                        initialPositions={useGraphDataStore.getState().nodePositions}
+                        onPositionsStable={useGraphDataStore.getState().setNodePositions}
                     />
                 )}
 
