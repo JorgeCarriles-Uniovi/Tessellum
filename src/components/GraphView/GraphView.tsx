@@ -367,7 +367,7 @@ export function GraphView() {
                     <div className="flex items-center justify-center h-full text-[var(--color-text-muted)] text-sm">
                         {t("graph.loadingGraph")}
                     </div>
-                ) : elements.length === 0 ? (
+                ) : !graphData || graphData.nodes.length === 0 ? (
                     <div className="flex items-center justify-center h-full text-[var(--color-text-muted)] text-sm">
                         {t("graph.noGraphData")}
                     </div>
@@ -409,8 +409,8 @@ export function GraphView() {
                 )}
 
                 {selectedGraphNode && (() => {
-                    const nodeElement = elements.find(e => e.data?.id === selectedGraphNode);
-                    const tags = nodeElement?.data?.tags as string[] | undefined;
+                    const node = graphData?.nodes.find(n => n.id === selectedGraphNode);
+                    const tags = node?.tags;
                     return (
                         <NodeInfoPanel
                             nodePath={selectedGraphNode}

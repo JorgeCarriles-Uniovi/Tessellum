@@ -1,11 +1,13 @@
 import type cytoscape from "cytoscape";
 import { Plus, Minus, Maximize2 } from "lucide-react";
+import { useAppTranslation } from "../../i18n/react.tsx";
 
 interface Props { cy: cytoscape.Core | null }
 
 const ZOOM_STEP = 1.25;
 
 export function GraphZoomControls({ cy }: Props) {
+    const { t } = useAppTranslation("core");
     if (!cy) return null;
     const zoom = (factor: number) => {
         const currentZoom = cy.zoom();
@@ -26,11 +28,11 @@ export function GraphZoomControls({ cy }: Props) {
                 overflow: "hidden", zIndex: 10,
             }}
         >
-            <ZoomBtn onClick={() => zoom(ZOOM_STEP)} title="Zoom in"><Plus size={15} /></ZoomBtn>
+            <ZoomBtn onClick={() => zoom(ZOOM_STEP)} title={t("graph.zoomIn")}><Plus size={15} /></ZoomBtn>
             <div style={{ height: 1, background: "var(--color-border-light)" }} />
-            <ZoomBtn onClick={() => zoom(1 / ZOOM_STEP)} title="Zoom out"><Minus size={15} /></ZoomBtn>
+            <ZoomBtn onClick={() => zoom(1 / ZOOM_STEP)} title={t("graph.zoomOut")}><Minus size={15} /></ZoomBtn>
             <div style={{ height: 1, background: "var(--color-border-light)" }} />
-            <ZoomBtn onClick={fit} title="Fit to view"><Maximize2 size={15} /></ZoomBtn>
+            <ZoomBtn onClick={fit} title={t("graph.fitToView")}><Maximize2 size={15} /></ZoomBtn>
         </div>
     );
 }

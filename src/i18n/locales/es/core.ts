@@ -102,6 +102,11 @@ const core = {
         filterUnresolved: "No resueltos",
         notesCount: "{{count}} nota(s)",
         tagClusters: "{{count}} grupo(s) de etiquetas",
+        tagClustersLabel: "Grupos de etiquetas",
+        mosaicTopNCaption: "Mostrando los {{shown}} principales de {{total}} notas por conectividad",
+        zoomIn: "Acercar",
+        zoomOut: "Alejar",
+        fitToView: "Ajustar a la vista",
     },
     workspaceOverview: {
         title: "Resumen del espacio de trabajo",

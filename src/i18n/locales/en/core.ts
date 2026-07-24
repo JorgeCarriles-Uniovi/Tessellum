@@ -102,6 +102,11 @@ const core = {
         filterUnresolved: "Unresolved",
         notesCount: "{{count}} note(s)",
         tagClusters: "{{count}} tag cluster(s)",
+        tagClustersLabel: "Tag clusters",
+        mosaicTopNCaption: "Showing top {{shown}} of {{total}} notes by connectivity",
+        zoomIn: "Zoom in",
+        zoomOut: "Zoom out",
+        fitToView: "Fit to view",
     },
     workspaceOverview: {
         title: "Workspace Overview",

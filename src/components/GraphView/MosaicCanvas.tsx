@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import type { GraphData } from "../../utils/graphUtils";
 import { stringToColor } from "../../utils/graphUtils";
 import { countConnections } from "../../utils/graphStats";
+import { useAppTranslation } from "../../i18n/react.tsx";
 
 interface Props {
     graphData: GraphData | null;
@@ -34,6 +35,7 @@ function pickVisibleNodes(nodes: GraphData["nodes"], connections: Map<string, nu
 }
 
 export function MosaicCanvas({ graphData, selectedNodeId, onNodeClick, onNodeDoubleClick }: Props) {
+    const { t } = useAppTranslation("core");
     const tiles = useMemo<MosaicTile[] | null>(() => {
         if (!graphData) return null;
         const connections = countConnections(graphData.nodes, graphData.edges);
@@ -134,7 +136,7 @@ export function MosaicCanvas({ graphData, selectedNodeId, onNodeClick, onNodeDou
                         borderRadius: 8, padding: "4px 8px",
                     }}
                 >
-                    Showing top {MAX_TILES} of {total} notes by connectivity
+                    {t("graph.mosaicTopNCaption", { shown: MAX_TILES, total })}
                 </div>
             )}
         </div>
