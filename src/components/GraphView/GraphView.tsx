@@ -50,6 +50,8 @@ export function GraphView() {
     const [queryError, setQueryError] = useState<string | null>(null);
     const [isCypherRunning, setIsCypherRunning] = useState(false);
     const debouncedQuery = useDebouncedValue(query, 250);
+    const [fileChangeTick, setFileChangeTick] = useState(0);
+    const debouncedFileChangeTick = useDebouncedValue(fileChangeTick, 250);
     const latestQueryRequestIdRef = useRef(0);
 
     const fetchGraphData = useCallback(async () => {
@@ -74,12 +76,17 @@ export function GraphView() {
 
     useEffect(() => {
         const unlistenPromise = listen('file-changed', () => {
-            fetchGraphData();
+            setFileChangeTick((t) => t + 1);
         });
         return () => {
             unlistenPromise.then((unlisten) => unlisten());
         };
-    }, [fetchGraphData]);
+    }, []);
+
+    useEffect(() => {
+        if (debouncedFileChangeTick === 0) return;
+        fetchGraphData();
+    }, [debouncedFileChangeTick, fetchGraphData]);
 
     const handleNodeClick = useCallback(
         (nodeId: string) => {
