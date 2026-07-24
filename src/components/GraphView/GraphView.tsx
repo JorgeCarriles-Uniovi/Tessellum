@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { useGraphDataStore, useGraphStore, useVaultStore } from "../../stores";
 import { GraphCanvas } from './GraphCanvas';
+import { MosaicCanvas } from './MosaicCanvas';
 import { NodeInfoPanel } from './NodeInfoPanel';
 import { GraphQueryPanel } from './GraphQueryPanel';
 import { GraphLegend } from './GraphLegend';
@@ -354,6 +355,13 @@ export function GraphView() {
                     <div className="flex items-center justify-center h-full text-[var(--color-text-muted)] text-sm">
                         {t("graph.noGraphData")}
                     </div>
+                ) : graphMode === "mosaic" ? (
+                    <MosaicCanvas
+                        graphData={graphData}
+                        selectedNodeId={selectedGraphNode}
+                        onNodeClick={handleNodeClick}
+                        onNodeDoubleClick={handleNodeDoubleClick}
+                    />
                 ) : (
                     <GraphCanvas
                         elements={elements}
@@ -368,14 +376,19 @@ export function GraphView() {
                 )}
 
                 <GraphLegend graphData={graphData} />
-                <GraphZoomControls cy={cy} />
 
-                <GraphQueryPanel
-                    query={query}
-                    onChange={setQuery}
-                    error={queryError}
-                    isRunning={isCypherRunning}
-                />
+                {graphMode === "network" && (
+                    <>
+                        <GraphZoomControls cy={cy} />
+
+                        <GraphQueryPanel
+                            query={query}
+                            onChange={setQuery}
+                            error={queryError}
+                            isRunning={isCypherRunning}
+                        />
+                    </>
+                )}
 
                 {selectedGraphNode && (() => {
                     const nodeElement = elements.find(e => e.data?.id === selectedGraphNode);
