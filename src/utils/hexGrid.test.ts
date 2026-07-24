@@ -65,4 +65,49 @@ describe("packHexClusters", () => {
         expect(width).toBe(0);
         expect(height).toBe(0);
     });
+
+    it("never silently drops items when a later bucket's seed gets boxed in by earlier buckets", () => {
+        // Bucket sizes found by brute-force search: with these exact sizes,
+        // the 4th bucket's seed cell ends up fully surrounded by cells the
+        // first three buckets already occupy, so its own local BFS frontier
+        // runs dry after placing only its first item. Before the fix this
+        // silently dropped every item after that point with no error.
+        const sizes = [11, 16, 17, 2];
+        const buckets = sizes.map((size, bucketIndex) => ({
+            items: Array.from({ length: size }, (_, itemIndex) => `b${bucketIndex}-${itemIndex}`),
+        }));
+        const totalItems = sizes.reduce((sum, size) => sum + size, 0);
+
+        const { tiles } = packHexClusters(buckets);
+
+        expect(tiles).toHaveLength(totalItems);
+        const cellStrings = tiles.map((t) => `${t.row},${t.col}`);
+        expect(new Set(cellStrings).size).toBe(totalItems); // still no collisions
+        // Every item from every bucket made it into the layout exactly once.
+        const placedItems = new Set(tiles.map((t) => t.item));
+        expect(placedItems.size).toBe(totalItems);
+        // The whole layout remains one connected mosaic even with the
+        // boxed-in fallback in play.
+        expect(isConnected(tiles.map((t) => ({ row: t.row, col: t.col })))).toBe(true);
+    });
+
+    it("skips an empty bucket in the middle of the list without affecting the surrounding buckets", () => {
+        const bucketA = { items: ["a1", "a2", "a3"] };
+        const bucketEmpty = { items: [] as string[] };
+        const bucketB = { items: ["b1", "b2"] };
+
+        const { tiles } = packHexClusters([bucketA, bucketEmpty, bucketB]);
+        expect(tiles).toHaveLength(5);
+
+        const aTiles = tiles.filter((t) => t.item.startsWith("a"));
+        const bTiles = tiles.filter((t) => t.item.startsWith("b"));
+        expect(aTiles).toHaveLength(3);
+        expect(bTiles).toHaveLength(2);
+        expect(isConnected(aTiles.map((t) => ({ row: t.row, col: t.col })))).toBe(true);
+        expect(isConnected(bTiles.map((t) => ({ row: t.row, col: t.col })))).toBe(true);
+
+        const allCells = tiles.map((t) => `${t.row},${t.col}`);
+        expect(new Set(allCells).size).toBe(5);
+        expect(isConnected(tiles.map((t) => ({ row: t.row, col: t.col })))).toBe(true);
+    });
 });

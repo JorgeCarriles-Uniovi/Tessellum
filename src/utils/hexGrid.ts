@@ -74,15 +74,56 @@ export function packHexClusters<T>(buckets: HexBucket<T>[]): HexLayout<T> {
     for (const bucket of buckets) {
         if (bucket.items.length === 0) continue;
 
+        // Defensive fallback only: every cell ever pushed onto `frontier` was
+        // verified unoccupied when it was queued, and buckets are processed
+        // strictly sequentially (never interleaved), so nothing else can mark
+        // a queued cell occupied out from under it -- except the boxed-in
+        // fallback below, which can occupy a *later* bucket's leftover
+        // frontier via its global scan before an *earlier* saved `frontier`
+        // reference is consumed. That's the one path that makes this `??`
+        // reachable in practice; it stays as a safety net either way.
         const seed = frontier.find((cell) => !occupied.has(cellKey(cell))) ?? { row: 0, col: 0 };
         const localVisited = new Set<string>([cellKey(seed)]);
         const queue: HexCell[] = [seed];
         let itemIndex = 0;
 
         while (itemIndex < bucket.items.length) {
-            const cell = queue.shift();
-            if (!cell) break;
+            let cell = queue.shift();
+
+            if (!cell) {
+                // This bucket's local BFS frontier ran dry before every item
+                // was placed -- the seed was "boxed in" by cells earlier
+                // buckets (or this bucket's own growth) already occupy, with
+                // no reachable unoccupied neighbor left in `queue`/`localVisited`.
+                // Recover by scanning the neighbors of every cell occupied so
+                // far (not just this bucket's own local frontier) for any
+                // still-free, not-yet-queued cell, and resume growth from
+                // there. `occupied` is always finite and the grid is
+                // unbounded, so this is guaranteed to find somewhere to go
+                // as long as items remain -- placement always makes forward
+                // progress instead of silently dropping trailing items.
+                for (const occupiedKey of occupied) {
+                    const [r, c] = occupiedKey.split(",").map(Number);
+                    for (const neighbor of neighborsOf({ row: r, col: c })) {
+                        const neighborKey = cellKey(neighbor);
+                        if (occupied.has(neighborKey) || localVisited.has(neighborKey)) continue;
+                        localVisited.add(neighborKey);
+                        queue.push(neighbor);
+                    }
+                }
+                cell = queue.shift();
+                // Should be unreachable given the argument above; kept as a
+                // defensive guard so a future change can't turn this into an
+                // infinite loop.
+                if (!cell) break;
+            }
+
             const key = cellKey(cell);
+            // Unreachable in practice: every cell is checked against
+            // `occupied` at the moment it's queued (both in the normal
+            // growth below and in the boxed-in fallback above), and buckets
+            // never interleave, so nothing can occupy a queued cell before
+            // its own turn. Kept as a defensive guard.
             if (occupied.has(key)) continue;
 
             occupied.add(key);
