@@ -1,4 +1,4 @@
-import { X, ChevronRight } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useEffect, useState, isValidElement, cloneElement } from 'react';
 import { getVersion } from '@tauri-apps/api/app';
 import { useTessellumApp } from "../../plugins/TessellumApp.ts";
@@ -46,8 +46,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             {/* Modal */}
             <div className="relative flex overflow-hidden animate-in fade-in zoom-in-95 duration-200"
                  style={{
-                     width: "min(900px, calc(100vw - 2rem))",
-                     height: "min(640px, calc(100vh - 2rem))",
+                     width: "min(912px, calc(100vw - 2rem))",
+                     height: "min(624px, calc(100vh - 2rem))",
                      backgroundColor: "var(--color-panel-bg)",
                      borderRadius: "var(--radius-xl)",
                      boxShadow: "var(--shadow-modal)",
@@ -55,46 +55,44 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             >
                 {/* Sidebar */}
                 <div
-                    className="w-[240px] shrink-0 border-r p-6 flex flex-col overflow-y-auto max-sm:w-[180px]"
+                    className="w-[236px] shrink-0 border-r flex flex-col overflow-y-auto max-sm:w-[180px]"
                     style={{
-                        backgroundColor: "var(--color-panel-bg)",
+                        backgroundColor: "var(--color-bg-app)",
                         borderColor: "var(--color-panel-border)",
                     }}
                 >
-                    <div className="mb-8"
+                    <div className="mb-6"
                          style={{
-                             paddingTop: `1rem`,
+                             paddingTop: `1.25rem`,
                              paddingBottom: `0.2rem`,
-                             paddingLeft: `1rem`,
-                             paddingRight: `1rem`
+                             paddingLeft: `1.25rem`,
+                             paddingRight: `1.25rem`
                          }}>
-                        <h2 className="text-xl font-bold tracking-tight" style={{ color: "var(--color-text-primary)" }}>{t("title")}</h2>
+                        <h2 className="text-base font-bold tracking-tight" style={{ color: "var(--color-text-primary)" }}>{t("title")}</h2>
                         <p className="text-xs mt-1" style={{ color: "var(--color-text-muted)" }}>{t("subtitle")}</p>
                     </div>
 
-                    <nav className="flex-1 space-y-1" style={{
-                        paddingTop: `1rem`,
-                        paddingBottom: `0.2rem`,
-                        paddingLeft: `1rem`,
-                        paddingRight: `1rem`
+                    <nav className="flex-1 space-y-0.5" style={{
+                        paddingLeft: `0.75rem`,
+                        paddingRight: `0.75rem`
                     }}>
 
                         {settingsTabs.map((tab) => {
+                            const isActive = activeTab === tab.id;
                             return (
                                 <button
                                     key={tab.id}
                                     name={tab.name}
                                     disabled={tab.disabled}
                                     onClick={() => setActiveTab(tab.id)}
-                                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all hover:bg-[color:var(--color-panel-hover)] hover:text-[color:var(--color-text-primary)]"
+                                    className="w-full flex items-center gap-2.5 rounded-lg text-sm font-medium transition-all hover:bg-[color:var(--color-panel-hover)]"
                                     style={{
-                                        backgroundColor: activeTab === tab.id ? "var(--primary)" : "var(--color-panel-bg)",
-                                        boxShadow: activeTab === tab.id ? "0 10px 15px -3px color-mix(in srgb, var(--primary) 25%, transparent)" : undefined,
-                                        color: activeTab === tab.id ? "var(--primary-foreground)" : "var(--color-text-muted)",
-                                        paddingTop: `0.75rem`,
-                                        paddingBottom: `0.75rem`,
-                                        paddingLeft: `1rem`,
-                                        paddingRight: `1rem`
+                                        backgroundColor: isActive ? "var(--color-accent-soft)" : "transparent",
+                                        color: isActive ? "var(--color-accent-default)" : "var(--color-text-tertiary)",
+                                        paddingTop: `0.5rem`,
+                                        paddingBottom: `0.5rem`,
+                                        paddingLeft: `0.75rem`,
+                                        paddingRight: `0.75rem`
                                     }}
                                 >
                                     {isValidElement(tab.icon)
@@ -105,50 +103,48 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                         : tab.icon
                                     }
                                     <span>{tab.name}</span>
-                                    {activeTab === tab.id && <ChevronRight className="size-3.5 ml-auto" />}
                                 </button>
                             )
                         })}
                     </nav>
 
-                    <div className="pt-6 border-t"
+                    <div className="border-t"
                          style={{
                              borderColor: "var(--color-panel-border)",
                              paddingTop: `0.75rem`,
                              paddingBottom: `0.75rem`,
-                             paddingLeft: `1rem`,
-                             paddingRight: `1rem`
+                             paddingLeft: `1.25rem`,
+                             paddingRight: `1.25rem`
                          }}>
-                        <p className="text-[10px] font-bold uppercase tracking-wide mb-2" style={{ color: "var(--color-text-muted)" }}>{t("version")}</p>
+                        <p className="text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: "var(--color-text-muted)" }}>{t("version")}</p>
                         <p className="text-xs" style={{ color: "var(--color-text-secondary)" }}>{appVersion ? `v${appVersion}` : "—"}</p>
                     </div>
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 flex flex-col"
-                     style={{
-                         paddingTop: `0.5rem`,
-                         paddingBottom: `0.5rem`,
-                         paddingLeft: `1rem`,
-                         paddingRight: `1rem`
-                     }}>
+                <div className="flex-1 flex flex-col min-w-0">
                     {/* Header */}
-                    <div className="h-16 border-b px-8 flex items-center justify-between" style={{ borderColor: "var(--color-panel-border)" }}>
-                        <h3 className="text-lg font-bold" style={{ color: "var(--color-text-primary)" }}>
+                    <div
+                        className="shrink-0 border-b flex items-center justify-between"
+                        style={{ height: "60px", paddingLeft: "28px", paddingRight: "20px", borderColor: "var(--color-panel-border)" }}
+                    >
+                        <h3
+                            className="text-sm font-semibold"
+                            style={{ color: "var(--color-text-primary)", textTransform: "capitalize" }}
+                        >
                             {selectedTab?.name}
                         </h3>
                         <IconButton
                             label="Close settings"
                             onClick={onClose}
-                            size={36}
-                            style={{ backgroundColor: "var(--color-panel-bg)" }}
+                            size={32}
                         >
                             <X className="size-4" />
                         </IconButton>
                     </div>
 
                     {/* Settings Content */}
-                    <div className="flex-1 overflow-y-auto p-8">
+                    <div className="flex-1 overflow-y-auto" style={{ padding: "26px 28px" }}>
 
                         {selectedTab?.component ||
                             <div>{t("noSettingsAvailable")}</div>}

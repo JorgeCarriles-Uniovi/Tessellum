@@ -24,11 +24,14 @@ import { CalloutType } from "../../constants/callout-types";
 import { TessellumApp, useTessellumApp } from "../../plugins/TessellumApp";
 import { PaletteCommand } from "../../plugins/api/UIAPI";
 import { EditorView } from "@codemirror/view";
-import { Extension, Prec } from "@codemirror/state";
+import { Extension, Prec, Text } from "@codemirror/state";
 import { Calendar, Clock, History } from "lucide-react";
 import { theme } from "../../styles/theme";
 import { Button } from "../ui";
 import { isMediaFile } from "../../utils/fileType";
+import { countWords, readTimeMinutes } from "../../utils/readingStats";
+import { parseFrontmatter } from "./extensions/frontmatter/frontmatter-parser";
+import type { FileMetadata } from "../../types";
 import { MediaPreview } from "./MediaPreview";
 import { EDITOR_MODES } from "../../constants/editorModes";
 import { useEditorModeStore } from "../../stores";
@@ -272,7 +275,39 @@ function AutoSaveIndicator() {
     );
 }
 
-function EditorHeader({
+function useFrontmatterKicker(activeNoteContent: string): string | null {
+    return useMemo(() => {
+        const doc = Text.of(activeNoteContent.split("\n"));
+        const block = parseFrontmatter(doc);
+        const type = block?.properties?.type;
+        return typeof type === "string" && type.trim().length > 0 ? type : null;
+    }, [activeNoteContent]);
+}
+
+function useBacklinkCount(app: TessellumApp, notePath: string): number | null {
+    const [count, setCount] = useState<number | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        setCount(null);
+
+        app.workspace.getBacklinks(notePath)
+            .then((links) => {
+                if (!cancelled) setCount(links.length);
+            })
+            .catch(() => {
+                if (!cancelled) setCount(null);
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [app, notePath]);
+
+    return count;
+}
+
+export function EditorHeader({
                           title,
                           onTitleChange,
                           onTitleBlur,
@@ -286,6 +321,9 @@ function EditorHeader({
                           locale,
                           isHistoryOpen,
                           onHistoryToggle,
+                          activeNote,
+                          activeNoteContent,
+                          app,
                       }: {
     title: string;
     onTitleChange: (value: string) => void;
@@ -300,16 +338,44 @@ function EditorHeader({
     locale: string;
     isHistoryOpen: boolean;
     onHistoryToggle: () => void;
+    activeNote: FileMetadata;
+    activeNoteContent: string;
+    app: TessellumApp;
 }) {
+    const kicker = useFrontmatterKicker(activeNoteContent);
+    const backlinkCount = useBacklinkCount(app, activeNote.path);
+    const readMinutes = useMemo(
+        () => readTimeMinutes(countWords(activeNoteContent)),
+        [activeNoteContent]
+    );
+
     return (
         <div className="w-full mx-auto px-12 pt-20 pb-16 flex-shrink-0" style={{ borderColor: theme.colors.border.light }}>
             <div style={{ maxWidth: "720px", margin: "0 auto" }}>
+                {kicker && (
+                    <div
+                        data-testid="editor-header-kicker"
+                        className="flex items-center gap-1.5 font-mono uppercase"
+                        style={{
+                            fontSize: "11px",
+                            letterSpacing: ".04em",
+                            color: "var(--color-accent-default)",
+                        }}
+                    >
+                        <span
+                            className="inline-block rounded-full flex-shrink-0"
+                            style={{ width: 6, height: 6, backgroundColor: "var(--color-green)" }}
+                        />
+                        {kicker}
+                    </div>
+                )}
                 <input
                     className="text-[1.75rem] font-bold bg-transparent outline-none border-none w-full"
                     style={{
                         color: theme.colors.text.primary,
-                        fontFamily: theme.typography.fontFamily.sans,
+                        fontFamily: theme.typography.fontFamily.editor,
                         fontSize: `calc(${titleFontSizePx}px * var(--ui-scale, 1))`,
+                        letterSpacing: "-0.02em",
                         textAlign: "left",
                         paddingTop: 8,
                         opacity: readOnly ? 0.7 : 1,
@@ -334,6 +400,8 @@ function EditorHeader({
                             {t("editor.edited", { value: editedAt })}
                         </span>
                     )}
+                    <span>{readMinutes} min read</span>
+                    {backlinkCount !== null && <span>{backlinkCount} backlinks</span>}
                     <AutoSaveIndicator />
                     <Button
                         variant="secondary"
@@ -893,6 +961,9 @@ export function Editor() {
                 locale={i18n.language}
                 isHistoryOpen={isHistoryOpen}
                 onHistoryToggle={() => setIsHistoryOpen((v) => !v)}
+                activeNote={activeNote}
+                activeNoteContent={content}
+                app={app}
             />
             <div className="w-full border-b" style={dividerStyle} />
             <EditorBody

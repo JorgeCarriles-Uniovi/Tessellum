@@ -53,7 +53,7 @@ export function NodeInfoPanel({ nodePath, tags, onClose }: NodeInfoPanelProps) {
                 left: 16,
                 width: 280,
                 maxHeight: 360,
-                backgroundColor: 'var(--color-bg-primary)',
+                backgroundColor: 'var(--color-bg-secondary)',
                 border: '1px solid var(--color-border-light)',
                 borderRadius: 'var(--radius-lg)',
                 boxShadow: 'var(--shadow-lg)',
@@ -71,7 +71,7 @@ export function NodeInfoPanel({ nodePath, tags, onClose }: NodeInfoPanelProps) {
                     justifyContent: 'space-between',
                     padding: '10px 14px',
                     borderBottom: '1px solid var(--color-border-light)',
-                    backgroundColor: 'var(--color-bg-secondary)',
+                    backgroundColor: 'var(--color-bg-elevated)',
                 }}
             >
                 <span
@@ -206,7 +206,8 @@ const linkItemStyle: React.CSSProperties = {
     color: 'var(--color-text-secondary)',
     padding: '3px 6px',
     borderRadius: 'var(--radius-sm)',
-    backgroundColor: 'var(--color-bg-tertiary)',
+    backgroundColor: 'var(--color-bg-app)',
+    border: '1px solid var(--color-border-light)',
     marginBottom: 3,
     overflow: 'hidden',
     textOverflow: 'ellipsis',

@@ -1,8 +1,8 @@
-import { useState, useEffect, useMemo, useRef, isValidElement, cloneElement } from 'react';
+import { useState, useEffect, useMemo, isValidElement, cloneElement } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import {
     Minus, Square, X, Copy,
-    PanelLeft, PanelRight, GitFork, FileText, Folder, ChevronDown
+    PanelLeft, PanelRight, GitFork, FileText, Folder, Moon
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useEditorStore } from '../../stores/editorStore';
@@ -13,23 +13,20 @@ import { theme } from '../../styles/theme';
 import { EDITOR_MODES, type EditorMode } from '../../constants/editorModes';
 import { useNavigationHistoryStore } from '../../stores/navigationHistoryStore';
 import { useAppTranslation } from '../../i18n/react.tsx';
+import { useColorMode } from '../../hooks/useColorMode';
 
 export function TitleBar() {
     const { t } = useAppTranslation("core");
     const [isMaximized, setIsMaximized] = useState(false);
     const { toggleSidebar, isSidebarOpen, toggleRightSidebar, isRightSidebarOpen, activeNote, toggleLocalGraph, isLocalGraphOpen, vaultPath } = useEditorStore();
     const { isSearchOpen, closeSearch, openSearch } = useUiStore();
-    const editorMode = useEditorModeStore((state) => state.editorMode);
     const app = useTessellumApp();
     const leftActions = app.ui.getUIActions('titlebar-left');
     const rightActions = app.ui.getUIActions('titlebar-right');
     const canGoBack = useNavigationHistoryStore((state) => state.canGoBack);
     const canGoForward = useNavigationHistoryStore((state) => state.canGoForward);
     const appWindow = getCurrentWindow();
-    const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
-    const [isModeMenuClosing, setIsModeMenuClosing] = useState(false);
-    const modeMenuRef = useRef<HTMLDivElement | null>(null);
-    const modeMenuCloseTimer = useRef<number | null>(null);
+    const { toggle: toggleColorMode } = useColorMode();
     const crumbs = useMemo(() => {
         if (!activeNote || !vaultPath) return [] as string[];
         const normalizedVault = vaultPath.replace(/\\/g, "/");
@@ -53,33 +50,6 @@ export function TitleBar() {
         checkMaximized();
     }, [appWindow]);
 
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (!isModeMenuOpen || isModeMenuClosing) return;
-            const target = event.target as Node;
-            if (modeMenuRef.current && !modeMenuRef.current.contains(target)) {
-                setIsModeMenuClosing(true);
-                if (modeMenuCloseTimer.current) {
-                    window.clearTimeout(modeMenuCloseTimer.current);
-                }
-                modeMenuCloseTimer.current = window.setTimeout(() => {
-                    setIsModeMenuOpen(false);
-                    setIsModeMenuClosing(false);
-                }, 160);
-            }
-        };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, [isModeMenuOpen, isModeMenuClosing]);
-
-    useEffect(() => {
-        return () => {
-            if (modeMenuCloseTimer.current) {
-                window.clearTimeout(modeMenuCloseTimer.current);
-            }
-        };
-    }, []);
-
     const handleMinimize = () => appWindow.minimize();
     const handleMaximize = async () => {
         await appWindow.toggleMaximize();
@@ -101,40 +71,14 @@ export function TitleBar() {
         return icon;
     };
 
-    const activeModeConfig = EDITOR_MODES[editorMode];
-
-    const handleModeSelect = (mode: EditorMode) => {
-        const config = EDITOR_MODES[mode];
-        if (config.disabled || mode === editorMode) {
-            setIsModeMenuClosing(true);
-            if (modeMenuCloseTimer.current) {
-                window.clearTimeout(modeMenuCloseTimer.current);
-            }
-            modeMenuCloseTimer.current = window.setTimeout(() => {
-                setIsModeMenuOpen(false);
-                setIsModeMenuClosing(false);
-            }, 160);
-            return;
-        }
-        app.workspace.setEditorMode(mode);
-        setIsModeMenuClosing(true);
-        if (modeMenuCloseTimer.current) {
-            window.clearTimeout(modeMenuCloseTimer.current);
-        }
-        modeMenuCloseTimer.current = window.setTimeout(() => {
-            setIsModeMenuOpen(false);
-            setIsModeMenuClosing(false);
-        }, 160);
-    };
-
     return (
         <div
             data-tauri-drag-region
             className={cn(
-                "h-10 shrink-0 flex items-center justify-between select-none z-50",
+                "h-11 shrink-0 flex items-center justify-between select-none z-50",
                 "border-b text-[color:var(--color-text-muted)]"
             )}
-            style={{ backgroundColor: theme.colors.background.primary, borderColor: "var(--color-panel-border)" }}
+            style={{ backgroundColor: "var(--color-bg-app)", borderColor: "var(--color-border-light)" }}
         >
             {/* --- LEFT SECTION: Navigation & Sidebar --- */}
             <div className="flex items-center px-2 gap-1 h-full"
@@ -241,124 +185,25 @@ export function TitleBar() {
                     </NavButton>
                 ))}
 
-
-                {/* Right Sidebar Toggle */}
-                <NavButton onClick={toggleRightSidebar} active={isRightSidebarOpen} tooltip={t("titleBar.toggleRightSidebar")}>
-                    <PanelRight size={iconSize} style={iconStyle} />
-                </NavButton>
+                {/* Editor Mode Segmented Control */}
+                <EditorModeSegmented />
 
                 {/* Local Graph Toggle */}
                 <NavButton onClick={toggleLocalGraph} active={isLocalGraphOpen} tooltip={t("titleBar.toggleLocalGraph")}>
                     <GitFork size={iconSize} style={iconStyle} />
                 </NavButton>
 
-                <div className="w-2" />
+                {/* Theme Toggle */}
+                <NavButton onClick={toggleColorMode} tooltip={t("titleBar.toggleTheme") ?? "Toggle theme"}>
+                    <Moon size={iconSize} style={iconStyle} />
+                </NavButton>
 
-                {/* Editor Mode Badge */}
-                <div className="relative hidden sm:flex" ref={modeMenuRef}>
-                    <button
-                        className={cn(
-                            "flex items-center gap-2 px-3 mr-2 text-[0.7rem] font-bold tracking-wider rounded",
-                            "transition-colors hover:bg-[color:var(--color-panel-hover)]"
-                        )}
-                        style={{
-                            color: "var(--color-text-muted)",
-                            paddingLeft: "0.9rem",
-                            paddingRight: "0.9rem",
-                            paddingTop: "2px",
-                            paddingBottom: "2px",
-                            border: "1px solid var(--color-panel-border)",
-                            backgroundColor: "var(--color-panel-bg)",
-                        }}
-                        onClick={() => {
-                            if (isModeMenuOpen) {
-                                if (isModeMenuClosing) return;
-                                setIsModeMenuClosing(true);
-                                if (modeMenuCloseTimer.current) {
-                                    window.clearTimeout(modeMenuCloseTimer.current);
-                                }
-                                modeMenuCloseTimer.current = window.setTimeout(() => {
-                                    setIsModeMenuOpen(false);
-                                    setIsModeMenuClosing(false);
-                                }, 160);
-                                return;
-                            }
-                            setIsModeMenuOpen(true);
-                            setIsModeMenuClosing(false);
-                        }}
-                        title={t("titleBar.changeEditorMode")}
-                    >
-                        <span className="flex items-center gap-1.5">
-                            {activeModeConfig.icon}
-                            {t(activeModeConfig.statusLabelKey)}
-                        </span>
-                        <ChevronDown size={12} />
-                    </button>
+                {/* Right Sidebar Toggle */}
+                <NavButton onClick={toggleRightSidebar} active={isRightSidebarOpen} tooltip={t("titleBar.toggleRightSidebar")}>
+                    <PanelRight size={iconSize} style={iconStyle} />
+                </NavButton>
 
-                    {isModeMenuOpen && (
-                        <div
-                            className={cn(
-                                "absolute left-1/2 top-full mt-2 min-w-[200px] rounded-md border shadow-lg z-50 overflow-hidden",
-                                isModeMenuClosing ? "titlebar-menu-exit" : "titlebar-menu-animate"
-                            )}
-                            style={{
-                                backgroundColor: "var(--color-panel-bg)",
-                                borderColor: "var(--color-panel-border)",
-                                color: "var(--color-text-primary)",
-                                paddingTop: "0.5rem",
-                                paddingBottom: "0.5rem",
-                                paddingLeft: "0.8rem",
-                                paddingRight: "0.8rem",
-                                gap: "0.5rem"
-                            }}
-                        >
-                            <div
-                                className="px-3 py-2 text-[0.65rem] font-bold tracking-widest uppercase"
-                                style={{ color: "var(--color-text-muted)", borderBottom: "1px solid var(--color-panel-border)" }}
-                            >
-                                {t("titleBar.editorMode")}
-                            </div>
-                            {Object.entries(EDITOR_MODES).map(([mode, config]) => {
-                                const isDisabled = !!config.disabled;
-                                const isActive = mode === editorMode;
-                                return (
-                                    <button
-                                        key={mode}
-                                        className={cn(
-                                            "w-full flex items-center gap-2 px-3 py-2 text-[0.8rem] font-semibold text-left",
-                                            isDisabled
-                                                ? "opacity-50 cursor-not-allowed"
-                                                : "hover:bg-[color:var(--color-panel-hover)]",
-                                            isActive && "bg-[color:var(--color-panel-active)]"
-                                        )}
-                                        style={{
-                                            padding: "0.3rem",
-                                            gap: "0.5rem"
-                                        }}
-                                        onClick={() => handleModeSelect(mode as EditorMode)}
-                                        disabled={isDisabled}
-                                        title={isDisabled ? t("titleBar.comingSoon") : t(config.labelKey)}
-                                    >
-                                        <span className="flex items-center gap-2">
-                                            {config.icon}
-                                            {t(config.labelKey)}
-                                        </span>
-                                        {isDisabled && (
-                                            <span
-                                                className="ml-auto text-[0.5rem] uppercase tracking-widest"
-                                                style={{ color: "var(--color-text-muted)" }}
-                                            >
-                                                {t("titleBar.soon")}
-                                            </span>
-                                        )}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    )}
-                </div>
-
-                <div className="h-4 w-[1px] mx-1" style={{ backgroundColor: "var(--color-panel-border)" }} />
+                <div className="h-4 w-[1px] mx-1" style={{ backgroundColor: "var(--color-border-light)" }} />
 
                 {/* Window Controls */}
                 <WindowButton onClick={handleMinimize}>
@@ -395,11 +240,11 @@ function NavButton({ onClick, children, active, tooltip, disabled, className }: 
             title={tooltip}
             disabled={disabled}
             className={cn(
-                "h-7 w-7 flex items-center justify-center rounded-md transition-colors",
+                "h-[30px] w-[30px] flex items-center justify-center rounded-[7px] transition-colors",
                 disabled
                     ? "opacity-40 cursor-not-allowed"
-                    : "hover:bg-[color:var(--color-panel-hover)] text-[color:var(--color-text-muted)]",
-                active && "bg-[color:var(--color-panel-active)] text-[color:var(--color-text-primary)]",
+                    : "hover:bg-[color:var(--color-bg-hover)] hover:text-[color:var(--color-text-primary)] text-[color:var(--color-text-tertiary)]",
+                active && "bg-[color:var(--color-bg-active)] text-[color:var(--color-text-primary)]",
                 className
             )}
             style={disabled ? { color: theme.colors.gray[400] } : undefined}
@@ -429,5 +274,54 @@ function WindowButton({ onClick, children, isClose }: WindowButtonProps) {
         >
             {children}
         </button>
+    );
+}
+
+// Segmented Read / Edit / Source control (replaces the old dropdown badge)
+function EditorModeSegmented() {
+    const editorMode = useEditorModeStore((s) => s.editorMode);
+    const app = useTessellumApp();
+    const items: { mode: EditorMode; label: string }[] = [
+        { mode: "reading", label: "Read" },
+        { mode: "live-preview", label: "Edit" },
+        { mode: "source", label: "Source" },
+    ];
+    return (
+        <div
+            style={{
+                display: "flex", alignItems: "center", gap: 2, marginRight: 6,
+                background: "var(--color-bg-secondary)",
+                border: "1px solid var(--color-border-light)",
+                borderRadius: 9, padding: 2,
+            }}
+        >
+            {items.map(({ mode, label }) => {
+                const active = editorMode === mode;
+                const disabled = !!EDITOR_MODES[mode].disabled;
+                return (
+                    <button
+                        key={mode}
+                        type="button"
+                        title={EDITOR_MODES[mode].label}
+                        aria-pressed={active}
+                        disabled={disabled}
+                        onClick={() => app.workspace.setEditorMode(mode)}
+                        style={{
+                            display: "flex", alignItems: "center", gap: 5,
+                            padding: "4px 9px", border: "none", borderRadius: 7,
+                            fontSize: 11, fontWeight: 600, letterSpacing: ".02em",
+                            fontFamily: "var(--font-sans)", cursor: disabled ? "not-allowed" : "pointer",
+                            background: active ? "var(--color-bg-elevated)" : "transparent",
+                            color: active ? "var(--color-text-primary)" : "var(--color-text-tertiary)",
+                            boxShadow: active ? "var(--shadow-sm)" : "none",
+                            opacity: disabled ? 0.5 : 1,
+                        }}
+                    >
+                        {EDITOR_MODES[mode].icon}
+                        {label}
+                    </button>
+                );
+            })}
+        </div>
     );
 }

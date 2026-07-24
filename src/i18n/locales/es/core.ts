@@ -8,6 +8,7 @@ const core = {
         backToFiles: "Volver a archivos",
         toggleRightSidebar: "Alternar barra lateral derecha",
         toggleLocalGraph: "Alternar grafo local",
+        toggleTheme: "Alternar tema",
         changeEditorMode: "Cambiar modo del editor",
         editorMode: "Modo del editor",
         comingSoon: "Próximamente",
@@ -47,6 +48,10 @@ const core = {
         switchVault: "Cambiar vault",
         noVaultAction: "Sin acción",
         noVault: "Sin vault",
+        workspaceHeader: "Espacio de trabajo",
+        searchPlaceholder: "Buscar o ir a…",
+        notesCount: "{{count}} nota(s)",
+        newFromTemplate: "Nueva nota desde plantilla",
         modal: {
             createFolder: "Crear Nueva Carpeta",
             folderPlaceholder: "Introduce el nombre de la carpeta...",
@@ -58,6 +63,11 @@ const core = {
     commandPalette: {
         placeholder: "Escribe un comando...",
         empty: "No se encontraron comandos",
+    },
+    vaultSwitcher: {
+        currentVault: "Bóveda actual",
+        active: "Activa",
+        openFolderAsVault: "Abrir carpeta como bóveda…",
     },
     rightSidebar: {
         backlinks: "Backlinks",
@@ -141,8 +151,8 @@ const core = {
         empty: "Vacío",
     },
     templatePicker: {
-        title: "Nueva nota desde plantilla",
-        description: "Elige una plantilla y dale un nombre a tu nota.",
+        title: "Nota nueva",
+        description: "Ponle un nombre y elige un punto de partida.",
         untitled: "Sin título",
         emptyTitleError: "El título no puede estar vacío",
         loadError: "Error al cargar las plantillas",
@@ -152,6 +162,9 @@ const core = {
         useTemplate: "Usar",
         startFresh: "Empezar en blanco",
         close: "Cerrar",
+        cancel: "Cancelar",
+        creatingIn: "Creando en {{folder}}",
+        vaultRoot: "raíz del vault",
     },
 };
 

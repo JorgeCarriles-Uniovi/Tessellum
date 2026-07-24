@@ -10,6 +10,7 @@ import {
 } from "./stores";
 import { Editor } from "./components/Editor/Editor.tsx";
 import { Sidebar } from "./components/Sidebar/Sidebar.tsx";
+import { IconRail } from "./components/IconRail/IconRail.tsx";
 import { GraphView } from "./components/GraphView/GraphView.tsx";
 import { LocalGraphPanel } from "./components/GraphView/LocalGraphPanel.tsx";
 import { CanvasView } from "./components/canvas/CanvasView.tsx";
@@ -25,6 +26,7 @@ import { useWikiLinkNavigation } from "./components/Editor/hooks";
 import { StatusBar } from "./components/Layout/StatusBar";
 import { RightSidebar } from "./components/Layout/RightSidebar";
 import { SettingsModal } from "./components/Settings/SettingsModal.tsx";
+import { VaultSwitcherPopover } from "./components/vault/VaultSwitcherPopover";
 import { UpdatePrompt } from "./components/Updates/UpdatePrompt.tsx";
 import { useUpdaterStore } from "./stores/updaterStore";
 import { useApplyAppearanceSettings } from "./hooks/useApplyAppearanceSettings";
@@ -52,6 +54,7 @@ function App() {
     const [isLoaded, setIsLoaded] = useState(false);
     const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
     const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
+    const [isVaultSwitcherOpen, setIsVaultSwitcherOpen] = useState(false);
     const ensureSearchReadiness = useSearchStore((state) => state.ensureReadiness);
     const resetAndEnsureSearchReadiness = useSearchStore((state) => state.resetAndEnsureReadiness);
     const loadThemes = useThemeStore((state) => state.loadThemes);
@@ -235,8 +238,12 @@ function App() {
 
                     <div className="flex-1 flex overflow-hidden w-full relative" style={{ backgroundColor: theme.colors.background.primary }}>
                         <div className="flex w-full h-full overflow-hidden">
+                            <IconRail onOpenVaultSwitcher={() => setIsVaultSwitcherOpen(true)} />
+
                             {/* Sidebar */}
-                            {layoutAppearance.sidebarPosition === "left" && <Sidebar side="left" />}
+                            {layoutAppearance.sidebarPosition === "left" && (
+                                <Sidebar side="left" onOpenVaultSwitcher={() => setIsVaultSwitcherOpen(true)} />
+                            )}
 
                             {/* Main content area */}
                             <div
@@ -264,13 +271,18 @@ function App() {
                                 <StatusBar />
                             </div>
 
-                            {layoutAppearance.sidebarPosition === "right" && <Sidebar side="right" />}
+                            {layoutAppearance.sidebarPosition === "right" && (
+                                <Sidebar side="right" onOpenVaultSwitcher={() => setIsVaultSwitcherOpen(true)} />
+                            )}
                             <RightSidebar />
                         </div>
                     </div>
 
                     <CommandPalette isOpen={isCommandPaletteOpen} onClose={closeCommandPalette} />
                     <SettingsModal isOpen={isSettingsPanelOpen} onClose={closeSettingsPanel} />
+                    {isVaultSwitcherOpen && (
+                        <VaultSwitcherPopover open onClose={() => setIsVaultSwitcherOpen(false)} />
+                    )}
                     <UpdatePrompt />
                     <Toaster position="bottom-right" richColors />
                 </div>

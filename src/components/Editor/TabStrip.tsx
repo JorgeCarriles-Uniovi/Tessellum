@@ -1,6 +1,5 @@
 import { LayoutGrid, X } from "lucide-react";
 import { useState, useRef, useEffect, useCallback } from "react";
-import { theme } from "../../styles/theme";
 
 export interface Tab {
     id: string;
@@ -93,7 +92,7 @@ export function TabStrip({
     const tabsRef = useRef<Record<string, HTMLDivElement | null>>({});
     const tabsOrderRef = useRef<Tab[]>(tabs);
     const dragStateRef = useRef<TabDragState | null>(null);
-    const tabFontSizePx = (11 * editorFontSizePx) / 16;
+    const tabFontSizePx = (12.5 * editorFontSizePx) / 16;
 
     useEffect(() => {
         tabsOrderRef.current = tabs;
@@ -192,10 +191,11 @@ export function TabStrip({
 
     return (
         <div
-            className="h-9 flex items-end relative overflow-hidden"
+            className="flex items-end relative overflow-hidden"
             style={{
-                backgroundColor: theme.colors.background.secondary,
-                borderBottom: `0.5px solid ${theme.colors.border.light}`,
+                height: "40px",
+                backgroundColor: "var(--color-bg-app)",
+                borderBottom: `1px solid var(--color-border-light)`,
                 paddingLeft: "0.5rem",
             }}
         >
@@ -213,14 +213,16 @@ export function TabStrip({
                             className="flex items-center gap-1 transition-all min-w-0 flex-shrink-0"
                             data-tab-id={tab.id}
                             style={{
-                                backgroundColor: isActive ? theme.colors.background.primary : "transparent",
-                                borderLeft: isActive ? `0.5px solid ${theme.colors.border.light}` : "none",
-                                borderRight: isActive ? `0.5px solid ${theme.colors.border.light}` : "none",
-                                borderTop: isActive ? `0.5px solid ${theme.colors.border.light}` : "none",
-                                borderRadius: "5px 5px 0 0",
+                                backgroundColor: isActive ? "var(--color-bg-primary)" : "transparent",
+                                borderLeft: isActive ? `1px solid var(--color-border-light)` : "none",
+                                borderRight: isActive ? `1px solid var(--color-border-light)` : "none",
+                                borderTop: isActive ? `1px solid var(--color-border-light)` : "none",
+                                borderBottom: isActive ? "none" : undefined,
+                                borderRadius: "9px 9px 0 0",
                                 padding: "0.25rem 1rem",
                                 cursor: draggedTabId ? "grabbing" : "grab",
                                 opacity: draggedTabId === tab.id ? 0.65 : 1,
+                                marginBottom: isActive ? "-1px" : undefined,
                             }}
                             onMouseDown={(event) => handleDragStartIntent(event, tab.id)}
                             onMouseEnter={() => setHoveredTabId(tab.id)}
@@ -233,7 +235,7 @@ export function TabStrip({
                                 style={{
                                     fontSize: `calc(${tabFontSizePx}px * var(--ui-scale, 1))`,
                                     fontWeight: isActive ? 500 : 400,
-                                    color: isActive ? theme.colors.text.primary : theme.colors.text.muted,
+                                    color: isActive || isHovered ? "var(--color-text-primary)" : "var(--color-text-tertiary)",
                                 }}
                             >
                                 {tab.title}
@@ -247,7 +249,7 @@ export function TabStrip({
                                 onMouseDown={(e) => e.stopPropagation()}
                                 className="flex-shrink-0 transition-colors rounded-full w-4 h-4 inline-flex items-center justify-center hover:bg-black/10 cursor-pointer"
                                 style={{
-                                    color: isActive ? theme.colors.text.muted : theme.colors.text.tertiary,
+                                    color: isActive ? "var(--color-text-muted)" : "var(--color-text-tertiary)",
                                     opacity: isActive || isHovered ? 1 : 0,
                                     visibility: isActive || isHovered ? "visible" : "hidden",
                                 }}
@@ -270,7 +272,7 @@ export function TabStrip({
                     style={{
                         borderColor: isOverviewOpen ? "var(--primary)" : "var(--color-border-light)",
                         backgroundColor: isOverviewOpen ? "color-mix(in srgb, var(--primary) 14%, transparent)" : "transparent",
-                        color: isOverviewOpen ? "var(--primary)" : theme.colors.text.muted,
+                        color: isOverviewOpen ? "var(--primary)" : "var(--color-text-muted)",
                     }}
                 >
                     <LayoutGrid size={13} />

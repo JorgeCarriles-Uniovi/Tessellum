@@ -67,19 +67,40 @@ function getDropStyle(
     return {};
 }
 
-function getSelectionClassName(isSelected: boolean, isActive: boolean): string {
-    if (isSelected) {
-        return 'bg-primary/10 text-primary ring-1 ring-primary/20';
-    }
-    if (isActive) {
-        return 'bg-secondary/60 text-foreground';
-    }
-    return 'group-hover:bg-secondary/40 text-muted-foreground group-hover:text-foreground';
+/** v2: rows are emphasized (accent background/text) when selected or when they're the active/open note. */
+function isRowEmphasized(isSelected: boolean, isActive: boolean): boolean {
+    return isSelected || isActive;
 }
 
-function renderFileIcon(isDir: boolean, isOpen: boolean, fileName?: string): JSX.Element {
-    const folderIconStyle = { marginRight: "0.5rem", width: "1rem", height: "1rem" };
-    const fileIconStyle = { marginRight: "0.5rem", width: "0.875rem", height: "0.875rem" };
+/** v2: the row's background — accent tint when emphasized, otherwise transparent (hover is handled via className). */
+function getRowBackgroundStyle(isEmphasized: boolean): React.CSSProperties {
+    return {
+        backgroundColor: isEmphasized ? 'var(--color-bg-active)' : 'transparent',
+    };
+}
+
+/** v2: only apply the hover tint when the row isn't already emphasized, so hover doesn't wash out the active/selected state. */
+function getRowHoverClassName(isEmphasized: boolean): string {
+    return isEmphasized ? '' : 'group-hover:bg-[color:var(--color-bg-hover)]';
+}
+
+/** v2: label color/weight — folders are always the primary/500 treatment; files pick up accent/600 when emphasized. */
+function getLabelStyle(isDir: boolean, isEmphasized: boolean): React.CSSProperties {
+    if (isDir) {
+        return { color: 'var(--color-text-primary)', fontWeight: 500 };
+    }
+    return {
+        color: isEmphasized ? 'var(--color-accent-default)' : 'var(--color-text-secondary)',
+        fontWeight: isEmphasized ? 600 : 400,
+    };
+}
+
+function renderFileIcon(isDir: boolean, isOpen: boolean, isEmphasized: boolean, fileName?: string): JSX.Element {
+    const iconColor = isDir
+        ? (isOpen ? 'var(--color-accent-default)' : 'var(--color-text-tertiary)')
+        : (isEmphasized ? 'var(--color-accent-default)' : 'var(--color-text-tertiary)');
+    const folderIconStyle = { marginRight: "0.5rem", width: "1rem", height: "1rem", color: iconColor };
+    const fileIconStyle = { marginRight: "0.5rem", width: "0.875rem", height: "0.875rem", color: iconColor };
 
     if (isDir) {
         return isOpen
@@ -115,8 +136,8 @@ function renderExpandIcon(isDir: boolean, isOpen: boolean): JSX.Element | null {
     return (
         <ChevronRight
             size={14}
-            strokeWidth={2.5}
-            style={{ width: "0.875rem", height: "0.875rem" }}
+            strokeWidth={3}
+            style={{ width: "0.875rem", height: "0.875rem", color: 'var(--color-text-tertiary)' }}
             className={`transform transition-transform duration-200 ease-in-out ${isOpen ? 'rotate-90' : 'rotate-0'}`}
         />
     );
@@ -317,15 +338,23 @@ function FileNodeRow({
                          onKeyDown,
                          onExpandClick,
                      }: FileNodeRowProps) {
-    const selectionClassName = getSelectionClassName(isSelected, isActive);
-    const fileIconClassName = `mr-4 ${node.is_dir ? "text-primary opacity-90" : "text-muted-foreground opacity-70"}`;
-    const selectionWrapperStyle = { height: "2rem", paddingLeft: "0.25rem", paddingRight: "2rem" };
+    const isEmphasized = isRowEmphasized(isSelected, isActive);
+    const labelStyle = getLabelStyle(node.is_dir, isEmphasized);
+    const rowHoverClassName = getRowHoverClassName(isEmphasized);
 
     const nodeStyles: React.CSSProperties = {
         paddingLeft,
         marginBottom: "0.0625rem",
         fontFamily: "var(--font-sans)",
         ...dropStyle,
+    };
+
+    const rowStyle: React.CSSProperties = {
+        padding: "6px 9px",
+        borderRadius: "8px",
+        fontSize: "13px",
+        transition: "background-color 150ms ease",
+        ...getRowBackgroundStyle(isEmphasized),
     };
 
     return (
@@ -342,31 +371,26 @@ function FileNodeRow({
             className="group flex items-center cursor-pointer select-none focus:outline-none"
             style={nodeStyles}
         >
-            {/* 1. Selection Highlight Wrapper - Constrained to Content Width */}
+            {/* 1. Row - Constrained to Content Width */}
             <div
-                className={`
-                    flex items-center pr-2 max-w-full overflow-hidden mr-2
-                    text-[0.8125rem] font-medium transition-all duration-200
-                    rounded-md w-full
-                    ${selectionClassName}
-                `}
-                style={selectionWrapperStyle}
+                className={`flex items-center max-w-full overflow-hidden w-full ${rowHoverClassName}`}
+                style={rowStyle}
             >
                 {/* Expand/Collapse Icon */}
                 <span
-                    className="w-4 flex justify-center text-muted-foreground group-hover:text-foreground"
+                    className="w-4 flex justify-center shrink-0"
                     onClick={onExpandClick}
                 >
                     {renderExpandIcon(node.is_dir, isOpen)}
                 </span>
 
                 {/* File Type Icon */}
-                <span className={fileIconClassName}>
-                    {renderFileIcon(node.is_dir, isOpen, node.name)}
+                <span className="mr-1 flex shrink-0">
+                    {renderFileIcon(node.is_dir, isOpen, isEmphasized, node.name)}
                 </span>
 
                 {/* Name */}
-                <span className="truncate min-w-0 flex-1">{
+                <span className="truncate min-w-0 flex-1" style={labelStyle}>{
                     node.is_dir ? node.name : (() => {
                         const dotIndex = node.name.lastIndexOf('.');
                         return dotIndex !== -1 ? node.name.slice(0, dotIndex) : node.name;
@@ -375,13 +399,13 @@ function FileNodeRow({
 
                 {/* Extension for non-markdown files */}
                 {!node.is_dir && !node.name.toLowerCase().endsWith('.md') && (
-                    <span className="ml-auto text-[0.625rem] font-bold opacity-40 shrink-0 uppercase pr-1">
+                    <span
+                        className="ml-auto shrink-0 uppercase pr-1"
+                        style={{ fontSize: "10.5px", fontWeight: 700, color: "var(--color-text-tertiary)" }}
+                    >
                         {node.name.split('.').pop()}
                     </span>
                 )}
-
-                {/* Spacer for extra breathing room */}
-                <div className="w-1 shrink-0" />
             </div>
         </div>
     );
@@ -435,7 +459,7 @@ function FileNodeChildren({
                 ) : (
                     <div
                         className="py-2 pr-2 text-xs italic text-muted-foreground opacity-60"
-                        style={{ paddingLeft: `calc(${level + 1} * 1rem + 1.75rem)` }}
+                        style={{ paddingLeft: `calc(${level + 1} * 1.375rem + 1.75rem)` }}
                     >
                         {emptyLabel}
                     </div>
@@ -462,7 +486,8 @@ export function FileNode({
     const isOpen = (expandedFolders[node.id]) || false;
     const hasChildren = node.children && node.children.length > 0;
 
-    const paddingLeft = `calc(${level} * 1rem + 0.75rem)`;
+    // v2: ~22px per nesting level (1.375rem @ 16px root), plus a small base indent.
+    const paddingLeft = `calc(${level} * 1.375rem + 0.75rem)`;
     const isActive = activeNote?.path === node.id;
     const isSelected = selectedFilePaths.includes(node.id);
     const dropStyle = getDropStyle(dragOverPath, dragOverPosition, node.id);

@@ -8,6 +8,7 @@ const core = {
         backToFiles: "Back to files",
         toggleRightSidebar: "Toggle Right Sidebar",
         toggleLocalGraph: "Toggle Local Graph",
+        toggleTheme: "Toggle theme",
         changeEditorMode: "Change editor mode",
         editorMode: "Editor Mode",
         comingSoon: "Coming soon",
@@ -47,6 +48,10 @@ const core = {
         switchVault: "Switch Vault",
         noVaultAction: "No action",
         noVault: "No vault",
+        workspaceHeader: "Workspace",
+        searchPlaceholder: "Search or jump to…",
+        notesCount: "{{count}} note(s)",
+        newFromTemplate: "New note from template",
         modal: {
             createFolder: "Create New Folder",
             folderPlaceholder: "Enter folder name...",
@@ -58,6 +63,11 @@ const core = {
     commandPalette: {
         placeholder: "Type a command...",
         empty: "No commands found",
+    },
+    vaultSwitcher: {
+        currentVault: "Current vault",
+        active: "Active",
+        openFolderAsVault: "Open folder as vault…",
     },
     rightSidebar: {
         backlinks: "Backlinks",
@@ -141,8 +151,8 @@ const core = {
         empty: "Empty",
     },
     templatePicker: {
-        title: "New Note From Template",
-        description: "Pick a template and name your note.",
+        title: "New note",
+        description: "Name it and pick a starting point.",
         untitled: "Untitled",
         emptyTitleError: "Title cannot be empty",
         loadError: "Failed to load templates",
@@ -152,6 +162,9 @@ const core = {
         useTemplate: "Use",
         startFresh: "Start fresh",
         close: "Close",
+        cancel: "Cancel",
+        creatingIn: "Creating in {{folder}}",
+        vaultRoot: "vault root",
     },
 };
 

@@ -28,9 +28,13 @@ export const theme = {
         },
         // Semantic colors
         background: {
+            app: 'var(--color-bg-app)',
             primary: 'var(--color-bg-primary)',
             secondary: 'var(--color-bg-secondary)',
             tertiary: 'var(--color-bg-tertiary)',
+            elevated: 'var(--color-bg-elevated)',
+            hover: 'var(--color-bg-hover)',
+            active: 'var(--color-bg-active)',
         },
         text: {
             primary: 'var(--color-text-primary)',
@@ -44,12 +48,25 @@ export const theme = {
             medium: 'var(--color-border-medium)',
             dark: 'var(--color-border-dark)',
         },
+        accent: {
+            default: 'var(--color-accent-default)',
+            secondary: 'var(--color-accent-2)',
+            soft: 'var(--color-accent-soft)',
+        },
+        semantic: {
+            amber: 'var(--color-amber)',
+            amberSoft: 'var(--color-amber-soft)',
+            green: 'var(--color-green)',
+            pink: 'var(--color-pink)',
+            pinkSoft: 'var(--color-pink-soft)',
+        },
     },
 
     typography: {
         fontFamily: {
             sans: "var(--font-sans)",
             mono: "var(--font-mono)",
+            editor: "var(--font-editor)",
         },
         fontSize: {
             xs: '0.75rem',      // 12px

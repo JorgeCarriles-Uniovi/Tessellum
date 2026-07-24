@@ -1,7 +1,7 @@
 export function ShortcutItem({ label, shortcut }: { label: string; shortcut: string }) {
     return (
-        <div className="flex items-center justify-between py-2" style={{ paddingTop: `0.5rem`, paddingBottom: `0.5rem` }}>
-            <span className="text-sm" style={{ color: "var(--color-text-muted)" }}>{label}</span>
+        <div className="flex items-center justify-between py-2 px-4" style={{ paddingTop: `0.5rem`, paddingBottom: `0.5rem` }}>
+            <span style={{ fontSize: "13.5px", fontWeight: 500, color: "var(--color-text-primary)" }}>{label}</span>
             <kbd
                 className="px-2 py-1 border rounded text-xs font-mono"
                 style={{

@@ -19,6 +19,22 @@
     font-style: normal;
 }
 
+@font-face {
+    font-family: 'Newsreader';
+    src: url('/fonts/newsreader/Newsreader-Variable.woff2') format('woff2');
+    font-weight: 400 700;
+    font-display: swap;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Newsreader';
+    src: url('/fonts/newsreader/Newsreader-Italic-Variable.woff2') format('woff2');
+    font-weight: 400 700;
+    font-display: swap;
+    font-style: italic;
+}
+
 * {
     box-sizing: border-box;
     margin: 0;
@@ -58,6 +74,20 @@ body {
     --color-bg-primary: #ffffff;
     --color-bg-secondary: #f9fafb;
     --color-bg-tertiary: #f3f4f6;
+    --color-bg-app: #f2f0ea;
+    --color-bg-elevated: #ffffff;
+    --color-bg-hover: rgba(32, 28, 22, 0.055);
+    --color-bg-active: rgba(52, 82, 214, 0.10);
+
+    --color-accent-2: #5468e0;
+    --color-accent-default: #3452d6;
+    --color-overlay-scrim: color-mix(in srgb, var(--color-text-primary) 20%, transparent);
+    --color-accent-soft: rgba(52, 82, 214, 0.12);
+    --color-amber: #b4762a;
+    --color-amber-soft: rgba(180, 118, 42, 0.13);
+    --color-green: #3f8f57;
+    --color-pink: #b0468a;
+    --color-pink-soft: rgba(176, 70, 138, 0.12);
 
     --color-text-primary: #111827;
     --color-text-secondary: #1f2937;
@@ -108,6 +138,7 @@ body {
     /* Fonts */
     --font-sans: 'Geist Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Helvetica Neue', sans-serif;
     --font-mono: 'Geist Mono', 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+    --font-editor: 'Newsreader', Georgia, 'Times New Roman', serif;
 
     /* Shadcn tokens mapped to design system */
     --background: var(--color-bg-primary);
@@ -179,6 +210,19 @@ body {
     --color-bg-primary: #0f0f0f;
     --color-bg-secondary: #1a1a1a;
     --color-bg-tertiary: #262626;
+    --color-bg-app: #141310;
+    --color-bg-elevated: #211f1b;
+    --color-bg-hover: rgba(255, 255, 255, 0.055);
+    --color-bg-active: rgba(124, 140, 240, 0.16);
+    --color-accent-2: #95a2f4;
+    --color-accent-default: #7c8cf0;
+    --color-overlay-scrim: color-mix(in srgb, var(--color-text-primary) 30%, transparent);
+    --color-accent-soft: rgba(124, 140, 240, 0.15);
+    --color-amber: #d9a05a;
+    --color-amber-soft: rgba(217, 160, 90, 0.15);
+    --color-green: #5cb377;
+    --color-pink: #d97fbb;
+    --color-pink-soft: rgba(217, 127, 187, 0.15);
 
     --color-text-primary: #fafafa;
     --color-text-secondary: #e5e5e5;
@@ -240,6 +284,7 @@ body {
 @theme inline {
     --font-sans: var(--font-sans);
     --font-mono: var(--font-mono);
+    --font-editor: var(--font-editor);
 
     /* Shadcn color tokens */
     --color-background: var(--background);
@@ -280,6 +325,18 @@ body {
     --color-text-muted: var(--color-text-muted);
     --color-border-light: var(--color-border-light);
     --color-border-medium: var(--color-border-medium);
+
+    /* v2 theme token colors */
+    --color-bg-app: var(--color-bg-app);
+    --color-bg-elevated: var(--color-bg-elevated);
+    --color-bg-hover: var(--color-bg-hover);
+    --color-bg-active: var(--color-bg-active);
+    --color-accent-2: var(--color-accent-2);
+    --color-accent-default: var(--color-accent-default);
+    --color-accent-soft: var(--color-accent-soft);
+    --color-amber: var(--color-amber);
+    --color-green: var(--color-green);
+    --color-pink: var(--color-pink);
 
     /* Blue color tokens */
     --color-blue-500: var(--color-blue-500);
@@ -478,6 +535,7 @@ body {
 
     .cm-table th {
         @apply bg-secondary/80 font-bold text-foreground py-5 px-10 border border-solid border-border tracking-tight;
+        font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace), monospace;
         font-size: calc(var(--editor-font-size, 16px) * 0.9) !important;
         padding-left: 1rem !important;
         padding-right: 1rem !important;
@@ -487,6 +545,7 @@ body {
 
     .cm-table td {
         @apply py-5 px-10 border border-solid border-border text-foreground transition-colors leading-loose;
+        font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace), monospace;
         padding-left: 1rem !important;
         padding-right: 1rem !important;
         padding-top: 0.5rem !important;
@@ -1062,35 +1121,58 @@ body {
     }
 
     /* --- Frontmatter --- */
+    /* v2 "Notion-inline card": a single rounded card containing all properties,
+       with a 128px/1fr grid per row and a hairline inset divider between rows. */
     .cm-frontmatter-widget {
         @apply my-6 w-full select-none cursor-pointer;
         font-family: var(--font-sans);
+        border: 1px solid var(--color-border-light);
+        border-radius: 12px;
+        background: var(--color-bg-app);
+        padding: 6px 4px;
     }
 
     .cm-frontmatter-header {
-        @apply font-bold text-foreground mb-3 px-1;
-        font-size: 0.9375rem;
+        @apply font-bold text-foreground;
+        font-size: 0.8125rem;
+        padding: 6px 12px 4px;
     }
 
     .cm-frontmatter-props {
-        @apply flex flex-col gap-2;
+        @apply flex flex-col;
     }
 
     .cm-frontmatter-prop-row {
-        @apply flex items-center min-h-[2.25rem] bg-secondary/10 border border-solid border-border rounded-md px-3 py-1 hover:bg-secondary/30 transition-colors w-full max-w-2xl;
+        @apply relative grid items-center w-full max-w-2xl transition-colors;
+        grid-template-columns: 128px 1fr;
+        padding: 9px 12px;
+    }
+
+    .cm-frontmatter-prop-row:not(:last-child)::after {
+        content: "";
+        position: absolute;
+        left: 12px;
+        right: 12px;
+        bottom: 0;
+        height: 1px;
+        background: var(--color-border-light);
     }
 
     .cm-frontmatter-prop-key {
-        @apply flex items-center gap-2 w-32 shrink-0 text-muted-foreground mr-4 font-normal text-[0.8125rem] opacity-80;
+        @apply flex items-center gap-2 shrink-0 font-normal;
+        font-size: 12.5px;
+        color: var(--color-text-tertiary);
     }
 
     .cm-frontmatter-prop-value {
         @apply flex-1 flex flex-wrap gap-1.5 items-center min-h-[22px] overflow-visible;
+        font-size: 0.8125rem;
     }
 
     .cm-frontmatter-prop-pill {
-        @apply inline-flex items-center px-2 py-0.5 rounded-full text-[0.8125rem] font-medium bg-secondary/60 text-foreground;
-        background-color: var(--color-bg-tertiary);
+        @apply inline-flex items-center px-2 py-0.5 rounded-full text-[0.8125rem] font-medium;
+        background-color: var(--color-accent-soft);
+        color: var(--color-accent-default);
     }
 
     .cm-frontmatter-prop-pill-close {
@@ -1098,7 +1180,8 @@ body {
     }
 
     .cm-frontmatter-add-row {
-        @apply flex items-center gap-2 text-muted-foreground mt-1 px-1 hover:text-foreground transition-colors w-max text-[0.84375rem] font-medium opacity-80;
+        @apply flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors w-max text-[0.8125rem] font-medium opacity-80;
+        padding: 6px 12px;
     }
 
     .cm-frontmatter-hidden-line {
@@ -1423,8 +1506,8 @@ body {
 
 /* Scrollbar styling */
 ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+    width: 9px;
+    height: 9px;
 }
 
 ::-webkit-scrollbar-track {
@@ -1432,12 +1515,15 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-    background: var(--color-gray-400);
-    border-radius: var(--radius-base);
+    background: var(--color-border-medium);
+    border-radius: 20px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: var(--color-gray-500);
+    background: var(--color-text-muted);
+    background-clip: padding-box;
 }
 /* --- Named Themes --- */
 .theme-warm-paper {
