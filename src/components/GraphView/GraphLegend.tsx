@@ -32,6 +32,7 @@ export function GraphLegend({ graphData }: Props) {
                 padding: "12px 14px",
                 minWidth: 176,
                 zIndex: 10,
+                pointerEvents: "none",
             }}
         >
             <div
@@ -44,6 +45,7 @@ export function GraphLegend({ graphData }: Props) {
                     color: "var(--color-text-tertiary)", marginBottom: 9,
                     cursor: drag.isDragging ? "grabbing" : "grab",
                     userSelect: "none",
+                    pointerEvents: "auto",
                 }}
             >
                 {t("graph.tagClustersLabel", { defaultValue: "Tag clusters" })}

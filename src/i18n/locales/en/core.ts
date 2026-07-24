@@ -109,6 +109,8 @@ const core = {
         fitToView: "Fit to view",
         multipleTags: "Multiple tags",
         filterPlaceholder: "Filter — tag:systems or Cypher…",
+        openQueryPanel: "Open filter panel",
+        collapseQueryPanel: "Collapse filter panel",
     },
     workspaceOverview: {
         title: "Workspace Overview",

@@ -31,6 +31,7 @@ export function GraphQueryPanel({
             <button
                 type="button"
                 onClick={() => setIsOpen(true)}
+                aria-label={t("graph.openQueryPanel", { defaultValue: "Open filter panel" })}
                 style={{
                     position: "absolute", top: 16, right: 16, zIndex: 20,
                     width: 300,
@@ -146,7 +147,7 @@ export function GraphQueryPanel({
                     <button
                         type="button"
                         onClick={() => setIsOpen(false)}
-                        aria-label="Collapse query panel"
+                        aria-label={t("graph.collapseQueryPanel", { defaultValue: "Collapse filter panel" })}
                         style={{
                             width: 24, height: 24,
                             display: "flex", alignItems: "center", justifyContent: "center",

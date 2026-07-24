@@ -40,4 +40,13 @@ describe("GraphLegend", () => {
         expect(panel.style.left).toBe("56px");
         expect(panel.style.top).toBe("41px");
     });
+
+    it("keeps the outer wrapper click-through but the header interactive", () => {
+        const { container } = render(<GraphLegend graphData={makeData()} />);
+        const panel = container.firstChild as HTMLElement;
+        expect(panel.style.pointerEvents).toBe("none");
+
+        const header = screen.getByText("Tag clusters");
+        expect(header.style.pointerEvents).toBe("auto");
+    });
 });

@@ -109,6 +109,8 @@ const core = {
         fitToView: "Ajustar a la vista",
         multipleTags: "Varias etiquetas",
         filterPlaceholder: "Filtro — tag:sistemas o Cypher…",
+        openQueryPanel: "Abrir panel de filtro",
+        collapseQueryPanel: "Contraer panel de filtro",
     },
     workspaceOverview: {
         title: "Resumen del espacio de trabajo",
