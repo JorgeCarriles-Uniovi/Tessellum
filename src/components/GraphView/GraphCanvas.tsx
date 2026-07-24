@@ -19,6 +19,7 @@ interface GraphCanvasProps {
     onPositionsStable?: (positions: Record<string, { x: number; y: number }>) => void;
     onNodeClick: (nodeId: string) => void;
     onNodeDoubleClick: (nodeId: string) => void;
+    onCyReady?: (cy: cytoscape.Core) => void;
 }
 
 export function GraphCanvas({
@@ -33,6 +34,7 @@ export function GraphCanvas({
                                 onPositionsStable,
                                 onNodeClick,
                                 onNodeDoubleClick,
+                                onCyReady,
                             }: GraphCanvasProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const cyRef = useRef<Core | null>(null);
@@ -90,6 +92,7 @@ export function GraphCanvas({
         });
 
         cyRef.current = cy;
+        onCyReady?.(cy);
 
         const scheduleTimeout = (cb: () => void, delay: number) => {
             const id = window.setTimeout(() => {

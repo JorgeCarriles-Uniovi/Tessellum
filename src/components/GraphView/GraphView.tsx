@@ -6,6 +6,7 @@ import { GraphCanvas } from './GraphCanvas';
 import { NodeInfoPanel } from './NodeInfoPanel';
 import { GraphQueryPanel } from './GraphQueryPanel';
 import { GraphLegend } from './GraphLegend';
+import { GraphZoomControls } from './GraphZoomControls';
 import { ArrowLeft, GitFork, Grid2x2 } from 'lucide-react';
 import cytoscape from 'cytoscape';
 import { mapGraphDataToElements, GraphData } from "../../utils/graphUtils.ts";
@@ -62,6 +63,7 @@ export function GraphView() {
     const [fileChangeTick, setFileChangeTick] = useState(0);
     const debouncedFileChangeTick = useDebouncedValue(fileChangeTick, 250);
     const latestQueryRequestIdRef = useRef(0);
+    const cyRef = useRef<cytoscape.Core | null>(null);
 
     useEffect(() => {
         clearForVaultChange(vaultPath);
@@ -361,10 +363,12 @@ export function GraphView() {
                         onNodeDoubleClick={handleNodeDoubleClick}
                         initialPositions={useGraphDataStore.getState().nodePositions}
                         onPositionsStable={useGraphDataStore.getState().setNodePositions}
+                        onCyReady={(cy) => (cyRef.current = cy)}
                     />
                 )}
 
                 <GraphLegend graphData={graphData} />
+                <GraphZoomControls cy={cyRef.current} />
 
                 <GraphQueryPanel
                     query={query}
