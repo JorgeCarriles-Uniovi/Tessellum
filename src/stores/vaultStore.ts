@@ -7,10 +7,12 @@ export interface VaultState {
     fileTree: TreeNode[];
     activeNote: FileMetadata | null;
     openTabPaths: string[];
+    recentVaultPaths: string[];
 }
 
 export interface VaultActions {
     setVaultPath: (path: string | null) => void;
+    removeRecentVaultPath: (path: string) => void;
     setFiles: (files: FileMetadata[]) => void;
     setFileTree: (tree: TreeNode[]) => void;
     setActiveNote: (file: FileMetadata | null) => void;
@@ -50,6 +52,28 @@ function findPreviousRemainingTab(
 }
 
 const VAULT_PATH_KEY = "tessellum:vault:path";
+const RECENT_VAULTS_KEY = "tessellum:vault:recentPaths";
+const MAX_RECENT_VAULTS = 6;
+
+function readRecentVaultPaths(): string[] {
+    try {
+        const raw = localStorage.getItem(RECENT_VAULTS_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed.filter((p): p is string => typeof p === "string") : [];
+    } catch {
+        return [];
+    }
+}
+
+function writeRecentVaultPaths(paths: string[]): void {
+    localStorage.setItem(RECENT_VAULTS_KEY, JSON.stringify(paths));
+}
+
+function pushRecentVaultPath(current: string[], path: string): string[] {
+    const deduped = current.filter((p) => p !== path);
+    return [path, ...deduped].slice(0, MAX_RECENT_VAULTS);
+}
 
 function readVaultPath(): string | null {
     // Migrate from the legacy unprefixed key on first run.
@@ -70,6 +94,7 @@ export const useVaultStore = create<VaultStore>((set) => ({
     fileTree: [],
     activeNote: null,
     openTabPaths: [],
+    recentVaultPaths: readRecentVaultPaths(),
 
     setVaultPath: (path) => {
         if (path) {
@@ -77,9 +102,20 @@ export const useVaultStore = create<VaultStore>((set) => ({
         } else {
             localStorage.removeItem(VAULT_PATH_KEY);
         }
-        // Reset per-vault volatile state when changing vault scope.
-        set({ vaultPath: path, activeNote: null, openTabPaths: [] });
+        set((state) => {
+            const recentVaultPaths = path
+                ? pushRecentVaultPath(state.recentVaultPaths, path)
+                : state.recentVaultPaths;
+            if (path) writeRecentVaultPaths(recentVaultPaths);
+            // Reset per-vault volatile state when changing vault scope.
+            return { vaultPath: path, activeNote: null, openTabPaths: [], recentVaultPaths };
+        });
     },
+    removeRecentVaultPath: (path) => set((state) => {
+        const recentVaultPaths = state.recentVaultPaths.filter((p) => p !== path);
+        writeRecentVaultPaths(recentVaultPaths);
+        return { recentVaultPaths };
+    }),
     setFiles: (files) => set((state) => {
         const fileByPath = new Map(files.map((file) => [file.path, file]));
         const nextOpenTabs = state.openTabPaths.filter((path) => fileByPath.has(path));

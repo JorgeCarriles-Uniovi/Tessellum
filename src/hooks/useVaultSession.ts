@@ -52,6 +52,7 @@ export function useVaultSession(app: TessellumApp): { workspaceRestored: boolean
         setActiveNote,
         openTabPaths,
         restoreWorkspaceTabs,
+        removeRecentVaultPath,
     } = useVaultStore();
     const { expandedFolders, setExpandedFolders } = useUiStore();
     const { viewMode, setViewMode } = useGraphStore();
@@ -122,6 +123,7 @@ export function useVaultSession(app: TessellumApp): { workspaceRestored: boolean
         exists(vaultPath).then((doesExist: boolean) => {
             if (!doesExist) {
                 console.warn(`Vault path ${vaultPath} no longer exists. Clearing.`);
+                removeRecentVaultPath(vaultPath);
                 setVaultPath(null);
                 return;
             }
@@ -129,7 +131,7 @@ export function useVaultSession(app: TessellumApp): { workspaceRestored: boolean
                 .then(() => app.events.emit("vault:scope-ready", vaultPath))
                 .catch(console.error);
         }).catch(console.error);
-    }, [vaultPath, setVaultPath, app]);
+    }, [vaultPath, setVaultPath, removeRecentVaultPath, app]);
 
     useEffect(() => {
         if (!vaultPath) {
