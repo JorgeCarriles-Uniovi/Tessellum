@@ -19,7 +19,7 @@ interface GraphCanvasProps {
     onPositionsStable?: (positions: Record<string, { x: number; y: number }>) => void;
     onNodeClick: (nodeId: string) => void;
     onNodeDoubleClick: (nodeId: string) => void;
-    onCyReady?: (cy: cytoscape.Core) => void;
+    onCyReady?: (cy: cytoscape.Core | null) => void;
 }
 
 export function GraphCanvas({
@@ -244,6 +244,7 @@ export function GraphCanvas({
             }
             cy.destroy();
             cyRef.current = null;
+            onCyReady?.(null);
         };
     }, []);
 

@@ -63,7 +63,7 @@ export function GraphView() {
     const [fileChangeTick, setFileChangeTick] = useState(0);
     const debouncedFileChangeTick = useDebouncedValue(fileChangeTick, 250);
     const latestQueryRequestIdRef = useRef(0);
-    const cyRef = useRef<cytoscape.Core | null>(null);
+    const [cy, setCy] = useState<cytoscape.Core | null>(null);
 
     useEffect(() => {
         clearForVaultChange(vaultPath);
@@ -363,12 +363,12 @@ export function GraphView() {
                         onNodeDoubleClick={handleNodeDoubleClick}
                         initialPositions={useGraphDataStore.getState().nodePositions}
                         onPositionsStable={useGraphDataStore.getState().setNodePositions}
-                        onCyReady={(cy) => (cyRef.current = cy)}
+                        onCyReady={setCy}
                     />
                 )}
 
                 <GraphLegend graphData={graphData} />
-                <GraphZoomControls cy={cyRef.current} />
+                <GraphZoomControls cy={cy} />
 
                 <GraphQueryPanel
                     query={query}
