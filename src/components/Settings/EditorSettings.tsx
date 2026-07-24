@@ -12,6 +12,8 @@ export function EditorSettings() {
 
     const fontFamily = useSettingsStore((state) => state.fontFamily);
     const setFontFamily = useSettingsStore((state) => state.setFontFamily);
+    const readingFont = useSettingsStore((state) => state.readingFont);
+    const setReadingFont = useSettingsStore((state) => state.setReadingFont);
     const editorLineHeight = useSettingsStore((state) => state.editorLineHeight);
     const setEditorLineHeight = useSettingsStore((state) => state.setEditorLineHeight);
     const editorLetterSpacing = useSettingsStore((state) => state.editorLetterSpacing);
@@ -42,6 +44,22 @@ export function EditorSettings() {
                         className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)] focus:border-transparent transition-all cursor-pointer"
                         style={selectStyle}
                     >
+                        <option value="Geist Sans">Geist Sans</option>
+                        <option value="Inter">Inter</option>
+                        <option value="Roboto">Roboto</option>
+                        <option value="Source Sans 3">Source Sans 3</option>
+                        <option value="Georgia">Georgia</option>
+                        <option value="Courier New">Courier New</option>
+                    </select>
+                </SettingItem>
+                <SettingItem label={t("editor.readingFont")}>
+                    <select
+                        value={readingFont}
+                        onChange={(e) => setReadingFont(e.target.value)}
+                        className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)] focus:border-transparent transition-all cursor-pointer"
+                        style={selectStyle}
+                    >
+                        <option value="Newsreader">Newsreader</option>
                         <option value="Geist Sans">Geist Sans</option>
                         <option value="Inter">Inter</option>
                         <option value="Roboto">Roboto</option>
