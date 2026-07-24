@@ -1,5 +1,8 @@
 {
   "build": {
     "beforeBuildCommand": "npm run build:ci"
+  },
+  "bundle": {
+    "createUpdaterArtifacts": false
   }
 }
