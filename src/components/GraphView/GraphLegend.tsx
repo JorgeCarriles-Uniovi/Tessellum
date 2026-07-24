@@ -1,5 +1,6 @@
 import type { GraphData } from "../../utils/graphUtils";
-import { computeTagClusters } from "../../utils/graphStats";
+import { computeTagClusters, computeTileBackground } from "../../utils/graphStats";
+import { useDraggablePosition } from "../../hooks/useDraggablePosition";
 import { useAppTranslation } from "../../i18n/react.tsx";
 
 interface Props {
@@ -10,8 +11,11 @@ const LEGEND_MAX_TAGS = 8;
 
 export function GraphLegend({ graphData }: Props) {
     const { t } = useAppTranslation("core");
+    const drag = useDraggablePosition({ initial: { x: 16, y: 16 }, storageKey: "tessellum:graphLegendPosition" });
+
     if (!graphData) return null;
-    const clusters = computeTagClusters(graphData.nodes).slice(0, LEGEND_MAX_TAGS);
+    const allClusters = computeTagClusters(graphData.nodes);
+    const clusters = allClusters.slice(0, LEGEND_MAX_TAGS);
     const orphanCount = graphData.nodes.filter((n) => n.orphan).length;
     const unresolvedCount = graphData.nodes.filter((n) => !n.exists).length;
 
@@ -20,7 +24,7 @@ export function GraphLegend({ graphData }: Props) {
     return (
         <div
             style={{
-                position: "absolute", top: 16, left: 16,
+                position: "absolute", left: drag.position.x, top: drag.position.y,
                 background: "var(--color-bg-secondary)",
                 border: "1px solid var(--color-border-light)",
                 borderRadius: 12,
@@ -28,14 +32,18 @@ export function GraphLegend({ graphData }: Props) {
                 padding: "12px 14px",
                 minWidth: 176,
                 zIndex: 10,
-                pointerEvents: "none",
             }}
         >
             <div
+                onPointerDown={drag.handlePointerDown}
+                onPointerMove={drag.handlePointerMove}
+                onPointerUp={drag.handlePointerUp}
                 style={{
                     fontSize: 10, fontWeight: 600, letterSpacing: ".1em",
                     textTransform: "uppercase",
                     color: "var(--color-text-tertiary)", marginBottom: 9,
+                    cursor: drag.isDragging ? "grabbing" : "grab",
+                    userSelect: "none",
                 }}
             >
                 {t("graph.tagClustersLabel", { defaultValue: "Tag clusters" })}
@@ -69,17 +77,28 @@ export function GraphLegend({ graphData }: Props) {
                         }} />}
                     />
                 )}
+                {allClusters.length >= 2 && (
+                    <>
+                        <div style={{ height: 1, background: "var(--color-border-light)", margin: "3px 0" }} />
+                        <LegendRow label={t("graph.multipleTags", { defaultValue: "Multiple tags" })}
+                            swatch={<span style={{
+                                width: 13, height: 13, borderRadius: 4,
+                                background: computeTileBackground([allClusters[0].tag, allClusters[1].tag]),
+                            }} />}
+                        />
+                    </>
+                )}
             </div>
         </div>
     );
 }
 
-function LegendRow({ label, count, swatch }: { label: string; count: number; swatch: React.ReactNode }) {
+function LegendRow({ label, count, swatch }: { label: string; count?: number; swatch: React.ReactNode }) {
     return (
         <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
             {swatch}
             <span style={{ flex: 1, fontSize: 12, color: "var(--color-text-secondary)" }}>{label}</span>
-            <span style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>{count}</span>
+            {count !== undefined && <span style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>{count}</span>}
         </div>
     );
 }

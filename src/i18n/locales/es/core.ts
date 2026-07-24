@@ -107,6 +107,7 @@ const core = {
         zoomIn: "Acercar",
         zoomOut: "Alejar",
         fitToView: "Ajustar a la vista",
+        multipleTags: "Varias etiquetas",
     },
     workspaceOverview: {
         title: "Resumen del espacio de trabajo",

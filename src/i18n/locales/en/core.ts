@@ -107,6 +107,7 @@ const core = {
         zoomIn: "Zoom in",
         zoomOut: "Zoom out",
         fitToView: "Fit to view",
+        multipleTags: "Multiple tags",
     },
     workspaceOverview: {
         title: "Workspace Overview",
