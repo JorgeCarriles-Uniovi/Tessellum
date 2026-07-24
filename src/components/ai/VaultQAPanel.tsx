@@ -171,7 +171,7 @@ export function VaultQAPanel({ onClose }: { onClose: () => void }) {
                 className="flex items-center gap-2 px-4 py-3 flex-shrink-0"
                 style={{ borderBottom: `1px solid ${theme.colors.border.light}` }}
             >
-                <Sparkles size={15} style={{ color: "var(--primary)" }} />
+                <Sparkles size={15} style={{ color: "var(--color-accent-default)" }} />
                 <span className="text-sm font-semibold flex-1" style={{ color: theme.colors.text.primary }}>
                     Vault Q&A
                 </span>
@@ -194,11 +194,12 @@ export function VaultQAPanel({ onClose }: { onClose: () => void }) {
                 {messages.map((msg, idx) => (
                     <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                         <div
-                            className="max-w-[85%] rounded-xl px-3 py-2 text-sm"
+                            className="max-w-[85%] px-3 py-2 text-sm"
                             style={{
+                                borderRadius: 12,
                                 background:
                                     msg.role === "user"
-                                        ? "var(--primary)"
+                                        ? "var(--color-accent-default)"
                                         : theme.colors.background.primary,
                                 color:
                                     msg.role === "user"
@@ -215,7 +216,7 @@ export function VaultQAPanel({ onClose }: { onClose: () => void }) {
                             {msg.content || (streaming && idx === messages.length - 1 ? (
                                 <span
                                     className="inline-block w-2 h-4 rounded-sm animate-pulse"
-                                    style={{ background: "var(--primary)" }}
+                                    style={{ background: "var(--color-accent-default)" }}
                                 />
                             ) : null)}
 
@@ -229,10 +230,10 @@ export function VaultQAPanel({ onClose }: { onClose: () => void }) {
                                         {msg.citations.map((path) => (
                                             <button
                                                 key={path}
-                                                className="text-[0.625rem] px-1.5 py-0.5 rounded transition-colors"
+                                                className="text-[0.625rem] px-1.5 py-0.5 rounded-md transition-colors"
                                                 style={{
-                                                    background: "color-mix(in srgb, var(--primary) 12%, transparent)",
-                                                    color: "var(--primary)",
+                                                    background: "var(--color-accent-soft)",
+                                                    color: "var(--color-accent-default)",
                                                     border: "none",
                                                     cursor: "pointer",
                                                 }}
