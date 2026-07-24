@@ -14,6 +14,16 @@ function makeData(count: number): GraphData {
     };
 }
 
+function makeMultiTagData(): GraphData {
+    return {
+        nodes: [
+            { id: "solo", label: "Solo", exists: true, orphan: false, tags: ["alpha"] },
+            { id: "combo", label: "Combo", exists: true, orphan: false, tags: ["alpha", "beta"] },
+        ],
+        edges: [{ source: "solo", target: "combo", broken: false }],
+    };
+}
+
 describe("MosaicCanvas", () => {
     it("renders one tile per note when count is under the cap", () => {
         const onClick = vi.fn();
@@ -47,5 +57,18 @@ describe("MosaicCanvas", () => {
     it("renders nothing when graphData is null", () => {
         const { container } = render(<MosaicCanvas graphData={null} selectedNodeId={null} onNodeClick={vi.fn()} onNodeDoubleClick={vi.fn()} />);
         expect(container.firstChild).toBeNull();
+    });
+
+    it("renders a hard-edged multi-color background for a note with more than one tag", () => {
+        render(<MosaicCanvas graphData={makeMultiTagData()} selectedNodeId={null} onNodeClick={vi.fn()} onNodeDoubleClick={vi.fn()} />);
+        const comboTile = screen.getByRole("button", { name: "Combo" });
+        expect(comboTile.style.background).toContain("linear-gradient(135deg");
+        const soloTile = screen.getByRole("button", { name: "Solo" });
+        expect(soloTile.style.background).toContain("linear-gradient(147deg");
+    });
+
+    it("shows a floating label with the selected note's title when a node is selected", () => {
+        render(<MosaicCanvas graphData={makeMultiTagData()} selectedNodeId="combo" onNodeClick={vi.fn()} onNodeDoubleClick={vi.fn()} />);
+        expect(screen.getByText("Combo")).toBeInTheDocument();
     });
 });

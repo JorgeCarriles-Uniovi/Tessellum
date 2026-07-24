@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import type { GraphData } from "../../utils/graphUtils";
-import { stringToColor } from "../../utils/graphUtils";
-import { countConnections } from "../../utils/graphStats";
+import { computeTagClusters, countConnections, bucketNodesByDominantTag, computeTileBackground } from "../../utils/graphStats";
+import { packHexClusters, HEX_CLIP_PATH, HEX_TILE_WIDTH, HEX_TILE_HEIGHT } from "../../utils/hexGrid";
 import { useAppTranslation } from "../../i18n/react.tsx";
 
 interface Props {
@@ -12,13 +12,16 @@ interface Props {
 }
 
 const MAX_TILES = 200;
+const HALO_MARGIN = 13;
 
 interface MosaicTile {
     id: string;
     label: string;
-    hue: number | null;
+    tags: string[];
     orphan: boolean;
     unresolved: boolean;
+    x: number;
+    y: number;
 }
 
 function pickVisibleNodes(nodes: GraphData["nodes"], connections: Map<string, number>, selectedNodeId: string | null): GraphData["nodes"] {
@@ -28,7 +31,7 @@ function pickVisibleNodes(nodes: GraphData["nodes"], connections: Map<string, nu
     if (selectedNodeId && !top.some((n) => n.id === selectedNodeId)) {
         const selectedNode = nodes.find((n) => n.id === selectedNodeId);
         if (selectedNode) {
-            top[top.length - 1] = selectedNode;  // swap out the weakest to guarantee the selection is visible
+            top[top.length - 1] = selectedNode;
         }
     }
     return top;
@@ -36,95 +39,105 @@ function pickVisibleNodes(nodes: GraphData["nodes"], connections: Map<string, nu
 
 export function MosaicCanvas({ graphData, selectedNodeId, onNodeClick, onNodeDoubleClick }: Props) {
     const { t } = useAppTranslation("core");
-    const tiles = useMemo<MosaicTile[] | null>(() => {
+
+    const layout = useMemo(() => {
         if (!graphData) return null;
         const connections = countConnections(graphData.nodes, graphData.edges);
-        return pickVisibleNodes(graphData.nodes, connections, selectedNodeId).map((n) => ({
-            id: n.id,
-            label: n.label,
-            hue: n.tags.length > 0 ? stringToColor(n.tags[0]).h : null,
-            orphan: n.orphan,
-            unresolved: !n.exists,
-        }));
+        const visible = pickVisibleNodes(graphData.nodes, connections, selectedNodeId);
+        const nodesById = new Map(visible.map((n) => [n.id, n]));
+        const clusters = computeTagClusters(visible);
+        const buckets = bucketNodesByDominantTag(visible, clusters).map((b) => ({ items: b.nodeIds }));
+        const { tiles: hexTiles, width, height } = packHexClusters(buckets);
+
+        const tiles: MosaicTile[] = hexTiles.map((hexTile) => {
+            const node = nodesById.get(hexTile.item)!;
+            return {
+                id: node.id,
+                label: node.label,
+                tags: node.tags,
+                orphan: node.orphan,
+                unresolved: !node.exists,
+                x: hexTile.x,
+                y: hexTile.y,
+            };
+        });
+
+        return { tiles, width, height };
     }, [graphData, selectedNodeId]);
 
-    const selectedLabel = useMemo(() => {
-        if (!graphData || !selectedNodeId) return null;
-        return graphData.nodes.find((n) => n.id === selectedNodeId)?.label ?? null;
-    }, [graphData, selectedNodeId]);
-
-    if (!tiles) return null;
+    if (!layout) return null;
 
     const total = graphData?.nodes.length ?? 0;
     const showingCaption = total > MAX_TILES;
+    const selectedTile = layout.tiles.find((t) => t.id === selectedNodeId) ?? null;
 
     return (
-        <div
-            style={{
-                position: "absolute", inset: 0,
-                overflow: "auto",
-                background: "var(--color-bg-primary)",
-            }}
-        >
-            <div
-                style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fill, minmax(56px, 1fr))",
-                    gap: 8,
-                    padding: 24,
-                }}
-            >
-                {tiles.map((t) => {
-                    const isSelected = t.id === selectedNodeId;
-                    const background = t.unresolved
+        <div style={{ position: "absolute", inset: 0, overflow: "auto", background: "var(--color-bg-primary)" }}>
+            <div style={{ position: "relative", width: layout.width, height: layout.height, margin: "40px auto" }}>
+                {selectedTile && (
+                    <div
+                        style={{
+                            position: "absolute",
+                            left: selectedTile.x - HALO_MARGIN / 2,
+                            top: selectedTile.y - HALO_MARGIN / 2,
+                            width: HEX_TILE_WIDTH + HALO_MARGIN,
+                            height: HEX_TILE_HEIGHT + HALO_MARGIN,
+                            clipPath: HEX_CLIP_PATH,
+                            background: "var(--color-text-primary)",
+                        }}
+                    />
+                )}
+
+                {layout.tiles.map((tile) => {
+                    const isSelected = tile.id === selectedNodeId;
+                    const background = tile.unresolved
                         ? "hsl(0 0% 62% / .16)"
-                        : t.hue == null
-                            ? "hsl(0 0% 62%)"
-                            : `linear-gradient(147deg, hsl(${t.hue} 56% 69%), hsl(${t.hue} 56% 57%))`;
+                        : computeTileBackground(tile.tags);
                     return (
                         <button
-                            key={t.id}
+                            key={tile.id}
                             type="button"
-                            aria-label={t.label}
+                            aria-label={tile.label}
                             aria-pressed={isSelected}
-                            onClick={() => onNodeClick(t.id)}
-                            onDoubleClick={() => onNodeDoubleClick(t.id)}
-                            title={t.label}
+                            onClick={() => onNodeClick(tile.id)}
+                            onDoubleClick={() => onNodeDoubleClick(tile.id)}
+                            title={tile.label}
                             style={{
-                                aspectRatio: "1 / 1",
-                                border: t.unresolved ? "1px dashed var(--color-text-tertiary)" : "none",
+                                position: "absolute",
+                                left: tile.x, top: tile.y,
+                                width: HEX_TILE_WIDTH, height: HEX_TILE_HEIGHT,
+                                clipPath: HEX_CLIP_PATH,
+                                border: tile.unresolved ? "1px dashed var(--color-text-tertiary)" : "none",
                                 background,
-                                borderRadius: 8,
                                 cursor: "pointer",
-                                opacity: t.orphan ? 0.6 : 1,
+                                opacity: tile.orphan ? 0.6 : 1,
                                 padding: 0,
-                                boxShadow: isSelected
-                                    ? "0 0 0 3px var(--color-accent-default), 0 0 24px 6px var(--color-accent-soft)"
-                                    : "var(--shadow-sm)",
-                                transition: "box-shadow 150ms ease",
                             }}
                         />
                     );
                 })}
-            </div>
 
-            {selectedLabel && (
-                <div
-                    style={{
-                        position: "absolute", left: "50%", top: 12, transform: "translateX(-50%)",
-                        fontFamily: "var(--font-editor)",
-                        fontSize: 14, fontWeight: 600,
-                        color: "var(--color-text-primary)",
-                        background: "var(--color-bg-secondary)",
-                        border: "1px solid var(--color-border-light)",
-                        borderRadius: 20, padding: "4px 14px",
-                        boxShadow: "var(--shadow-sm)",
-                        pointerEvents: "none",
-                    }}
-                >
-                    {selectedLabel}
-                </div>
-            )}
+                {selectedTile && (
+                    <div
+                        style={{
+                            position: "absolute",
+                            left: selectedTile.x + HEX_TILE_WIDTH / 2,
+                            top: selectedTile.y - 36,
+                            transform: "translateX(-50%)",
+                            whiteSpace: "nowrap",
+                            fontFamily: "var(--font-sans)",
+                            fontSize: 11, fontWeight: 600,
+                            color: "var(--color-bg-app)",
+                            background: "var(--color-text-primary)",
+                            padding: "4px 10px", borderRadius: 7,
+                            boxShadow: "var(--shadow)",
+                            zIndex: 5, pointerEvents: "none",
+                        }}
+                    >
+                        {selectedTile.label}
+                    </div>
+                )}
+            </div>
 
             {showingCaption && (
                 <div
