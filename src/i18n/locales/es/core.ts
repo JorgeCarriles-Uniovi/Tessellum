@@ -68,6 +68,8 @@ const core = {
         currentVault: "Bóveda actual",
         active: "Activa",
         openFolderAsVault: "Abrir carpeta como bóveda…",
+        recentVaults: "Bóvedas recientes",
+        removeRecent: "Quitar de bóvedas recientes",
     },
     rightSidebar: {
         backlinks: "Backlinks",

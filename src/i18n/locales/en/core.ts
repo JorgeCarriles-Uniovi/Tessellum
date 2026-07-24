@@ -68,6 +68,8 @@ const core = {
         currentVault: "Current vault",
         active: "Active",
         openFolderAsVault: "Open folder as vault…",
+        recentVaults: "Recent vaults",
+        removeRecent: "Remove from recent vaults",
     },
     rightSidebar: {
         backlinks: "Backlinks",
