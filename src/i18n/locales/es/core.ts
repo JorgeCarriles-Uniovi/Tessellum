@@ -108,6 +108,7 @@ const core = {
         zoomOut: "Alejar",
         fitToView: "Ajustar a la vista",
         multipleTags: "Varias etiquetas",
+        filterPlaceholder: "Filtro — tag:sistemas o Cypher…",
     },
     workspaceOverview: {
         title: "Resumen del espacio de trabajo",
