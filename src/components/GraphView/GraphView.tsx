@@ -5,22 +5,17 @@ import { useGraphDataStore, useGraphStore, useVaultStore } from "../../stores";
 import { GraphCanvas } from './GraphCanvas';
 import { NodeInfoPanel } from './NodeInfoPanel';
 import { GraphQueryPanel } from './GraphQueryPanel';
+import { GraphLegend } from './GraphLegend';
 import { ArrowLeft, GitFork, Grid2x2 } from 'lucide-react';
 import cytoscape from 'cytoscape';
 import { mapGraphDataToElements, GraphData } from "../../utils/graphUtils.ts";
+import { computeTagClusters } from "../../utils/graphStats";
 import { createNoteInDir } from "../../utils/noteUtils";
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { normalizeCypherQuery } from "../../lib/cypherQueryNormalizer";
 import { useAppTranslation } from "../../i18n/react.tsx";
 
 type QueryRow = Record<string, unknown>;
-
-// TEMP: real implementation lands in Task 6 (`src/utils/graphStats.ts`)
-function computeTagClusters(nodes: GraphData['nodes']): Set<string> {
-    const set = new Set<string>();
-    nodes.forEach((n) => n.tags.forEach((t) => set.add(t)));
-    return set;
-}
 
 function extractMatchingNodeIds(rows: QueryRow[], graphData: GraphData): Set<string> {
     const idsFromColumns = new Set<string>();
@@ -278,7 +273,7 @@ export function GraphView() {
                     </span>
                     <span style={{ fontSize: 12, color: "var(--color-text-tertiary)" }}>
                         {graphData
-                            ? `${t("graph.notesCount", { count: graphData.nodes.length })} · ${t("graph.tagClusters", { count: computeTagClusters(graphData.nodes).size })}`
+                            ? `${t("graph.notesCount", { count: graphData.nodes.length })} · ${t("graph.tagClusters", { count: computeTagClusters(graphData.nodes).length })}`
                             : ""}
                     </span>
                 </div>
@@ -368,6 +363,8 @@ export function GraphView() {
                         onPositionsStable={useGraphDataStore.getState().setNodePositions}
                     />
                 )}
+
+                <GraphLegend graphData={graphData} />
 
                 <GraphQueryPanel
                     query={query}
