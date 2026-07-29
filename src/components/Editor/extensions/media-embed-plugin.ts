@@ -17,11 +17,13 @@ import { collectInlineCodeSpansForLine } from "../../../utils/inlineCodeSpans";
 interface MediaEmbedConfig {
     vaultPath: string;
     getSourcePath: () => string | null;
+    /** Gate for HTML embeds — owned by the html-preview plugin. */
+    isHtmlPreviewEnabled: () => boolean;
 }
 
 type EmbedMode = "obsidian" | "markdown";
 
-type MediaKind = "image" | "pdf" | "unknown";
+type MediaKind = "image" | "pdf" | "html" | "unknown";
 type MediaStatus = "loading" | "missing" | "ok";
 
 interface EmbedMatch {
@@ -104,8 +106,9 @@ class MediaEmbedWidget extends WidgetType {
         const container = document.createElement("div");
         container.className = "cm-media-container";
         container.style.position = "relative";
-        container.style.display = this.kind === "pdf" ? "block" : "inline-block";
-        container.style.width = this.kind === "pdf" ? "100%" : "auto";
+        const isFramed = this.kind === "pdf" || this.kind === "html";
+        container.style.display = isFramed ? "block" : "inline-block";
+        container.style.width = isFramed ? "100%" : "auto";
         container.style.maxWidth = "100%";
 
         if (!this.src) {
@@ -125,6 +128,24 @@ class MediaEmbedWidget extends WidgetType {
             frame.style.height = this.height ? `${this.height}px` : "73vh";
             frame.style.border = "none";
             container.appendChild(frame);
+        } else if (this.kind === "html") {
+            const frame = document.createElement("iframe");
+            frame.className = "cm-media-html";
+            // Empty sandbox: all restrictions on, so inline <script> never runs.
+            frame.setAttribute("sandbox", "");
+            frame.src = this.src;
+            frame.title = this.displayName;
+            frame.style.width = this.width ? `${this.width}px` : "100%";
+            frame.style.height = this.height ? `${this.height}px` : "60vh";
+            frame.style.border = "none";
+            frame.addEventListener("error", () => {
+                container.innerHTML = "";
+                const failure = document.createElement("div");
+                failure.className = "cm-media-missing";
+                failure.textContent = "Couldn't render HTML";
+                container.appendChild(failure);
+            });
+            container.appendChild(frame);
         } else {
             const img = document.createElement("img");
             img.className = "cm-media-image";
@@ -139,7 +160,7 @@ class MediaEmbedWidget extends WidgetType {
         if (
             this.startPos !== undefined &&
             this.endPos !== undefined &&
-            this.kind !== "pdf"
+            !isFramed
         ) {
             const overlay = document.createElement("div");
             overlay.className = "cm-media-overlay";
@@ -192,9 +213,10 @@ function getExtension(value: string): string {
     return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : "";
 }
 
-function getMediaKind(path: string): MediaKind {
+function getMediaKind(path: string, htmlEnabled: boolean): MediaKind {
     const ext = getExtension(path);
     if (ext === "pdf") return "pdf";
+    if (htmlEnabled && (ext === "html" || ext === "htm")) return "html";
     if (["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "tif", "tiff", "avif"].includes(ext)) {
         return "image";
     }
@@ -340,6 +362,7 @@ function buildMediaDecorations(
     const builder = new RangeSetBuilder<Decoration>();
     const selection = state.selection.main;
     const embeds = parseEmbeds(state);
+    const htmlEnabled = config.isHtmlPreviewEnabled();
 
     for (const embed of embeds) {
         const embedLine = state.doc.lineAt(embed.from);
@@ -351,7 +374,9 @@ function buildMediaDecorations(
         const hasResolved = resolvedSrcCache.has(key);
         const src = resolvedSrcCache.get(key) ?? null;
         const resolvedPath = resolvedPathCache.get(key) ?? null;
-        const kind = resolvedPath ? getMediaKind(resolvedPath) : getMediaKind(embed.target);
+        const kind = resolvedPath
+            ? getMediaKind(resolvedPath, htmlEnabled)
+            : getMediaKind(embed.target, htmlEnabled);
         const status: MediaStatus = hasResolved
             ? (src ? "ok" : "missing")
             : "loading";
@@ -533,7 +558,10 @@ export function createMediaEmbedPlugin(config: MediaEmbedConfig) {
 
                                 try {
                                     const mime = getMimeType(resolved);
-                                    if (mime === "application/pdf") {
+                                    const resolvedExt = getExtension(resolved);
+                                    // PDFs and HTML load by URL so relative
+                                    // subresources inside them still resolve.
+                                    if (resolvedExt === "pdf" || resolvedExt === "html" || resolvedExt === "htm") {
                                         const url = convertFileSrc(resolved);
                                         const previous = resolvedSrcCache.get(req.key);
                                         if (previous && previous.startsWith("blob:")) {
