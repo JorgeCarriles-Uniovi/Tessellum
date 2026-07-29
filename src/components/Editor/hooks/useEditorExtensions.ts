@@ -3,7 +3,7 @@ import { EditorView } from "@codemirror/view";
 import { TessellumApp } from "../../../plugins/TessellumApp";
 import type { EditorMode } from "../../../constants/editorModes";
 import { getInitialExtensionPluginIds } from "./sourceModeExtensions";
-import { useSettingsStore } from "../../../stores";
+import { useSettingsStore, usePluginsStore } from "../../../stores";
 import { buildEditorExtensions } from "./editorExtensionsBuilder.ts";
 import {
     getCachedCodeLanguages,
@@ -22,6 +22,7 @@ export function useEditorExtensions(editorMode: EditorMode) {
     const locale = useSettingsStore((state) => state.locale);
     const vimMode = useSettingsStore((state) => state.vimMode);
     const lineNumbers = useSettingsStore((state) => state.lineNumbers);
+    const plugins = usePluginsStore((state) => state.plugins);
     const [codeLanguages, setCodeLanguages] = useState(() => getCachedCodeLanguages(locale) ?? []);
 
     useEffect(() => {
@@ -65,5 +66,5 @@ export function useEditorExtensions(editorMode: EditorMode) {
                 "data-editor-mode": editorMode,
             })),
         ];
-    }, [codeLanguages, editorMode, vimMode, lineNumbers]);
+    }, [codeLanguages, editorMode, vimMode, lineNumbers, plugins]);
 }
