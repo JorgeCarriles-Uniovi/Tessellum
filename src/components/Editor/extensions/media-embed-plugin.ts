@@ -213,7 +213,8 @@ function getExtension(value: string): string {
     return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : "";
 }
 
-function getMediaKind(path: string, htmlEnabled: boolean): MediaKind {
+/** Exported for testing. */
+export function getMediaKind(path: string, htmlEnabled: boolean): MediaKind {
     const ext = getExtension(path);
     if (ext === "pdf") return "pdf";
     if (htmlEnabled && (ext === "html" || ext === "htm")) return "html";
