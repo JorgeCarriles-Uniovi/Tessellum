@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { invokeMock } from "../test/tauriMocks";
 import { ensureMarkdownExtension, getNameWithoutExtension, getParentFromTarget, getParentPath } from "./pathUtils";
 import { buildNoteMetadata, createNoteFromTemplateInDir, createNoteInDir, getFilenameFromPath } from "./noteUtils";
-import { getFileExtension, isImageFile, isMediaFile, isPdfFile } from "./fileType";
+import { getFileExtension, isHtmlFile, isImageFile, isMediaFile, isPdfFile } from "./fileType";
 import { parseOutline } from "./outline";
 import { getIgnoredTagLineNumbers, stripInlineCodeSpansForTagScan } from "./tagExtraction";
 
@@ -64,6 +64,11 @@ describe("shared utilities", () => {
         expect(isPdfFile("Manual.pdf")).toBe(true);
         expect(isMediaFile("Manual.pdf")).toBe(true);
         expect(isMediaFile("notes.md")).toBe(false);
+        expect(isHtmlFile("Report.html")).toBe(true);
+        expect(isHtmlFile("Legacy.HTM")).toBe(true);
+        expect(isHtmlFile("notes.md")).toBe(false);
+        // HTML is deliberately NOT part of the media set — it is plugin-gated.
+        expect(isMediaFile("Report.html")).toBe(false);
     });
 
     test("parses markdown outline headings while ignoring fenced code headings", () => {
