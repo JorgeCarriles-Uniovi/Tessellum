@@ -140,7 +140,34 @@ impl AssetIndex {
 				};
 			}
 		}
-		
+
 		None
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use std::fs;
+	use tempfile::tempdir;
+
+	use super::AssetIndex;
+
+	#[test]
+	fn build_and_resolve_finds_html_files_by_name() {
+		// Regression test: SUPPORTED_EXTS previously excluded html/htm, so
+		// AssetIndex::build never added .html files to name_to_paths at all,
+		// and resolve() always returned None for them regardless of the
+		// wikilink target — this is what made ![[page.html]] embeds show
+		// "Missing asset" in the app.
+		let vault = tempdir().unwrap();
+		let html_path = vault.path().join("scratch.html");
+		fs::write(&html_path, "<h1>hi</h1>").unwrap();
+
+		let index = AssetIndex::build(vault.path().to_str().unwrap()).unwrap();
+
+		assert_eq!(index.resolve(vault.path().to_str().unwrap(), "scratch.html"), Some(html_path.clone()));
+		// Extensionless wikilink target ("[[scratch]]") resolves via the
+		// file-stem entry build() only populates for supported extensions.
+		assert_eq!(index.resolve(vault.path().to_str().unwrap(), "scratch"), Some(html_path));
 	}
 }
