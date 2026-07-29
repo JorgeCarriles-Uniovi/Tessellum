@@ -6,7 +6,7 @@ use crate::models::{AppState, AssetIndex};
 use crate::utils::{normalize_path, sanitize_string, validate_path_in_vault};
 
 const SUPPORTED_EXTS: &[&str] = &[
-	"png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "tif", "tiff", "avif", "pdf",
+	"png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "tif", "tiff", "avif", "pdf", "html", "htm",
 ];
 
 fn is_supported_ext(ext: &str) -> bool {

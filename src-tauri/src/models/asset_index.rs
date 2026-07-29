@@ -6,7 +6,7 @@ use walkdir::WalkDir;
 use crate::utils::is_hidden_or_special;
 
 const SUPPORTED_EXTS: &[&str] = &[
-	"png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "tif", "tiff", "avif", "pdf",
+	"png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "tif", "tiff", "avif", "pdf", "html", "htm",
 ];
 
 #[derive(Debug, Clone)]
