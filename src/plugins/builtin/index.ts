@@ -16,6 +16,7 @@ import { DailyNotesPlugin } from "./DailyNotesPlugin";
 import { CoreUIActionsPlugin } from "./CoreUIActionsPlugin";
 import { MediaEmbedPlugin } from "./MediaEmbedPlugin";
 import { MediaPastePlugin } from "./MediaPastePlugin.ts";
+import { HtmlPreviewPlugin } from "./HtmlPreviewPlugin";
 import {TaskListPlugin} from "./TaskListPlugin.ts";
 
 /**
@@ -39,6 +40,7 @@ import {TaskListPlugin} from "./TaskListPlugin.ts";
  *  12. inline-tags - renders #tags and @mentions as widgets and hides syntax
  *  13. daily-notes - provides a sidebar action and command palette command to open today's daily note
  *  14. media-embed - renders image and PDF embeds in the editor
+ *  15. html-preview - renders .html files, html embeds, and html code blocks
  *
  * Note: The markdown-preview plugin is intentionally registered first to ensure
  * it can hide syntax markers for all subsequent plugins that add markdown syntax.
@@ -48,6 +50,7 @@ import {TaskListPlugin} from "./TaskListPlugin.ts";
 export function registerBuiltinPlugins(app: TessellumApp): void {
     app.plugins.register(MediaEmbedPlugin.manifest, MediaEmbedPlugin);
     app.plugins.register(MediaPastePlugin.manifest, MediaPastePlugin);
+    app.plugins.register(HtmlPreviewPlugin.manifest, HtmlPreviewPlugin);
     app.plugins.register(MarkdownPreviewPlugin.manifest, MarkdownPreviewPlugin);
     app.plugins.register(DividerPlugin.manifest, DividerPlugin);
     app.plugins.register(MathPlugin.manifest, MathPlugin);
