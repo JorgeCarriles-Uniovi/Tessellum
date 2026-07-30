@@ -28,7 +28,7 @@ format!("{stem} {ts}{suffix}")
 ### BUG-G12: Trash restore — misleading error message masks real filesystem error
 **Status:** CONFIRMED-STILL-OPEN
 **Severity:** Low
-**File:** `src-tauri/src/commands/notes.rs:214-217`
+**File:** `src-tauri/src/commands/notes.rs:213-217`
 **Description:** `restore_trash_item_internal_for_tests` still maps both `create_dir_all` and the restoring `fs::rename` straight through `TessellumError::Io`, which only carries the OS error's own text (e.g. "Access is denied. (os error 5)") with no path context. A permission failure, a missing/unwritable restore directory, and a genuine OS-level race all surface as the same uninformative message with no indication of which path or what kind of failure occurred.
 **Evidence:**
 ```rust
@@ -66,7 +66,7 @@ let needs_index = match db_files.get(path) {
 ### BUG-R7: DB transaction commits after filesystem mutation — no rollback path on commit failure
 **Status:** CONFIRMED-STILL-OPEN
 **Severity:** Medium
-**File:** `src-tauri/src/db.rs:247-334` (function `update_file_path`), called from `src-tauri/src/commands/vault.rs:250-274` (`rename_file`) and `src-tauri/src/commands/vault.rs:392-403` (`move_items`)
+**File:** `src-tauri/src/db.rs:247-335` (function `update_file_path`), called from `src-tauri/src/commands/vault.rs:250-274` (`rename_file`) and `src-tauri/src/commands/vault.rs:392-403` (`move_items`)
 **Description:** Both `rename_file` and `move_items` perform the filesystem `rename`/`tokio::fs::rename` first and only afterward call `db.update_file_path`, whose transaction commits at `db.rs:333`. If `tx.commit()` fails (disk full, DB locked, power loss) after the filesystem move already succeeded, the file is at its new location but the database — and therefore backlinks/graph — still reference the old path, with no recovery path.
 **Evidence:**
 ```rust
@@ -114,7 +114,7 @@ if parent_label.eq_ignore_ascii_case("root") || parent_label.is_empty() {
 }
 ```
 ```rust
-// notes.rs:1100-1113 — regression test using the legacy "(Root)" label
+// notes.rs:1099-1113 — regression test using the legacy "(Root)" label
 #[test]
 fn restore_trash_item_moves_file_back_to_root_with_clean_name() {
     ...
@@ -184,7 +184,7 @@ let content = ...
 ### NEW-BACKEND-2: Template/asset filename collision loops have no upper bound
 **Status:** NEW
 **Severity:** Low
-**File:** `src-tauri/src/commands/templates.rs:113-118` and `src-tauri/src/commands/assets.rs:119-126`
+**File:** `src-tauri/src/commands/templates.rs:110-118` and `src-tauri/src/commands/assets.rs:120-127`
 **Description:** Both `create_note_from_template` and `save_asset_inner` resolve name collisions with a `while path.exists() { ...; counter += 1 }` loop that has no iteration cap, unlike `clipboard.rs`'s `next_available_name` (BUG-G11 above), which was fixed to cap at 100 attempts with a timestamp fallback. A directory containing hundreds of same-titled notes/pasted assets (a plausible template-driven daily/meeting-notes workflow) makes each new-note/new-asset call do a correspondingly growing number of blocking filesystem `exists()` checks before returning.
 **Evidence:**
 ```rust
@@ -217,7 +217,7 @@ while final_path.exists() {
 ### NEW-BACKEND-3: `create_folder` has a check-then-act race between the existence check and `create_dir`
 **Status:** NEW
 **Severity:** Low
-**File:** `src-tauri/src/commands/folders.rs:34-41`
+**File:** `src-tauri/src/commands/folders.rs:33-41`
 **Description:** `create_folder` checks `folder_path.exists()` and returns a friendly "Folder already exists" error, then calls `tokio::fs::create_dir` in a separate step. If two folder-creation calls for the same name race (e.g. a double-submitted UI action, or a filesystem watcher/import path creating the same directory concurrently), both can pass the `exists()` check before either has created the directory, and the loser gets a raw OS "already exists" `io::Error` surfaced as a generic string instead of the intended friendly message — the same class of TOCTOU gap called out in BUG-R5 for the trash directory.
 **Evidence:**
 ```rust
