@@ -23,7 +23,7 @@ return { target, alias };
 ### BUG-E1: Task list checkbox toggle logic naming is ambiguous and error-prone
 **Status:** FIXED-SINCE
 **Severity:** High
-**File:** `src/components/Editor/extensions/task-list/task-list-parser.ts:52-58`
+**File:** `src/components/Editor/extensions/task-list/task-list-parser.ts:52-58`, call site `src/components/Editor/extensions/task-list/task-list-plugin.tsx:33-42`
 **Description:** The parameter was renamed from `checked` to `currentlyChecked` with a doc comment clarifying it returns the marker for the *opposite* state, and the single call site (`task-list-plugin.tsx:38`) passes `range.checked`, which is the item's current parsed state from `findTaskListItems`, not a desired new state — so the toggle direction is correct.
 **Evidence:**
 ```typescript
@@ -141,11 +141,11 @@ destroy(): void {
 ### BUG-E5: Table formatter miscalculates column width when cells contain escaped pipes
 **Status:** FIXED-SINCE
 **Severity:** Low
-**File:** `src/components/Editor/extensions/table/table-navigation.ts:37-46`
+**File:** `src/components/Editor/extensions/table/table-navigation.ts:37-47`
 **Description:** `formatTable` now computes column padding width via `cellDisplayWidth`, which strips `\|` down to `|` before measuring `.length`, so escaped pipes (2 raw chars, 1 displayed char) no longer over-pad the column.
 **Evidence:**
 ```typescript
-// table-navigation.ts:37-46
+// table-navigation.ts:37-47
 // Compute max width per column.
 // Escaped pipes (\|) are 2 chars in raw text but display as 1, so measure
 // display width rather than raw length.
