@@ -113,7 +113,7 @@ const handleNodeDoubleClick = useCallback(
     [files, vaultPath, addFileIfMissing]
 );
 ```
-This handler is wired to `GraphCanvas`'s `onNodeDoubleClick` prop inside `LocalGraphPanel.tsx` (the panel used for both `mosaic` and `network` local views), so it is reachable from the shipping UI, not dead code.
+This handler is wired to `GraphCanvas`'s `onNodeDoubleClick` prop inside `LocalGraphPanel.tsx` (the floating panel behind the "Local graph" flyout, which renders only `GraphCanvas` in `mode="local"` — it has no Mosaic mode of its own; `MosaicCanvas` is used exclusively by the global `GraphView.tsx`), so it is reachable from the shipping UI, not dead code.
 **Fix:** Extract `GraphView.tsx`'s fixed double-click logic (media-extension guard + folder-preserving `targetDir`) into a shared helper (e.g. `src/utils/graphNodeActions.ts`) and have both `GraphView.tsx` and `LocalGraphPanel.tsx` call it, so the two panels can't drift out of sync again.
 
 ---
