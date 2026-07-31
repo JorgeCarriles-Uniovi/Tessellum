@@ -189,6 +189,36 @@ describe("plugin runtime", () => {
         expect(api.getSettingsTabs()).toEqual([]);
     });
 
+    test("UIAPI resolves file viewers by test predicate, respects order, and unregisters per plugin", () => {
+        const api = new UIAPI();
+        const alphaComponent = () => null;
+        const betaComponent = () => null;
+
+        api.registerFileViewer("plugin.alpha", {
+            id: "alpha-html",
+            test: (path: string) => path.endsWith(".html"),
+            component: alphaComponent,
+            order: 10,
+        });
+        api.registerFileViewer("plugin.beta", {
+            id: "beta-html",
+            test: (path: string) => path.endsWith(".html"),
+            component: betaComponent,
+            order: 1,
+        });
+
+        // Lowest order wins when several viewers claim the same path.
+        expect(api.getFileViewer("page.html")?.id).toBe("beta-html");
+        // No viewer claims an unrelated extension.
+        expect(api.getFileViewer("note.md")).toBeUndefined();
+
+        api.unregisterFileViewers("plugin.beta");
+        expect(api.getFileViewer("page.html")?.id).toBe("alpha-html");
+
+        api.unregisterFileViewers("plugin.alpha");
+        expect(api.getFileViewer("page.html")).toBeUndefined();
+    });
+
     test("I18nAPI delegates to the backing service and namespaces plugin ids", async () => {
         const service = {
             getLocale: vi.fn(() => "en"),

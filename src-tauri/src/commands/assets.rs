@@ -6,7 +6,7 @@ use crate::models::{AppState, AssetIndex};
 use crate::utils::{normalize_path, sanitize_string, validate_path_in_vault};
 
 const SUPPORTED_EXTS: &[&str] = &[
-	"png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "tif", "tiff", "avif", "pdf",
+	"png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "tif", "tiff", "avif", "pdf", "html", "htm",
 ];
 
 fn is_supported_ext(ext: &str) -> bool {
@@ -222,6 +222,29 @@ mod tests {
 		.await
 		.unwrap();
 		assert_eq!(resolved, Some(image_path.to_string_lossy().to_string()));
+	}
+
+	#[tokio::test]
+	async fn resolve_asset_resolves_html_embeds_via_the_obsidian_wikilink_path() {
+		// Regression test: ![[page.html]] embeds resolve through the "obsidian"
+		// mode branch (AssetIndex-backed), a separate code path from the
+		// "markdown" mode branch covered above. Both branches gate on the same
+		// SUPPORTED_EXTS constant, which previously excluded html/htm.
+		let vault = tempdir().unwrap();
+		let html_path = vault.path().join("scratch.html");
+		std::fs::write(&html_path, "<h1>hi</h1>").unwrap();
+		let state = build_app_state(vault.path().to_str().unwrap()).await;
+
+		let resolved = resolve_asset_inner(
+			&state,
+			vault.path().to_str().unwrap(),
+			"scratch.html",
+			None,
+			"obsidian",
+		)
+		.await
+		.unwrap();
+		assert_eq!(resolved, Some(html_path.to_string_lossy().to_string()));
 	}
 
 	#[tokio::test]

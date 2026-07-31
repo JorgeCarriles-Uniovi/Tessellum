@@ -2,6 +2,8 @@ import { Plugin } from "../Plugin";
 import type { PluginManifest } from "../types";
 import { TessellumApp } from "../TessellumApp";
 import { createMediaEmbedPlugin } from "../../components/Editor/extensions/media-embed-plugin";
+import { isHtmlPreviewEnabled } from "./htmlPreviewState";
+import { HTML_PREVIEW_CHANGED_EVENT } from "./HtmlPreviewPlugin";
 
 export class MediaEmbedPlugin extends Plugin {
     static manifest: PluginManifest = {
@@ -20,6 +22,7 @@ export class MediaEmbedPlugin extends Plugin {
             const extensions = createMediaEmbedPlugin({
                 vaultPath,
                 getSourcePath: () => TessellumApp.instance.workspace.getActiveNote()?.path ?? null,
+                isHtmlPreviewEnabled,
             });
 
             this.app.editor.registerExtensions(this.manifest.id, extensions);
@@ -31,5 +34,8 @@ export class MediaEmbedPlugin extends Plugin {
         const scopeRef = this.app.events.on("vault:scope-ready", register);
         this.registerEvent(ref);
         this.registerEvent(scopeRef);
+
+        const htmlRef = this.app.events.on(HTML_PREVIEW_CHANGED_EVENT, register);
+        this.registerEvent(htmlRef);
     }
 }

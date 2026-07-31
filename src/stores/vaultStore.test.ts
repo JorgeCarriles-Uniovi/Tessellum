@@ -169,3 +169,83 @@ describe("vaultStore", () => {
         });
     });
 });
+
+describe("recentVaultPaths", () => {
+    test("records a vault path when it's opened, most-recent-first", async () => {
+        const { useVaultStore } = await importVaultStore();
+        trackStore(useVaultStore);
+
+        useVaultStore.getState().setVaultPath("/vaults/a");
+        useVaultStore.getState().setVaultPath("/vaults/b");
+        expect(useVaultStore.getState().recentVaultPaths).toEqual(["/vaults/b", "/vaults/a"]);
+    });
+
+    test("dedupes and moves a re-opened path back to the front", async () => {
+        const { useVaultStore } = await importVaultStore();
+        trackStore(useVaultStore);
+
+        useVaultStore.getState().setVaultPath("/vaults/a");
+        useVaultStore.getState().setVaultPath("/vaults/b");
+        useVaultStore.getState().setVaultPath("/vaults/a");
+        expect(useVaultStore.getState().recentVaultPaths).toEqual(["/vaults/a", "/vaults/b"]);
+    });
+
+    test("caps the list at 6 entries, dropping the oldest", async () => {
+        const { useVaultStore } = await importVaultStore();
+        trackStore(useVaultStore);
+
+        for (let i = 0; i < 8; i += 1) {
+            useVaultStore.getState().setVaultPath(`/vaults/${i}`);
+        }
+        expect(useVaultStore.getState().recentVaultPaths).toHaveLength(6);
+        expect(useVaultStore.getState().recentVaultPaths[0]).toBe("/vaults/7");
+        expect(useVaultStore.getState().recentVaultPaths).toEqual([
+            "/vaults/7",
+            "/vaults/6",
+            "/vaults/5",
+            "/vaults/4",
+            "/vaults/3",
+            "/vaults/2",
+        ]);
+    });
+
+    test("does not record anything when the vault is cleared (null)", async () => {
+        const { useVaultStore } = await importVaultStore();
+        trackStore(useVaultStore);
+
+        useVaultStore.getState().setVaultPath("/vaults/a");
+        useVaultStore.getState().setVaultPath(null);
+        expect(useVaultStore.getState().recentVaultPaths).toEqual(["/vaults/a"]);
+    });
+
+    test("removeRecentVaultPath removes just that entry", async () => {
+        const { useVaultStore } = await importVaultStore();
+        trackStore(useVaultStore);
+
+        useVaultStore.getState().setVaultPath("/vaults/a");
+        useVaultStore.getState().setVaultPath("/vaults/b");
+        useVaultStore.getState().removeRecentVaultPath("/vaults/a");
+        expect(useVaultStore.getState().recentVaultPaths).toEqual(["/vaults/b"]);
+    });
+
+    test("persists recentVaultPaths to localStorage across store re-reads", async () => {
+        const { useVaultStore } = await importVaultStore();
+        trackStore(useVaultStore);
+
+        useVaultStore.getState().setVaultPath("/vaults/a");
+        const raw = localStorage.getItem("tessellum:vault:recentPaths");
+        expect(raw).not.toBeNull();
+        expect(JSON.parse(raw!)).toEqual(["/vaults/a"]);
+    });
+
+    test("removeRecentVaultPath persists the updated list to localStorage", async () => {
+        const { useVaultStore } = await importVaultStore();
+        trackStore(useVaultStore);
+
+        useVaultStore.getState().setVaultPath("/vaults/a");
+        useVaultStore.getState().setVaultPath("/vaults/b");
+        useVaultStore.getState().removeRecentVaultPath("/vaults/a");
+        const raw = localStorage.getItem("tessellum:vault:recentPaths");
+        expect(JSON.parse(raw!)).toEqual(["/vaults/b"]);
+    });
+});

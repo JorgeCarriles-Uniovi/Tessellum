@@ -26,6 +26,7 @@ const settings = {
         fontTitle: "Font",
         fontDescription: "Customize editor typography",
         fontFamily: "Font Family",
+        readingFont: "Reading Font",
         fontSize: "Font Size",
         fontSizeSmall: "14px - Small",
         fontSizeMedium: "16px - Medium",

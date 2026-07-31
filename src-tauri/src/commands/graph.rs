@@ -132,18 +132,14 @@ pub async fn build_graph_data(
 		let broken = broken_links.contains(&(normalized_source.clone(), normalized_target.clone()));
 		
 		if broken && !existing_paths.contains(&normalized_target) {
-			// Check if we already added a ghost node for this target
-			let already_added = nodes.iter().any(|n| n.id == normalized_target);
-			if !already_added {
-				nodes.push(GraphNode {
-					id: normalized_target.clone(),
-					label: path_to_label(&target, vault_path),
-					exists: false,
-					orphan: false,
-					tags: Vec::new(),
-				});
-				existing_paths.insert(normalized_target.clone());
-			}
+			nodes.push(GraphNode {
+				id: normalized_target.clone(),
+				label: path_to_label(&target, vault_path),
+				exists: false,
+				orphan: false,
+				tags: Vec::new(),
+			});
+			existing_paths.insert(normalized_target.clone());
 		}
 		
 		edges.push(GraphEdge {
@@ -212,5 +208,48 @@ mod tests {
         assert!(graph.nodes.iter().any(|node| node.id == normalized_orphan && node.orphan));
         assert!(graph.nodes.iter().any(|node| node.id == normalized_missing && !node.exists));
         assert!(graph.edges.iter().any(|edge| edge.target == normalized_missing && edge.broken));
+    }
+
+    #[tokio::test]
+    async fn dedupes_ghost_nodes_when_multiple_links_target_same_missing_file() {
+        let dir = tempdir().unwrap();
+        let db = Database::init(dir.path().join("graph.sqlite").to_str().unwrap())
+            .await
+            .unwrap();
+        let alpha = dir.path().join("Vault/Alpha.md");
+        let beta = dir.path().join("Vault/Beta.md");
+        let gamma = dir.path().join("Vault/Gamma.md");
+        let missing = dir.path().join("Vault/Missing.md");
+
+        // Three real notes, each linking to the SAME missing target
+        db.index_file(&alpha.to_string_lossy(), 1, 10, None, None,
+                      &[missing.to_string_lossy().to_string()]).await.unwrap();
+        db.index_file(&beta.to_string_lossy(), 1, 10, None, None,
+                      &[missing.to_string_lossy().to_string()]).await.unwrap();
+        db.index_file(&gamma.to_string_lossy(), 1, 10, None, None,
+                      &[missing.to_string_lossy().to_string()]).await.unwrap();
+
+        let search_dir = tempdir().unwrap();
+        let app_state = AppState::new(
+            db,
+            SearchIndex::open_or_create(&search_dir.path().join("search-index")).unwrap(),
+        );
+        let normalized_missing = crate::utils::normalize_path(&missing.to_string_lossy());
+
+        let graph = build_graph_data(&app_state, dir.path().join("Vault").to_str().unwrap())
+            .await
+            .unwrap();
+
+        // Exactly ONE ghost node for the missing target, despite 3 links pointing at it
+        let ghost_count = graph.nodes.iter()
+            .filter(|n| n.id == normalized_missing && !n.exists)
+            .count();
+        assert_eq!(ghost_count, 1, "expected exactly 1 ghost node for the missing target, got {}", ghost_count);
+
+        // All 3 edges present
+        let edge_count = graph.edges.iter()
+            .filter(|e| e.target == normalized_missing)
+            .count();
+        assert_eq!(edge_count, 3);
     }
 }

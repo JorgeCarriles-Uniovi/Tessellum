@@ -8,8 +8,10 @@ const LOCALE_KEY = "tessellum:locale";
 const VIM_MODE_KEY = "tessellum:vimMode";
 const LINE_NUMBERS_KEY = "tessellum:lineNumbers";
 const SPELL_CHECK_KEY = "tessellum:spellCheck";
+const READING_FONT_KEY = "tessellum:readingFont";
 
 const DEFAULT_FONT_FAMILY = "Geist Sans";
+const DEFAULT_READING_FONT = "Newsreader";
 const DEFAULT_EDITOR_LINE_HEIGHT = 1.7;
 const DEFAULT_EDITOR_LETTER_SPACING = 0;
 export const DEFAULT_LOCALE: AppLocale = "en";
@@ -51,6 +53,7 @@ export function readStoredVimMode(): boolean {
 
 export interface SettingsState {
     fontFamily: string;
+    readingFont: string;
     editorLineHeight: number;
     editorLetterSpacing: number;
     locale: AppLocale;
@@ -61,6 +64,7 @@ export interface SettingsState {
 
 export interface SettingsActions {
     setFontFamily: (value: string) => void;
+    setReadingFont: (value: string) => void;
     setEditorLineHeight: (value: number) => void;
     setEditorLetterSpacing: (value: number) => void;
     setLocale: (value: AppLocale) => void;
@@ -73,6 +77,7 @@ export type SettingsStore = SettingsState & SettingsActions;
 
 export const useSettingsStore = create<SettingsStore>((set) => ({
     fontFamily: readString(FONT_FAMILY_KEY, DEFAULT_FONT_FAMILY),
+    readingFont: readString(READING_FONT_KEY, DEFAULT_READING_FONT),
     editorLineHeight: readNumber(EDITOR_LINE_HEIGHT_KEY, DEFAULT_EDITOR_LINE_HEIGHT),
     editorLetterSpacing: readNumber(EDITOR_LETTER_SPACING_KEY, DEFAULT_EDITOR_LETTER_SPACING),
     locale: readStoredLocale(),
@@ -83,6 +88,10 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
     setFontFamily: (fontFamily) => set(() => {
         localStorage.setItem(FONT_FAMILY_KEY, fontFamily);
         return { fontFamily };
+    }),
+    setReadingFont: (readingFont) => set(() => {
+        localStorage.setItem(READING_FONT_KEY, readingFont);
+        return { readingFont };
     }),
     setEditorLineHeight: (editorLineHeight) => set(() => {
         localStorage.setItem(EDITOR_LINE_HEIGHT_KEY, String(editorLineHeight));

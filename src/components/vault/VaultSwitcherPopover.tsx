@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { FolderOpen } from "lucide-react";
+import { FolderOpen, X } from "lucide-react";
 import { useVaultStore } from "../../stores";
 import { useTessellumApp } from "../../plugins/TessellumApp";
 import { theme } from "../../styles/theme";
@@ -125,16 +125,50 @@ const actionRowPadding: CSSProperties = {
     padding: "8px 9px",
 };
 
+const recentRowStyle: CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    gap: "9px",
+    padding: "7px 9px",
+    borderRadius: "9px",
+    cursor: "pointer",
+};
+
+const recentTextWrapStyle: CSSProperties = {
+    display: "flex",
+    flexDirection: "column",
+    gap: "1px",
+    minWidth: 0,
+    flex: 1,
+};
+
+const recentNameStyle: CSSProperties = {
+    fontSize: "12.5px",
+    fontWeight: 500,
+    color: theme.colors.text.primary,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+};
+
+const recentPathStyle: CSSProperties = {
+    fontFamily: theme.typography.fontFamily.mono,
+    fontSize: "10.5px",
+    color: theme.colors.text.tertiary,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+};
+
 export function VaultSwitcherPopover({ open, onClose }: VaultSwitcherPopoverProps) {
-    const { vaultPath } = useVaultStore();
+    const { vaultPath, recentVaultPaths, setVaultPath, removeRecentVaultPath } = useVaultStore();
     const app = useTessellumApp();
     const { t } = useAppTranslation("core");
 
     if (!open) return null;
 
-    // NOTE: There is no recent-vaults mechanism in this codebase (no history/list persisted
-    // anywhere in vaultStore). Per spec, only the current vault + real actions are shown here;
-    // do not fabricate a recent-vaults list.
+    const recents = recentVaultPaths.filter((p) => p !== vaultPath);
+
     const vaultName = vaultPath ? vaultPath.split(/[\\/]/).pop() || vaultPath : t("sidebar.noVault");
     const vaultLetter = vaultName.charAt(0).toUpperCase();
 
@@ -161,6 +195,50 @@ export function VaultSwitcherPopover({ open, onClose }: VaultSwitcherPopoverProp
                         </span>
                     </div>
                 </div>
+
+                {recents.length > 0 && (
+                    <>
+                        <div style={dividerStyle} />
+                        <div style={sectionHeaderStyle}>{t("vaultSwitcher.recentVaults")}</div>
+                        {recents.map((path) => {
+                            const name = path.split(/[\\/]/).pop() || path;
+                            return (
+                                <div
+                                    key={path}
+                                    className="ui-row-btn"
+                                    style={recentRowStyle}
+                                    onClick={() => {
+                                        setVaultPath(path);
+                                        onClose();
+                                    }}
+                                >
+                                    <FolderOpen size={15} style={{ color: theme.colors.text.muted, flexShrink: 0 }} />
+                                    <div style={recentTextWrapStyle}>
+                                        <span style={recentNameStyle}>{name}</span>
+                                        <span style={recentPathStyle}>{path}</span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        aria-label={t("vaultSwitcher.removeRecent")}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            removeRecentVaultPath(path);
+                                        }}
+                                        style={{
+                                            display: "flex", alignItems: "center", justifyContent: "center",
+                                            width: 22, height: 22, flexShrink: 0,
+                                            border: "none", background: "transparent",
+                                            color: theme.colors.text.muted, cursor: "pointer",
+                                            borderRadius: 6,
+                                        }}
+                                    >
+                                        <X size={12} />
+                                    </button>
+                                </div>
+                            );
+                        })}
+                    </>
+                )}
 
                 <div style={dividerStyle} />
 

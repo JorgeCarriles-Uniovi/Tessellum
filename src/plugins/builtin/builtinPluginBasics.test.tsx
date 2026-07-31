@@ -247,7 +247,7 @@ describe("builtin plugin basics", () => {
         expect(builtinMocks.createMediaPasteExtension).toHaveBeenCalledTimes(3);
     });
 
-    test("registers the media embed plugin when a vault is available and refreshes it on vault events", () => {
+    test("registers the media embed plugin when a vault is available and refreshes it on vault and html-preview events", () => {
         resetAppSingleton();
         useVaultStore.getState().setVaultPath("vault");
 
@@ -260,7 +260,8 @@ describe("builtin plugin basics", () => {
 
         mediaEmbed.app.events.emit("vault:opened");
         mediaEmbed.app.events.emit("vault:scope-ready");
+        mediaEmbed.app.events.emit("html-preview:changed");
 
-        expect(builtinMocks.createMediaEmbedPlugin).toHaveBeenCalledTimes(3);
+        expect(builtinMocks.createMediaEmbedPlugin).toHaveBeenCalledTimes(4);
     });
 });

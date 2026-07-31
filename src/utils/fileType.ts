@@ -4,6 +4,8 @@ export const IMAGE_EXTENSIONS = [
 
 export const PDF_EXTENSIONS = ["pdf"];
 
+export const HTML_EXTENSIONS = ["html", "htm"];
+
 export const MEDIA_EXTENSIONS = [...IMAGE_EXTENSIONS, ...PDF_EXTENSIONS];
 
 export function getFileExtension(path: string): string {
@@ -20,4 +22,8 @@ export function isPdfFile(path: string): boolean {
 
 export function isMediaFile(path: string): boolean {
     return MEDIA_EXTENSIONS.includes(getFileExtension(path));
+}
+
+export function isHtmlFile(path: string): boolean {
+    return HTML_EXTENSIONS.includes(getFileExtension(path));
 }

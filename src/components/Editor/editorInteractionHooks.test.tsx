@@ -4,6 +4,7 @@ import { invokeMock } from "../../test/tauriMocks";
 import { trackStores } from "../../test/storeIsolation";
 import { TessellumApp } from "../../plugins/TessellumApp";
 import { useSettingsStore } from "../../stores/settingsStore";
+import { usePluginsStore } from "../../stores/pluginsStore";
 import { usePropertyAutocomplete } from "./hooks/usePropertyAutocomplete";
 import { useSlashCommand } from "./hooks/useSlashCommand";
 import { useTagAutocomplete } from "./hooks/useTagAutocomplete";
@@ -69,7 +70,7 @@ function createWikiLinkView(text: string) {
 
 describe("editor interaction hooks", () => {
     beforeEach(() => {
-        trackStores(useSettingsStore);
+        trackStores(useSettingsStore, usePluginsStore);
         resetAppSingleton();
         invokeMock.mockReset();
         invokeMock.mockResolvedValue(undefined);
@@ -147,6 +148,32 @@ describe("editor interaction hooks", () => {
                 lineNumbers: false,
             });
         });
+    });
+
+    test("recomputes extensions when the plugins store changes (e.g. a plugin is toggled)", async () => {
+        const app = TessellumApp.create();
+        vi.spyOn(app.editor, "getRegisteredExtensionPluginIds").mockReturnValue(["markdown-preview", "visible-plugin"]);
+        vi.spyOn(app.editor, "getInitialExtensionsForPluginIds").mockImplementation((pluginIds) => pluginIds as never);
+
+        const { result } = renderHook(() => useEditorExtensions("live-preview"));
+
+        await waitFor(() => {
+            expect(editorHookModuleMocks.buildEditorExtensions).toHaveBeenCalledTimes(1);
+        });
+
+        const initialExtensions = result.current;
+        const callCountBeforeToggle = editorHookModuleMocks.buildEditorExtensions.mock.calls.length;
+
+        act(() => {
+            usePluginsStore.setState({
+                plugins: [
+                    { manifest: { id: "html-preview", name: "HTML Preview" }, enabled: true },
+                ] as never,
+            });
+        });
+
+        expect(editorHookModuleMocks.buildEditorExtensions.mock.calls.length).toBeGreaterThan(callCountBeforeToggle);
+        expect(result.current).not.toBe(initialExtensions);
     });
 
     test("falls back to an empty code-language list when locale loading fails", async () => {

@@ -28,3 +28,9 @@ dist-ssr
 
 # Test coverage output
 coverage
+
+# Git worktrees used for isolated plan execution
+.worktrees
+
+# Subagent-driven-development scratch workspace (ledgers, briefs, reports)
+.superpowers/sdd

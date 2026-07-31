@@ -10,6 +10,7 @@ const SOURCE_MODE_HIDDEN_PLUGIN_IDS = new Set([
     "wikilink",
     "code",
     "mermaid",
+    "html-preview",
     "frontmatter",
     "inline-tags",
     "media-embed",

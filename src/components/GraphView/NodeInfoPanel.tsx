@@ -55,7 +55,7 @@ export function NodeInfoPanel({ nodePath, tags, onClose }: NodeInfoPanelProps) {
                 maxHeight: 360,
                 backgroundColor: 'var(--color-bg-secondary)',
                 border: '1px solid var(--color-border-light)',
-                borderRadius: 'var(--radius-lg)',
+                borderRadius: 13,
                 boxShadow: 'var(--shadow-lg)',
                 overflow: 'hidden',
                 display: 'flex',
@@ -126,7 +126,7 @@ export function NodeInfoPanel({ nodePath, tags, onClose }: NodeInfoPanelProps) {
                                         color: `hsl(${h}, ${saturation}, ${lightnessText})`,
                                         border: `1px solid hsla(${h}, ${saturation}, ${lightnessBg}, 0.3)`,
                                         padding: '2px 6px',
-                                        borderRadius: 'var(--radius-full)',
+                                        borderRadius: 5,
                                         whiteSpace: 'nowrap'
                                     }}>
                                         #{tag}
@@ -204,8 +204,8 @@ const emptyStyle: React.CSSProperties = {
 const linkItemStyle: React.CSSProperties = {
     fontSize: '12px',
     color: 'var(--color-text-secondary)',
-    padding: '3px 6px',
-    borderRadius: 'var(--radius-sm)',
+    padding: '4px 9px',
+    borderRadius: 6,
     backgroundColor: 'var(--color-bg-app)',
     border: '1px solid var(--color-border-light)',
     marginBottom: 3,

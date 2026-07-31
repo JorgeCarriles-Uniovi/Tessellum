@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
 import type { CalloutType } from "../../constants/callout-types";
 
 type ResolvableText = string | (() => string);
@@ -51,6 +51,19 @@ export type SettingsTab = {
     isActive?: boolean;
 }
 
+/**
+ * A whole-file view contributed by a plugin. When a file is opened, the first
+ * registered viewer whose `test` returns true renders the main editor pane
+ * instead of the markdown editor.
+ */
+export interface FileViewer {
+    id: string;
+    /** Returns true when this viewer should own the given file path. */
+    test: (path: string) => boolean;
+    component: ComponentType<{ path: string }>;
+    order?: number;
+}
+
 type RegisteredSidebarAction = Omit<SidebarAction, "label"> & {
     label: ResolvableText;
 };
@@ -92,6 +105,7 @@ export class UIAPI {
     private paletteCommands = new Map<string, RegisteredPaletteCommand[]>();
     private uiActions = new Map<string, RegisteredUIAction[]>();
     private settingsTabs = new Map<string, RegisteredSettingsTab[]>();
+    private fileViewers = new Map<string, FileViewer[]>();
 
     constructor() {
     }
@@ -220,6 +234,32 @@ export class UIAPI {
             })));
         }
         return result;
+    }
+
+    // --- File viewers ---
+
+    registerFileViewer(pluginId: string, viewer: FileViewer): void {
+        if (!this.fileViewers.has(pluginId)) {
+            this.fileViewers.set(pluginId, []);
+        }
+        this.fileViewers.get(pluginId)!.push(viewer);
+    }
+
+    unregisterFileViewers(pluginId: string): void {
+        this.fileViewers.delete(pluginId);
+    }
+
+    /** First viewer (by ascending `order`, then registration order) claiming this path. */
+    getFileViewer(path: string): FileViewer | undefined {
+        const candidates: FileViewer[] = [];
+        for (const viewers of this.fileViewers.values()) {
+            for (const viewer of viewers) {
+                if (viewer.test(path)) {
+                    candidates.push(viewer);
+                }
+            }
+        }
+        return candidates.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))[0];
     }
 
 }

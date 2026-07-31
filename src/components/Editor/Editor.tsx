@@ -28,13 +28,13 @@ import { Extension, Prec, Text } from "@codemirror/state";
 import { Calendar, Clock, History } from "lucide-react";
 import { theme } from "../../styles/theme";
 import { Button } from "../ui";
-import { isMediaFile } from "../../utils/fileType";
+import { isHtmlFile, isMediaFile } from "../../utils/fileType";
 import { countWords, readTimeMinutes } from "../../utils/readingStats";
 import { parseFrontmatter } from "./extensions/frontmatter/frontmatter-parser";
 import type { FileMetadata } from "../../types";
 import { MediaPreview } from "./MediaPreview";
 import { EDITOR_MODES } from "../../constants/editorModes";
-import { useEditorModeStore } from "../../stores";
+import { useEditorModeStore, usePluginsStore } from "../../stores";
 import { markdownPreviewForceHideFacet } from "./extensions/markdown-preview-plugin";
 import { TabStrip } from "./TabStrip";
 import { useEditorContentStore } from "../../stores/editorContentStore";
@@ -581,6 +581,9 @@ export function Editor() {
     useEditorFontZoom(editorRef);
     const { noteRenaming } = useEditorActions();
     const app = useTessellumApp();
+    // Subscribing (value unused) re-renders this component on every plugin
+    // toggle, so file-viewer registrations apply to the open file immediately.
+    usePluginsStore((state) => state.plugins);
     const { t, i18n } = useAppTranslation("core");
     const [isOverviewOpen, setIsOverviewOpen] = useState(false);
     const [isOverviewMounted, setIsOverviewMounted] = useState(false);
@@ -651,7 +654,7 @@ export function Editor() {
         const loadPreviews = async () => {
             const previews = await Promise.all(
                 missingPaths.map(async (path) => {
-                    if (isMediaFile(path)) {
+                    if (isMediaFile(path) || isHtmlFile(path)) {
                         const metadata: NoteCardMetadata = { contentPreview: t("editor.emptyPreview"), tags: [] };
                         return [path, metadata] as const;
                     }
@@ -860,7 +863,8 @@ export function Editor() {
 
     const editedAt = activeNote.last_modified ? formatRelativeTime(activeNote.last_modified, i18n.language) : "";
 
-    const isMedia = isMediaFile(activeNote.path);
+    const fileViewer = app.ui.getFileViewer(activeNote.path);
+    const isMedia = isMediaFile(activeNote.path) || Boolean(fileViewer);
     const tabs = buildTabsFromPaths(openTabPaths, files);
     const filesByPath = new Map(files.map((file) => [file.path, file]));
     const overviewCards: WorkspaceCardItem[] = tabs.map((tab, order) => {
@@ -1109,7 +1113,9 @@ export function Editor() {
                 )}
                 {isMedia && (
                     <div className="h-full w-full">
-                        <MediaPreview path={activeNote.path} />
+                        {fileViewer
+                            ? <fileViewer.component path={activeNote.path} />
+                            : <MediaPreview path={activeNote.path} />}
                     </div>
                 )}
                 <WorkspaceOverview

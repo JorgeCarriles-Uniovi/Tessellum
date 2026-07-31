@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { useGraphStore, useVaultStore } from "../../stores";
@@ -9,11 +9,13 @@ import { mapGraphDataToElements, GraphData } from '../../utils/graphUtils';
 import { X, GitFork } from 'lucide-react';
 import cytoscape from 'cytoscape';
 import { createNoteInDir } from "../../utils/noteUtils";
-import { applyFilterToGraphData } from '../../lib/cypherGraphFilter';
-import { runCypherGraphFilter } from '../../lib/cypherGraphFilter';
+import { applyFilterToGraphData, runCypherGraphFilter } from '../../lib/cypherGraphFilter';
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { normalizeCypherQuery } from "../../lib/cypherQueryNormalizer";
 import { IconButton } from "../ui";
+
+const PANEL_WIDTH = 290;
+const GRAPH_HEIGHT = 200;
 
 export function LocalGraphPanel({ isOpen }: { isOpen: boolean }) {
     const { vaultPath, activeNote, setActiveNote, files, addFileIfMissing } = useVaultStore();
@@ -26,33 +28,6 @@ export function LocalGraphPanel({ isOpen }: { isOpen: boolean }) {
     const [queryError, setQueryError] = useState<string | null>(null);
     const [isCypherRunning, setIsCypherRunning] = useState(false);
     const debouncedQuery = useDebouncedValue(query, 250);
-    const [panelWidth, setPanelWidth] = useState(320);
-    const isDragging = useRef(false);
-    const dragStartX = useRef(0);
-    const dragStartWidth = useRef(320);
-
-    const handleResizeMouseDown = useCallback((e: React.MouseEvent) => {
-        e.preventDefault();
-        isDragging.current = true;
-        dragStartX.current = e.clientX;
-        dragStartWidth.current = panelWidth;
-
-        const onMouseMove = (ev: MouseEvent) => {
-            if (!isDragging.current) return;
-            const delta = dragStartX.current - ev.clientX;
-            const newWidth = Math.min(600, Math.max(200, dragStartWidth.current + delta));
-            setPanelWidth(newWidth);
-        };
-
-        const onMouseUp = () => {
-            isDragging.current = false;
-            window.removeEventListener('mousemove', onMouseMove);
-            window.removeEventListener('mouseup', onMouseUp);
-        };
-
-        window.addEventListener('mousemove', onMouseMove);
-        window.addEventListener('mouseup', onMouseUp);
-    }, [panelWidth]);
 
     const fetchLocalGraph = useCallback(async () => {
         if (!vaultPath || !activeNote || !isOpen) {
@@ -179,188 +154,162 @@ export function LocalGraphPanel({ isOpen }: { isOpen: boolean }) {
         ? graphData.nodes.filter((node) => !node.exists).length
         : 0;
 
+    if (!isOpen) return null;
+
     return (
         <div
             style={{
-                width: isOpen ? panelWidth : 0,
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                borderLeft: isOpen ? '1px solid var(--color-border-light)' : 'none',
-                backgroundColor: 'var(--color-bg-secondary)',
-                flexShrink: 0,
-                position: 'relative',
-                transition: 'width 300ms ease-in-out',
+                position: 'absolute',
+                right: 22,
+                bottom: 22,
+                width: PANEL_WIDTH,
+                background: 'var(--color-bg-secondary)',
+                border: '1px solid var(--color-border-light)',
+                borderRadius: 14,
+                boxShadow: 'var(--shadow-lg)',
                 overflow: 'hidden',
+                zIndex: 20,
+                opacity: 1,
+                transform: 'translateY(0)',
+                transition: 'opacity 200ms ease, transform 200ms ease',
             }}
         >
-            {/* Resize handle */}
-            {isOpen && (
-                <div
-                    onMouseDown={handleResizeMouseDown}
-                    style={{
-                        position: 'absolute',
-                        left: 0,
-                        top: 0,
-                        width: 4,
-                        height: '100%',
-                        cursor: 'col-resize',
-                        zIndex: 10,
-                    }}
-                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--color-accent)'; e.currentTarget.style.opacity = '0.5'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.opacity = '1'; }}
-                />
-            )}
-
-            {/* Content wrapped in a div to maintain its width during the parent's width animation */}
+            {/* Header */}
             <div
-                className="transition-all duration-300 ease-in-out"
                 style={{
-                    minWidth: panelWidth,
-                    height: '100%',
                     display: 'flex',
-                    flexDirection: 'column',
-                    opacity: isOpen ? 1 : 0,
-                    transform: isOpen ? 'translateX(0)' : 'translateX(8px)',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '9px 12px',
+                    borderBottom: '1px solid var(--color-border-light)',
                 }}
             >
-                {/* Header */}
-                <div
+                <span
                     style={{
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '9px 12px',
-                        borderBottom: '1px solid var(--color-border-light)',
-                        backgroundColor: 'var(--color-bg-secondary)',
-                        flexShrink: 0,
+                        gap: '7px',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        letterSpacing: '0.02em',
+                        color: 'var(--color-text-secondary)',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
                     }}
                 >
-                    <span
+                    <GitFork size={13} color="var(--color-accent-default)" style={{ flexShrink: 0 }} />
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        Local graph — {noteLabel}
+                    </span>
+                </span>
+                <IconButton label="Close local graph" size={22} onClick={toggleLocalGraph}>
+                    <X size={14} />
+                </IconButton>
+            </div>
+
+            {/* Graph */}
+            <div style={{ height: GRAPH_HEIGHT, position: 'relative', backgroundColor: 'var(--color-bg-primary)' }}>
+                {!activeNote ? (
+                    <div
                         style={{
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '6px',
-                            fontSize: '11px',
-                            fontWeight: 600,
-                            color: 'var(--color-text-primary)',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
+                            justifyContent: 'center',
+                            height: '100%',
+                            color: 'var(--color-text-muted)',
+                            fontSize: '13px',
+                            fontStyle: 'italic',
+                            textAlign: 'center',
+                            padding: '0 16px',
                         }}
                     >
-                        <GitFork size={13} color="var(--color-accent-default)" style={{ flexShrink: 0 }} />
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            Local graph — {noteLabel}
-                        </span>
-                    </span>
-                    <IconButton label="Close local graph" size={22} onClick={toggleLocalGraph}>
-                        <X size={14} />
-                    </IconButton>
-                </div>
-
-                {/* Graph */}
-                <div style={{ flex: 1, position: 'relative', minHeight: 0, backgroundColor: 'var(--color-bg-primary)' }}>
-                    {!activeNote ? (
-                        <div
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                height: '100%',
-                                color: 'var(--color-text-muted)',
-                                fontSize: '13px',
-                                fontStyle: 'italic',
-                            }}
-                        >
-                            Open a note to see its connections
-                        </div>
-                    ) : loading ? (
-                        <div
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                height: '100%',
-                                color: 'var(--color-text-muted)',
-                                fontSize: '13px',
-                            }}
-                        >
-                            Loading...
-                        </div>
-                    ) : (
-                        <GraphCanvas
-                            elements={elements}
-                            mode="local"
-                            focusNodeId={activeNote.path.replace(/\\/g, '/')}
-                            selectedNodeId={selectedGraphNode ?? undefined}
-                            onNodeClick={handleNodeClick}
-                            onNodeDoubleClick={handleNodeDoubleClick}
-                        />
-                    )}
-
-                    <GraphQueryPanel
-                        query={query}
-                        onChange={setQuery}
-                        error={queryError}
-                        isRunning={isCypherRunning}
+                        Open a note to see its connections
+                    </div>
+                ) : loading ? (
+                    <div
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            height: '100%',
+                            color: 'var(--color-text-muted)',
+                            fontSize: '13px',
+                        }}
+                    >
+                        Loading...
+                    </div>
+                ) : (
+                    <GraphCanvas
+                        elements={elements}
+                        mode="local"
+                        focusNodeId={activeNote.path.replace(/\\/g, '/')}
+                        selectedNodeId={selectedGraphNode ?? undefined}
+                        onNodeClick={handleNodeClick}
+                        onNodeDoubleClick={handleNodeDoubleClick}
                     />
+                )}
 
-                    {/* Info panel */}
-                    {selectedGraphNode && (() => {
-                        const nodeElement = elements.find(e => e.data?.id === selectedGraphNode);
-                        const tags = nodeElement?.data?.tags as string[] | undefined;
-                        return (
-                            <NodeInfoPanel
-                                nodePath={selectedGraphNode}
-                                tags={tags}
-                                onClose={() => setSelectedGraphNode(null)}
-                            />
-                        );
-                    })()}
-                </div>
+                <GraphQueryPanel
+                    query={query}
+                    onChange={setQuery}
+                    error={queryError}
+                    isRunning={isCypherRunning}
+                    width={230}
+                />
 
-                {/* Footer legend */}
-                <div
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '12px',
-                        padding: '8px 13px',
-                        borderTop: '1px solid var(--color-border-light)',
-                        backgroundColor: 'var(--color-bg-secondary)',
-                        fontSize: '10px',
-                        color: 'var(--color-text-muted)',
-                        flexShrink: 0,
-                    }}
-                >
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                        <span
-                            aria-hidden
-                            style={{
-                                width: '6px',
-                                height: '6px',
-                                borderRadius: '50%',
-                                backgroundColor: 'var(--color-accent-2)',
-                                flexShrink: 0,
-                            }}
+                {/* Info panel */}
+                {selectedGraphNode && (() => {
+                    const nodeElement = elements.find(e => e.data?.id === selectedGraphNode);
+                    const tags = nodeElement?.data?.tags as string[] | undefined;
+                    return (
+                        <NodeInfoPanel
+                            nodePath={selectedGraphNode}
+                            tags={tags}
+                            onClose={() => setSelectedGraphNode(null)}
                         />
-                        {linkedCount} linked
-                    </span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                        <span
-                            aria-hidden
-                            style={{
-                                width: '6px',
-                                height: '6px',
-                                borderRadius: '50%',
-                                border: '1px dashed var(--color-text-muted)',
-                                flexShrink: 0,
-                            }}
-                        />
-                        {unresolvedCount} unresolved
-                    </span>
-                </div>
+                    );
+                })()}
+            </div>
+
+            {/* Footer legend */}
+            <div
+                style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    padding: '8px 13px',
+                    borderTop: '1px solid var(--color-border-light)',
+                    fontSize: '10px',
+                    color: 'var(--color-text-muted)',
+                }}
+            >
+                <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span
+                        aria-hidden
+                        style={{
+                            width: '6px',
+                            height: '6px',
+                            borderRadius: '50%',
+                            backgroundColor: 'var(--color-accent-2)',
+                            flexShrink: 0,
+                        }}
+                    />
+                    {linkedCount} linked
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <span
+                        aria-hidden
+                        style={{
+                            width: '6px',
+                            height: '6px',
+                            borderRadius: '50%',
+                            border: '1px dashed var(--color-text-muted)',
+                            flexShrink: 0,
+                        }}
+                    />
+                    {unresolvedCount} unresolved
+                </span>
             </div>
         </div>
     );

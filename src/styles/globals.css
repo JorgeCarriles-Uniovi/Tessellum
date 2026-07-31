@@ -1129,13 +1129,13 @@ body {
         border: 1px solid var(--color-border-light);
         border-radius: 12px;
         background: var(--color-bg-app);
-        padding: 6px 4px;
+        padding: 8px 6px;
     }
 
     .cm-frontmatter-header {
         @apply font-bold text-foreground;
         font-size: 0.8125rem;
-        padding: 6px 12px 4px;
+        padding: 8px 14px 6px;
     }
 
     .cm-frontmatter-props {
@@ -1145,14 +1145,14 @@ body {
     .cm-frontmatter-prop-row {
         @apply relative grid items-center w-full max-w-2xl transition-colors;
         grid-template-columns: 128px 1fr;
-        padding: 9px 12px;
+        padding: 11px 14px;
     }
 
     .cm-frontmatter-prop-row:not(:last-child)::after {
         content: "";
         position: absolute;
-        left: 12px;
-        right: 12px;
+        left: 14px;
+        right: 14px;
         bottom: 0;
         height: 1px;
         background: var(--color-border-light);
@@ -1165,12 +1165,12 @@ body {
     }
 
     .cm-frontmatter-prop-value {
-        @apply flex-1 flex flex-wrap gap-1.5 items-center min-h-[22px] overflow-visible;
+        @apply flex-1 flex flex-wrap gap-2 items-center min-h-[26px] overflow-visible;
         font-size: 0.8125rem;
     }
 
     .cm-frontmatter-prop-pill {
-        @apply inline-flex items-center px-2 py-0.5 rounded-full text-[0.8125rem] font-medium;
+        @apply inline-flex items-center px-2.5 py-1 rounded-full text-[0.8125rem] font-medium;
         background-color: var(--color-accent-soft);
         color: var(--color-accent-default);
     }
@@ -1181,7 +1181,7 @@ body {
 
     .cm-frontmatter-add-row {
         @apply flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors w-max text-[0.8125rem] font-medium opacity-80;
-        padding: 6px 12px;
+        padding: 8px 14px;
     }
 
     .cm-frontmatter-hidden-line {
