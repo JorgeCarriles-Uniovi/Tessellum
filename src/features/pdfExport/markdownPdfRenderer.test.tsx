@@ -165,4 +165,35 @@ graph LR
         expect(result.html).toContain("spec.pdf");
         expect(result.html).not.toContain("missing.png");
     });
+
+    test("renders the terminal callout icon without a DOM-text-to-HTML round trip", async () => {
+        const result = await renderMarkdownPdfDocument({
+            file: createFile("Term.md"),
+            content: "> [!terminal] Build\n> npm run build\n",
+        });
+
+        // The icon must still be present in the exported markup...
+        const parsed = new DOMParser().parseFromString(result.html, "text/html");
+        const terminalCallout = parsed.querySelector('.cm-callout[data-callout-type="terminal"]');
+        expect(terminalCallout).not.toBeNull();
+        expect(terminalCallout!.querySelector(".cm-callout-icon svg")).not.toBeNull();
+
+        // ...and the source file must contain no dangerouslySetInnerHTML at all.
+        // (Guards the fix from being reverted by a future refactor.)
+    });
+
+    test("the pdf renderer source contains no dangerouslySetInnerHTML sink", async () => {
+        // `import.meta.url` is not a `file:` URL under this repo's Vitest
+        // transform, so `new URL("./markdownPdfRenderer.tsx", import.meta.url)`
+        // throws ("The URL must be of scheme file") rather than resolving.
+        // Build the path from the repo root instead; the assertion itself
+        // (no dangerouslySetInnerHTML / outerHTML sink in this file) is what
+        // guards against the fix being reverted.
+        const path = await import("node:path");
+        const fs = await import("node:fs/promises");
+        const filePath = path.join(process.cwd(), "src/features/pdfExport/markdownPdfRenderer.tsx");
+        const source = await fs.readFile(filePath, "utf8");
+        expect(source).not.toContain("dangerouslySetInnerHTML");
+        expect(source).not.toContain(".outerHTML}");
+    });
 });

@@ -12,7 +12,7 @@ import mermaid from "mermaid";
 import { extractFrontmatter } from "../../components/Editor/editorViewHelpers";
 import { parseFrontmatter } from "../../components/Editor/extensions/frontmatter/frontmatter-parser";
 import { findLatexExpressions } from "../../components/Editor/extensions/shared-latex-utils";
-import { createIconSVG } from "../../components/Editor/extensions/callout/callout-header-base";
+import { createIconSVG, hasCalloutIcon } from "../../components/Editor/extensions/callout/callout-header-base";
 import { getCssVarForToken, THEME_TOKEN_KEYS } from "../../themes/themeTokens";
 import { buildPdfOutlineEntries, EXPORT_TYPOGRAPHY } from "./pdfExportDomain";
 import type { MarkdownPdfRenderInput, MarkdownPdfRenderResult } from "./types";
@@ -821,7 +821,12 @@ function MarkdownChunk({ content, notePath, lineOffset }: { content: string; not
 }
 
 function TerminalCallout({ block }: { block: CalloutExportBlock }) {
-    const iconSvg = createIconSVG(block.calloutType);
+    // The icon element itself is injected later by `enhanceCalloutIcons`, which
+    // appends a real DOM node into this slot. Rendering the SVG here would mean
+    // serializing a DOM node to a string and re-parsing it as HTML via React's
+    // raw-HTML-injection prop — the DOM-text-reinterpreted-as-HTML pattern this
+    // component used to have.
+    const showIcon = hasCalloutIcon(block.calloutType);
 
     return (
         <section className="cm-callout" data-callout-type={block.calloutType}>
@@ -832,12 +837,7 @@ function TerminalCallout({ block }: { block: CalloutExportBlock }) {
                     <span className="cm-terminal-dot cm-terminal-dot-green" />
                 </div>
                 <span className="cm-callout-title">
-                    {iconSvg && (
-                        <span
-                            className="cm-callout-icon"
-                            dangerouslySetInnerHTML={{ __html: iconSvg.outerHTML }}
-                        />
-                    )}
+                    {showIcon && <span className="cm-callout-icon" />}
                     {block.title}
                 </span>
             </div>

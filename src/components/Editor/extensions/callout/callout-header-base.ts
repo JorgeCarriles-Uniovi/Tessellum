@@ -108,6 +108,16 @@ export function createIconSVG(typeId: string): SVGSVGElement | null {
     return svg;
 }
 
+/**
+ * True when `createIconSVG` would produce an icon for this callout type.
+ * Lets callers decide whether to render an icon slot without building — and,
+ * worse, serializing — a detached SVG element just to test for its existence.
+ */
+export function hasCalloutIcon(typeId: string): boolean {
+    const iconName = CALLOUT_ICON_MAP[typeId.toLowerCase()];
+    return Boolean(iconName && LUCIDE_SVG_PATHS[iconName]);
+}
+
 export function buildIconSpan(typeId: string): HTMLSpanElement {
     const iconSpan = document.createElement("span");
     iconSpan.className = "cm-callout-icon";
