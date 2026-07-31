@@ -76,6 +76,25 @@ function escapeHtml(value: string): string {
         .replace(/"/g, "&quot;");
 }
 
+/**
+ * Make CSS text safe to interpolate into a `<style>` element.
+ *
+ * Inside a `<style>` (or `<script>`) the HTML parser is looking only for the
+ * matching end tag, so entity-escaping does nothing — but `</style` or
+ * `</script` in the text would end the element early and let everything after
+ * it be parsed as markup. `\/` is a no-op escape in CSS, so replacing the
+ * slash keeps the stylesheet byte-for-byte equivalent while removing the
+ * end-tag shape the parser scans for.
+ *
+ * Reachable because mermaid's collected `<style>` textContent is read back out
+ * of the live document (`styleElement.textContent`) and interpolated raw.
+ *
+ * Exported for testing.
+ */
+export function sanitizeStyleText(css: string): string {
+    return css.replace(/<\/(style|script)/gi, "<\\/$1");
+}
+
 function getThemeCssVariables(): string {
     const computedStyle = window.getComputedStyle(document.documentElement);
 
@@ -1235,7 +1254,9 @@ async function renderMermaidBlocks(root: HTMLElement): Promise<string[]> {
 
             const styleElement = document.getElementById(renderId);
             if (styleElement?.tagName.toLowerCase() === "style" && styleElement.textContent) {
-                collectedStyles.push(styleElement.textContent);
+                // textContent read back out of the live document — sanitize before
+                // it is interpolated into the exported <style> element.
+                collectedStyles.push(sanitizeStyleText(styleElement.textContent));
                 styleElement.remove();
             }
         } catch {
@@ -1318,7 +1339,7 @@ export async function renderMarkdownPdfDocument(
 
     return {
         documentTitle,
-        html: `<!doctype html><html><head><meta charset="utf-8" /><title>${escapeHtml(documentTitle)}</title><style>${styles}${mermaidStyles.join("\n")}</style></head><body>${documentMarkup}</body></html>`,
+        html: `<!doctype html><html><head><meta charset="utf-8" /><title>${escapeHtml(documentTitle)}</title><style>${sanitizeStyleText(styles)}${mermaidStyles.join("\n")}</style></head><body>${documentMarkup}</body></html>`,
         outline: buildPdfOutlineEntries(outlineItems, headingOffsets),
     };
 }

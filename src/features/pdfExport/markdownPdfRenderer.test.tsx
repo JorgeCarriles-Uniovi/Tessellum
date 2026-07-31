@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from "vitest";
 import type { FileMetadata } from "../../types";
 import { invokeMock } from "../../test/tauriMocks";
 import { EXPORT_PAGE_HEIGHT_PX, EXPORT_TYPOGRAPHY } from "./pdfExportDomain";
-import { renderMarkdownPdfDocument } from "./markdownPdfRenderer";
+import { renderMarkdownPdfDocument, sanitizeStyleText } from "./markdownPdfRenderer";
 
 function createFile(filename: string): FileMetadata {
     return {
@@ -195,5 +195,29 @@ graph LR
         const source = await fs.readFile(filePath, "utf8");
         expect(source).not.toContain("dangerouslySetInnerHTML");
         expect(source).not.toContain(".outerHTML}");
+    });
+
+    test("style text cannot terminate its own <style> element", () => {
+        expect(sanitizeStyleText(".a{}</style><script>alert(1)</script>")).toBe(
+            ".a{}<\\/style><script>alert(1)<\\/script>"
+        );
+        // Case-insensitive and whitespace-tolerant, matching the HTML parser.
+        expect(sanitizeStyleText("</STYLE >")).toBe("<\\/STYLE >");
+        expect(sanitizeStyleText("</scRIpt>")).toBe("<\\/scRIpt>");
+        // Ordinary CSS is untouched.
+        expect(sanitizeStyleText(".x { color: red; }")).toBe(".x { color: red; }");
+    });
+
+    test("collected mermaid styles are neutralized before entering the document", async () => {
+        const result = await renderMarkdownPdfDocument({
+            file: createFile("Diagram.md"),
+            content: "```mermaid\ngraph TD;A-->B;\n```\n",
+        });
+
+        // Whatever the mermaid version emits, the produced document must contain
+        // exactly one <style> element — a smuggled `</style>` would create more.
+        const parsed = new DOMParser().parseFromString(result.html, "text/html");
+        expect(parsed.querySelectorAll("style").length).toBe(1);
+        expect(parsed.querySelectorAll("script").length).toBe(0);
     });
 });
