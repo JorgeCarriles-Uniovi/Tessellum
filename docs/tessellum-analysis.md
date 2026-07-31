@@ -8,7 +8,7 @@ This document consolidates a **Tessellum 2.0 feature proposal** (updated to refl
 
 The 2026-06-18 audit tracked 39 findings (`BUG-U1`–`U5`, `BUG-G1`–`G12`, `BUG-R1`–`R9`, `BUG-E1`–`E5`, `BUG-S1`–`S4`, `BUG-C1`–`C4`). This refresh re-verified all 39 against current code and additionally audited three areas that did not exist at the time of the previous audit: the **HTML Preview plugin**, the **Graph View / Mosaic redesign**, and the **Vault Switcher / recent-vaults** feature.
 
-**Headline numbers:** 32 of 39 old findings are fixed. 7 remain open (2 fully unchanged, 5 partially addressed with a residual gap). 27 new findings were discovered. Total currently-open findings: **36**.
+**Headline numbers:** 32 of 39 old findings are fixed. 7 remain open (2 fully unchanged, 5 partially addressed with a residual gap). A further 2 findings outside the old ID set were confirmed open during this session's earlier trash/restore work (`CONFIRMED-TRASH-1`, `CONFIRMED-TRASH-2`), and 27 new findings were discovered. Total currently-open findings: **36** (7 + 2 + 27).
 
 ---
 
@@ -950,7 +950,7 @@ Historical traceability for every fix that landed since the 2026-06-18 audit: th
 |---|---|---|
 | BUG-U1 | Reduced Motion toggle no longer writes theme state | `src/hooks/useApplyAccessibilitySettings.ts:35-43` |
 | BUG-U2 | Callout scanner tracks open fences, so nested code blocks render | `src/components/Editor/extensions/callout/callout-parser.ts:41-80` |
-| BUG-U3 | Graph double-click guards media extensions and preserves folder prefix | `src/components/GraphView/GraphView.tsx:144-185`; label test at `src-tauri/src/commands/graph.rs:170` |
+| BUG-U3 | Graph double-click guards media extensions and preserves folder prefix — **global Graph View only**; see `NEW-GRAPH-1` (Local Graph panel not migrated) | `src/components/GraphView/GraphView.tsx:144-185`; label test at `src-tauri/src/commands/graph.rs:170` |
 | BUG-U4 | Path-style wikilinks auto-alias to the last segment | `src/components/Editor/extensions/wikilink/wikiLink-parser.ts:40-68` |
 | BUG-U5 | Trash names encode the full relative dir as `p=<encoded>` | `src-tauri/src/trash.rs` (`generate_trash_name`) |
 | BUG-G1 | Persisted vault path validated via `exists()` and pruned when missing | `src/hooks/useVaultSession.ts:120-134` |
@@ -992,7 +992,7 @@ Historical traceability for every fix that landed since the 2026-06-18 audit: th
 
 ## 4. Priority Matrix
 
-All **36 currently-open** findings — more precisely **34 defects plus 2 verification records** (`NEW-HTMLPREVIEW-1` and `NEW-VAULTSWITCH-4`, rows 35-36, which record behaviour confirmed *correct* and are listed only so the coverage is traceable; neither is a defect, and `NEW-VAULTSWITCH-4` needs no work at all). Ranked by severity then by blast radius. Fixed items are excluded. Recommended order: the credential-exposure item first, then silent data loss, then regressions of previously-fixed bugs, then correctness, then polish.
+All **36 currently-open** findings — more precisely **33 defects plus 3 verification / coverage-gap records**. The three non-defects, per their own status labels in section 2, are `CONFIRMED-TRASH-3` (row 20), `NEW-HTMLPREVIEW-1` (row 35) and `NEW-VAULTSWITCH-4` (row 36): none describes a defect in shipping behaviour. Two of them still carry real work — `CONFIRMED-TRASH-3` needs integration tests, and `NEW-HTMLPREVIEW-1` needs a sandbox assertion plus a pinned mermaid `securityLevel` — so they are ranked normally. Only `NEW-VAULTSWITCH-4` requires no action at all; it is listed purely so the coverage is traceable. Ranked by severity then by blast radius. Fixed items are excluded. Recommended order: the credential-exposure item first, then silent data loss, then regressions of previously-fixed bugs, then correctness, then polish.
 
 | Priority | ID | Description | File | Severity |
 |---|---|---|---|---|
@@ -1022,7 +1022,7 @@ All **36 currently-open** findings — more precisely **34 defects plus 2 verifi
 | 24 | NEW-BACKEND-3 | `create_folder` check-then-act race | `folders.rs:33-41` | Low |
 | 25 | NEW-BACKEND-4 | Watcher `file-changed` emission failure silently swallowed | `watcher.rs:65` | Low |
 | 26 | NEW-EDITOR-2 | Mermaid widget can leak a panzoom instance if destroyed mid-render | `mermaid-plugin.ts:97-131` | Low |
-| 27 | NEW-EDITOR-4 | Callout collapse state keyed by line number, reset by unrelated edits | `callout-state.ts:23-26` | Low |
+| 27 | NEW-EDITOR-4 | Callout collapse state keyed by line number, reset by unrelated edits | `callout-state.ts:24-26` | Low |
 | 28 | NEW-STORES-4 | Syntax/inline-code colour setters keep BUG-G2's two-write pattern | `appearanceStore.ts:325-329, 364-368` | Low |
 | 29 | NEW-STORES-2 | Stale recent-vault paths pruned only when actively selected | `vaultStore.ts:58-67` | Low |
 | 30 | NEW-VAULTSWITCH-3 | `selectionStore` not cleared on vault switch | `selectionStore.ts:18-26` | Low |
