@@ -2,7 +2,9 @@
 
 *Refreshed 2026-07-30. Supersedes the 2026-06-18 version.*
 
-This document consolidates a **Tessellum 2.0 feature proposal** (updated to reflect what has since shipped) and a **live bug report** (concrete defects found by reading the source code). Every finding cites the actual file path and line range as observed at the current HEAD of branch `New-UI`.
+This document consolidates a **Tessellum 2.0 feature proposal** (updated to reflect what has since shipped) and a **live bug report** (concrete defects found by reading the source code). Every finding cites the actual file path and line range.
+
+> **Citation baseline — read before following any line number.** Line numbers are against the **working tree as of 2026-07-31** on branch `New-UI`, *not* against a commit. At the time of the audit the working tree carried uncommitted changes to six source files — `src-tauri/src/commands/notes.rs`, `src-tauri/src/trash.rs`, `src/components/Editor/extensions/frontmatter/frontmatter-widget.tsx`, `src/components/GraphView/LocalGraphPanel.tsx`, `src/components/Layout/RightSidebar.tsx`, `src/components/ai/VaultQAPanel.tsx` — so citations into those files will **not** line up with the last commit (`37faba9`). The drift is material: `LocalGraphPanel.tsx`'s `handleNodeDoubleClick` is at line 137 in the working tree but line 120 at `37faba9`, and `notes.rs:232` is a different function at `37faba9`. Re-check every line number against your own tree before implementing a fix; the surrounding code quoted in each finding is the reliable anchor.
 
 The 2026-06-18 audit tracked 39 findings (`BUG-U1`–`U5`, `BUG-G1`–`G12`, `BUG-R1`–`R9`, `BUG-E1`–`E5`, `BUG-S1`–`S4`, `BUG-C1`–`C4`). This refresh re-verified all 39 against current code and additionally audited three areas that did not exist at the time of the previous audit: the **HTML Preview plugin**, the **Graph View / Mosaic redesign**, and the **Vault Switcher / recent-vaults** feature.
 
@@ -38,7 +40,7 @@ The 2026-06-18 audit tracked 39 findings (`BUG-U1`–`U5`, `BUG-G1`–`G12`, `BU
 - **BUG-E1** (task list toggle logic ambiguous) — fixed, see `src/components/Editor/extensions/task-list/task-list-parser.ts:52-58`.
 - **BUG-E2** (greedy backtick parser duplicated in three files) — fixed, see `src/utils/inlineCodeSpans.ts:12-53`.
 - **BUG-E3** (callout syntax highlighting shifts on CRLF) — fixed, see `src/components/Editor/extensions/callout/callout-plugin.ts:144-193`.
-- **BUG-E4** (frontmatter/task-list widget deferred-unmount race) — fixed, see `src/components/Editor/extensions/frontmatter/frontmatter-widget.tsx:448-490` and `src/components/Editor/extensions/task-list/task-list-plugin.tsx:51-97`.
+- **BUG-E4** (frontmatter/task-list widget deferred-unmount race) — fixed, see `src/components/Editor/extensions/frontmatter/frontmatter-widget.tsx:451, 480-489` and `src/components/Editor/extensions/task-list/task-list-plugin.tsx:54, 86-97`.
 - **BUG-E5** (table formatter miscounts escaped pipe width) — fixed, see `src/components/Editor/extensions/table/table-navigation.ts:37-47`.
 - **BUG-S1** (`vaultPath` stored under the unprefixed key) — fixed, see `src/stores/vaultStore.ts:54, 78-89`.
 - **BUG-S2** (theme schedule timer closes over stale settings) — fixed, see `src/hooks/useApplyThemeSchedule.ts:118-127`.
@@ -289,12 +291,12 @@ fs::rename(&resolved_entry, &destination).map_err(TessellumError::Io)?;
 
 **Status:** CHANGED-SINCE
 **Severity:** Low
-**File:** `src-tauri/src/commands/vault.rs:34-40` (regex), `:259-267` (rename guard), `:287-318` (the re-index that covers only the renamed file)
+**File:** `src-tauri/src/commands/vault.rs:34-40` (regex), `:261` (rename guard), `:267` (the `rewrite_backlinks` call), `:289-319` (the re-index that covers only the renamed file)
 
 **Description:**
-Both original silent-miss cases are fixed. The rewrite regex now matches an optional folder prefix and is case-insensitive (`(?i)(\\?)\[\[([^\]|]*?/)?{escaped}(\|[^\]]+)?\]\]`, `vault.rs:38`), and the rename guard uses `!os.eq_ignore_ascii_case(ns)` (`vault.rs:267`), so `[[Folder/OldName]]` and `Note` → `note` renames are both rewritten. The regex also correctly skips backslash-escaped links.
+Both original silent-miss cases are fixed. The rewrite regex now matches an optional folder prefix and is case-insensitive (`(?i)(\\?)\[\[([^\]|]*?/)?{escaped}(\|[^\]]+)?\]\]`, `vault.rs:38`), and the rename guard uses `!os.eq_ignore_ascii_case(ns)` (`vault.rs:261`), so `[[Folder/OldName]]` and `Note` → `note` renames are both rewritten. The regex also correctly skips backslash-escaped links.
 
-What remains is the third part of the original finding: after `rewrite_backlinks` writes the modified **source** files, only the *renamed* file is pushed back into Tantivy (the `spawn` block at `vault.rs:287-318` indexes `new_path_str` and nothing else). The files whose wikilink text just changed are never re-indexed by this command, so full-text search returns stale snippets containing the old wikilink until the filesystem watcher's next periodic `full_sync` notices their changed mtime.
+What remains is the third part of the original finding: after `rewrite_backlinks` (called at `vault.rs:267`) writes the modified **source** files, only the *renamed* file is pushed back into Tantivy — the `spawn` block at `vault.rs:289-319` indexes `new_path_str` and nothing else. The files whose wikilink text just changed are never re-indexed by this command, so full-text search returns stale snippets containing the old wikilink until the filesystem watcher's next periodic `full_sync` notices their changed mtime.
 
 **Root cause:** `rewrite_backlinks` returns `Ok(())` and its caller discards the list of files it actually modified.
 
@@ -323,6 +325,8 @@ Some(candidate)
 ```
 
 Between the last `exists()` check and the caller's `rename`, a concurrent `trash_item` / `trash_items` call (or an external process) can create a file at that exact path; the rename then silently overwrites it or fails with a platform-specific error, instead of retrying with a fresh name.
+
+**Classification note:** the source audit filed this as `CONFIRMED-STILL-OPEN`, but its own writeup states that the `if !trash_dir.exists()` mkdir race — one of the two halves of the original `BUG-R5` — is fixed. Since half the finding demonstrably landed, `CHANGED-SINCE` is the accurate status under this document's definition ("partially fixed, something still open"), and the closed half is recorded in [section 3](#3-fixed-since-last-audit-reference-only). This does not change the open-findings count: `BUG-R5` is open either way, at unchanged Medium severity, and its remaining work is exactly the `Fix` below.
 
 **Fix:** Treat an `AlreadyExists`-class rename failure as a retry trigger — loop back into `generate_unique_trash_path` with a bumped collision index or a random suffix — rather than relying solely on the pre-check.
 
@@ -510,12 +514,13 @@ If the user types or moves the cursor during that window (a large image or sever
 
 **Status:** NEW
 **Severity:** Low
-**File:** `src/components/Editor/extensions/callout/callout-state.ts:23-26`, used from `src/components/Editor/extensions/callout/callout-plugin.ts:62-65`
+**File:** `src/components/Editor/extensions/callout/callout-state.ts:24-26` (doc comment at `:23`), used from `src/components/Editor/extensions/callout/callout-plugin.ts:62-65`
 
 **Description:**
 `calloutKey(filePath, headerText, lineOffset)` builds the localStorage key for a callout's collapsed/expanded state from `block.headerLineNumber`:
 
 ```typescript
+/** Build a stable key for a callout using its content hash. */
 export function calloutKey(filePath: string, headerText: string, lineOffset: number): string {
     return `${filePath}::${lineOffset}::${headerText}`;
 }
@@ -523,7 +528,9 @@ export function calloutKey(filePath: string, headerText: string, lineOffset: num
 
 That line number is not stable. Inserting or deleting any line earlier in the document shifts the callout's header to a new line and therefore to a different storage key; `isCollapsed` finds no entry and falls back to `defaultCollapsed` (derived from the `+`/`-` fold character). A callout the user manually collapsed or expanded silently reverts to its default after an edit elsewhere in the note, with no visible cause.
 
-**Fix:** Key on something stable across unrelated edits — a hash of the callout's own header text plus its ordinal index among same-header callouts in the file, or (more robustly) an explicit ID embedded in the callout syntax.
+Note also that the doc comment at `:23` is itself stale and actively misleading: it claims the key is built "using its content hash", but the implementation keys on `lineOffset`, which is exactly why the key is *not* stable. Anyone auditing this function by reading its contract rather than its body would conclude there is no bug here.
+
+**Fix:** Key on something stable across unrelated edits — a hash of the callout's own header text plus its ordinal index among same-header callouts in the file, or (more robustly) an explicit ID embedded in the callout syntax. Update the doc comment at `:23` to match whatever the implementation actually does.
 
 ---
 
@@ -810,6 +817,8 @@ This handler is wired to `GraphCanvas`'s `onNodeDoubleClick` inside the floating
 
 **Fix:** Extract `GraphView.tsx`'s fixed logic (media-extension guard + folder-preserving `targetDir`) into a shared helper — e.g. `src/utils/graphNodeActions.ts` — and have both `GraphView.tsx` and `LocalGraphPanel.tsx` call it, so the two panels cannot drift out of sync again.
 
+> **Working-tree caveat.** `LocalGraphPanel.tsx` carried an uncommitted change at audit time — wiring in `useResizableFloatingPanel` to make the panel's width and graph height user-resizable. That change was reviewed and is **not** a defect (the added JSX is balanced, and `useResizableFloatingPanel` already clamps its persisted dimensions on both read and write, so it does not repeat `BUG-G1`/`BUG-S1` or share `NEW-GRAPH-3`'s off-screen-drift problem). It is called out here only because it is why the line numbers in this finding are ~17 lines ahead of `37faba9` — see the citation-baseline note at the top of this document. The defect described above is independent of that change and is present in both versions.
+
 ---
 
 #### NEW-GRAPH-2: Ghost-node creation fails silently when the target folder doesn't exist on disk
@@ -957,7 +966,7 @@ Historical traceability for every fix that landed since the 2026-06-18 audit: th
 | BUG-G11 | Dedup loop caps at `MAX_ATTEMPTS = 100` with a timestamp fallback | `src-tauri/src/commands/clipboard.rs:43-56` |
 | BUG-R1 | `todo!()` replaced with `log::warn!`; the `Ok(Err(_))` branch also logs | `src-tauri/src/commands/notes.rs:712-716` |
 | BUG-R2 | Write-to-temp → index → atomic rename; temp removed if indexing fails | `src-tauri/src/commands/notes.rs:867-887` |
-| BUG-R3 (partial) | Rewrite regex matches folder prefixes and is case-insensitive | `src-tauri/src/commands/vault.rs:34-40, 259-267` |
+| BUG-R3 (partial) | Rewrite regex matches folder prefixes and is case-insensitive | `src-tauri/src/commands/vault.rs:34-40, 261` |
 | BUG-R4 | `validate_relative_note_path` rejects `..`/absolute *before* `create_dir_all` | `src-tauri/src/commands/notes.rs:268-284, 289-303` |
 | BUG-R5 (partial) | Trash dir created unconditionally with idempotent `create_dir_all` | `src-tauri/src/commands/notes.rs:689` |
 | BUG-R6 (partial) | Re-index decision also compares file size when mtime is equal | `src-tauri/src/indexer.rs:76-84` |
@@ -966,7 +975,7 @@ Historical traceability for every fix that landed since the 2026-06-18 audit: th
 | BUG-E1 | Parameter renamed `currentlyChecked`; sole call site passes current state | `src/components/Editor/extensions/task-list/task-list-parser.ts:52-58` |
 | BUG-E2 | Deduplicated into `collectInlineCodeSpansForLine`; mismatched runs no longer span to EOL | `src/utils/inlineCodeSpans.ts:12-53` |
 | BUG-E3 | CRLF/CR normalised to LF before offset computation | `src/components/Editor/extensions/callout/callout-plugin.ts:144-193` |
-| BUG-E4 | Synchronous `destroyed` flag checked inside the deferred unmount | `frontmatter-widget.tsx:448-490`, `task-list-plugin.tsx:51-97` |
+| BUG-E4 | Synchronous `destroyed` flag checked inside the deferred unmount | `frontmatter-widget.tsx:451, 480-489`; `task-list-plugin.tsx:54, 86-97` |
 | BUG-E5 | `cellDisplayWidth` strips `\|` before measuring | `src/components/Editor/extensions/table/table-navigation.ts:37-47` |
 | BUG-C1 (partial) | Active-tab close routed through a confirm dialog | `src/components/Editor/Editor.tsx:891-898, 1041-1066` |
 | BUG-C2 (partial) | Search results keyed on `type`+`title`+`path` | `src/components/Search/SearchPanel.tsx:500-508` |
@@ -983,7 +992,7 @@ Historical traceability for every fix that landed since the 2026-06-18 audit: th
 
 ## 4. Priority Matrix
 
-All **36 currently-open** findings, ranked by severity then by blast radius. Fixed items are excluded. Recommended order: the credential-exposure item first, then silent data loss, then regressions of previously-fixed bugs, then correctness, then polish.
+All **36 currently-open** findings — more precisely **34 defects plus 2 verification records** (`NEW-HTMLPREVIEW-1` and `NEW-VAULTSWITCH-4`, rows 35-36, which record behaviour confirmed *correct* and are listed only so the coverage is traceable; neither is a defect, and `NEW-VAULTSWITCH-4` needs no work at all). Ranked by severity then by blast radius. Fixed items are excluded. Recommended order: the credential-exposure item first, then silent data loss, then regressions of previously-fixed bugs, then correctness, then polish.
 
 | Priority | ID | Description | File | Severity |
 |---|---|---|---|---|
@@ -1007,7 +1016,7 @@ All **36 currently-open** findings, ranked by severity then by blast radius. Fix
 | 18 | NEW-BACKEND-1 | `create_note_from_template` passes `target_dir` as `{{vault}}` | `templates.rs:120-121` | Medium |
 | 19 | NEW-GRAPH-2 | Ghost-node creation fails silently when the target folder is missing | `GraphView.tsx:167-181`, `notes.rs:502-538` | Medium |
 | 20 | CONFIRMED-TRASH-3 | No tests for nested-path, fallback-search, or legacy-marker restore | `trash.rs:351-609`, `notes.rs:1010-1152` | Medium |
-| 21 | BUG-R3 | Rewritten backlink source files not re-indexed immediately | `vault.rs:267, 287-318` | Low |
+| 21 | BUG-R3 | Rewritten backlink source files not re-indexed immediately | `vault.rs:267, 289-319` | Low |
 | 22 | BUG-G12 | Trash-restore errors carry no path context | `notes.rs:213-217` | Low |
 | 23 | NEW-BACKEND-2 | Template/asset collision loops have no upper bound | `templates.rs:110-118`, `assets.rs:120-127` | Low |
 | 24 | NEW-BACKEND-3 | `create_folder` check-then-act race | `folders.rs:33-41` | Low |
@@ -1026,4 +1035,4 @@ All **36 currently-open** findings, ranked by severity then by blast radius. Fix
 
 ---
 
-*Audit performed on branch `New-UI` as of 2026-07-30, against commit `37faba9`. Line numbers were verified at that HEAD and should be re-checked before implementing fixes.*
+*Audit performed on branch `New-UI` as of 2026-07-30–31, against the **working tree** (last commit `37faba9` plus uncommitted changes to the six files listed in the citation-baseline note at the top of this document). Line numbers were verified against that working tree and should be re-checked before implementing fixes — especially in those six files, where they do not match `37faba9`.*
