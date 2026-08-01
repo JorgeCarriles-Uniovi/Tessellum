@@ -200,7 +200,7 @@ export function TemplatePicker({ isOpen, onClose, parentPath }: TemplatePickerPr
 
                         return (
                             <button
-                                key={`${template.name}-${index}`}
+                                key={template.path || "__blank__"}
                                 type="button"
                                 onClick={() => handleSelect(template.path)}
                                 className="cursor-pointer text-left transition-colors hover:border-[color:var(--color-accent-default)] hover:bg-[color:var(--color-accent-soft)] focus-visible:outline-2 focus-visible:outline-[color:var(--color-accent-default)]"

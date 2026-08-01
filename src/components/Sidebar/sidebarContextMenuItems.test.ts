@@ -94,4 +94,52 @@ describe("sidebarContextMenuItems", () => {
             "Delete",
         ]);
     });
+
+    test("every menu item carries a stable, unique, untranslated id", () => {
+        // React keys must come from data identity, not array position: `label`
+        // is a translated string that can collide across locales or change, and
+        // an index-derived key reuses DOM nodes across different items.
+        const directoryItems = createSidebarContextMenuItems({
+            isDirectory: true,
+            onRename: vi.fn(),
+            onDelete: vi.fn(),
+            onNewNote: vi.fn(),
+            onNewNoteFromTemplate: vi.fn(),
+            onNewFolder: vi.fn(),
+            onPasteFiles: vi.fn(),
+            onCopy: vi.fn(),
+            canExportToPdf: false,
+            labels,
+        });
+        const fileItems = createSidebarContextMenuItems({
+            isDirectory: false,
+            onRename: vi.fn(),
+            onDelete: vi.fn(),
+            onExportToPdf: vi.fn(),
+            onCopy: vi.fn(),
+            canExportToPdf: true,
+            labels,
+        });
+
+        for (const items of [directoryItems, fileItems]) {
+            const ids = items.map((item) => item.id);
+            expect(ids.every((id) => typeof id === "string" && id.length > 0)).toBe(true);
+            expect(new Set(ids).size).toBe(ids.length);
+            // Ids are identifiers, not user-facing copy.
+            expect(ids.every((id) => /^[a-z0-9-]+$/.test(id))).toBe(true);
+            // ...and are not just the label in disguise.
+            expect(ids).not.toContain("Rename");
+        }
+
+        expect(directoryItems.map((item) => item.id)).toEqual([
+            "rename",
+            "new-note",
+            "new-note-from-template",
+            "new-folder",
+            "paste-files",
+            "copy",
+            "delete",
+        ]);
+        expect(fileItems.map((item) => item.id)).toEqual(["rename", "export-to-pdf", "copy", "delete"]);
+    });
 });
