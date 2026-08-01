@@ -219,6 +219,14 @@ export function createMermaidPlugin(): Extension {
             mermaid.initialize({
                 startOnLoad: false,
                 theme: isDark ? "dark" : "default",
+                // Diagram source comes from note content, which may originate
+                // from an imported or synced vault rather than content the user
+                // typed. "strict" makes mermaid sanitize its rendered SVG (via
+                // DOMPurify internally) before we assign it with innerHTML in
+                // toDOM — pin this explicitly rather than relying on the library
+                // default, which could change silently on a future upgrade.
+                // Matches markdownPdfRenderer.tsx's initializeMermaid().
+                securityLevel: "strict",
             });
             notifyMermaidThemeChanged();
         };
