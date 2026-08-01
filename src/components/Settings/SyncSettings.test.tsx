@@ -43,4 +43,45 @@ describe("SyncSettings", () => {
             expect(invokeMock).toHaveBeenCalledWith("secret_set", { key: "sync.password", value: "hunter2" });
         });
     });
+
+    test("clearing a previously-stored password and saving deletes the keychain entry", async () => {
+        useSyncStore.setState({ config: { password: "old-secret" } });
+        renderWithProviders(<SyncSettings />);
+
+        const field = await screen.findByDisplayValue("old-secret");
+        fireEvent.change(field, { target: { value: "" } });
+
+        // The field must actually stay cleared across a re-render (this is
+        // the bug: gating the seed effect on `!password` instead of on
+        // `passwordDirty` would immediately write "old-secret" back in).
+        expect(screen.getByPlaceholderText("ghp_…")).toHaveValue("");
+
+        fireEvent.click(screen.getByRole("button", { name: "Initialize Repo" }));
+
+        await waitFor(() => {
+            expect(invokeMock).toHaveBeenCalledWith("secret_delete", { key: "sync.password" });
+        });
+        expect(invokeMock).not.toHaveBeenCalledWith("secret_set", expect.objectContaining({ key: "sync.password" }));
+        // The field must remain cleared after the save completes too.
+        expect(screen.getByPlaceholderText("ghp_…")).toHaveValue("");
+    });
+
+    test("surfaces an error and does not report success when the credential write fails", async () => {
+        renderWithProviders(<SyncSettings />);
+
+        fireEvent.change(screen.getByPlaceholderText("ghp_…"), { target: { value: "hunter2" } });
+        invokeMock.mockImplementation((command?: string) => {
+            if (command === "secret_set") {
+                return Promise.reject(new Error("Credential store unavailable"));
+            }
+            return Promise.resolve(undefined);
+        });
+
+        fireEvent.click(screen.getByRole("button", { name: "Initialize Repo" }));
+
+        await waitFor(() => {
+            expect(screen.getByText(/couldn't save the git password/i)).toBeInTheDocument();
+        });
+        expect(screen.queryByText("Repository initialized.")).not.toBeInTheDocument();
+    });
 });
