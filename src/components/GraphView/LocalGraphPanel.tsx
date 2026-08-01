@@ -9,6 +9,7 @@ import { mapGraphDataToElements, GraphData } from '../../utils/graphUtils';
 import { X, GitFork } from 'lucide-react';
 import cytoscape from 'cytoscape';
 import { createNoteInDir } from "../../utils/noteUtils";
+import { resolveGhostNodeTarget } from "../../utils/graphNodeActions";
 import { applyFilterToGraphData, runCypherGraphFilter } from '../../lib/cypherGraphFilter';
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { normalizeCypherQuery } from "../../lib/cypherQueryNormalizer";
@@ -140,23 +141,26 @@ export function LocalGraphPanel({ isOpen }: { isOpen: boolean }) {
             const existingFile = files.find((f) => f.path.replace(/\\/g, '/') === normalizedNodeId);
             if (existingFile) {
                 setActiveNote(existingFile);
-            } else {
-                try {
-                    const parts = nodeId.replace(/\\/g, '/').split('/');
-                    const filename = parts[parts.length - 1];
-                    const title = filename.replace(/\.md$/, '');
+                return;
+            }
 
-                    if (!vaultPath) return;
+            if (!vaultPath) return;
 
-                    const newNote = await createNoteInDir(vaultPath, title);
-                    addFileIfMissing(newNote);
-                    setActiveNote(newNote);
-                } catch (e) {
-                    console.error('Failed to create note:', e);
-                }
+            const target = resolveGhostNodeTarget(nodeId, vaultPath);
+            if (target.kind === "media") {
+                console.warn(`Local graph: ghost node "${nodeId}" is a media asset — skipping note creation`);
+                return;
+            }
+
+            try {
+                const newNote = await createNoteInDir(target.targetDir, target.title);
+                addFileIfMissing(newNote);
+                setActiveNote(newNote);
+            } catch (e) {
+                console.error('Failed to create note:', e);
             }
         },
-        [files, vaultPath, addFileIfMissing]
+        [files, vaultPath, setActiveNote, addFileIfMissing]
     );
 
     const noteLabel = activeNote
