@@ -15,8 +15,11 @@ type PreviewStatus = "checking" | "available" | "unavailable";
  *
  * Renders through `convertFileSrc` rather than a blob URL so relative
  * references inside the document (sibling stylesheets, images) still resolve.
- * The empty `sandbox` attribute blocks script execution entirely and the `csp`
- * attribute confines subresources to local origins.
+ * The empty `sandbox` attribute blocks script execution entirely on every
+ * engine. The `csp` attribute confines subresources to local origins, but —
+ * see `EMBEDDED_HTML_CSP`'s docstring — it is Blink-only; this is one of the
+ * two `asset://`-loaded frames that has no meta-tag equivalent, so it remains
+ * defense-in-depth pending a Tauri-level response header on other engines.
  *
  * Availability is checked up front via `validate_preview_file`: browsers do not
  * fire an `error` event on an iframe for navigation failures, so an asset 403

@@ -1,7 +1,7 @@
 import { markdown } from "@codemirror/lang-markdown";
 import { EditorState } from "@codemirror/state";
 import { describe, expect, test } from "vitest";
-import { buildHtmlBlockDecorations, EMBEDDED_HTML_CSP } from "./html-block-plugin";
+import { buildHtmlBlockDecorations, buildEmbeddedHtmlSrcDoc, EMBEDDED_HTML_CSP } from "./html-block-plugin";
 
 /** Minimal stand-in for EditorView: toDOM only touches it inside event handlers. */
 const stubView = { dispatch: () => {}, focus: () => {} } as never;
@@ -67,6 +67,26 @@ describe("html block plugin", () => {
         // And no network reach for subresources, so a note-borne beacon such as
         // <img src="https://tracker/<id>.png"> cannot fire when the note opens.
         expect(frame.getAttribute("csp")).toBe(EMBEDDED_HTML_CSP);
+    });
+
+    test("the srcdoc carries the policy as a meta tag for engines that ignore the csp attribute", () => {
+        const dom = firstWidget(DOC, 26).toDOM(stubView);
+        const frame = dom.querySelector("iframe")!;
+
+        expect(frame.srcdoc).toContain(
+            `<meta http-equiv="Content-Security-Policy" content="${EMBEDDED_HTML_CSP}">`
+        );
+        // The meta tag must come first, before any of the user's own markup.
+        expect(frame.srcdoc.indexOf("<meta")).toBe(0);
+        // The user's HTML must survive untouched, appended right after it.
+        expect(frame.srcdoc).toContain("<p>hi</p>");
+    });
+
+    test("buildEmbeddedHtmlSrcDoc does not corrupt the user's html", () => {
+        const html = "<p>hi &amp; bye</p>";
+        expect(buildEmbeddedHtmlSrcDoc(html)).toBe(
+            `<meta http-equiv="Content-Security-Policy" content="${EMBEDDED_HTML_CSP}">${html}`
+        );
     });
 
     test("the embedded-html policy denies everything by default and allows no remote origin", () => {
