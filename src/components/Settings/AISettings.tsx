@@ -60,7 +60,7 @@ export function AISettings() {
                 {(providerConfig.kind === "openai" || providerConfig.kind === "claude") && (
                     <TextInputSetting
                         label="API Key"
-                        description="Stored locally in your browser. Not sent to any server other than the API endpoint above."
+                        description="Stored in your operating system's credential manager. Not sent to any server other than the API endpoint above."
                         type="password"
                         value={providerConfig.api_key ?? ""}
                         onChange={(v) => {
