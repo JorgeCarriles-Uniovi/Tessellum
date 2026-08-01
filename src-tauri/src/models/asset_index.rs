@@ -9,6 +9,33 @@ const SUPPORTED_EXTS: &[&str] = &[
 	"png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "tif", "tiff", "avif", "pdf", "html", "htm",
 ];
 
+fn is_supported_path(path: &Path) -> bool {
+	let ext = path
+		.extension()
+		.and_then(|s| s.to_str())
+		.unwrap_or("")
+		.to_lowercase();
+	SUPPORTED_EXTS.contains(&ext.as_str())
+}
+
+/// Accept `candidate` only when it canonicalizes to a location under
+/// `canonical_vault_root` and carries a supported asset extension.
+///
+/// Every `resolve` return path goes through this. Containment must be enforced
+/// here rather than relying on Tauri's asset scope, which is outside this
+/// codebase and widens as more vault directories are granted per session.
+fn accept_in_vault(candidate: &Path, canonical_vault_root: &Path) -> Option<PathBuf> {
+	if !is_supported_path(candidate) {
+		return None;
+	}
+	let canonical = canonicalize(candidate).ok()?;
+	if canonical.starts_with(canonical_vault_root) {
+		Some(candidate.to_path_buf())
+	} else {
+		None
+	}
+}
+
 #[derive(Debug, Clone)]
 pub struct AssetIndex {
 	name_to_paths: HashMap<String, Vec<PathBuf>>,
@@ -73,24 +100,18 @@ impl AssetIndex {
 		if link_target.contains('/') || link_target.contains('\\') {
 			let mut full_path = vault_root.join(link_target);
 			if full_path.exists() {
-				return Some(full_path);
+				return accept_in_vault(&full_path, &canonical_vault_root);
 			}
-			
+
 			if full_path.extension().is_none() {
 				for ext in SUPPORTED_EXTS {
 					full_path.set_extension(ext);
-					if full_path.exists()
-						&& let Ok(canonical_full) = canonicalize(&full_path) {
-							return if canonical_full.starts_with
-							(&canonical_vault_root) {
-								Some(full_path)
-							} else {
-								None
-							}
-						}
+					if full_path.exists() {
+						return accept_in_vault(&full_path, &canonical_vault_root);
+					}
 				}
 			}
-			
+
 			if let Some(filename) = Path::new(link_target).file_name() {
 				let filename_str = filename.to_string_lossy().to_string();
 				if let Some(candidates) = self.name_to_paths.get(&filename_str) {
@@ -104,41 +125,27 @@ impl AssetIndex {
 							}
 						})
 						.collect();
-					
+
 					if !matching.is_empty() {
-						let candidate = matching[0];
-						if let Ok(canonical_candidate) = canonicalize(candidate) {
-							return if canonical_candidate.starts_with
-							(&canonical_vault_root) {
-								Some(candidate.clone())
-							} else {
-								 None
-							}
-						}
+						return accept_in_vault(matching[0], &canonical_vault_root);
 					}
 				}
 			}
 		}
-		
+
 		if let Some(candidates) = self.name_to_paths.get(link_target) {
 			if candidates.is_empty() {
 				return None;
 			}
-			
+
 			let best_match = candidates.iter().min_by_key(|p| {
 				p.strip_prefix(vault_root)
 					.ok()
 					.map(|rel| rel.components().count())
 					.unwrap_or(usize::MAX)
 			})?;
-			
-			if let Ok(canonical_best) = canonicalize(best_match) {
-				return if canonical_best.starts_with(&canonical_vault_root) {
-					Some(best_match.clone())
-				} else {
-					None
-				};
-			}
+
+			return accept_in_vault(best_match, &canonical_vault_root);
 		}
 
 		None
@@ -169,5 +176,54 @@ mod tests {
 		// Extensionless wikilink target ("[[scratch]]") resolves via the
 		// file-stem entry build() only populates for supported extensions.
 		assert_eq!(index.resolve(vault.path().to_str().unwrap(), "scratch"), Some(html_path));
+	}
+
+	#[test]
+	fn resolve_rejects_a_path_style_target_that_escapes_the_vault() {
+		// `![[../outside/page.html]]` must not resolve: the joined-path branch
+		// previously returned as soon as the file existed, with no containment
+		// check, handing the frontend a path outside the vault to iframe.
+		let parent = tempdir().unwrap();
+		let vault = parent.path().join("vault");
+		let outside = parent.path().join("outside");
+		fs::create_dir_all(&vault).unwrap();
+		fs::create_dir_all(&outside).unwrap();
+		fs::write(outside.join("page.html"), "<h1>secret</h1>").unwrap();
+
+		let index = AssetIndex::build(vault.to_str().unwrap()).unwrap();
+
+		assert_eq!(index.resolve(vault.to_str().unwrap(), "../outside/page.html"), None);
+		assert_eq!(index.resolve(vault.to_str().unwrap(), "..\\outside\\page.html"), None);
+	}
+
+	#[test]
+	fn resolve_still_returns_in_vault_nested_targets() {
+		let vault = tempdir().unwrap();
+		let nested = vault.path().join("Projects");
+		fs::create_dir_all(&nested).unwrap();
+		let page = nested.join("page.html");
+		fs::write(&page, "<h1>hi</h1>").unwrap();
+
+		let index = AssetIndex::build(vault.path().to_str().unwrap()).unwrap();
+		let resolved = index.resolve(vault.path().to_str().unwrap(), "Projects/page.html");
+
+		assert!(resolved.is_some());
+		assert!(std::fs::canonicalize(resolved.unwrap())
+			.unwrap()
+			.starts_with(std::fs::canonicalize(vault.path()).unwrap()));
+	}
+
+	#[test]
+	fn resolve_rejects_unsupported_extensions_on_the_joined_path_branch() {
+		// The joined-path branch never checked the extension, so an in-vault
+		// `![[notes/private.env]]` would resolve and be handed to the frontend.
+		let vault = tempdir().unwrap();
+		let nested = vault.path().join("notes");
+		fs::create_dir_all(&nested).unwrap();
+		fs::write(nested.join("private.env"), "TOKEN=1").unwrap();
+
+		let index = AssetIndex::build(vault.path().to_str().unwrap()).unwrap();
+
+		assert_eq!(index.resolve(vault.path().to_str().unwrap(), "notes/private.env"), None);
 	}
 }

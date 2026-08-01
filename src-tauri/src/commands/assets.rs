@@ -71,9 +71,22 @@ async fn resolve_asset_inner(
 	}
 	
 	let asset_index = index_guard.as_ref().unwrap();
-	Ok(asset_index
-		.resolve(vault_path, target)
-		.map(|p| to_asset_path(&p)))
+	let Some(resolved) = asset_index.resolve(vault_path, target) else {
+		return Ok(None);
+	};
+
+	// Belt-and-braces: AssetIndex::resolve already enforces both of these on
+	// every return path, but the markdown branch above validates at the command
+	// level too, and containment should not depend on a single implementation.
+	let validated = match validate_path_in_vault(&resolved.to_string_lossy(), vault_path) {
+		Ok(path) => path,
+		Err(_) => return Ok(None),
+	};
+	if !is_supported_asset(&validated) {
+		return Ok(None);
+	}
+
+	Ok(Some(to_asset_path(&validated)))
 }
 
 async fn save_asset_inner(
