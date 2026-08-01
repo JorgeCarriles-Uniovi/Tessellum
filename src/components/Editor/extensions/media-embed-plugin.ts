@@ -51,8 +51,8 @@ interface DocRange {
 
 const resolvedEffect = StateEffect.define<void>();
 
-
-class MediaEmbedWidget extends WidgetType {
+/** Exported for testing — the sandbox/csp invariant on the html branch is asserted directly. */
+export class MediaEmbedWidget extends WidgetType {
     constructor(
         readonly kind: MediaKind,
         readonly src: string | null,

@@ -1,5 +1,9 @@
 import { describe, expect, test } from "vitest";
-import { getMediaKind } from "./media-embed-plugin";
+import { getMediaKind, MediaEmbedWidget } from "./media-embed-plugin";
+import { EMBEDDED_HTML_CSP } from "./code/html-block-plugin";
+
+/** Minimal stand-in for EditorView: toDOM only touches it inside event handlers. */
+const stubView = { dispatch: () => {}, focus: () => {} } as never;
 
 describe("getMediaKind", () => {
     test("detects pdf regardless of the html gate", () => {
@@ -24,5 +28,41 @@ describe("getMediaKind", () => {
 
     test("leaves unrelated extensions unaffected by the gate", () => {
         expect(getMediaKind("note/unknown.xyz", true)).toBe("unknown");
+    });
+});
+
+describe("MediaEmbedWidget html rendering", () => {
+    test("an html embed renders a fully sandboxed, network-confined iframe", () => {
+        const widget = new MediaEmbedWidget(
+            "html",
+            "asset://vault/page.html",
+            undefined,
+            "page.html",
+            "ok",
+        );
+
+        const frame = widget.toDOM(stubView).querySelector("iframe")!;
+
+        expect(frame).not.toBeNull();
+        expect(frame.getAttribute("src")).toBe("asset://vault/page.html");
+        // Empty sandbox === every restriction on, notably no script execution.
+        expect(frame.getAttribute("sandbox")).toBe("");
+        // And no network reach for subresources.
+        expect(frame.getAttribute("csp")).toBe(EMBEDDED_HTML_CSP);
+    });
+
+    test("a pdf embed is not treated as html and carries no sandbox claim", () => {
+        const widget = new MediaEmbedWidget(
+            "pdf",
+            "asset://vault/spec.pdf",
+            undefined,
+            "spec.pdf",
+            "ok",
+        );
+
+        const frame = widget.toDOM(stubView).querySelector("iframe")!;
+
+        expect(frame.className).toBe("cm-media-pdf");
+        expect(frame.getAttribute("sandbox")).toBeNull();
     });
 });
