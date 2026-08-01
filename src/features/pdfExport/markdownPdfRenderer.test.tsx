@@ -177,9 +177,6 @@ graph LR
         const terminalCallout = parsed.querySelector('.cm-callout[data-callout-type="terminal"]');
         expect(terminalCallout).not.toBeNull();
         expect(terminalCallout!.querySelector(".cm-callout-icon svg")).not.toBeNull();
-
-        // ...and the source file must contain no dangerouslySetInnerHTML at all.
-        // (Guards the fix from being reverted by a future refactor.)
     });
 
     test("the pdf renderer source contains no dangerouslySetInnerHTML sink", async () => {

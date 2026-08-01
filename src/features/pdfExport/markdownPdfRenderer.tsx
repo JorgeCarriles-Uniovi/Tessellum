@@ -997,7 +997,10 @@ function createMathNode(documentRef: Document, formula: string, isBlock: boolean
         // attacker-chosen URLs and \htmlClass-style raw-HTML commands; pin it
         // explicitly rather than relying on the library default, which could
         // change silently on a future upgrade. Mirrors the mermaid
-        // `securityLevel: "strict"` pin in this file.
+        // `securityLevel: "strict"` pin in this file. `strict: "ignore"`
+        // below is unrelated to sanitization — it only pins whether KaTeX
+        // warns (vs. throws) on questionable-but-safe LaTeX, and has no
+        // effect on `trust` or on the rendered output.
         wrapper.innerHTML = katex.renderToString(formula.trim(), {
             displayMode: isBlock,
             throwOnError: false,
