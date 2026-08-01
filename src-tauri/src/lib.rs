@@ -230,6 +230,9 @@ pub fn run() {
             commands::plugins::uninstall_plugin,
             commands::plugins::fetch_community_registry,
             commands::ai::ai_generate,
+            commands::secrets::secret_set,
+            commands::secrets::secret_get,
+            commands::secrets::secret_delete,
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {

@@ -14,6 +14,7 @@ pub mod plugins;
 pub mod publish;
 pub mod recovery;
 pub mod scripts;
+pub mod secrets;
 pub mod semantic;
 pub mod sync;
 pub mod templates;
