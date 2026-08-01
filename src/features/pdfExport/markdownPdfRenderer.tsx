@@ -990,9 +990,19 @@ function createMathNode(documentRef: Document, formula: string, isBlock: boolean
     wrapper.className = isBlock ? "cm-math-block" : "cm-math-inline";
 
     try {
+        // The formula string is read back out of the rendered DOM
+        // (`textContent`) and its output is assigned with innerHTML below, so
+        // KaTeX is the only thing standing between note content and markup.
+        // `trust: false` blocks \href/\url/\includegraphics from emitting
+        // attacker-chosen URLs and \htmlClass-style raw-HTML commands; pin it
+        // explicitly rather than relying on the library default, which could
+        // change silently on a future upgrade. Mirrors the mermaid
+        // `securityLevel: "strict"` pin in this file.
         wrapper.innerHTML = katex.renderToString(formula.trim(), {
             displayMode: isBlock,
             throwOnError: false,
+            trust: false,
+            strict: "ignore",
             macros: { "\\f": "#1f(#2)" },
             output: "html",
         });

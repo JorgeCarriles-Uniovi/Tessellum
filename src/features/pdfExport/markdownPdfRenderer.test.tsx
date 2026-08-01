@@ -220,4 +220,19 @@ graph LR
         expect(parsed.querySelectorAll("style").length).toBe(1);
         expect(parsed.querySelectorAll("script").length).toBe(0);
     });
+
+    test("math extracted from note text cannot inject markup or link handlers", async () => {
+        const result = await renderMarkdownPdfDocument({
+            file: createFile("Math.md"),
+            content: "Inline $\\href{javascript:alert(1)}{click}$ and $x^2$ here.\n",
+        });
+
+        const parsed = new DOMParser().parseFromString(result.html, "text/html");
+        // The safe formula still renders.
+        expect(parsed.querySelector(".cm-math-inline")).not.toBeNull();
+        // The unsafe one produces no javascript: navigation target anywhere.
+        const anchors = Array.from(parsed.querySelectorAll("a"));
+        expect(anchors.some((a) => (a.getAttribute("href") ?? "").startsWith("javascript:"))).toBe(false);
+        expect(parsed.querySelectorAll("script").length).toBe(0);
+    });
 });
