@@ -86,11 +86,33 @@ mod tests {
 		assert!(validate_key("sync\npassword").is_err());
 	}
 
+	/// Guarantees the real-credential-store entry created by the round-trip
+	/// test below is removed even if an assertion between `secret_set` and
+	/// `secret_delete` panics. Without this, a failed test run would leave a
+	/// stray entry permanently in the developer's or CI runner's keychain.
+	///
+	/// `Drop` cannot be `async` and cannot fail, so this deletes via the raw
+	/// `keyring::Entry` directly (not the async `secret_delete` command) and
+	/// swallows any error, including `NoEntry` — which just means the test's
+	/// own `secret_delete` call already cleaned up.
+	struct CredentialCleanupGuard {
+		key: &'static str,
+	}
+
+	impl Drop for CredentialCleanupGuard {
+		fn drop(&mut self) {
+			if let Ok(e) = keyring::Entry::new(KEYRING_SERVICE, self.key) {
+				let _ = e.delete_credential();
+			}
+		}
+	}
+
 	#[tokio::test]
 	async fn set_get_delete_round_trips_through_the_credential_store() {
 		// Uses the real platform credential store; the key is namespaced so it
 		// cannot collide with a developer's actual Tessellum entries.
 		let key = "test.roundtrip-do-not-use";
+		let _cleanup = CredentialCleanupGuard { key };
 
 		secret_set(key.to_string(), "hunter2".to_string()).await.unwrap();
 		assert_eq!(secret_get(key.to_string()).await.unwrap(), Some("hunter2".to_string()));
