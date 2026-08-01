@@ -119,7 +119,11 @@ export async function hydrateSyncSecret(): Promise<void> {
     }
 }
 
-/** Write the current in-memory password through to the OS credential store. */
-export async function persistSyncSecret(): Promise<void> {
-    await setSecret(SECRET_KEYS.syncPassword, useSyncStore.getState().config.password ?? "");
+/**
+ * Write the current in-memory password through to the OS credential store.
+ * Resolves to `false` (rather than throwing) if the write fails, so the
+ * caller can surface the failure to the user instead of losing it silently.
+ */
+export async function persistSyncSecret(): Promise<boolean> {
+    return setSecret(SECRET_KEYS.syncPassword, useSyncStore.getState().config.password ?? "");
 }

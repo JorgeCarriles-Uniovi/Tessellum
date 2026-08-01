@@ -114,7 +114,11 @@ export async function hydrateAiSecret(): Promise<void> {
     }
 }
 
-/** Write the current in-memory API key through to the OS credential store. */
-export async function persistAiSecret(): Promise<void> {
-    await setSecret(SECRET_KEYS.aiApiKey, useAIStore.getState().providerConfig.api_key ?? "");
+/**
+ * Write the current in-memory API key through to the OS credential store.
+ * Resolves to `false` (rather than throwing) if the write fails, so the
+ * caller can surface the failure to the user instead of losing it silently.
+ */
+export async function persistAiSecret(): Promise<boolean> {
+    return setSecret(SECRET_KEYS.aiApiKey, useAIStore.getState().providerConfig.api_key ?? "");
 }

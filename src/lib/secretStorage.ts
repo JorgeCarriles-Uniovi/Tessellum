@@ -13,13 +13,28 @@ export const SECRET_KEYS = {
 
 export type SecretKey = (typeof SECRET_KEYS)[keyof typeof SECRET_KEYS];
 
-/** Store a secret. An empty value deletes the entry instead of storing "". */
-export async function setSecret(key: string, value: string): Promise<void> {
+/**
+ * Store a secret. An empty value deletes the entry instead of storing "".
+ *
+ * Resolves to `true` on success and `false` on failure (credential store
+ * unavailable, locked keyring, etc.) instead of throwing — a rejection here
+ * used to become an unhandled promise rejection at every call site, which
+ * silently discarded the write. Callers must check the result and tell the
+ * user, since (unlike a failed read) a failed write has no fallback: the
+ * credential is not persisted anywhere else. Never log or surface `value`
+ * itself, only the fact of failure.
+ */
+export async function setSecret(key: string, value: string): Promise<boolean> {
     if (!value) {
-        await deleteSecret(key);
-        return;
+        return deleteSecret(key);
     }
-    await invoke("secret_set", { key, value });
+    try {
+        await invoke("secret_set", { key, value });
+        return true;
+    } catch (error) {
+        console.error(`Failed to store secret '${key}':`, error);
+        return false;
+    }
 }
 
 /**
@@ -36,11 +51,14 @@ export async function getSecret(key: string): Promise<string | null> {
     }
 }
 
-export async function deleteSecret(key: string): Promise<void> {
+/** Resolves to `true` on success and `false` on failure, without throwing. */
+export async function deleteSecret(key: string): Promise<boolean> {
     try {
         await invoke("secret_delete", { key });
+        return true;
     } catch (error) {
         console.error(`Failed to delete secret '${key}':`, error);
+        return false;
     }
 }
 

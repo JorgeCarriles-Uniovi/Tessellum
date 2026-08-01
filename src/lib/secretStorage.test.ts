@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import { invokeMock } from "../test/tauriMocks";
 import { deleteSecret, getSecret, migratePlaintextSecret, setSecret, SECRET_KEYS } from "./secretStorage";
 
@@ -33,6 +33,40 @@ describe("secretStorage", () => {
     test("a keychain read failure resolves to null instead of throwing", async () => {
         invokeMock.mockRejectedValueOnce(new Error("Credential store unavailable"));
         await expect(getSecret(SECRET_KEYS.aiApiKey)).resolves.toBeNull();
+    });
+
+    test("a keychain write failure resolves to false instead of throwing or going unhandled", async () => {
+        invokeMock.mockRejectedValueOnce(new Error("Credential store unavailable"));
+        await expect(setSecret(SECRET_KEYS.syncPassword, "hunter2")).resolves.toBe(false);
+    });
+
+    test("a keychain write failure is logged without leaking the secret value", async () => {
+        const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+        invokeMock.mockRejectedValueOnce(new Error("Credential store unavailable"));
+
+        await setSecret(SECRET_KEYS.syncPassword, "hunter2");
+
+        expect(consoleError).toHaveBeenCalled();
+        const loggedText = consoleError.mock.calls.flat().map(String).join(" ");
+        expect(loggedText).not.toContain("hunter2");
+        consoleError.mockRestore();
+    });
+
+    test("a keychain delete failure resolves to false instead of throwing", async () => {
+        invokeMock.mockRejectedValueOnce(new Error("Credential store unavailable"));
+        await expect(deleteSecret(SECRET_KEYS.syncPassword)).resolves.toBe(false);
+
+        // Deleting via an empty setSecret value surfaces the same failure.
+        invokeMock.mockRejectedValueOnce(new Error("Credential store unavailable"));
+        await expect(setSecret(SECRET_KEYS.syncPassword, "")).resolves.toBe(false);
+    });
+
+    test("successful writes and deletes resolve to true", async () => {
+        invokeMock.mockResolvedValueOnce(undefined);
+        await expect(setSecret(SECRET_KEYS.syncPassword, "hunter2")).resolves.toBe(true);
+
+        invokeMock.mockResolvedValueOnce(undefined);
+        await expect(deleteSecret(SECRET_KEYS.syncPassword)).resolves.toBe(true);
     });
 
     test("migrates a plaintext secret into the keychain and purges it from localStorage", async () => {
