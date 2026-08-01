@@ -40,6 +40,28 @@ describe("resolveGhostNodeTarget", () => {
         });
     });
 
+    test("rejects a node id that would resolve outside the vault", () => {
+        // BUG: a note-content-driven wikilink target (e.g. [[../../Documents/pwned]])
+        // must never join `..` segments onto vaultPath — that would write a
+        // file outside the vault via createNoteInDir/create_note.
+        expect(resolveGhostNodeTarget("../../Documents/pwned", "/vault")).toEqual({ kind: "rejected" });
+        expect(resolveGhostNodeTarget("..\\..\\Documents\\pwned", "/vault")).toEqual({ kind: "rejected" });
+        // A bare ".." segment mid-path is just as unsafe.
+        expect(resolveGhostNodeTarget("Projects/../Secret/pwned", "/vault")).toEqual({ kind: "rejected" });
+        // Absolute paths must never be joined onto vaultPath either.
+        expect(resolveGhostNodeTarget("/etc/passwd", "/vault")).toEqual({ kind: "rejected" });
+        expect(resolveGhostNodeTarget("\\\\server\\share\\file", "/vault")).toEqual({ kind: "rejected" });
+        expect(resolveGhostNodeTarget("C:/Windows/System32/evil", "C:/vault")).toEqual({ kind: "rejected" });
+        expect(resolveGhostNodeTarget("C:\\Windows\\System32\\evil", "C:/vault")).toEqual({ kind: "rejected" });
+
+        // Legitimate nested targets must still resolve normally.
+        expect(resolveGhostNodeTarget("Projects/Idea", "/vault")).toEqual({
+            kind: "note",
+            title: "Idea",
+            targetDir: "/vault/Projects",
+        });
+    });
+
     test("strips only a trailing .md, case-insensitively", () => {
         expect(resolveGhostNodeTarget("Notes.MD", "/vault")).toEqual({
             kind: "note",

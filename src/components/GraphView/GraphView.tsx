@@ -152,6 +152,10 @@ export function GraphView() {
                     console.warn(`Graph: ghost node "${nodeId}" is a media asset — skipping note creation`);
                     return;
                 }
+                if (target.kind === "rejected") {
+                    console.warn(`Graph: ghost node "${nodeId}" resolves outside the vault — skipping note creation`);
+                    return;
+                }
 
                 try {
                     const newNote = await createNoteInDir(target.targetDir, target.title);
