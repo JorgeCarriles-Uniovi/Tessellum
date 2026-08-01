@@ -1,22 +1,60 @@
 import { useEffect, useRef, useState } from "react";
-import { convertFileSrc } from "@tauri-apps/api/core";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { theme } from "../../styles/theme";
+import { useVaultStore } from "../../stores/vaultStore";
 import { EMBEDDED_HTML_CSP } from "./extensions/code/html-block-plugin";
 
 interface HtmlFilePreviewProps {
     path: string;
 }
 
+type PreviewStatus = "checking" | "available" | "unavailable";
+
 /**
  * Whole-file viewer for .html/.htm files, registered by HtmlPreviewPlugin.
  *
  * Renders through `convertFileSrc` rather than a blob URL so relative
  * references inside the document (sibling stylesheets, images) still resolve.
- * The empty `sandbox` attribute blocks script execution entirely.
+ * The empty `sandbox` attribute blocks script execution entirely and the `csp`
+ * attribute confines subresources to local origins.
+ *
+ * Availability is checked up front via `validate_preview_file`: browsers do not
+ * fire an `error` event on an iframe for navigation failures, so an asset 403
+ * (out-of-vault path) or 404 (file deleted between resolution and render) would
+ * otherwise show a silent blank frame instead of this fallback. The native
+ * `error` listener stays as belt-and-braces for load failures that do fire.
+ *
+ * The vault path comes from the store rather than a prop because `FileViewer`
+ * components are constructed by the plugin registry with `{ path }` only
+ * (`src/plugins/api/UIAPI.ts`), and that contract is shared by every viewer.
  */
 export function HtmlFilePreview({ path }: HtmlFilePreviewProps) {
-    const [failed, setFailed] = useState(false);
+    const vaultPath = useVaultStore((s) => s.vaultPath);
+    const [status, setStatus] = useState<PreviewStatus>("checking");
     const frameRef = useRef<HTMLIFrameElement>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        setStatus("checking");
+
+        if (!vaultPath) {
+            setStatus("unavailable");
+            return;
+        }
+
+        invoke<boolean>("validate_preview_file", { vaultPath, path })
+            .then((ok) => {
+                if (!cancelled) setStatus(ok ? "available" : "unavailable");
+            })
+            .catch((error) => {
+                console.error("Failed to validate HTML preview file:", error);
+                if (!cancelled) setStatus("unavailable");
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [path, vaultPath]);
 
     // React's synthetic event system only delegates the `load` event for
     // <iframe> elements, not `error` (see react-dom's setInitialProperties),
@@ -25,12 +63,16 @@ export function HtmlFilePreview({ path }: HtmlFilePreviewProps) {
     useEffect(() => {
         const frame = frameRef.current;
         if (!frame) return;
-        const handleError = () => setFailed(true);
+        const handleError = () => setStatus("unavailable");
         frame.addEventListener("error", handleError);
         return () => frame.removeEventListener("error", handleError);
-    }, []);
+    }, [status]);
 
-    if (failed) {
+    if (status === "checking") {
+        return <div className="h-full w-full" style={{ backgroundColor: "var(--color-panel-footer)" }} />;
+    }
+
+    if (status === "unavailable") {
         return (
             <div className="h-full w-full flex items-center justify-center select-none">
                 <div
@@ -52,9 +94,9 @@ export function HtmlFilePreview({ path }: HtmlFilePreviewProps) {
                 ref={frameRef}
                 src={convertFileSrc(path)}
                 sandbox=""
-                {...({ csp: EMBEDDED_HTML_CSP } as Record<string, string>)}
                 title="HTML Preview"
                 className="w-full h-full border-none"
+                {...({ csp: EMBEDDED_HTML_CSP } as Record<string, string>)}
             />
         </div>
     );

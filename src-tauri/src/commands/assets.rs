@@ -150,6 +150,26 @@ async fn save_asset_inner(
 	Ok(normalize_path(&relative.to_string_lossy()))
 }
 
+/// Report whether `path` is safe and available to render in a preview iframe.
+///
+/// The iframe `error` event does not fire for navigation failures — an asset
+/// 403 or 404 still fires `load`, with the error page inside the frame — so the
+/// viewer cannot detect failure after the fact. This gives it a typed answer
+/// before it renders anything.
+#[tauri::command]
+pub async fn validate_preview_file(
+	vault_path: String,
+	path: String,
+) -> Result<bool, TessellumError> {
+	let Ok(resolved) = validate_path_in_vault(&path, &vault_path) else {
+		return Ok(false);
+	};
+	if !resolved.is_file() {
+		return Ok(false);
+	}
+	Ok(is_supported_asset(&resolved))
+}
+
 #[tauri::command]
 pub async fn resolve_asset(
 	state: State<'_, AppState>,
@@ -183,9 +203,10 @@ pub async fn save_asset(
 
 #[cfg(test)]
 mod tests {
+	use std::fs;
 	use tempfile::tempdir;
 
-	use super::{resolve_asset_inner, save_asset_inner};
+	use super::{resolve_asset_inner, save_asset_inner, validate_preview_file};
 	use crate::db::Database;
 	use crate::models::AppState;
 	use crate::search::SearchIndex;
@@ -312,5 +333,52 @@ mod tests {
 		.unwrap_err();
 
 		assert!(err.to_string().contains("Unsupported file type"));
+	}
+
+	#[tokio::test]
+	async fn validate_preview_file_accepts_an_in_vault_html_file() {
+		let vault = tempdir().unwrap();
+		let page = vault.path().join("Report.html");
+		fs::write(&page, "<h1>hi</h1>").unwrap();
+
+		let ok = validate_preview_file(
+			vault.path().to_string_lossy().to_string(),
+			page.to_string_lossy().to_string(),
+		)
+		.await
+		.unwrap();
+
+		assert!(ok);
+	}
+
+	#[tokio::test]
+	async fn validate_preview_file_rejects_missing_out_of_vault_and_directory_paths() {
+		let parent = tempdir().unwrap();
+		let vault = parent.path().join("vault");
+		let outside = parent.path().join("outside");
+		fs::create_dir_all(&vault).unwrap();
+		fs::create_dir_all(&outside).unwrap();
+		let escaped = outside.join("secret.html");
+		fs::write(&escaped, "<h1>secret</h1>").unwrap();
+
+		let vault_str = vault.to_string_lossy().to_string();
+
+		// Deleted between resolution and render.
+		assert!(!validate_preview_file(
+			vault_str.clone(),
+			vault.join("gone.html").to_string_lossy().to_string()
+		)
+		.await
+		.unwrap());
+
+		// Outside the vault.
+		assert!(!validate_preview_file(vault_str.clone(), escaped.to_string_lossy().to_string())
+			.await
+			.unwrap());
+
+		// A directory is not a previewable file.
+		assert!(!validate_preview_file(vault_str, vault.to_string_lossy().to_string())
+			.await
+			.unwrap());
 	}
 }

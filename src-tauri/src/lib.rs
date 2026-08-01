@@ -179,6 +179,7 @@ pub fn run() {
             commands::links::resolve_wikilink,
             commands::assets::resolve_asset,
             commands::assets::save_asset,
+            commands::assets::validate_preview_file,
             commands::notes::get_all_notes,
             commands::notes::get_all_tags,
             commands::notes::get_file_tags,
