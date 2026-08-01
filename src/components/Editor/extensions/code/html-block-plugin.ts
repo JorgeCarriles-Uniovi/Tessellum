@@ -9,6 +9,25 @@ import { parseCodeBlocks } from "./code-parser";
 
 const HTML_BLOCK_LANGUAGES = ["html", "htm"];
 
+/**
+ * Policy applied to every embedded-HTML surface (fenced ```html blocks, the
+ * standalone .html viewer, and ![[page.html]] embeds).
+ *
+ * `sandbox=""` blocks script execution but NOT subresource fetches, so an
+ * `<img src="https://tracker/<id>.png">` in an untrusted document still fires a
+ * real request on open — leaking the reader's IP, the time of reading, and
+ * which note, in an app that is otherwise fully offline. This confines embedded
+ * documents to local subresources.
+ *
+ * Directly enforced for the `srcdoc` frame below, which inherits the embedder's
+ * policy. For the two `asset://`-loaded frames it is defense in depth: embedded
+ * CSP enforcement can be ignored for a document that sends no `Allow-CSP-From`
+ * header, and Tauri's asset protocol sets no CSP header at all. Closing that
+ * residual gap needs a Tauri-level response header and is tracked separately.
+ */
+export const EMBEDDED_HTML_CSP =
+    "default-src 'none'; img-src data: blob: asset: https://asset.localhost http://asset.localhost; style-src 'unsafe-inline' data: asset:; font-src data: asset:; media-src data: blob: asset:";
+
 function renderHtmlBlockError(container: HTMLElement): void {
     container.innerHTML = "";
     const errorDiv = document.createElement("div");
@@ -65,6 +84,8 @@ class HtmlBlockWidget extends WidgetType {
         frame.className = "cm-html-frame";
         // Empty sandbox: all restrictions on, so inline <script> never runs.
         frame.setAttribute("sandbox", "");
+        // ...and no network reach, so a note-borne beacon cannot fire on open.
+        frame.setAttribute("csp", EMBEDDED_HTML_CSP);
         frame.srcdoc = this.code;
         frame.title = "HTML preview";
         frame.style.width = "100%";

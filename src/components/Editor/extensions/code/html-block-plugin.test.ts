@@ -1,7 +1,24 @@
 import { markdown } from "@codemirror/lang-markdown";
 import { EditorState } from "@codemirror/state";
 import { describe, expect, test } from "vitest";
-import { buildHtmlBlockDecorations } from "./html-block-plugin";
+import { buildHtmlBlockDecorations, EMBEDDED_HTML_CSP } from "./html-block-plugin";
+
+/** Minimal stand-in for EditorView: toDOM only touches it inside event handlers. */
+const stubView = { dispatch: () => {}, focus: () => {} } as never;
+
+interface WidgetLike {
+    toDOM: (view: never) => HTMLElement;
+}
+
+function firstWidget(doc: string, cursor: number): WidgetLike {
+    const decorations = buildHtmlBlockDecorations(stateWith(doc, cursor));
+    let widget: WidgetLike | null = null;
+    decorations.between(0, doc.length, (_from, _to, value) => {
+        widget = (value.spec as { widget?: WidgetLike }).widget ?? null;
+    });
+    if (!widget) throw new Error("no html block widget was produced");
+    return widget;
+}
 
 function stateWith(doc: string, cursor: number) {
     return EditorState.create({
@@ -39,5 +56,24 @@ describe("html block plugin", () => {
         const decorations = buildHtmlBlockDecorations(stateWith("```html\n\n```\n\nAfter", 17));
 
         expect(decorations.size).toBe(0);
+    });
+
+    test("the rendered iframe is fully sandboxed and confined to local subresources", () => {
+        const dom = firstWidget(DOC, 26).toDOM(stubView);
+        const frame = dom.querySelector("iframe")!;
+
+        // Empty sandbox === every restriction on, notably no script execution.
+        expect(frame.getAttribute("sandbox")).toBe("");
+        // And no network reach for subresources, so a note-borne beacon such as
+        // <img src="https://tracker/<id>.png"> cannot fire when the note opens.
+        expect(frame.getAttribute("csp")).toBe(EMBEDDED_HTML_CSP);
+    });
+
+    test("the embedded-html policy denies everything by default and allows no remote origin", () => {
+        expect(EMBEDDED_HTML_CSP).toContain("default-src 'none'");
+        expect(EMBEDDED_HTML_CSP).not.toMatch(/(^|[\s;])https:(\s|;|$)/);
+        expect(EMBEDDED_HTML_CSP).not.toMatch(/(^|[\s;])http:(\s|;|$)/);
+        expect(EMBEDDED_HTML_CSP).not.toContain("'unsafe-eval'");
+        expect(EMBEDDED_HTML_CSP).not.toContain("script-src");
     });
 });

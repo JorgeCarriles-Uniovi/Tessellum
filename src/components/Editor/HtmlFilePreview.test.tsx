@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, test } from "vitest";
 import { HtmlFilePreview } from "./HtmlFilePreview";
+import { EMBEDDED_HTML_CSP } from "./extensions/code/html-block-plugin";
 
 describe("HtmlFilePreview", () => {
     test("renders a script-blocking sandboxed iframe pointed at the converted asset url", () => {
@@ -11,6 +12,7 @@ describe("HtmlFilePreview", () => {
         expect(frame!.getAttribute("src")).toBe("asset://vault/Report.html");
         // Empty sandbox === all restrictions on, notably no script execution.
         expect(frame!.getAttribute("sandbox")).toBe("");
+        expect(frame!.getAttribute("csp")).toBe(EMBEDDED_HTML_CSP);
     });
 
     test("swaps to the fallback message when the iframe fails to load", () => {

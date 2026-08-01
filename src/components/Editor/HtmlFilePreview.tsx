@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { theme } from "../../styles/theme";
+import { EMBEDDED_HTML_CSP } from "./extensions/code/html-block-plugin";
 
 interface HtmlFilePreviewProps {
     path: string;
@@ -51,6 +52,7 @@ export function HtmlFilePreview({ path }: HtmlFilePreviewProps) {
                 ref={frameRef}
                 src={convertFileSrc(path)}
                 sandbox=""
+                {...({ csp: EMBEDDED_HTML_CSP } as Record<string, string>)}
                 title="HTML Preview"
                 className="w-full h-full border-none"
             />

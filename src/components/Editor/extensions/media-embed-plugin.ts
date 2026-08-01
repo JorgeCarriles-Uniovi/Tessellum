@@ -13,6 +13,7 @@ import { readFile } from "@tauri-apps/plugin-fs";
 import { parseCodeBlocks } from "./code/code-parser";
 import { findLatexExpressions } from "./shared-latex-utils";
 import { collectInlineCodeSpansForLine } from "../../../utils/inlineCodeSpans";
+import { EMBEDDED_HTML_CSP } from "./code/html-block-plugin";
 
 interface MediaEmbedConfig {
     vaultPath: string;
@@ -133,6 +134,8 @@ class MediaEmbedWidget extends WidgetType {
             frame.className = "cm-media-html";
             // Empty sandbox: all restrictions on, so inline <script> never runs.
             frame.setAttribute("sandbox", "");
+            // ...and no network reach, so a note-borne beacon cannot fire on open.
+            frame.setAttribute("csp", EMBEDDED_HTML_CSP);
             frame.src = this.src;
             frame.title = this.displayName;
             frame.style.width = this.width ? `${this.width}px` : "100%";
