@@ -1,8 +1,7 @@
 import {SettingSection} from "./items/SettingSection";
 import {SelectSetting} from "./items/SelectSetting";
 import {TextInputSetting} from "./items/TextInputSetting";
-import {useAIStore} from "../../stores/aiStore";
-import { persistAiSecret } from "../../stores/aiStore";
+import {useAIStore, persistAiSecret} from "../../stores/aiStore";
 
 export function AISettings() {
     const providerConfig = useAIStore((s) => s.providerConfig);

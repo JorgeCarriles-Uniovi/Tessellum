@@ -81,4 +81,29 @@ describe("secretStorage", () => {
 
         expect(invokeMock).not.toHaveBeenCalled();
     });
+
+    test("does not purge the plaintext copy when the keychain write fails", async () => {
+        localStorage.setItem(
+            "tessellum:sync",
+            JSON.stringify({ state: { config: { remoteUrl: "https://git", password: "leaked" } }, version: 0 })
+        );
+        invokeMock.mockRejectedValueOnce(new Error("Credential store unavailable"));
+
+        const migrated = await migratePlaintextSecret({
+            storageKey: "tessellum:sync",
+            secretKey: SECRET_KEYS.syncPassword,
+            extract: (parsed) => (parsed as { state?: { config?: { password?: string } } })?.state?.config?.password,
+            strip: (parsed) => {
+                const blob = parsed as { state?: { config?: Record<string, unknown> } };
+                if (blob?.state?.config) delete blob.state.config.password;
+                return blob;
+            },
+        });
+
+        expect(migrated).toBeNull();
+        // The keychain write failed, so the plaintext copy must survive —
+        // otherwise a flaky credential store on first launch destroys the
+        // user's only copy of the secret.
+        expect(localStorage.getItem("tessellum:sync")).toContain("leaked");
+    });
 });

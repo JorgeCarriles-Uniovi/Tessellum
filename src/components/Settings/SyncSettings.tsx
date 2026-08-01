@@ -17,6 +17,12 @@ export function SyncSettings() {
     const [authorEmail, setAuthorEmail] = useState(config.authorEmail ?? "");
     const [username, setUsername] = useState(config.username ?? "");
     const [password, setPassword] = useState(config.password ?? "");
+    // Tracks whether the user has actually edited the password field in this
+    // session. `hydrateSyncSecret()` resolves asynchronously, so the field
+    // can still read "" here even though the keychain holds a real password.
+    // Only a deliberate edit should be allowed to write (or delete) the
+    // stored credential — see the guard in saveConfig below.
+    const [passwordDirty, setPasswordDirty] = useState(false);
     const [status, setStatus] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
 
@@ -40,7 +46,15 @@ export function SyncSettings() {
         // The password is stripped from the persisted blob, so it must be
         // written through to the OS credential store explicitly. Fire and
         // forget: the in-memory value above is what this session uses.
-        void persistSyncSecret();
+        //
+        // Gated on passwordDirty: a save that fires before hydrateSyncSecret()
+        // resolves would otherwise see an empty local field and call
+        // persistSyncSecret() with "", which setSecret() treats as a delete —
+        // silently destroying the user's stored credential. Only a field the
+        // user actually touched should be allowed to overwrite the keychain.
+        if (passwordDirty) {
+            void persistSyncSecret();
+        }
     };
 
     const handleInit = async () => {
@@ -133,7 +147,10 @@ export function SyncSettings() {
                     label="Password / Token"
                     type="password"
                     value={password}
-                    onChange={setPassword}
+                    onChange={(v) => {
+                        setPassword(v);
+                        setPasswordDirty(true);
+                    }}
                     placeholder="ghp_…"
                     autoComplete="new-password"
                 />
