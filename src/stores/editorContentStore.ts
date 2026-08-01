@@ -40,6 +40,14 @@ function readInitialEditorFontSizePx(): number {
 export interface EditorContentState {
     activeNoteContent: string;
     isDirty: boolean;
+    /**
+     * Every open path with unsaved edits, not just the active one.
+     *
+     * `isDirty` describes only the active note, so a close guard keyed on it
+     * cannot protect background tabs. Keep both: `isDirty` drives the active
+     * editor's save indicator, `dirtyPaths` drives per-tab decisions.
+     */
+    dirtyPaths: Set<string>;
     editorFontSizePx: number;
     autoSaveStatus: AutoSaveStatus;
 }
@@ -47,6 +55,8 @@ export interface EditorContentState {
 export interface EditorContentActions {
     setActiveNoteContent: (content: string) => void;
     setIsDirty: (isDirty: boolean) => void;
+    markPathDirty: (path: string) => void;
+    markPathClean: (path: string) => void;
     setEditorFontSizePx: (value: number) => void;
     setAutoSaveStatus: (status: AutoSaveStatus) => void;
 }
@@ -56,11 +66,29 @@ export type EditorContentStore = EditorContentState & EditorContentActions;
 export const useEditorContentStore = create<EditorContentStore>((set) => ({
     activeNoteContent: "",
     isDirty: false,
+    dirtyPaths: new Set<string>(),
     editorFontSizePx: readInitialEditorFontSizePx(),
     autoSaveStatus: DEFAULT_AUTO_SAVE_STATUS,
 
     setActiveNoteContent: (activeNoteContent) => set({ activeNoteContent }),
     setIsDirty: (isDirty) => set({ isDirty }),
+
+    markPathDirty: (path) =>
+        set((s) => {
+            if (s.dirtyPaths.has(path)) return s;
+            const next = new Set(s.dirtyPaths);
+            next.add(path);
+            return { dirtyPaths: next };
+        }),
+
+    markPathClean: (path) =>
+        set((s) => {
+            if (!s.dirtyPaths.has(path)) return s;
+            const next = new Set(s.dirtyPaths);
+            next.delete(path);
+            return { dirtyPaths: next };
+        }),
+
     setEditorFontSizePx: (value) => set(() => {
         const nextValue = clampEditorFontSizePx(value);
         localStorage.setItem(EDITOR_FONT_SIZE_KEY, String(nextValue));

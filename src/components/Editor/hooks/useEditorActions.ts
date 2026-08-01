@@ -6,6 +6,7 @@ import {
     useNoteRenaming,
 } from './index.ts';
 import { useEditorStore } from "../../../stores/editorStore.ts";
+import { useEditorContentStore } from "../../../stores/editorContentStore";
 import { isMediaFile } from "../../../utils/fileType";
 
 export function useFileSynchronization(activeNote: FileMetadata | null) {
@@ -21,6 +22,8 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
     const pendingDebouncedSaveRef = useRef<{ path: string; vault: string | null; noteSnapshot: FileMetadata } | null>(null);
     const loadRequestIdRef = useRef(0);
     const { vaultPath, setActiveNoteContent, setIsDirty, setActiveNote } = useEditorStore();
+    const markPathDirty = useEditorContentStore((s) => s.markPathDirty);
+    const markPathClean = useEditorContentStore((s) => s.markPathClean);
     const activeNoteRef = useRef(activeNote);
     const vaultPathRef = useRef(vaultPath);
 
@@ -60,6 +63,7 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
                     setContent("");
                     setActiveNoteContent("");
                     setIsDirty(false);
+                    markPathClean(activeNote.path);
                     return;
                 }
 
@@ -73,6 +77,7 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
                 setContent(text);
                 setActiveNoteContent(text);
                 setIsDirty(false);
+                markPathClean(activeNote.path);
             } catch (error) {
                 if (cancelled || loadRequestIdRef.current !== requestId) {
                     return;
@@ -82,6 +87,7 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
                 setContent(errorText);
                 setActiveNoteContent(errorText);
                 setIsDirty(false);
+                markPathClean(activeNote.path);
             } finally {
                 if (!cancelled && loadRequestIdRef.current === requestId) {
                     setIsLoading(false);
@@ -93,7 +99,7 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
         return () => {
             cancelled = true;
         };
-    }, [activeNote?.path, setActiveNoteContent, setIsDirty, vaultPath]);
+    }, [activeNote?.path, setActiveNoteContent, setIsDirty, vaultPath, markPathClean]);
 
     const flushLatestContent = useCallback((path: string, vault: string | null, noteSnapshot: FileMetadata) => {
         if (!vault) {
@@ -112,6 +118,7 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
         const lastPersisted = lastPersistedContentByPathRef.current.get(path);
         if (lastPersisted === contentToWrite) {
             lastScheduledContentByPathRef.current.delete(path);
+            markPathClean(path);
             if (activeNoteRef.current?.path === path) {
                 setIsDirty(false);
             }
@@ -125,6 +132,7 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
         invoke('write_file', { path, vaultPath: vault, content: contentToWrite })
             .then(() => {
                 lastPersistedContentByPathRef.current.set(path, contentToWrite);
+                markPathClean(path);
                 lastScheduledContentByPathRef.current.delete(path);
 
                 if (activeNoteRef.current?.path === path) {
@@ -139,6 +147,7 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
                 console.error(error);
                 // Allow scheduling the same content again after a failed write.
                 lastScheduledContentByPathRef.current.delete(path);
+                markPathDirty(path);
                 if (activeNoteRef.current?.path === path) {
                     setIsDirty(true);
                 }
@@ -154,7 +163,7 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
                     }
                 }
             });
-    }, [setActiveNote, setIsDirty]);
+    }, [setActiveNote, setIsDirty, markPathDirty, markPathClean]);
 
     const flushPendingDebouncedSave = useCallback(() => {
         if (!saveTimeoutRef.current) {
@@ -193,6 +202,7 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
                 lastScheduledContentByPathRef.current.delete(path);
                 if (!saveInFlightByPathRef.current.get(path)) {
                     setIsDirty(false);
+                    markPathClean(path);
                 }
                 return;
             }
@@ -200,12 +210,14 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
             const lastScheduled = lastScheduledContentByPathRef.current.get(path);
             if (lastScheduled === val && saveTimeoutRef.current) {
                 setIsDirty(true);
+                markPathDirty(path);
                 return;
             }
 
             if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
 
             setIsDirty(true);
+            markPathDirty(path);
             saveGenerationByPathRef.current.set(path, (saveGenerationByPathRef.current.get(path) ?? 0) + 1);
             lastScheduledContentByPathRef.current.set(path, val);
             pendingDebouncedSaveRef.current = { path, vault, noteSnapshot: note };
@@ -220,7 +232,7 @@ export function useFileSynchronization(activeNote: FileMetadata | null) {
                 flushLatestContent(pendingSave.path, pendingSave.vault, pendingSave.noteSnapshot);
             }, 1000);
         }
-    }, [flushLatestContent, setActiveNoteContent, setIsDirty]);
+    }, [flushLatestContent, setActiveNoteContent, setIsDirty, markPathDirty, markPathClean]);
 
     useEffect(() => {
         flushPendingDebouncedSave();
