@@ -3,7 +3,7 @@ use tauri::State;
 
 use crate::error::TessellumError;
 use crate::models::{AppState, AssetIndex};
-use crate::utils::{normalize_path, sanitize_string, validate_path_in_vault};
+use crate::utils::{is_hidden_or_special, normalize_path, sanitize_string, validate_path_in_vault};
 
 const SUPPORTED_EXTS: &[&str] = &[
 	"png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "tif", "tiff", "avif", "pdf", "html", "htm",
@@ -165,6 +165,16 @@ pub async fn validate_preview_file(
 		return Ok(false);
 	};
 	if !resolved.is_file() {
+		return Ok(false);
+	}
+	// Every neighbouring vault-file command excludes hidden/special
+	// directories (.git, .trash, .obsidian, ...) via this helper; without it
+	// here, `<vault>/.git/x.html` would be green-lit for preview.
+	let Ok(vault_root) = Path::new(&vault_path).canonicalize() else {
+		return Ok(false);
+	};
+	let rel_path = resolved.strip_prefix(&vault_root).unwrap_or(&resolved);
+	if is_hidden_or_special(rel_path) {
 		return Ok(false);
 	}
 	Ok(is_supported_asset(&resolved))
@@ -349,6 +359,24 @@ mod tests {
 		.unwrap();
 
 		assert!(ok);
+	}
+
+	#[tokio::test]
+	async fn validate_preview_file_rejects_hidden_or_special_paths() {
+		let vault = tempdir().unwrap();
+		let git_dir = vault.path().join(".git");
+		fs::create_dir_all(&git_dir).unwrap();
+		let hidden = git_dir.join("x.html");
+		fs::write(&hidden, "<h1>hidden</h1>").unwrap();
+
+		let ok = validate_preview_file(
+			vault.path().to_string_lossy().to_string(),
+			hidden.to_string_lossy().to_string(),
+		)
+		.await
+		.unwrap();
+
+		assert!(!ok);
 	}
 
 	#[tokio::test]
