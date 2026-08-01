@@ -2,6 +2,7 @@ import {SettingSection} from "./items/SettingSection";
 import {SelectSetting} from "./items/SelectSetting";
 import {TextInputSetting} from "./items/TextInputSetting";
 import {useAIStore} from "../../stores/aiStore";
+import { persistAiSecret } from "../../stores/aiStore";
 
 export function AISettings() {
     const providerConfig = useAIStore((s) => s.providerConfig);
@@ -62,7 +63,12 @@ export function AISettings() {
                         description="Stored locally in your browser. Not sent to any server other than the API endpoint above."
                         type="password"
                         value={providerConfig.api_key ?? ""}
-                        onChange={(v) => setProviderConfig({ api_key: v || undefined })}
+                        onChange={(v) => {
+                            setProviderConfig({ api_key: v || undefined });
+                            // Stripped from the persisted blob — write it through
+                            // to the OS credential store explicitly.
+                            void persistAiSecret();
+                        }}
                         placeholder={providerConfig.kind === "claude" ? "sk-ant-…" : "sk-…"}
                         autoComplete="new-password"
                     />

@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useVaultStore } from "../../stores/vaultStore";
-import { useSyncStore } from "../../stores/syncStore";
+import { useSyncStore, persistSyncSecret } from "../../stores/syncStore";
 import { SettingSection } from "./items/SettingSection";
 import { TextInputSetting } from "./items/TextInputSetting";
 import { SettingButton } from "./items/SettingButton";
@@ -20,6 +20,14 @@ export function SyncSettings() {
     const [status, setStatus] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
 
+    // The credential arrives asynchronously from the OS credential store; seed
+    // the field once it lands, unless the user has already typed something.
+    useEffect(() => {
+        if (config.password && !password) {
+            setPassword(config.password);
+        }
+    }, [config.password, password]);
+
     const saveConfig = () => {
         setConfig({
             remoteUrl: remoteUrl.trim() || undefined,
@@ -29,6 +37,10 @@ export function SyncSettings() {
             username: username.trim() || undefined,
             password: password.trim() || undefined,
         });
+        // The password is stripped from the persisted blob, so it must be
+        // written through to the OS credential store explicitly. Fire and
+        // forget: the in-memory value above is what this session uses.
+        void persistSyncSecret();
     };
 
     const handleInit = async () => {
