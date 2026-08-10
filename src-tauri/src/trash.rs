@@ -33,8 +33,12 @@ pub fn decode_relative_dir(encoded: &str) -> String {
 }
 
 /// Generates a unique trash name that encodes the full relative path from the vault root.
-/// New format: "<stem> (p:<encoded-rel-dir>) <timestamp>[.<ext>]"
-/// Items at vault root use an empty relative dir: "<stem> (p:) <timestamp>[.<ext>]"
+/// New format: "<stem> (p=<encoded-rel-dir>) <timestamp>[.<ext>]"
+/// Items at vault root use an empty relative dir: "<stem> (p=) <timestamp>[.<ext>]"
+///
+/// Uses `=` rather than `:` as the marker separator because `:` is an illegal
+/// filename character on Windows (reserved for drive letters / NTFS streams),
+/// which made every trash operation fail there with os error 123.
 pub fn generate_trash_name(path: &Path, vault_root: &Path, timestamp: u128) -> Option<String> {
 	let filename = path.file_name()?.to_string_lossy();
 
@@ -45,7 +49,7 @@ pub fn generate_trash_name(path: &Path, vault_root: &Path, timestamp: u128) -> O
 		.unwrap_or_default();
 
 	let encoded = encode_relative_dir(&rel_dir);
-	let label = format!("p:{encoded}");
+	let label = format!("p={encoded}");
 
 	if path.is_dir() {
 		Some(format!("{} ({}) {}", filename, label, timestamp))
@@ -169,8 +173,13 @@ pub fn parse_trash_entry_name(name: &str, is_dir: bool) -> Option<ParsedTrashNam
 		None => base_name.to_string(),
 	};
 
-	// New format: parent label starts with "p:" — decode the full relative dir.
-	let (parent_label, relative_dir) = if let Some(encoded) = parent_label_raw.strip_prefix("p:") {
+	// New format: parent label starts with "p=" (or the legacy "p:", kept for
+	// backward compatibility with trash entries created before the Windows fix)
+	// — decode the full relative dir.
+	let (parent_label, relative_dir) = if let Some(encoded) = parent_label_raw
+		.strip_prefix("p=")
+		.or_else(|| parent_label_raw.strip_prefix("p:"))
+	{
 		let decoded = decode_relative_dir(encoded);
 		(parent_label_raw.to_string(), Some(decoded))
 	} else {
@@ -481,10 +490,10 @@ mod tests {
 		fs::write(trash.join(&first_name), "existing").unwrap();
 
 		let unique_path = generate_unique_trash_path(&trash, &source_file, vault, timestamp).unwrap();
-		// New format encodes "Folder A" as "p:Folder%20A" is wrong — spaces are not encoded.
-		// The new format: "Note (p:Folder A) <ts> [1].md"
+		// New format encodes "Folder A" as "p=Folder%20A" is wrong — spaces are not encoded.
+		// The new format: "Note (p=Folder A) <ts> [1].md"
 		let file_name = unique_path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-		assert!(file_name.starts_with("Note (p:Folder A)") && file_name.ends_with("[1].md"),
+		assert!(file_name.starts_with("Note (p=Folder A)") && file_name.ends_with("[1].md"),
 			"unexpected name: {file_name}");
 	}
 
@@ -499,13 +508,23 @@ mod tests {
 
 		let name = generate_trash_name(&file, vault, 1000).unwrap();
 		assert!(
-			name.contains("(p:Projects%2F2024%2FQ1)"),
+			name.contains("(p=Projects%2F2024%2FQ1)"),
 			"expected encoded path in trash name, got: {name}"
 		);
 	}
 
 	#[test]
 	fn parse_trash_entry_name_decodes_relative_dir() {
+		let parsed =
+			parse_trash_entry_name("Meeting Notes (p=Projects%2F2024%2FQ1) 1000.md", false).unwrap();
+		assert_eq!(parsed.original_name, "Meeting Notes.md");
+		assert_eq!(parsed.relative_dir.as_deref(), Some("Projects/2024/Q1"));
+	}
+
+	#[test]
+	fn parse_trash_entry_name_decodes_legacy_colon_marker() {
+		// Pre-fix entries used "p:" as the marker, which is illegal in Windows
+		// filenames. Parsing must still support them for backward compatibility.
 		let parsed =
 			parse_trash_entry_name("Meeting Notes (p:Projects%2F2024%2FQ1) 1000.md", false).unwrap();
 		assert_eq!(parsed.original_name, "Meeting Notes.md");
