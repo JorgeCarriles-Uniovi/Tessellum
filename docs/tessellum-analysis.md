@@ -664,18 +664,27 @@ Either action — reachable from the tab-strip context menu — silently drops e
 
 *Area first audited in this refresh. The `html-preview` builtin plugin (commits `e4f8cce`..`37faba9`) renders untrusted HTML three ways: standalone `.html`/`.htm` files opened from the file tree, fenced ` ```html ` code blocks inside notes, and `![[page.html]]` embeds routed through the media-embed plugin. All three were reviewed for sandbox escape, path escape, and out-of-vault/network reach.*
 
-#### NEW-HTMLPREVIEW-2 (remainder): CSP now confines embedded HTML on Blink, but two of three surfaces still fall back to the app CSP on WebKit engines
+#### NEW-HTMLPREVIEW-2 (remainder): the `csp` attribute is confirmed unusable on the two `asset://` surfaces — they now carry no subresource confinement at all
 
 **Status:** CHANGED-SINCE
 **Severity:** Medium
-**File:** `src/components/Editor/extensions/code/html-block-plugin.ts:38-39` (`EMBEDDED_HTML_CSP`), applied at `:115` (fenced-block iframe), `src/components/Editor/HtmlFilePreview.tsx:102` (standalone viewer), `src/components/Editor/extensions/media-embed-plugin.ts:138` (`![[page.html]]` embeds); residual gap in `src-tauri/tauri.conf.json` (`app.security.csp`)
+**File:** `src/components/Editor/extensions/code/html-block-plugin.ts:38-39` (`EMBEDDED_HTML_CSP`), applied at `:115` (fenced-block iframe); `src/components/Editor/HtmlFilePreview.tsx` and `src/components/Editor/extensions/media-embed-plugin.ts` (`kind === "html"` branch) no longer carry the attribute
 
 **Description:**
-A shared policy, `EMBEDDED_HTML_CSP`, is now applied to all three HTML iframes as a `csp` attribute — `default-src 'none'` plus local-only `img-src`/`style-src`/`font-src`/`media-src` allowances (`data:`, `blob:`, `asset:`), with no `https:`/`http:` source anywhere in it. For the fenced ` ```html ` block, which renders via `srcdoc`, the same policy is additionally prepended as an inline `<meta http-equiv="Content-Security-Policy">` in the document itself (`buildEmbeddedHtmlSrcDoc`, `html-block-plugin.ts:51-53`), so that surface is confined on every rendering engine — a `srcdoc` document can carry its own CSP via a meta tag, and every engine honours it.
+The prior remediation applied a shared policy, `EMBEDDED_HTML_CSP`, to all three HTML iframes as a `csp` attribute. That attribute turned out not to be passive hardening: per the CSP Embedded Enforcement spec, when a framed response is not a local scheme and neither sends an `Allow-CSP-From` header nor delivers a CSP at least as strong as the required one, the user agent blocks the response entirely rather than merely skipping enforcement. Tauri's asset protocol sends neither header. On Blink — which includes WebView2, i.e. every Windows install — this meant the two `asset://`-loaded frames (the standalone `.html`/`.htm` viewer and `![[page.html]]` embeds) were refused outright and rendered nothing, a full regression of standalone HTML preview. Verified with a local cross-origin repro and this console message on the blocked frame:
 
-**What remains open:** the `csp` **attribute** — as opposed to the meta-tag form — is CSP Embedded Enforcement, which is implemented in Blink only; WKWebView (macOS) and WebKitGTK (Linux) ignore it entirely. The two `asset://`-loaded surfaces (the standalone `.html` viewer and `![[page.html]]` embeds) load an existing document by URL rather than via `srcdoc`, so there is no meta-tag option available to them — they depend solely on the Blink-only attribute. On macOS and Linux, a frame on either of those two surfaces silently falls back to inheriting the **app's** CSP from `tauri.conf.json`, which still permits `img-src ... https:`, so the original network-beacon leak (`<img src="https://tracker/<id>.png">` firing on note open) remains reachable on those platforms through those two surfaces specifically. The `srcdoc` fenced-block frame is unaffected by this gap on any engine.
+```
+Refused to display '...' in a frame. The embedder requires it to enforce the
+following Content Security Policy: '...'. However, the frame neither accepts
+that policy using the Allow-CSP-From header nor delivers a Content Security
+Policy which is at least as strong as that one.
+```
 
-**Fix:** Add a Tauri-level CSP response header on the asset protocol so `asset://`-served documents carry a real, engine-independent CSP instead of depending on the attribute alone; or drop the bare `https:` source from the global CSP's `img-src`/`media-src` in `tauri.conf.json` (this would also affect remote images in ordinary notes, so treat it as a product decision rather than a pure bugfix). Either closes the remaining gap on WKWebView/WebKitGTK.
+The attribute has been removed from both `asset://` frames. It remains on the fenced ` ```html ` block's `srcdoc` frame, where `srcdoc` content is a local scheme exempt from CSPEE's blocking rule, and where the same policy is additionally carried as an inline `<meta http-equiv="Content-Security-Policy">` in the document itself (`buildEmbeddedHtmlSrcDoc`, `html-block-plugin.ts:51-53`) — a mechanism every engine honours. That surface is confined on Blink, WebKitGTK, and WKWebView alike and is unaffected by this finding.
+
+**What remains open:** the two `asset://` surfaces now have **no** subresource confinement whatsoever, on any engine — not "Blink-only," as previously described, but none at all, because the attribute that was supposed to provide it cannot be used there. They rely solely on `sandbox=""` for script blocking. An `<img src="https://tracker/<id>.png">` in an untrusted standalone `.html` file or `![[page.html]]` embed still fires a real request on open, leaking the reader's IP, the time of reading, and which note, in an app that is otherwise fully offline. The original network-beacon leak is reachable through both surfaces on every platform, not just macOS/Linux.
+
+**Fix:** The only viable fix is a Tauri-level CSP response header on the asset protocol, so `asset://`-served documents carry a real, engine-independent CSP without depending on the (unusable, for this scheme) `csp` attribute. Dropping the bare `https:` source from the global CSP's `img-src`/`media-src` in `tauri.conf.json` was previously offered as an alternative, but does not apply here: these two frames never inherited the app CSP to begin with (they now carry none), so tightening it would not confine them. The `csp` attribute must not be re-added to either `asset://` frame without the response-header fix landing first — doing so reproduces the render-blocking regression this entry documents.
 
 ---
 
@@ -901,7 +910,7 @@ All **31 currently-open** findings — more precisely **29 defects plus 2 verifi
 | 3 | CONFIRMED-TRASH-1 | Restore fallback silently picks one of several same-named folders | `notes.rs:130-148` | Medium |
 | 4 | BUG-R5 | `generate_unique_trash_path` check-then-act gap before the rename | `trash.rs:100-112` | Medium |
 | 5 | BUG-R6 | Same-second, same-size frontmatter edits skipped by the indexer | `indexer.rs:76-84` | Medium |
-| 6 | NEW-HTMLPREVIEW-2 | Two of three HTML surfaces still inherit the app's permissive CSP on WKWebView/WebKitGTK (Blink-only `csp` attribute; `srcdoc` frame is covered on all engines) | `tauri.conf.json`, `html-block-plugin.ts:38-39`, `HtmlFilePreview.tsx:102`, `media-embed-plugin.ts:138` | Medium |
+| 6 | NEW-HTMLPREVIEW-2 | Two of three HTML surfaces have no subresource confinement on any engine — the `csp` attribute is unusable on `asset://` frames (CSPEE blocks the response); `srcdoc` frame is covered on all engines | `html-block-plugin.ts:38-39`, `HtmlFilePreview.tsx`, `media-embed-plugin.ts` | Medium |
 | 7 | NEW-STORES-3 | Corrupted `expandedFolders` aborts workspace restore, disabling periodic sync | `useVaultSession.ts:79-106` | Medium |
 | 8 | NEW-VAULTSWITCH-1 | Recent-vault click has no pre-flight validation; silent bounce to "no vault" | `VaultSwitcherPopover.tsx:210-213` | Medium |
 | 9 | NEW-VAULTSWITCH-2 | `canvasPath`/`viewMode` not torn down on vault switch | `graphStore.ts:23-37` | Medium |
