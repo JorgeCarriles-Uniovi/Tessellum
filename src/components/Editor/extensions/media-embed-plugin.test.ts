@@ -1,6 +1,5 @@
 import { describe, expect, test } from "vitest";
 import { getMediaKind, MediaEmbedWidget } from "./media-embed-plugin";
-import { EMBEDDED_HTML_CSP } from "./code/html-block-plugin";
 
 /** Minimal stand-in for EditorView: toDOM only touches it inside event handlers. */
 const stubView = { dispatch: () => {}, focus: () => {} } as never;
@@ -47,8 +46,11 @@ describe("MediaEmbedWidget html rendering", () => {
         expect(frame.getAttribute("src")).toBe("asset://vault/page.html");
         // Empty sandbox === every restriction on, notably no script execution.
         expect(frame.getAttribute("sandbox")).toBe("");
-        // And no network reach for subresources.
-        expect(frame.getAttribute("csp")).toBe(EMBEDDED_HTML_CSP);
+        // Regression guard: the `csp` attribute must NOT be set on this
+        // asset://-loaded frame. CSPEE causes Blink (WebView2) to block the
+        // response outright when neither an Allow-CSP-From header nor a
+        // subsuming CSP is present, which Tauri's asset protocol never sends.
+        expect(frame.getAttribute("csp")).toBeNull();
     });
 
     test("a pdf embed is not treated as html and carries no sandbox claim", () => {

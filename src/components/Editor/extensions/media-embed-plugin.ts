@@ -13,7 +13,6 @@ import { readFile } from "@tauri-apps/plugin-fs";
 import { parseCodeBlocks } from "./code/code-parser";
 import { findLatexExpressions } from "./shared-latex-utils";
 import { collectInlineCodeSpansForLine } from "../../../utils/inlineCodeSpans";
-import { EMBEDDED_HTML_CSP } from "./code/html-block-plugin";
 
 interface MediaEmbedConfig {
     vaultPath: string;
@@ -133,9 +132,13 @@ export class MediaEmbedWidget extends WidgetType {
             const frame = document.createElement("iframe");
             frame.className = "cm-media-html";
             // Empty sandbox: all restrictions on, so inline <script> never runs.
+            // No `csp` attribute here: CSP Embedded Enforcement causes Blink
+            // (WebView2 on Windows) to block asset:// responses outright when
+            // neither an Allow-CSP-From header nor a subsuming CSP is present,
+            // which Tauri's asset protocol never sends — see EMBEDDED_HTML_CSP's
+            // docstring in html-block-plugin.ts. This frame has no subresource
+            // confinement; an embedded remote <img> will still fire on open.
             frame.setAttribute("sandbox", "");
-            // ...and no network reach, so a note-borne beacon cannot fire on open.
-            frame.setAttribute("csp", EMBEDDED_HTML_CSP);
             frame.src = this.src;
             frame.title = this.displayName;
             frame.style.width = this.width ? `${this.width}px` : "100%";

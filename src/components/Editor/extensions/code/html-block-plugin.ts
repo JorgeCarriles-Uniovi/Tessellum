@@ -10,8 +10,11 @@ import { parseCodeBlocks } from "./code-parser";
 const HTML_BLOCK_LANGUAGES = ["html", "htm"];
 
 /**
- * Policy applied to every embedded-HTML surface (fenced ```html blocks, the
- * standalone .html viewer, and ![[page.html]] embeds).
+ * Policy applied to the fenced ```html block's `srcdoc` iframe only
+ * (`HtmlBlockWidget` below). It is NOT applied to the other two
+ * embedded-HTML surfaces — the standalone `.html`/`.htm` viewer
+ * (`HtmlFilePreview.tsx`) or the `![[page.html]]` embed
+ * (`media-embed-plugin.ts`) — see "Why not the other two surfaces" below.
  *
  * `sandbox=""` blocks script execution but NOT subresource fetches, so an
  * `<img src="https://tracker/<id>.png">` in an untrusted document still fires a
@@ -19,21 +22,38 @@ const HTML_BLOCK_LANGUAGES = ["html", "htm"];
  * which note, in an app that is otherwise fully offline. This confines embedded
  * documents to local subresources.
  *
- * Enforcement differs by engine and by surface:
- * - The `csp` attribute (CSP Embedded Enforcement) is implemented in Blink
- *   only. WKWebView (macOS) and WebKitGTK (Linux) ignore it entirely, so on
- *   those engines a frame relying solely on the attribute would silently fall
- *   back to inheriting the *embedder's* CSP (`app.security.csp` in
- *   `tauri.conf.json`), which is far more permissive than this policy.
- * - The `srcdoc` frame below closes that gap by also carrying this policy as
- *   an inline `<meta http-equiv="Content-Security-Policy">` in the document
- *   itself — a mechanism every engine honours — so that frame is confined on
- *   Blink, WebKitGTK, and WKWebView alike.
- * - The two `asset://`-loaded frames (`HtmlFilePreview.tsx`,
- *   `media-embed-plugin.ts`) load an existing document by URL rather than via
- *   `srcdoc`, so there is no equivalent meta-tag option: they still depend on
- *   the Blink-only `csp` attribute alone and remain defense-in-depth pending a
- *   Tauri-level response header, tracked separately.
+ * This `srcdoc` frame is confined on every engine via two redundant paths:
+ * - The `csp` attribute (CSP Embedded Enforcement), which Blink enforces
+ *   natively.
+ * - An inline `<meta http-equiv="Content-Security-Policy">` prepended to the
+ *   document itself (`buildEmbeddedHtmlSrcDoc` below) — a mechanism every
+ *   engine honours, including WKWebView (macOS) and WebKitGTK (Linux), which
+ *   ignore the `csp` attribute entirely.
+ * `srcdoc` is same-origin/local-scheme content, which CSPEE exempts from its
+ * blocking behaviour, so carrying both is safe here.
+ *
+ * Why not the other two surfaces: `HtmlFilePreview.tsx` and
+ * `media-embed-plugin.ts` load an existing document by `asset://` URL rather
+ * than via `srcdoc`, so there is no meta-tag option available to them. The
+ * `csp` attribute was tried there and had to be reverted — per the CSPEE
+ * spec, when a framed response is not a local scheme and neither sends an
+ * `Allow-CSP-From` header nor delivers a CSP at least as strong as the
+ * required one, Blink (including WebView2 on Windows) blocks the response
+ * outright rather than merely dropping enforcement. Tauri's asset protocol
+ * sends neither header, so every `asset://` frame carrying the attribute was
+ * refused with:
+ *
+ *   Refused to display '...' in a frame. The embedder requires it to enforce
+ *   the following Content Security Policy: '...'. However, the frame neither
+ *   accepts that policy using the Allow-CSP-From header nor delivers a
+ *   Content Security Policy which is at least as strong as that one.
+ *
+ * So those two frames currently carry NO subresource confinement — they rely
+ * on `sandbox=""` for script blocking only, and an embedded remote `<img>`
+ * will still fire a request on open. The attribute must not be re-added to
+ * them without also adding a real CSP response header on the asset protocol
+ * (a Tauri-level change); dropping the attribute is not itself a fix for the
+ * underlying leak, only for the regression it caused.
  */
 export const EMBEDDED_HTML_CSP =
     "default-src 'none'; img-src data: blob: asset: https://asset.localhost http://asset.localhost; style-src 'unsafe-inline' data: asset:; font-src data: asset:; media-src data: blob: asset:";

@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, test } from "vitest";
 import { invokeMock } from "../../test/tauriMocks";
 import { useVaultStore } from "../../stores/vaultStore";
 import { HtmlFilePreview } from "./HtmlFilePreview";
-import { EMBEDDED_HTML_CSP } from "./extensions/code/html-block-plugin";
 
 describe("HtmlFilePreview", () => {
     beforeEach(() => {
@@ -22,7 +21,11 @@ describe("HtmlFilePreview", () => {
         expect(frame!.getAttribute("src")).toBe("asset://vault/Report.html");
         // Empty sandbox === all restrictions on, notably no script execution.
         expect(frame!.getAttribute("sandbox")).toBe("");
-        expect(frame!.getAttribute("csp")).toBe(EMBEDDED_HTML_CSP);
+        // Regression guard: the `csp` attribute must NOT be set on this
+        // asset://-loaded frame. CSPEE causes Blink (WebView2) to block the
+        // response outright when neither an Allow-CSP-From header nor a
+        // subsuming CSP is present, which Tauri's asset protocol never sends.
+        expect(frame!.getAttribute("csp")).toBeNull();
     });
 
     test("shows the fallback when the backend reports the file is unavailable", async () => {

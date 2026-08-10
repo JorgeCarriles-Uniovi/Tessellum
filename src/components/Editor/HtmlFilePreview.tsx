@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { theme } from "../../styles/theme";
 import { useVaultStore } from "../../stores/vaultStore";
-import { EMBEDDED_HTML_CSP } from "./extensions/code/html-block-plugin";
 
 interface HtmlFilePreviewProps {
     path: string;
@@ -16,10 +15,14 @@ type PreviewStatus = "checking" | "available" | "unavailable";
  * Renders through `convertFileSrc` rather than a blob URL so relative
  * references inside the document (sibling stylesheets, images) still resolve.
  * The empty `sandbox` attribute blocks script execution entirely on every
- * engine. The `csp` attribute confines subresources to local origins, but —
- * see `EMBEDDED_HTML_CSP`'s docstring — it is Blink-only; this is one of the
- * two `asset://`-loaded frames that has no meta-tag equivalent, so it remains
- * defense-in-depth pending a Tauri-level response header on other engines.
+ * engine.
+ *
+ * This frame carries no CSP: the `csp` attribute (CSP Embedded Enforcement)
+ * is not usable here — see `EMBEDDED_HTML_CSP`'s docstring in
+ * `html-block-plugin.ts` for why it silently breaks asset:// loading on
+ * Blink/WebView2. There is no subresource confinement on this surface, so an
+ * `<img src="https://tracker/...">` in the document will still fire a
+ * request when the frame loads.
  *
  * Availability is checked up front via `validate_preview_file`: browsers do not
  * fire an `error` event on an iframe for navigation failures, so an asset 403
@@ -99,7 +102,6 @@ export function HtmlFilePreview({ path }: HtmlFilePreviewProps) {
                 sandbox=""
                 title="HTML Preview"
                 className="w-full h-full border-none"
-                {...({ csp: EMBEDDED_HTML_CSP } as Record<string, string>)}
             />
         </div>
     );
