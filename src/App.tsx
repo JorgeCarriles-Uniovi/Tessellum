@@ -42,6 +42,8 @@ import { useVaultSession } from "./hooks/useVaultSession";
 import { useGlobalShortcuts } from "./hooks/useGlobalShortcuts";
 import { useWindowStatePersistence } from "./hooks/useWindowStatePersistence";
 import { useTypographyCssVars } from "./hooks/useTypographyCssVars";
+import { hydrateSyncSecret } from "./stores/syncStore";
+import { hydrateAiSecret } from "./stores/aiStore";
 
 const MIN_WINDOW_WIDTH = 720;
 const MIN_WINDOW_HEIGHT = 500;
@@ -71,6 +73,13 @@ function App() {
     useApplyAccessibilitySettings();
     useApplySpellCheckSettings();
     useAutoSave();
+
+    // Load credentials from the OS credential store (and migrate any plaintext
+    // copies left by builds before the keychain move) before sync or AI runs.
+    useEffect(() => {
+        void hydrateSyncSecret();
+        void hydrateAiSecret();
+    }, []);
 
     useEffect(() => {
         if (!vaultPath) return;

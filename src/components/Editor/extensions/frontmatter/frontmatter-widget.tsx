@@ -84,7 +84,7 @@ const FrontmatterUI: React.FC<{ view: EditorView, initialBlock: FrontmatterBlock
 
     return (
         <div className="cm-frontmatter-widget" contentEditable={false} data-readonly={readOnly}>
-            <div className="cm-frontmatter-header">Properties</div>
+            <div className="cm-frontmatter-header pt-2 mt-2">   Properties</div>
             <div className="cm-frontmatter-props">
                 {Object.entries(properties).map(([key, value]) => (
                     <PropertyRow
@@ -104,6 +104,7 @@ const FrontmatterUI: React.FC<{ view: EditorView, initialBlock: FrontmatterBlock
                         className="cm-frontmatter-add-row cursor-pointer"
                         onClick={addProperty}
                     >
+                        <span></span>
                         <Plus className="w-3.5 h-3.5" />
                         <span>Add property</span>
                     </div>
@@ -158,6 +159,8 @@ const PropertyRow = ({ propKey, propValue, existingKeys, onUpdate, onUpdateKey, 
                     <X className="w-3.5 h-3.5" />
                 </button>
             )}
+            {isTag ?             <div className="h-1"></div>
+            : null}
         </div>
     );
 };

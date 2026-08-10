@@ -14,6 +14,7 @@ pub mod plugins;
 pub mod publish;
 pub mod recovery;
 pub mod scripts;
+pub mod secrets;
 pub mod semantic;
 pub mod sync;
 pub mod templates;
@@ -21,7 +22,7 @@ pub mod vault;
 pub mod watcher;
 pub mod search;
 
-pub use assets::{resolve_asset, save_asset};
+pub use assets::{resolve_asset, save_asset, validate_preview_file};
 pub use clipboard::{import_clipboard_files, write_file_paths_to_clipboard};
 pub use folders::create_folder;
 pub use graph::get_graph_data;

@@ -8,7 +8,9 @@ This document consolidates a **Tessellum 2.0 feature proposal** (updated to refl
 
 The 2026-06-18 audit tracked 39 findings (`BUG-U1`–`U5`, `BUG-G1`–`G12`, `BUG-R1`–`R9`, `BUG-E1`–`E5`, `BUG-S1`–`S4`, `BUG-C1`–`C4`). This refresh re-verified all 39 against current code and additionally audited three areas that did not exist at the time of the previous audit: the **HTML Preview plugin**, the **Graph View / Mosaic redesign**, and the **Vault Switcher / recent-vaults** feature.
 
-**Headline numbers:** 32 of 39 old findings are fixed. 7 remain open (2 fully unchanged, 5 partially addressed with a residual gap). A further 2 findings outside the old ID set were confirmed open during this session's earlier trash/restore work (`CONFIRMED-TRASH-1`, `CONFIRMED-TRASH-2`), and 27 new findings were discovered. Total currently-open findings: **36** (7 + 2 + 27).
+**Headline numbers:** 32 of 39 old findings are fixed. 7 remain open (2 fully unchanged, 5 partially addressed with a residual gap). A further 2 findings outside the old ID set were confirmed open during this session's earlier trash/restore work (`CONFIRMED-TRASH-1`, `CONFIRMED-TRASH-2`), and 27 new findings were discovered. Total currently-open findings as of that refresh: **36** (7 + 2 + 27).
+
+**Update — `fix/audit-2026-07-31-open-findings`:** the security-and-high-severity remediation branch (`docs/superpowers/plans/2026-07-31-security-and-high-severity-remediation.md`) has since closed 7 of those 36 in full — `NEW-STORES-1`, `BUG-C1`, `NEW-GRAPH-1`, `BUG-C2`, `NEW-HTMLPREVIEW-1`, `NEW-HTMLPREVIEW-3`, `NEW-HTMLPREVIEW-4` (see section 3) — and surfaced 2 new findings during the work, `NEW-BACKEND-5` and `NEW-UI-1`. `NEW-HTMLPREVIEW-2` is only partially closed by the same branch and remains open (see its section 2.6 entry). Net: 36 − 7 + 2 = **31 currently-open findings** (29 defects + 2 verification/coverage records — see section 4).
 
 ---
 
@@ -18,7 +20,7 @@ The 2026-06-18 audit tracked 39 findings (`BUG-U1`–`U5`, `BUG-G1`–`G12`, `BU
 
 - **BUG-U1** (Reduced Motion toggle clears the active theme) — fixed, see `src/hooks/useApplyAccessibilitySettings.ts:35-43`.
 - **BUG-U2** (fenced blocks break callout rendering) — fixed, see `src/components/Editor/extensions/callout/callout-parser.ts:41-80`.
-- **BUG-U3** (graph media nodes: wrong label, double-click creates `.md`) — fixed **in the global Graph View only**, see `src-tauri/src/commands/graph.rs:30-48` and `src/components/GraphView/GraphView.tsx:144-185`. The Local Graph panel still reproduces it — see `NEW-GRAPH-1`.
+- **BUG-U3** (graph media nodes: wrong label, double-click creates `.md`) — fixed **in the global Graph View only**, see `src-tauri/src/commands/graph.rs:30-48` and `src/components/GraphView/GraphView.tsx:144-185`. The Local Graph panel reproduced it separately (tracked as `NEW-GRAPH-1`); that regression was since closed by the `fix/audit-2026-07-31-open-findings` branch via a shared `resolveGhostNodeTarget` helper — see section 3.
 - **BUG-U4** (wikilinks display the full path) — fixed, see `src/components/Editor/extensions/wikilink/wikiLink-parser.ts:40-68`.
 - **BUG-U5** (trash restore remembers only the immediate parent folder) — fixed, see `src-tauri/src/trash.rs` (`generate_trash_name`, now encoding the full relative directory as `p=<encoded-rel-dir>`). Tracked in this refresh as `CONFIRMED-TRASH-4`.
 - **BUG-G1** (vaultStore reads localStorage path with no validation) — fixed downstream, see `src/hooks/useVaultSession.ts:120-134`.
@@ -56,8 +58,8 @@ These are **not** closed. Each has a full writeup in section 2.
 - **BUG-R3** — the two silent-miss cases (path-style wikilinks, case-only renames) are fixed; the rewritten backlink **source** files are still not re-indexed immediately. Full writeup: [§2.2](#22-rust-backend-commands--indexer).
 - **BUG-R5** — the trash-directory `mkdir` race is fixed; the check-then-act gap between `generate_unique_trash_path` and the caller's `rename` remains. Full writeup: [§2.2](#22-rust-backend-commands--indexer).
 - **BUG-R6** — the indexer now compares file size as well as mtime; a same-second, same-size frontmatter edit is still skipped. Full writeup: [§2.2](#22-rust-backend-commands--indexer).
-- **BUG-C1** — closing the *active* tab with unsaved changes is now guarded by a confirm dialog; closing a **background** tab still discards edits silently. Full writeup: [§2.5](#25-ui-components--feature-slices).
-- **BUG-C2** — `SearchPanel` now keys on data identity; `TemplatePicker` and `SidebarContextMenu` still splice the array index into their keys. Full writeup: [§2.5](#25-ui-components--feature-slices).
+- **BUG-C1** — closing the *active* tab with unsaved changes is now guarded by a confirm dialog; closing a **background** tab still discards edits silently. Full writeup: [§2.5](#25-ui-components--feature-slices). *(Since fully closed by the `fix/audit-2026-07-31-open-findings` branch — see section 3.)*
+- **BUG-C2** — `SearchPanel` now keys on data identity; `TemplatePicker` and `SidebarContextMenu` still splice the array index into their keys. Full writeup: [§2.5](#25-ui-components--feature-slices). *(Since fully closed by the `fix/audit-2026-07-31-open-findings` branch — see section 3.)*
 
 ### Unchanged — still fully open (2)
 
@@ -124,7 +126,7 @@ Remaining from the original proposal: orphan-note "similar to N others" suggesti
 #### Local AI Writing Assistant — **Shipped**
 Implemented in `src-tauri/src/commands/ai.rs` (`ai_generate`) with provider configuration for Ollama / OpenAI / Claude in `src/stores/aiStore.ts` and `src/components/Settings/AISettings.tsx`.
 
-> **Regression against the original design:** the proposal specified the API key be "stored in the OS keychain". It is currently persisted in plaintext `localStorage` — see `NEW-STORES-1`, the highest-priority open finding in this document.
+> **Regression against the original design, since resolved:** the proposal specified the API key be "stored in the OS keychain". It was persisted in plaintext `localStorage` — tracked as `NEW-STORES-1`, formerly the highest-priority open finding in this document — until the `fix/audit-2026-07-31-open-findings` branch moved it into the OS credential store; see section 3.
 
 #### Auto-Tagging & Concept Extraction — **Shipped**
 Implemented in `src-tauri/src/commands/semantic.rs` (`suggest_tags`, `get_similar_tag_groups`, `merge_tags`), with the consolidation UI in `src/components/Settings/TagsSettings.tsx`.
@@ -143,7 +145,7 @@ Git-backed sync is implemented in `src-tauri/src/commands/sync.rs` (`init_vault_
 
 Not yet implemented: the WebDAV and local-folder adapters, and the three-way-diff conflict resolution UI (`get_conflict_list` returns conflicting paths but there is no diff surface for them).
 
-> The git remote **password** is persisted in plaintext `localStorage` — see `NEW-STORES-1`.
+> The git remote **password** was persisted in plaintext `localStorage` (`NEW-STORES-1`); since moved to the OS credential store by the `fix/audit-2026-07-31-open-findings` branch — see section 3.
 
 #### Version History — **Shipped**
 Implemented in `src-tauri/src/commands/history.rs` (`write_note_snapshot`, `list_note_snapshots`, `get_note_snapshot`, `pin_snapshot`, `unpin_snapshot`), with the UI in `src/components/history/` (`NoteHistoryPanel.tsx`, `DiffView.tsx`, `computeDiff.ts`). Snapshots are written in the background on every `write_file` (`src-tauri/src/commands/notes.rs:891-903`).
@@ -210,7 +212,7 @@ No `[[bin]]` target or `tessellum serve` mode exists.
 
 ## 2. Currently Open Findings by Area
 
-36 findings. Each entry gives Severity, File(s), Description, Root cause where it differs from the description, and Fix.
+31 findings. Each entry gives Severity, File(s), Description, Root cause where it differs from the description, and Fix.
 
 ---
 
@@ -444,6 +446,33 @@ Inside the `notify` callback, a debounced filesystem event triggers `app_handle_
 
 ---
 
+#### NEW-BACKEND-5: `create_note`'s containment check validates the target directory against itself
+
+**Status:** NEW
+**Severity:** Medium
+**File:** `src-tauri/src/commands/notes.rs:508` (`create_note`), called with a target subfolder (not the vault root) from `src/utils/noteUtils.ts:23-27` (`createNoteInDir`)
+
+**Description:**
+`create_note`'s only containment check is:
+
+```rust
+pub async fn create_note(
+    state: State<'_, AppState>,
+    kuzu_state: State<'_, ManagedGrafeoConnection>,
+    vault_path: String,
+    title: String,
+) -> Result<String, TessellumError> {
+    validate_path_in_vault(&vault_path, &vault_path).map_err(TessellumError::Validation)?;
+```
+
+`validate_path_in_vault(candidate, vault_root)` checks that `candidate` resolves inside `vault_root` — here both arguments are the same string, so the check reduces to "does `vault_path` resolve inside itself", which is trivially true no matter what `vault_path` contains. But `vault_path` is not always the vault root: `createNoteInDir` (`noteUtils.ts:24-27`) passes `vaultPath: targetDir`, i.e. the note's destination *subfolder*, in that slot. So the one caller this command exists for never gives `create_note` anything to validate the target directory against, and a target directory that traverses outside the vault gets no backend protection at all. The only thing currently stopping this is a frontend guard in `src/utils/graphNodeActions.ts` (`resolveGhostNodeTarget`); an in-vault symlink pointing outward, or any future caller that bypasses that helper, would reach `tokio::fs::write` (`notes.rs:536`) unchecked.
+
+**Root cause:** the command has no separate vault-root parameter — the only value available to validate against is the same target-directory string being validated.
+
+**Fix:** Pass the true vault root as a distinct parameter (as `ensure_daily_note_parent` does at `notes.rs:302`, calling `validate_path_in_vault(&parent_str, vault_path)` with `vault_path` as the *root*), and validate the target directory against that root instead of against itself.
+
+---
+
 ### 2.3 Editor Extensions
 
 #### NEW-EDITOR-1: Heading fold widget still has the deferred-unmount race that BUG-E4 fixed elsewhere
@@ -536,38 +565,6 @@ Note also that the doc comment at `:23` is itself stale and actively misleading:
 
 ### 2.4 Stores & Hooks
 
-#### NEW-STORES-1: Git-sync password and AI provider API key are persisted in plaintext localStorage
-
-**Status:** NEW
-**Severity:** Critical (security / confidentiality)
-**File:** `src/stores/syncStore.ts:14-22, 79-82` and `src/stores/aiStore.ts:4-9, 77-80`, populated from user input at `src/components/Settings/SyncSettings.tsx:23-32`
-
-**Description:**
-`useSyncStore` and `useAIStore` both use Zustand's `persist` middleware with a `partialize` that keeps the entire `config` / `providerConfig` object — including a git remote `password` field (used as a GitHub/GitLab personal-access-token-style credential for HTTPS sync) and an AI provider `api_key` field respectively.
-
-```typescript
-// syncStore.ts:79-82
-{
-    name: "tessellum:sync",
-    partialize: (s) => ({ config: s.config }),
-}
-```
-```typescript
-// aiStore.ts:77-80
-{
-    name: "tessellum:ai",
-    partialize: (s) => ({ providerConfig: s.providerConfig }),
-}
-```
-
-Both are written to `localStorage` — a plaintext, unencrypted-at-rest store backed by a file in the WebView's app-data directory — with no encryption, no OS keychain integration, and no opt-out. Any process with filesystem read access to the user's profile, or any XSS/supply-chain compromise of the webview content, can read these secrets directly.
-
-**Severity note:** this document otherwise reserves Critical for app-crashing or data-corrupting reliability failures (the old `BUG-R1`, `BUG-R2`). This finding does not crash the app or corrupt vault data — it sits on a different axis. It is rated Critical because a leaked git or AI-provider credential grants an attacker standing write access to the user's remote repositories or billed API usage, not because it threatens stability. It ranks first in the priority matrix on that basis, and because the original 2.0 proposal explicitly specified OS-keychain storage for exactly this data.
-
-**Fix:** Exclude `password` and `api_key` from `partialize` (the rest of the config is not secret and can stay), and persist the secrets through a Tauri secure-storage plugin backed by the OS keychain/credential manager, accessed via an IPC command — never `localStorage`.
-
----
-
 #### NEW-STORES-2: Stale recent-vault paths are only pruned when actively selected
 
 **Status:** NEW
@@ -631,53 +628,35 @@ Each still makes two separate, non-atomic `setItem` calls. A force-kill between 
 
 ### 2.5 UI Components & Feature Slices
 
-#### BUG-C1 (remainder): Closing a *background* tab with unsaved changes still discards edits silently
+#### NEW-UI-1: Bulk tab-close paths bypass the unsaved-changes guard entirely
 
-**Status:** CHANGED-SINCE
-**Severity:** High
-**File:** `src/components/Editor/Editor.tsx:891-898`, `src/stores/editorContentStore.ts:40-45, 56-60`, `src/stores/vaultStore.ts:192-212`
+**Status:** NEW
+**Severity:** Medium
+**File:** `src/stores/vaultStore.ts:213-226` (`closeOtherTabs`, `closeAllTabs`), `src/hooks/useGlobalShortcuts.ts:92` (`Ctrl+W`)
 
 **Description:**
-`handleTabClose` no longer calls `closeTab(id)` unconditionally — it guards and routes through a confirm dialog (`dirtyCloseConfirm`, rendered at `Editor.tsx:1041-1066`):
+`BUG-C1`'s fix routes single-tab closes through `dirtyPaths`, but `closeOtherTabs` and `closeAllTabs` are store actions that discard tabs directly, with no dirty check anywhere in the call path:
 
 ```typescript
-const handleTabClose = (id: string) => {
-    // Guard against silently discarding unsaved changes on the active note.
-    if (id === activeNote?.path && isDirty) {
-        setDirtyCloseConfirm(id);
-        return;
+closeOtherTabs: (path) => set((state) => {
+    if (!state.openTabPaths.includes(path)) {
+        return state;
     }
-    closeTab(id);
-};
+    const active = state.files.find((file) => file.path === path) ?? state.activeNote;
+    return {
+        openTabPaths: [path],
+        activeNote: active,
+    };
+}),
+closeAllTabs: () => set(() => ({
+    openTabPaths: [],
+    activeNote: null,
+})),
 ```
 
-**Root cause of the remainder:** `isDirty` is a single global boolean on `editorContentStore` that tracks only whether the *currently active* note has unsaved edits — it is not keyed per tab or path. `closeTab` itself performs no dirty check at the store level (`vaultStore.ts:192-212` is pure `openTabPaths` array manipulation). So the guard only fires when the tab being closed is also the active tab; closing a background tab — even one with unsaved edits — falls straight through to `closeTab(id)` with no confirmation and no data-loss protection, reproducing the original failure mode for every tab except one.
+Either action — reachable from the tab-strip context menu — silently drops every unsaved edit in the tabs it closes, the same failure mode `BUG-C1` fixed for a single tab, via a different entry point that the fix never covered. `Ctrl+W` in `useGlobalShortcuts.ts:92` also calls `closeTab` directly rather than through the guarded `handleTabClose` in `Editor.tsx`, but this path is benign in practice: switching the active note flushes the pending save first, so there is no unsaved content left on the tab by the time `closeTab` runs.
 
-**Fix:** Track dirty state per open path (a `Set<string>` or `Record<path, boolean>` on `editorContentStore`, populated whenever content diverges from that path's last-saved snapshot, not just the active one) so `handleTabClose` can check `dirtyPaths.has(id)` regardless of which tab is active, and route background-tab closes through the same confirm dialog.
-
----
-
-#### BUG-C2 (remainder): `TemplatePicker` and `SidebarContextMenu` still key list items by array index
-
-**Status:** CHANGED-SINCE
-**Severity:** High
-**File:** `src/components/TemplatePicker.tsx:196-203`, `src/components/Sidebar/SidebarContextMenu.tsx:92-93` (primary site fixed at `src/components/Search/SearchPanel.tsx:500-508`)
-
-**Description:**
-The primary instance is fixed — `SearchPanel` now keys each result on `${result.type}-${result.title}-${result.path}`, derived from data identity rather than array position. The two secondary sites the original finding listed under "Same pattern also in" were not migrated:
-
-```tsx
-// TemplatePicker.tsx:203
-key={`${template.name}-${index}`}
-```
-```tsx
-// SidebarContextMenu.tsx:93
-<div key={`${item.label}-${index}`}>
-```
-
-Both lists are effectively static per mount (no live filter or reorder while open), which narrows the practical blast radius versus the original `SearchPanel` case, but the keys are still not identity-derived: `TemplatePicker` items expose a genuinely unique `template.path` that goes unused, and duplicate `name`/`label` values — or any future reordering — would still trigger the original stale-DOM-node-reuse failure.
-
-**Fix:** In `TemplatePicker.tsx`, key on `template.path` alone (already unique; the blank-note sentinel is the only entry with `""`). In `SidebarContextMenu.tsx`, add an explicit `id` field per item in `createSidebarContextMenuItems` and key on that, since `label` values are translated strings that can collide or change.
+**Fix:** Move the dirty check into `vaultStore.closeTab` itself (consulting `editorContentStore`'s `dirtyPaths`) so every entry point — single close, close-others, close-all, and the keyboard shortcut — is covered by one guard instead of relying on each call site to re-implement it.
 
 ---
 
@@ -685,75 +664,27 @@ Both lists are effectively static per mount (no live filter or reorder while ope
 
 *Area first audited in this refresh. The `html-preview` builtin plugin (commits `e4f8cce`..`37faba9`) renders untrusted HTML three ways: standalone `.html`/`.htm` files opened from the file tree, fenced ` ```html ` code blocks inside notes, and `![[page.html]]` embeds routed through the media-embed plugin. All three were reviewed for sandbox escape, path escape, and out-of-vault/network reach.*
 
-#### NEW-HTMLPREVIEW-1: Sandboxing is correct on all three paths, but only one asserts it in a test
+#### NEW-HTMLPREVIEW-2 (remainder): the `csp` attribute is confirmed unusable on the two `asset://` surfaces — they now carry no subresource confinement at all
 
-**Status:** NEW
-**Severity:** Low (informational + test-coverage gap)
-**File:** `src/components/Editor/HtmlFilePreview.tsx:50-56`, `src/components/Editor/extensions/code/html-block-plugin.ts:64-69`, `src/components/Editor/extensions/media-embed-plugin.ts:131-137`
-
-**Description:**
-All three HTML surfaces set an **empty** `sandbox` attribute, which enables every sandbox restriction; the dangerous `allow-scripts` + `allow-same-origin` pair appears nowhere in the repo. Inline `<script>`, form submission, top-level navigation, popups and plugins are blocked in every path, and the sandbox is applied *before* the frame is attached to the document in every case. There is also no *un*-sandboxed surface for note-authored HTML — no `dangerouslySetInnerHTML` or `innerHTML =` path injects raw note markup into the main document.
-
-**One caveat on that last claim:** `mermaid-plugin.ts:101` does `container.innerHTML = svg` with mermaid's own output, and `mermaid.initialize` in that file (`:219-222`) sets only `startOnLoad` and `theme` — it does not set `securityLevel`. Sanitization of note-derived diagram labels therefore rests on mermaid's `"strict"` default rather than local enforcement, unlike `markdownPdfRenderer.tsx:1204`, which pins `securityLevel: "strict"`.
-
-**Fix:** No change required to the sandboxing itself. The gap is coverage: the invariant is asserted only for the standalone viewer (`HtmlFilePreview.test.tsx:13`). `html-block-plugin.test.ts` and the media-embed tests assert decoration counts and `getMediaKind` gating but never that the produced iframe carries `sandbox=""`. Add a `toDOM()`-level assertion in both so a future refactor that drops or loosens the attribute fails a test. Separately, pin `securityLevel: "strict"` in `mermaid-plugin.ts`.
-
----
-
-#### NEW-HTMLPREVIEW-2: Sandboxed HTML can still reach the network — a note-borne beacon fires on open
-
-**Status:** NEW
+**Status:** CHANGED-SINCE
 **Severity:** Medium
-**File:** `src-tauri/tauri.conf.json:30`, `src/components/Editor/HtmlFilePreview.tsx:50-56`
+**File:** `src/components/Editor/extensions/code/html-block-plugin.ts:38-39` (`EMBEDDED_HTML_CSP`), applied at `:115` (fenced-block iframe); `src/components/Editor/HtmlFilePreview.tsx` and `src/components/Editor/extensions/media-embed-plugin.ts` (`kind === "html"` branch) no longer carry the attribute
 
 **Description:**
-`sandbox=""` stops script execution but does not stop subresource fetches. An `<img src="https://tracker/<vault-id>.png">` inside an untrusted `.html` file or ` ```html ` block still issues a real request the moment the note is opened — leaking the reader's IP, the time of reading, and (via a unique URL) *which* note was opened, in an app that is otherwise fully offline.
+The prior remediation applied a shared policy, `EMBEDDED_HTML_CSP`, to all three HTML iframes as a `csp` attribute. That attribute turned out not to be passive hardening: per the CSP Embedded Enforcement spec, when a framed response is not a local scheme and neither sends an `Allow-CSP-From` header nor delivers a CSP at least as strong as the required one, the user agent blocks the response entirely rather than merely skipping enforcement. Tauri's asset protocol sends neither header. On Blink — which includes WebView2, i.e. every Windows install — this meant the two `asset://`-loaded frames (the standalone `.html`/`.htm` viewer and `![[page.html]]` embeds) were refused outright and rendered nothing, a full regression of standalone HTML preview. Verified with a local cross-origin repro and this console message on the blocked frame:
 
-**Root cause:** neither layer that could stop it does. The parent CSP explicitly allows `https:` in both `img-src` and `media-src`, and that CSP governs the `srcdoc` fenced-block frame (a `srcdoc` document inherits the embedder's CSP). Documents served over `asset://` — the standalone viewer and the `![[page.html]]` embed — get **no CSP header at all** (Tauri's asset protocol response builder sets only `Access-Control-Allow-Origin`, `Content-Type` and range headers). The plugin is enabled by default and fenced blocks auto-render with no click-to-load step, so no user action beyond opening the note is required.
-
-**Fix:** Add a `csp` attribute to the three HTML iframes (e.g. `csp="default-src 'none'; img-src data: asset:; style-src 'unsafe-inline'"`) so embedded documents are confined to local subresources, and/or drop the bare `https:` source from the global CSP's `img-src`/`media-src`. If remote content is wanted, make it an explicit per-document opt-in ("Load remote content") rather than the default.
-
----
-
-#### NEW-HTMLPREVIEW-3: The "couldn't render" fallback is dead code in all three paths
-
-**Status:** NEW
-**Severity:** Medium
-**File:** `src/components/Editor/HtmlFilePreview.tsx:24-30`, `src/components/Editor/extensions/code/html-block-plugin.ts:73`, `src/components/Editor/extensions/media-embed-plugin.ts:141-147`
-
-**Description:**
-All three paths detect failure by listening for an `error` event on the `<iframe>` element, but browsers do not fire `error` on an iframe for navigation failures — an HTTP 403/404 from the asset protocol still fires `load`, with the error page rendered inside the frame. The failure modes are real and reachable: the Tauri asset scope returns **403** for any path outside the vault (see `NEW-HTMLPREVIEW-4`) and **404** for a file deleted between resolution and render. Both currently produce a silent blank frame instead of the written fallback.
-
-The `HtmlFilePreview` unit test passes only because `fireEvent.error` synthesises an event jsdom would never produce on its own, so the test certifies handler wiring rather than the behaviour it claims.
-
-**Fix:** Detect failure before rendering rather than after — have the backend confirm the file exists and is inside the vault, returning a typed error the component can render; or use the `load` event plus a readability probe. Keep the `error` listener only as belt-and-braces, and stop asserting the fallback via a synthetic `error` event.
-
----
-
-#### NEW-HTMLPREVIEW-4: `AssetIndex::resolve` skips its vault-containment check on one of four return paths
-
-**Status:** NEW
-**Severity:** Medium
-**File:** `src-tauri/src/models/asset_index.rs:73-77`, call path `src-tauri/src/commands/assets.rs:73-77`; second vector at `src/components/Editor/HtmlFilePreview.tsx:12-13`
-
-**Description:**
-`AssetIndex::resolve` guards three of its four `Some(...)` returns with `canonicalize(...).starts_with(&canonical_vault_root)`. The first — the plain `vault_root.join(link_target)` branch, taken whenever the wikilink target contains `/` or `\` — returns the joined path as soon as it `exists()`, with no canonicalization, no containment check, and no extension check:
-
-```rust
-if link_target.contains('/') || link_target.contains('\\') {
-    let mut full_path = vault_root.join(link_target);
-    if full_path.exists() {
-        return Some(full_path);
-    }
+```
+Refused to display '...' in a frame. The embedder requires it to enforce the
+following Content Security Policy: '...'. However, the frame neither accepts
+that policy using the Allow-CSP-From header nor delivers a Content Security
+Policy which is at least as strong as that one.
 ```
 
-So `![[../../Other Vault/page.html]]` resolves outside the vault and is handed to the frontend, which feeds it into `convertFileSrc` and an iframe. This matters more since commit `507a26b` added `html`/`htm` to `SUPPORTED_EXTS`: the escape can now surface a whole rendered document rather than just an image. Note the asymmetry inside `resolve_asset_inner` — the `markdown` branch calls `validate_path_in_vault` *and* `is_supported_asset` (`assets.rs:56-61`), while the `obsidian` (wikilink) branch delegates entirely to `AssetIndex` and calls neither.
+The attribute has been removed from both `asset://` frames. It remains on the fenced ` ```html ` block's `srcdoc` frame, where `srcdoc` content is a local scheme exempt from CSPEE's blocking rule, and where the same policy is additionally carried as an inline `<meta http-equiv="Content-Security-Policy">` in the document itself (`buildEmbeddedHtmlSrcDoc`, `html-block-plugin.ts:51-53`) — a mechanism every engine honours. That surface is confined on Blink, WebKitGTK, and WKWebView alike and is unaffected by this finding.
 
-**Second vector, same mitigation:** `HtmlFilePreview.tsx:12-13` documents a deliberate choice to render via `convertFileSrc` rather than a blob URL *precisely so relative references inside the document resolve*. An in-vault `.html` file containing `<img src="../../../secret.png">` therefore issues its own `asset://` requests for paths this repo never sees, let alone validates. This vector exists independently of `resolve_asset` and is not covered by fixing `AssetIndex`.
+**What remains open:** the two `asset://` surfaces now have **no** subresource confinement whatsoever, on any engine — not "Blink-only," as previously described, but none at all, because the attribute that was supposed to provide it cannot be used there. They rely solely on `sandbox=""` for script blocking. An `<img src="https://tracker/<id>.png">` in an untrusted standalone `.html` file or `![[page.html]]` embed still fires a real request on open, leaking the reader's IP, the time of reading, and which note, in an app that is otherwise fully offline. The original network-beacon leak is reachable through both surfaces on every platform, not just macOS/Linux.
 
-**Current exploitability:** blocked by Tauri's asset protocol, with two gates. `SafePathBuf::new` rejects any path containing a `Component::ParentDir` before the scope check runs, so the `..`-shaped form 403s immediately; surviving paths are canonicalized via `try_resolve_symlink_and_canonicalize` before glob-matching, so an in-vault symlink pointing outside is rejected too. Both gates are outside this codebase. The only user-visible effect today is the silent blank frame of `NEW-HTMLPREVIEW-3`. Note that scope grants accumulate per session — `vault.rs:554-560` calls `allow_directory` on every `set_vault_path` — so a second vault opened in the same session widens what the backstop permits.
-
-**Fix:** Apply the same `canonicalize(...).starts_with(&canonical_vault_root)` guard to the `full_path.exists()` return in `asset_index.rs`, and have the `obsidian` branch of `resolve_asset_inner` run its resolved path through `validate_path_in_vault` and `is_supported_asset` exactly like the `markdown` branch, so containment does not depend on the Tauri scope being the only line of defence. The second vector stays a Tauri-scope concern; the `csp` attribute proposed in `NEW-HTMLPREVIEW-2` is what would additionally constrain it.
+**Fix:** The only viable fix is a Tauri-level CSP response header on the asset protocol, so `asset://`-served documents carry a real, engine-independent CSP without depending on the (unusable, for this scheme) `csp` attribute. Dropping the bare `https:` source from the global CSP's `img-src`/`media-src` in `tauri.conf.json` was previously offered as an alternative, but does not apply here: these two frames never inherited the app CSP to begin with (they now carry none), so tightening it would not confine them. The `csp` attribute must not be re-added to either `asset://` frame without the response-header fix landing first — doing so reproduces the render-blocking regression this entry documents.
 
 ---
 
@@ -793,33 +724,6 @@ The `htmlEnabled` gate in `getMediaKind` only removes `"html"` as a *kind*; it d
 ### 2.7 Graph View / Mosaic Redesign
 
 *Area first audited in this refresh.*
-
-#### NEW-GRAPH-1: Local Graph panel's own double-click handler reintroduces BUG-U3 verbatim
-
-**Status:** NEW
-**Severity:** High
-**File:** `src/components/GraphView/LocalGraphPanel.tsx:137-160`
-
-**Description:**
-`LocalGraphPanel.tsx` does not reuse `GraphView.tsx`'s fixed `handleNodeDoubleClick` — it has its own separate copy of the same logic, and that copy was never updated with either of `BUG-U3`'s fixes. It has no media-extension check (no equivalent of `GraphView.tsx`'s `MEDIA_EXTENSIONS` set), and it always calls `createNoteInDir(vaultPath, title)` with the bare vault root, never preserving a folder prefix:
-
-```typescript
-const parts = nodeId.replace(/\\/g, '/').split('/');
-const filename = parts[parts.length - 1];
-const title = filename.replace(/\.md$/, '');
-if (!vaultPath) return;
-const newNote = await createNoteInDir(vaultPath, title);
-```
-
-Concretely: double-clicking a ghost node for a missing image (`Diagram.png`) computes `title = "Diagram.png"` (the `.md` strip is a no-op) and calls `createNoteInDir`. The backend's `create_note` (`src-tauri/src/commands/notes.rs:519-523`) appends `.md` because the title doesn't already end in it, producing a stray `Diagram.png.md` at the vault root — exactly `BUG-U3`'s original symptom. The folder-prefix regression is equally reproducible: a ghost node for `Projects/Idea` creates `Idea.md` at the vault root instead of inside `Projects/`.
-
-This handler is wired to `GraphCanvas`'s `onNodeDoubleClick` inside the floating "Local graph" flyout, so it is reachable from the shipping UI, not dead code.
-
-**Fix:** Extract `GraphView.tsx`'s fixed logic (media-extension guard + folder-preserving `targetDir`) into a shared helper — e.g. `src/utils/graphNodeActions.ts` — and have both `GraphView.tsx` and `LocalGraphPanel.tsx` call it, so the two panels cannot drift out of sync again.
-
-> **Working-tree caveat.** `LocalGraphPanel.tsx` carried an uncommitted change at audit time — wiring in `useResizableFloatingPanel` to make the panel's width and graph height user-resizable. That change was reviewed and is **not** a defect (the added JSX is balanced, and `useResizableFloatingPanel` already clamps its persisted dimensions on both read and write, so it does not repeat `BUG-G1`/`BUG-S1` or share `NEW-GRAPH-3`'s off-screen-drift problem). It is called out here only because it is why the line numbers in this finding are ~17 lines ahead of `37faba9` — see the citation-baseline note at the top of this document. The defect described above is independent of that change and is present in both versions.
-
----
 
 #### NEW-GRAPH-2: Ghost-node creation fails silently when the target folder doesn't exist on disk
 
@@ -944,13 +848,13 @@ The persistence-layer angle on this same feature — recent-vault entries never 
 
 ## 3. Fixed-Since-Last-Audit (Reference Only)
 
-Historical traceability for every fix that landed since the 2026-06-18 audit: the 32 fully-closed findings, plus the closed *portion* of the 5 findings marked *(partial)*. Nothing in this section is actionable — for the partials, the outstanding work is tracked in section 2 and ranked in section 4.
+Historical traceability for every fix that landed since the 2026-06-18 audit: the 32 fully-closed findings, plus the closed *portion* of the 5 findings marked *(partial)*. Two of those five — `BUG-C1` and `BUG-C2` — were subsequently closed in full by the `fix/audit-2026-07-31-open-findings` remediation branch and are recorded below without the `(partial)` marker; the other three (`BUG-R3`, `BUG-R5`, `BUG-R6`) remain partial, with the residual gap tracked in section 2. That same branch also closed five findings from the 2026-07-30 refresh outright — `NEW-STORES-1`, `NEW-GRAPH-1`, `NEW-HTMLPREVIEW-1`, `NEW-HTMLPREVIEW-3`, `NEW-HTMLPREVIEW-4` — appended at the end of the table below. Nothing in this section is actionable — for the remaining partials, the outstanding work is tracked in section 2 and ranked in section 4.
 
 | ID | One-line description | Fix landed at |
 |---|---|---|
 | BUG-U1 | Reduced Motion toggle no longer writes theme state | `src/hooks/useApplyAccessibilitySettings.ts:35-43` |
 | BUG-U2 | Callout scanner tracks open fences, so nested code blocks render | `src/components/Editor/extensions/callout/callout-parser.ts:41-80` |
-| BUG-U3 | Graph double-click guards media extensions and preserves folder prefix — **global Graph View only**; see `NEW-GRAPH-1` (Local Graph panel not migrated) | `src/components/GraphView/GraphView.tsx:144-185`; label test at `src-tauri/src/commands/graph.rs:170` |
+| BUG-U3 | Graph double-click guards media extensions and preserves folder prefix — **global Graph View only** at the time; the Local Graph panel's separate regression (`NEW-GRAPH-1`) was closed later by unifying both panels on one helper (see below) | `src/components/GraphView/GraphView.tsx:144-185`; label test at `src-tauri/src/commands/graph.rs:170` |
 | BUG-U4 | Path-style wikilinks auto-alias to the last segment | `src/components/Editor/extensions/wikilink/wikiLink-parser.ts:40-68` |
 | BUG-U5 | Trash names encode the full relative dir as `p=<encoded>` | `src-tauri/src/trash.rs` (`generate_trash_name`) |
 | BUG-G1 | Persisted vault path validated via `exists()` and pruned when missing | `src/hooks/useVaultSession.ts:120-134` |
@@ -977,14 +881,19 @@ Historical traceability for every fix that landed since the 2026-06-18 audit: th
 | BUG-E3 | CRLF/CR normalised to LF before offset computation | `src/components/Editor/extensions/callout/callout-plugin.ts:144-193` |
 | BUG-E4 | Synchronous `destroyed` flag checked inside the deferred unmount | `frontmatter-widget.tsx:451, 480-489`; `task-list-plugin.tsx:54, 86-97` |
 | BUG-E5 | `cellDisplayWidth` strips `\|` before measuring | `src/components/Editor/extensions/table/table-navigation.ts:37-47` |
-| BUG-C1 (partial) | Active-tab close routed through a confirm dialog | `src/components/Editor/Editor.tsx:891-898, 1041-1066` |
-| BUG-C2 (partial) | Search results keyed on `type`+`title`+`path` | `src/components/Search/SearchPanel.tsx:500-508` |
+| BUG-C1 | Per-path `dirtyPaths` set gates every tab close, not just the active tab | `src/stores/editorContentStore.ts` (`dirtyPaths`), `src/components/Editor/Editor.tsx` (`handleTabClose`) |
+| BUG-C2 | `TemplatePicker` keys on `template.path`; `SidebarContextMenu` items carry an explicit `id` | `src/components/Sidebar/sidebarContextMenuItems.ts` (required `id`), `src/components/TemplatePicker.tsx` |
 | BUG-C3 | `escapeTantivyTerm` escapes the special-character set before query build | `src/components/Search/SearchPanel.tsx:201-225` |
 | BUG-C4 | `draftAccentColor` + `isValidHex` regex gate the commit; error border shown | `src/components/Settings/AppearanceSettings.tsx:68-69, 305-323` |
 | BUG-S1 | Namespaced `"tessellum:vault:path"` with one-time legacy-key migration | `src/stores/vaultStore.ts:54, 78-89` |
 | BUG-S2 | `applyVariant` reads live store values at fire time | `src/hooks/useApplyThemeSchedule.ts:118-127` |
 | BUG-S3 | `useAppearanceStore.getState()` called at each point of use | `src/stores/themeStore.ts:69-79` |
 | BUG-S4 | `isReplaying` and the cursor set in one `set()` before `applyEntry` | `src/stores/navigationHistoryStore.ts:124-128` |
+| NEW-STORES-1 | Git password and AI API key moved to the OS credential store via a `keyring`-backed command triple, stripped from `partialize`, with one-time migrate-and-purge | `src/lib/secretStorage.ts`, `src/stores/syncStore.ts`, `src/stores/aiStore.ts`, `src-tauri/src/commands/secrets.rs` |
+| NEW-GRAPH-1 | Local Graph panel's ghost-node double-click now shares `GraphView`'s media-guard + folder-preserving logic via one helper | `src/utils/graphNodeActions.ts` (`resolveGhostNodeTarget`), shared by `GraphView.tsx` and `LocalGraphPanel.tsx` |
+| NEW-HTMLPREVIEW-1 | Mermaid `securityLevel` pinned to `"strict"`; sandbox invariant now asserted on all three HTML surfaces | `src/components/Editor/extensions/code/mermaid-plugin.ts` (`securityLevel` pinned) + sandbox assertions on all three surfaces |
+| NEW-HTMLPREVIEW-3 | Backend pre-flight check confirms a preview file exists and is in-vault before the frame renders, replacing the dead `error`-event fallback | `src-tauri/src/commands/assets.rs` (`validate_preview_file`), `src/components/Editor/HtmlFilePreview.tsx` |
+| NEW-HTMLPREVIEW-4 | `AssetIndex::resolve`'s containment check now applies to every return path | `src-tauri/src/models/asset_index.rs` (`accept_in_vault` on every return path), `src-tauri/src/commands/assets.rs` |
 
 > Rows marked *(partial)* record the portion that landed; the residual gap is tracked as an open finding in section 2.
 
@@ -992,46 +901,41 @@ Historical traceability for every fix that landed since the 2026-06-18 audit: th
 
 ## 4. Priority Matrix
 
-All **36 currently-open** findings — more precisely **33 defects plus 3 verification / coverage-gap records**. The three non-defects, per their own status labels in section 2, are `CONFIRMED-TRASH-3` (row 20), `NEW-HTMLPREVIEW-1` (row 35) and `NEW-VAULTSWITCH-4` (row 36): none describes a defect in shipping behaviour. Two of them still carry real work — `CONFIRMED-TRASH-3` needs integration tests, and `NEW-HTMLPREVIEW-1` needs a sandbox assertion plus a pinned mermaid `securityLevel` — so they are ranked normally. Only `NEW-VAULTSWITCH-4` requires no action at all; it is listed purely so the coverage is traceable. Ranked by severity then by blast radius. Fixed items are excluded. Recommended order: the credential-exposure item first, then silent data loss, then regressions of previously-fixed bugs, then correctness, then polish.
+All **31 currently-open** findings — more precisely **29 defects plus 2 verification / coverage-gap records**. The two non-defects, per their own status labels in section 2, are `CONFIRMED-TRASH-3` (row 16) and `NEW-VAULTSWITCH-4` (row 31): neither describes a defect in shipping behaviour. `CONFIRMED-TRASH-3` still carries real work — it needs integration tests — so it is ranked normally. `NEW-VAULTSWITCH-4` requires no action at all; it is listed purely so the coverage is traceable. (The third verification/coverage record from the 2026-07-30 refresh, `NEW-HTMLPREVIEW-1`, was closed in full by the `fix/audit-2026-07-31-open-findings` branch and moved to section 3.) Ranked by severity then by blast radius. Fixed items are excluded. With the Critical (`NEW-STORES-1`) and High-severity (`BUG-C1`, `NEW-GRAPH-1`, `BUG-C2`) items all closed by that same branch, the highest-priority open findings are now Medium severity: reindex/restore correctness issues first, then the residual CSP gap and vault-switch teardown items, then the rest of the Medium tier, then Low-severity polish.
 
 | Priority | ID | Description | File | Severity |
 |---|---|---|---|---|
-| 1 | NEW-STORES-1 | Git password and AI API key persisted in plaintext localStorage | `syncStore.ts:79`, `aiStore.ts:77` | Critical (security) |
-| 2 | BUG-C1 | Closing a *background* tab still discards unsaved edits silently | `Editor.tsx:891-898` | High |
-| 3 | NEW-GRAPH-1 | Local Graph panel reintroduces BUG-U3 (stray `.md`, lost folder prefix) | `LocalGraphPanel.tsx:137-160` | High |
-| 4 | BUG-C2 | TemplatePicker / SidebarContextMenu still key list items by array index | `TemplatePicker.tsx:203`, `SidebarContextMenu.tsx:93` | High |
-| 5 | CONFIRMED-TRASH-2 | Restore-triggered reindex bypasses the `sync_in_progress` guard | `notes.rs:232` | Medium |
-| 6 | BUG-R7 | DB commit after filesystem mutation, no rollback path | `db.rs:247-335` | Medium |
-| 7 | CONFIRMED-TRASH-1 | Restore fallback silently picks one of several same-named folders | `notes.rs:130-148` | Medium |
-| 8 | BUG-R5 | `generate_unique_trash_path` check-then-act gap before the rename | `trash.rs:100-112` | Medium |
-| 9 | BUG-R6 | Same-second, same-size frontmatter edits skipped by the indexer | `indexer.rs:76-84` | Medium |
-| 10 | NEW-HTMLPREVIEW-4 | `AssetIndex::resolve` skips containment check on one return path | `asset_index.rs:73-77` | Medium |
-| 11 | NEW-HTMLPREVIEW-2 | Sandboxed HTML can still fire a network beacon on note open | `tauri.conf.json:30` | Medium |
-| 12 | NEW-HTMLPREVIEW-3 | "Couldn't render" fallback is dead code; failures show a blank frame | `HtmlFilePreview.tsx:24-30` | Medium |
-| 13 | NEW-STORES-3 | Corrupted `expandedFolders` aborts workspace restore, disabling periodic sync | `useVaultSession.ts:79-106` | Medium |
-| 14 | NEW-VAULTSWITCH-1 | Recent-vault click has no pre-flight validation; silent bounce to "no vault" | `VaultSwitcherPopover.tsx:210-213` | Medium |
-| 15 | NEW-VAULTSWITCH-2 | `canvasPath`/`viewMode` not torn down on vault switch | `graphStore.ts:23-37` | Medium |
-| 16 | NEW-EDITOR-1 | Heading fold widget still has the BUG-E4 deferred-unmount race | `markdown-heading-fold.ts:163-170` | Medium |
-| 17 | NEW-EDITOR-3 | Media paste inserts embed markdown at a stale selection | `media-paste-plugin.ts:97-130` | Medium |
-| 18 | NEW-BACKEND-1 | `create_note_from_template` passes `target_dir` as `{{vault}}` | `templates.rs:120-121` | Medium |
-| 19 | NEW-GRAPH-2 | Ghost-node creation fails silently when the target folder is missing | `GraphView.tsx:167-181`, `notes.rs:502-538` | Medium |
-| 20 | CONFIRMED-TRASH-3 | No tests for nested-path, fallback-search, or legacy-marker restore | `trash.rs:351-609`, `notes.rs:1010-1152` | Medium |
-| 21 | BUG-R3 | Rewritten backlink source files not re-indexed immediately | `vault.rs:267, 289-319` | Low |
-| 22 | BUG-G12 | Trash-restore errors carry no path context | `notes.rs:213-217` | Low |
-| 23 | NEW-BACKEND-2 | Template/asset collision loops have no upper bound | `templates.rs:110-118`, `assets.rs:120-127` | Low |
-| 24 | NEW-BACKEND-3 | `create_folder` check-then-act race | `folders.rs:33-41` | Low |
-| 25 | NEW-BACKEND-4 | Watcher `file-changed` emission failure silently swallowed | `watcher.rs:65` | Low |
-| 26 | NEW-EDITOR-2 | Mermaid widget can leak a panzoom instance if destroyed mid-render | `mermaid-plugin.ts:97-131` | Low |
-| 27 | NEW-EDITOR-4 | Callout collapse state keyed by line number, reset by unrelated edits | `callout-state.ts:24-26` | Low |
-| 28 | NEW-STORES-4 | Syntax/inline-code colour setters keep BUG-G2's two-write pattern | `appearanceStore.ts:325-329, 364-368` | Low |
-| 29 | NEW-STORES-2 | Stale recent-vault paths pruned only when actively selected | `vaultStore.ts:58-67` | Low |
-| 30 | NEW-VAULTSWITCH-3 | `selectionStore` not cleared on vault switch | `selectionStore.ts:18-26` | Low |
-| 31 | NEW-GRAPH-3 | `useDraggablePosition` never clamps to viewport; panel can go off-screen | `useDraggablePosition.ts:13-24` | Low |
-| 32 | NEW-GRAPH-4 | MosaicCanvas re-runs the full hex layout on every node selection | `MosaicCanvas.tsx:43-66` | Low |
-| 33 | NEW-HTMLPREVIEW-5 | Opening an `.html` file still reads it into the editor store | `useEditorActions.ts:56-64` | Low |
-| 34 | NEW-HTMLPREVIEW-6 | Disabled html-preview degrades `![[page.html]]` to a broken-image icon | `media-embed-plugin.ts:149-158` | Low |
-| 35 | NEW-HTMLPREVIEW-1 | Sandbox invariant asserted in only one of three paths; mermaid `securityLevel` unpinned | `html-block-plugin.ts:64-69` | Low |
-| 36 | NEW-VAULTSWITCH-4 | Verification record — bounding/dedup/removal correct, no action needed | `vaultStore.ts:56, 73-76, 114-118` | Low |
+| 1 | CONFIRMED-TRASH-2 | Restore-triggered reindex bypasses the `sync_in_progress` guard | `notes.rs:232` | Medium |
+| 2 | BUG-R7 | DB commit after filesystem mutation, no rollback path | `db.rs:247-335` | Medium |
+| 3 | CONFIRMED-TRASH-1 | Restore fallback silently picks one of several same-named folders | `notes.rs:130-148` | Medium |
+| 4 | BUG-R5 | `generate_unique_trash_path` check-then-act gap before the rename | `trash.rs:100-112` | Medium |
+| 5 | BUG-R6 | Same-second, same-size frontmatter edits skipped by the indexer | `indexer.rs:76-84` | Medium |
+| 6 | NEW-HTMLPREVIEW-2 | Two of three HTML surfaces have no subresource confinement on any engine — the `csp` attribute is unusable on `asset://` frames (CSPEE blocks the response); `srcdoc` frame is covered on all engines | `html-block-plugin.ts:38-39`, `HtmlFilePreview.tsx`, `media-embed-plugin.ts` | Medium |
+| 7 | NEW-STORES-3 | Corrupted `expandedFolders` aborts workspace restore, disabling periodic sync | `useVaultSession.ts:79-106` | Medium |
+| 8 | NEW-VAULTSWITCH-1 | Recent-vault click has no pre-flight validation; silent bounce to "no vault" | `VaultSwitcherPopover.tsx:210-213` | Medium |
+| 9 | NEW-VAULTSWITCH-2 | `canvasPath`/`viewMode` not torn down on vault switch | `graphStore.ts:23-37` | Medium |
+| 10 | NEW-EDITOR-1 | Heading fold widget still has the BUG-E4 deferred-unmount race | `markdown-heading-fold.ts:163-170` | Medium |
+| 11 | NEW-EDITOR-3 | Media paste inserts embed markdown at a stale selection | `media-paste-plugin.ts:97-130` | Medium |
+| 12 | NEW-BACKEND-1 | `create_note_from_template` passes `target_dir` as `{{vault}}` | `templates.rs:120-121` | Medium |
+| 13 | NEW-GRAPH-2 | Ghost-node creation fails silently when the target folder is missing | `GraphView.tsx:167-181`, `notes.rs:502-538` | Medium |
+| 14 | NEW-BACKEND-5 | `create_note`'s containment check validates the target directory against itself | `notes.rs:508` | Medium |
+| 15 | NEW-UI-1 | Bulk tab-close (`closeOtherTabs`/`closeAllTabs`) bypasses the unsaved-changes guard | `vaultStore.ts:213-226` | Medium |
+| 16 | CONFIRMED-TRASH-3 | No tests for nested-path, fallback-search, or legacy-marker restore | `trash.rs:351-609`, `notes.rs:1010-1152` | Medium |
+| 17 | BUG-R3 | Rewritten backlink source files not re-indexed immediately | `vault.rs:267, 289-319` | Low |
+| 18 | BUG-G12 | Trash-restore errors carry no path context | `notes.rs:213-217` | Low |
+| 19 | NEW-BACKEND-2 | Template/asset collision loops have no upper bound | `templates.rs:110-118`, `assets.rs:120-127` | Low |
+| 20 | NEW-BACKEND-3 | `create_folder` check-then-act race | `folders.rs:33-41` | Low |
+| 21 | NEW-BACKEND-4 | Watcher `file-changed` emission failure silently swallowed | `watcher.rs:65` | Low |
+| 22 | NEW-EDITOR-2 | Mermaid widget can leak a panzoom instance if destroyed mid-render | `mermaid-plugin.ts:97-131` | Low |
+| 23 | NEW-EDITOR-4 | Callout collapse state keyed by line number, reset by unrelated edits | `callout-state.ts:24-26` | Low |
+| 24 | NEW-STORES-4 | Syntax/inline-code colour setters keep BUG-G2's two-write pattern | `appearanceStore.ts:325-329, 364-368` | Low |
+| 25 | NEW-STORES-2 | Stale recent-vault paths pruned only when actively selected | `vaultStore.ts:58-67` | Low |
+| 26 | NEW-VAULTSWITCH-3 | `selectionStore` not cleared on vault switch | `selectionStore.ts:18-26` | Low |
+| 27 | NEW-GRAPH-3 | `useDraggablePosition` never clamps to viewport; panel can go off-screen | `useDraggablePosition.ts:13-24` | Low |
+| 28 | NEW-GRAPH-4 | MosaicCanvas re-runs the full hex layout on every node selection | `MosaicCanvas.tsx:43-66` | Low |
+| 29 | NEW-HTMLPREVIEW-5 | Opening an `.html` file still reads it into the editor store | `useEditorActions.ts:56-64` | Low |
+| 30 | NEW-HTMLPREVIEW-6 | Disabled html-preview degrades `![[page.html]]` to a broken-image icon | `media-embed-plugin.ts:149-158` | Low |
+| 31 | NEW-VAULTSWITCH-4 | Verification record — bounding/dedup/removal correct, no action needed | `vaultStore.ts:56, 73-76, 114-118` | Low |
 
 ---
 

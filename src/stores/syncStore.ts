@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { getSecret, migratePlaintextSecret, setSecret, SECRET_KEYS } from "../lib/secretStorage";
 
 export type SyncStateKind =
     | "no_remote"
@@ -78,7 +79,51 @@ export const useSyncStore = create<SyncState>()(
         }),
         {
             name: "tessellum:sync",
-            partialize: (s) => ({ config: s.config }),
+            // `password` is a PAT-style credential. It stays in memory for the
+            // session and lives at rest in the OS credential store — never in
+            // localStorage, which is a plaintext file in the webview's data
+            // directory. Call `hydrateSyncSecret()` once at startup to load it.
+            partialize: (s) => {
+                const { password: _password, ...safeConfig } = s.config;
+                return { config: safeConfig };
+            },
         }
     )
 );
+
+const SYNC_STORAGE_KEY = "tessellum:sync";
+
+/**
+ * Load the git remote password from the OS credential store into memory.
+ *
+ * Also performs the one-time migration for vaults upgraded from a build that
+ * persisted the password in plaintext localStorage. Call once at app startup,
+ * before any sync command runs.
+ */
+export async function hydrateSyncSecret(): Promise<void> {
+    const migrated = await migratePlaintextSecret({
+        storageKey: SYNC_STORAGE_KEY,
+        secretKey: SECRET_KEYS.syncPassword,
+        extract: (parsed) =>
+            (parsed as { state?: { config?: { password?: string } } })?.state?.config?.password,
+        strip: (parsed) => {
+            const blob = parsed as { state?: { config?: Record<string, unknown> } };
+            if (blob?.state?.config) delete blob.state.config.password;
+            return blob;
+        },
+    });
+
+    const password = migrated ?? (await getSecret(SECRET_KEYS.syncPassword));
+    if (password) {
+        useSyncStore.setState((s) => ({ config: { ...s.config, password } }));
+    }
+}
+
+/**
+ * Write the current in-memory password through to the OS credential store.
+ * Resolves to `false` (rather than throwing) if the write fails, so the
+ * caller can surface the failure to the user instead of losing it silently.
+ */
+export async function persistSyncSecret(): Promise<boolean> {
+    return setSecret(SECRET_KEYS.syncPassword, useSyncStore.getState().config.password ?? "");
+}

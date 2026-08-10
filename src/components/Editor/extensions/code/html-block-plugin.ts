@@ -9,6 +9,69 @@ import { parseCodeBlocks } from "./code-parser";
 
 const HTML_BLOCK_LANGUAGES = ["html", "htm"];
 
+/**
+ * Policy applied to the fenced ```html block's `srcdoc` iframe only
+ * (`HtmlBlockWidget` below). It is NOT applied to the other two
+ * embedded-HTML surfaces — the standalone `.html`/`.htm` viewer
+ * (`HtmlFilePreview.tsx`) or the `![[page.html]]` embed
+ * (`media-embed-plugin.ts`) — see "Why not the other two surfaces" below.
+ *
+ * `sandbox=""` blocks script execution but NOT subresource fetches, so an
+ * `<img src="https://tracker/<id>.png">` in an untrusted document still fires a
+ * real request on open — leaking the reader's IP, the time of reading, and
+ * which note, in an app that is otherwise fully offline. This confines embedded
+ * documents to local subresources.
+ *
+ * This `srcdoc` frame is confined on every engine via two redundant paths:
+ * - The `csp` attribute (CSP Embedded Enforcement), which Blink enforces
+ *   natively.
+ * - An inline `<meta http-equiv="Content-Security-Policy">` prepended to the
+ *   document itself (`buildEmbeddedHtmlSrcDoc` below) — a mechanism every
+ *   engine honours, including WKWebView (macOS) and WebKitGTK (Linux), which
+ *   ignore the `csp` attribute entirely.
+ * `srcdoc` is same-origin/local-scheme content, which CSPEE exempts from its
+ * blocking behaviour, so carrying both is safe here.
+ *
+ * Why not the other two surfaces: `HtmlFilePreview.tsx` and
+ * `media-embed-plugin.ts` load an existing document by `asset://` URL rather
+ * than via `srcdoc`, so there is no meta-tag option available to them. The
+ * `csp` attribute was tried there and had to be reverted — per the CSPEE
+ * spec, when a framed response is not a local scheme and neither sends an
+ * `Allow-CSP-From` header nor delivers a CSP at least as strong as the
+ * required one, Blink (including WebView2 on Windows) blocks the response
+ * outright rather than merely dropping enforcement. Tauri's asset protocol
+ * sends neither header, so every `asset://` frame carrying the attribute was
+ * refused with:
+ *
+ *   Refused to display '...' in a frame. The embedder requires it to enforce
+ *   the following Content Security Policy: '...'. However, the frame neither
+ *   accepts that policy using the Allow-CSP-From header nor delivers a
+ *   Content Security Policy which is at least as strong as that one.
+ *
+ * So those two frames currently carry NO subresource confinement — they rely
+ * on `sandbox=""` for script blocking only, and an embedded remote `<img>`
+ * will still fire a request on open. The attribute must not be re-added to
+ * them without also adding a real CSP response header on the asset protocol
+ * (a Tauri-level change); dropping the attribute is not itself a fix for the
+ * underlying leak, only for the regression it caused.
+ */
+export const EMBEDDED_HTML_CSP =
+    "default-src 'none'; img-src data: blob: asset: https://asset.localhost http://asset.localhost; style-src 'unsafe-inline' data: asset:; font-src data: asset:; media-src data: blob: asset:";
+
+/**
+ * Prepend the embedded-HTML policy as an inline meta tag so the `srcdoc`
+ * frame is confined on every rendering engine, not just Blink (see
+ * `EMBEDDED_HTML_CSP` above). Placed first so the parser sees it before any
+ * of the user's own markup. `EMBEDDED_HTML_CSP` contains no `"` characters,
+ * so it can be embedded directly into the `content` attribute without
+ * escaping; the user's HTML is appended verbatim afterward, unmodified.
+ *
+ * Exported for testing.
+ */
+export function buildEmbeddedHtmlSrcDoc(html: string): string {
+    return `<meta http-equiv="Content-Security-Policy" content="${EMBEDDED_HTML_CSP}">${html}`;
+}
+
 function renderHtmlBlockError(container: HTMLElement): void {
     container.innerHTML = "";
     const errorDiv = document.createElement("div");
@@ -65,7 +128,12 @@ class HtmlBlockWidget extends WidgetType {
         frame.className = "cm-html-frame";
         // Empty sandbox: all restrictions on, so inline <script> never runs.
         frame.setAttribute("sandbox", "");
-        frame.srcdoc = this.code;
+        // ...and no network reach, so a note-borne beacon cannot fire on open.
+        // The `csp` attribute alone only takes effect on Blink; the srcdoc
+        // string also carries the policy as a <meta> tag so WebKitGTK and
+        // WKWebView enforce it too (see EMBEDDED_HTML_CSP's docstring).
+        frame.setAttribute("csp", EMBEDDED_HTML_CSP);
+        frame.srcdoc = buildEmbeddedHtmlSrcDoc(this.code);
         frame.title = "HTML preview";
         frame.style.width = "100%";
         frame.style.height = "320px";

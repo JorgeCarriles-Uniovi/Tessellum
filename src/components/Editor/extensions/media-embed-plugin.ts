@@ -50,8 +50,8 @@ interface DocRange {
 
 const resolvedEffect = StateEffect.define<void>();
 
-
-class MediaEmbedWidget extends WidgetType {
+/** Exported for testing — the sandbox/csp invariant on the html branch is asserted directly. */
+export class MediaEmbedWidget extends WidgetType {
     constructor(
         readonly kind: MediaKind,
         readonly src: string | null,
@@ -132,6 +132,12 @@ class MediaEmbedWidget extends WidgetType {
             const frame = document.createElement("iframe");
             frame.className = "cm-media-html";
             // Empty sandbox: all restrictions on, so inline <script> never runs.
+            // No `csp` attribute here: CSP Embedded Enforcement causes Blink
+            // (WebView2 on Windows) to block asset:// responses outright when
+            // neither an Allow-CSP-From header nor a subsuming CSP is present,
+            // which Tauri's asset protocol never sends — see EMBEDDED_HTML_CSP's
+            // docstring in html-block-plugin.ts. This frame has no subresource
+            // confinement; an embedded remote <img> will still fire on open.
             frame.setAttribute("sandbox", "");
             frame.src = this.src;
             frame.title = this.displayName;

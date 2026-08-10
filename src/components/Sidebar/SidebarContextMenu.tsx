@@ -89,8 +89,8 @@ export function SidebarContextMenu({
             style={{ left: x, top: y, paddingTop: "0.7rem", paddingBottom: "0.7rem", paddingLeft: "1rem", paddingRight: "1rem", gap: "1rem" }}
             onClick={function (e) { return e.stopPropagation() }}
         >
-            {items.map((item, index) => (
-                <div key={`${item.label}-${index}`}>
+            {items.map((item) => (
+                <div key={item.id}>
                     {item.separator && <div className="mx-3 my-1.5 h-px bg-[color:var(--color-panel-border)]" />}
                     <button
                         onClick={() => {

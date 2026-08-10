@@ -83,10 +83,25 @@ vi.mock("./MediaPreview", () => ({
 }));
 
 vi.mock("./TabStrip", () => ({
-    TabStrip: ({ activeTabId, onOverviewToggle }: { activeTabId?: string; onOverviewToggle?: () => void }) => (
+    TabStrip: ({
+        tabs,
+        activeTabId,
+        onOverviewToggle,
+        onTabClose,
+    }: {
+        tabs?: { id: string }[];
+        activeTabId?: string;
+        onOverviewToggle?: () => void;
+        onTabClose?: (id: string) => void;
+    }) => (
         <div>
             <span>tab-strip:{activeTabId}</span>
             <button type="button" onClick={onOverviewToggle}>toggle-overview</button>
+            {(tabs ?? []).map((tab) => (
+                <button key={tab.id} type="button" onClick={() => onTabClose?.(tab.id)}>
+                    close:{tab.id}
+                </button>
+            ))}
         </div>
     ),
 }));
@@ -110,6 +125,8 @@ vi.mock("../../i18n/react.tsx", () => ({
             if (key === "editor.untitled") return "Untitled";
             if (key === "editor.loadingNote") return "Loading note";
             if (key === "editor.edited") return `Edited ${options?.value ?? ""}`;
+            if (key === "editor.unsavedChangesPrompt") return "Discard unsaved changes?";
+            if (key === "editor.discardChanges") return "Discard";
             return key;
         },
         i18n: {
@@ -176,6 +193,7 @@ describe("Editor host component", () => {
         useEditorContentStore.setState({
             activeNoteContent: "",
             isDirty: false,
+            dirtyPaths: new Set(),
             editorFontSizePx: 16,
         });
         useEditorModeStore.setState({ editorMode: "live-preview" });
@@ -272,5 +290,63 @@ describe("Editor host component", () => {
         fireEvent.click(screen.getByRole("button", { name: "mock-codemirror" }));
         expect(editorComponentMocks.handleContentChange).toHaveBeenCalledWith("Body-updated");
         expect(screen.getByText("selection-toolbar:true")).toBeInTheDocument();
+    });
+
+    test("closing a background tab with unsaved edits asks before discarding", () => {
+        const app = TessellumApp.create();
+        vi.spyOn(app.ui, "getPaletteCommands").mockReturnValue([] as never);
+        useVaultStore.setState({
+            vaultPath: "vault",
+            files: [createFile("vault/active.md"), createFile("vault/background.md")],
+            activeNote: createFile("vault/active.md"),
+            openTabPaths: ["vault/active.md", "vault/background.md"],
+        });
+        // The background tab is dirty; the ACTIVE note is not. Before per-path
+        // tracking, the guard keyed on the global `isDirty` and this close went
+        // straight through, silently discarding the background tab's edits.
+        useEditorContentStore.setState({ isDirty: false, dirtyPaths: new Set(["vault/background.md"]) });
+
+        renderEditor(app);
+        fireEvent.click(screen.getByText("close:vault/background.md"));
+
+        expect(screen.getByText("Discard unsaved changes?")).toBeTruthy();
+        expect(useVaultStore.getState().openTabPaths).toContain("vault/background.md");
+    });
+
+    test("closing a clean background tab does not prompt", () => {
+        const app = TessellumApp.create();
+        vi.spyOn(app.ui, "getPaletteCommands").mockReturnValue([] as never);
+        useVaultStore.setState({
+            vaultPath: "vault",
+            files: [createFile("vault/active.md"), createFile("vault/background.md")],
+            activeNote: createFile("vault/active.md"),
+            openTabPaths: ["vault/active.md", "vault/background.md"],
+        });
+        useEditorContentStore.setState({ isDirty: false, dirtyPaths: new Set() });
+
+        renderEditor(app);
+        fireEvent.click(screen.getByText("close:vault/background.md"));
+
+        expect(screen.queryByText("Discard unsaved changes?")).toBeNull();
+        expect(useVaultStore.getState().openTabPaths).not.toContain("vault/background.md");
+    });
+
+    test("discarding clears the path's dirty marker so reopening starts clean", () => {
+        const app = TessellumApp.create();
+        vi.spyOn(app.ui, "getPaletteCommands").mockReturnValue([] as never);
+        useVaultStore.setState({
+            vaultPath: "vault",
+            files: [createFile("vault/active.md"), createFile("vault/background.md")],
+            activeNote: createFile("vault/active.md"),
+            openTabPaths: ["vault/active.md", "vault/background.md"],
+        });
+        useEditorContentStore.setState({ isDirty: false, dirtyPaths: new Set(["vault/background.md"]) });
+
+        renderEditor(app);
+        fireEvent.click(screen.getByText("close:vault/background.md"));
+        fireEvent.click(screen.getByText("Discard"));
+
+        expect(useEditorContentStore.getState().dirtyPaths.has("vault/background.md")).toBe(false);
+        expect(useVaultStore.getState().openTabPaths).not.toContain("vault/background.md");
     });
 });

@@ -12,7 +12,7 @@ import mermaid from "mermaid";
 import { extractFrontmatter } from "../../components/Editor/editorViewHelpers";
 import { parseFrontmatter } from "../../components/Editor/extensions/frontmatter/frontmatter-parser";
 import { findLatexExpressions } from "../../components/Editor/extensions/shared-latex-utils";
-import { createIconSVG } from "../../components/Editor/extensions/callout/callout-header-base";
+import { createIconSVG, hasCalloutIcon } from "../../components/Editor/extensions/callout/callout-header-base";
 import { getCssVarForToken, THEME_TOKEN_KEYS } from "../../themes/themeTokens";
 import { buildPdfOutlineEntries, EXPORT_TYPOGRAPHY } from "./pdfExportDomain";
 import type { MarkdownPdfRenderInput, MarkdownPdfRenderResult } from "./types";
@@ -74,6 +74,25 @@ function escapeHtml(value: string): string {
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;");
+}
+
+/**
+ * Make CSS text safe to interpolate into a `<style>` element.
+ *
+ * Inside a `<style>` (or `<script>`) the HTML parser is looking only for the
+ * matching end tag, so entity-escaping does nothing — but `</style` or
+ * `</script` in the text would end the element early and let everything after
+ * it be parsed as markup. `\/` is a no-op escape in CSS, so replacing the
+ * slash keeps the stylesheet byte-for-byte equivalent while removing the
+ * end-tag shape the parser scans for.
+ *
+ * Reachable because mermaid's collected `<style>` textContent is read back out
+ * of the live document (`styleElement.textContent`) and interpolated raw.
+ *
+ * Exported for testing.
+ */
+export function sanitizeStyleText(css: string): string {
+    return css.replace(/<\/(style|script)/gi, "<\\/$1");
 }
 
 function getThemeCssVariables(): string {
@@ -821,7 +840,12 @@ function MarkdownChunk({ content, notePath, lineOffset }: { content: string; not
 }
 
 function TerminalCallout({ block }: { block: CalloutExportBlock }) {
-    const iconSvg = createIconSVG(block.calloutType);
+    // The icon element itself is injected later by `enhanceCalloutIcons`, which
+    // appends a real DOM node into this slot. Rendering the SVG here would mean
+    // serializing a DOM node to a string and re-parsing it as HTML via React's
+    // raw-HTML-injection prop — the DOM-text-reinterpreted-as-HTML pattern this
+    // component used to have.
+    const showIcon = hasCalloutIcon(block.calloutType);
 
     return (
         <section className="cm-callout" data-callout-type={block.calloutType}>
@@ -832,12 +856,7 @@ function TerminalCallout({ block }: { block: CalloutExportBlock }) {
                     <span className="cm-terminal-dot cm-terminal-dot-green" />
                 </div>
                 <span className="cm-callout-title">
-                    {iconSvg && (
-                        <span
-                            className="cm-callout-icon"
-                            dangerouslySetInnerHTML={{ __html: iconSvg.outerHTML }}
-                        />
-                    )}
+                    {showIcon && <span className="cm-callout-icon" />}
                     {block.title}
                 </span>
             </div>
@@ -971,9 +990,22 @@ function createMathNode(documentRef: Document, formula: string, isBlock: boolean
     wrapper.className = isBlock ? "cm-math-block" : "cm-math-inline";
 
     try {
+        // The formula string is read back out of the rendered DOM
+        // (`textContent`) and its output is assigned with innerHTML below, so
+        // KaTeX is the only thing standing between note content and markup.
+        // `trust: false` blocks \href/\url/\includegraphics from emitting
+        // attacker-chosen URLs and \htmlClass-style raw-HTML commands; pin it
+        // explicitly rather than relying on the library default, which could
+        // change silently on a future upgrade. Mirrors the mermaid
+        // `securityLevel: "strict"` pin in this file. `strict: "ignore"`
+        // below is unrelated to sanitization — it only pins whether KaTeX
+        // warns (vs. throws) on questionable-but-safe LaTeX, and has no
+        // effect on `trust` or on the rendered output.
         wrapper.innerHTML = katex.renderToString(formula.trim(), {
             displayMode: isBlock,
             throwOnError: false,
+            trust: false,
+            strict: "ignore",
             macros: { "\\f": "#1f(#2)" },
             output: "html",
         });
@@ -1235,7 +1267,9 @@ async function renderMermaidBlocks(root: HTMLElement): Promise<string[]> {
 
             const styleElement = document.getElementById(renderId);
             if (styleElement?.tagName.toLowerCase() === "style" && styleElement.textContent) {
-                collectedStyles.push(styleElement.textContent);
+                // textContent read back out of the live document — sanitize before
+                // it is interpolated into the exported <style> element.
+                collectedStyles.push(sanitizeStyleText(styleElement.textContent));
                 styleElement.remove();
             }
         } catch {
@@ -1318,7 +1352,7 @@ export async function renderMarkdownPdfDocument(
 
     return {
         documentTitle,
-        html: `<!doctype html><html><head><meta charset="utf-8" /><title>${escapeHtml(documentTitle)}</title><style>${styles}${mermaidStyles.join("\n")}</style></head><body>${documentMarkup}</body></html>`,
+        html: `<!doctype html><html><head><meta charset="utf-8" /><title>${escapeHtml(documentTitle)}</title><style>${sanitizeStyleText(styles)}${mermaidStyles.join("\n")}</style></head><body>${documentMarkup}</body></html>`,
         outline: buildPdfOutlineEntries(outlineItems, headingOffsets),
     };
 }

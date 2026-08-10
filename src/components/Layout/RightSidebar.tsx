@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { Text } from "@codemirror/state";
-import { ChevronDown, ChevronRight, Link2, List, Tag, Sparkles } from "lucide-react";
+import { ChevronDown, ChevronRight, Link2, List, Tag, Sparkle } from "lucide-react";
 import { theme } from "../../styles/theme";
 import { BaseSidebar } from "./BaseSidebar";
 import { cn } from "../../lib/utils";
@@ -602,22 +602,22 @@ export function RightSidebar() {
                 {/* "Ask this vault" — full-width entry point into Vault Q&A. Hidden while
                     the Q&A panel itself is open since it renders its own header/close. */}
                 {!isQAOpen && isRightSidebarOpen && (
-                    <div style={{ padding: "16px 16px 12px" }}>
+                    <div style={{ padding: "10px 12px", borderBottom: `1px solid ${theme.colors.border.light}` }}>
                         <button
                             type="button"
                             onClick={() => setIsQAOpen(true)}
                             title="Ask this vault"
                             className="flex w-full items-center justify-center gap-2 transition-colors bg-[color:var(--color-bg-elevated)] hover:bg-[color:var(--color-bg-hover)]"
                             style={{
-                                borderRadius: "10px",
+                                borderRadius: "9px",
                                 border: `1px solid ${theme.colors.border.light}`,
-                                padding: "9px 12px",
+                                padding: "8px 12px",
                                 fontSize: "12.5px",
                                 fontWeight: 600,
                                 color: theme.colors.text.secondary,
                             }}
                         >
-                            <Sparkles size={14} style={{ color: theme.colors.accent.default }} />
+                            <Sparkle size={14} style={{ color: theme.colors.accent.default }} />
                             Ask this vault
                         </button>
                     </div>

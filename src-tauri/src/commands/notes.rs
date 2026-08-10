@@ -112,7 +112,11 @@ fn resolve_restore_directory(vault_root: &Path, parsed: &ParsedTrashName) -> Pat
     }
 
     // Legacy format or missing path: search for a folder with the bare parent name.
-    let parent_label = if let Some(encoded) = parsed.parent_label.strip_prefix("p:") {
+    let parent_label = if let Some(encoded) = parsed
+        .parent_label
+        .strip_prefix("p=")
+        .or_else(|| parsed.parent_label.strip_prefix("p:"))
+    {
         // Extract last segment of encoded path as a human-readable hint.
         decoded_last_segment(encoded)
     } else {

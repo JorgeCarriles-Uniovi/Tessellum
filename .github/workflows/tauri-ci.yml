@@ -49,6 +49,7 @@ jobs:
             libsoup-3.0-dev \
             libayatana-appindicator3-dev \
             librsvg2-dev \
+            libdbus-1-dev \
             patchelf \
             pkg-config
 

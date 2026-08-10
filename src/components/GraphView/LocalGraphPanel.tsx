@@ -9,13 +9,21 @@ import { mapGraphDataToElements, GraphData } from '../../utils/graphUtils';
 import { X, GitFork } from 'lucide-react';
 import cytoscape from 'cytoscape';
 import { createNoteInDir } from "../../utils/noteUtils";
+import { resolveGhostNodeTarget } from "../../utils/graphNodeActions";
 import { applyFilterToGraphData, runCypherGraphFilter } from '../../lib/cypherGraphFilter';
 import { useDebouncedValue } from "../../hooks/useDebouncedValue";
 import { normalizeCypherQuery } from "../../lib/cypherQueryNormalizer";
 import { IconButton } from "../ui";
+import { useResizableFloatingPanel } from "./useResizableFloatingPanel";
 
 const PANEL_WIDTH = 290;
 const GRAPH_HEIGHT = 200;
+const PANEL_WIDTH_KEY = "tessellum:local-graph-panel-width";
+const GRAPH_HEIGHT_KEY = "tessellum:local-graph-panel-height";
+const PANEL_MIN_WIDTH = 240;
+const PANEL_MAX_WIDTH = 560;
+const GRAPH_MIN_HEIGHT = 140;
+const GRAPH_MAX_HEIGHT = 560;
 
 export function LocalGraphPanel({ isOpen }: { isOpen: boolean }) {
     const { vaultPath, activeNote, setActiveNote, files, addFileIfMissing } = useVaultStore();
@@ -28,6 +36,16 @@ export function LocalGraphPanel({ isOpen }: { isOpen: boolean }) {
     const [queryError, setQueryError] = useState<string | null>(null);
     const [isCypherRunning, setIsCypherRunning] = useState(false);
     const debouncedQuery = useDebouncedValue(query, 250);
+    const { width: panelWidth, height: graphHeight, isResizing, startResize } = useResizableFloatingPanel({
+        widthStorageKey: PANEL_WIDTH_KEY,
+        heightStorageKey: GRAPH_HEIGHT_KEY,
+        minWidth: PANEL_MIN_WIDTH,
+        maxWidth: PANEL_MAX_WIDTH,
+        defaultWidth: PANEL_WIDTH,
+        minHeight: GRAPH_MIN_HEIGHT,
+        maxHeight: GRAPH_MAX_HEIGHT,
+        defaultHeight: GRAPH_HEIGHT,
+    });
 
     const fetchLocalGraph = useCallback(async () => {
         if (!vaultPath || !activeNote || !isOpen) {
@@ -123,23 +141,30 @@ export function LocalGraphPanel({ isOpen }: { isOpen: boolean }) {
             const existingFile = files.find((f) => f.path.replace(/\\/g, '/') === normalizedNodeId);
             if (existingFile) {
                 setActiveNote(existingFile);
-            } else {
-                try {
-                    const parts = nodeId.replace(/\\/g, '/').split('/');
-                    const filename = parts[parts.length - 1];
-                    const title = filename.replace(/\.md$/, '');
+                return;
+            }
 
-                    if (!vaultPath) return;
+            if (!vaultPath) return;
 
-                    const newNote = await createNoteInDir(vaultPath, title);
-                    addFileIfMissing(newNote);
-                    setActiveNote(newNote);
-                } catch (e) {
-                    console.error('Failed to create note:', e);
-                }
+            const target = resolveGhostNodeTarget(nodeId, vaultPath);
+            if (target.kind === "media") {
+                console.warn(`Local graph: ghost node "${nodeId}" is a media asset — skipping note creation`);
+                return;
+            }
+            if (target.kind === "rejected") {
+                console.warn(`Local graph: ghost node "${nodeId}" resolves outside the vault — skipping note creation`);
+                return;
+            }
+
+            try {
+                const newNote = await createNoteInDir(target.targetDir, target.title);
+                addFileIfMissing(newNote);
+                setActiveNote(newNote);
+            } catch (e) {
+                console.error('Failed to create note:', e);
             }
         },
-        [files, vaultPath, addFileIfMissing]
+        [files, vaultPath, setActiveNote, addFileIfMissing]
     );
 
     const noteLabel = activeNote
@@ -162,54 +187,108 @@ export function LocalGraphPanel({ isOpen }: { isOpen: boolean }) {
                 position: 'absolute',
                 right: 22,
                 bottom: 22,
-                width: PANEL_WIDTH,
-                background: 'var(--color-bg-secondary)',
-                border: '1px solid var(--color-border-light)',
-                borderRadius: 14,
-                boxShadow: 'var(--shadow-lg)',
-                overflow: 'hidden',
+                width: panelWidth,
                 zIndex: 20,
                 opacity: 1,
                 transform: 'translateY(0)',
-                transition: 'opacity 200ms ease, transform 200ms ease',
+                transition: isResizing ? 'none' : 'opacity 200ms ease, transform 200ms ease',
             }}
         >
-            {/* Header */}
+            {/* Resize handles — the panel is anchored bottom-right, so dragging
+                these grows it toward the top-left. */}
             <div
+                onMouseDown={startResize('width')}
+                title="Resize"
                 style={{
+                    position: 'absolute',
+                    left: -3,
+                    top: 8,
+                    bottom: 8,
+                    width: 7,
+                    cursor: 'col-resize',
+                    zIndex: 21,
+                }}
+            />
+            <div
+                onMouseDown={startResize('height')}
+                title="Resize"
+                style={{
+                    position: 'absolute',
+                    top: -3,
+                    left: 8,
+                    right: 8,
+                    height: 7,
+                    cursor: 'row-resize',
+                    zIndex: 21,
+                }}
+            />
+            <div
+                onMouseDown={startResize('both')}
+                title="Resize"
+                style={{
+                    position: 'absolute',
+                    top: -4,
+                    left: -4,
+                    width: 16,
+                    height: 16,
+                    cursor: 'nwse-resize',
+                    zIndex: 22,
                     display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '9px 12px',
-                    borderBottom: '1px solid var(--color-border-light)',
+                    alignItems: 'flex-start',
+                    justifyContent: 'flex-start',
+                    padding: 3,
                 }}
             >
-                <span
+                <svg width="9" height="9" viewBox="0 0 9 9" style={{ opacity: isResizing ? 1 : 0.35 }}>
+                    <path d="M8 1L1 8M8 5L5 8" stroke="var(--color-text-muted)" strokeWidth="1.3" strokeLinecap="round" />
+                </svg>
+            </div>
+
+            <div
+                style={{
+                    background: 'var(--color-bg-secondary)',
+                    border: '1px solid var(--color-border-light)',
+                    borderRadius: 14,
+                    boxShadow: 'var(--shadow-lg)',
+                    overflow: 'hidden',
+                }}
+            >
+                {/* Header */}
+                <div
                     style={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '7px',
-                        fontSize: '11px',
-                        fontWeight: 600,
-                        letterSpacing: '0.02em',
-                        color: 'var(--color-text-secondary)',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
+                        justifyContent: 'space-between',
+                        padding: '9px 12px',
+                        borderBottom: '1px solid var(--color-border-light)',
                     }}
                 >
-                    <GitFork size={13} color="var(--color-accent-default)" style={{ flexShrink: 0 }} />
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        Local graph — {noteLabel}
+                    <span
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '7px',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            letterSpacing: '0.02em',
+                            color: 'var(--color-text-secondary)',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                        }}
+                    >
+                        <GitFork size={13} color="var(--color-accent-default)" style={{ flexShrink: 0 }} />
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            Local graph — {noteLabel}
+                        </span>
                     </span>
-                </span>
-                <IconButton label="Close local graph" size={22} onClick={toggleLocalGraph}>
-                    <X size={14} />
-                </IconButton>
-            </div>
+                    <IconButton label="Close local graph" size={22} onClick={toggleLocalGraph}>
+                        <X size={14} />
+                    </IconButton>
+                </div>
 
-            {/* Graph */}
-            <div style={{ height: GRAPH_HEIGHT, position: 'relative', backgroundColor: 'var(--color-bg-primary)' }}>
+                {/* Graph */}
+                <div style={{ height: graphHeight, position: 'relative', backgroundColor: 'var(--color-bg-primary)' }}>
                 {!activeNote ? (
                     <div
                         style={{
@@ -310,6 +389,7 @@ export function LocalGraphPanel({ isOpen }: { isOpen: boolean }) {
                     />
                     {unresolvedCount} unresolved
                 </span>
+            </div>
             </div>
         </div>
     );

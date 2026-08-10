@@ -571,6 +571,8 @@ export function Editor() {
         isDirty,
         editorFontSizePx,
     } = useEditorStore();
+    const dirtyPaths = useEditorContentStore((s) => s.dirtyPaths);
+    const markPathClean = useEditorContentStore((s) => s.markPathClean);
     const editorMode = useEditorModeStore((state) => state.editorMode);
     const reducedMotion = useAccessibilityStore((state) => state.reducedMotion);
     const spellCheck = useSettingsStore((state) => state.spellCheck);
@@ -889,8 +891,12 @@ export function Editor() {
     };
 
     const handleTabClose = (id: string) => {
-        // Guard against silently discarding unsaved changes on the active note.
-        if (id === activeNote?.path && isDirty) {
+        // Guard against silently discarding unsaved changes on ANY open tab.
+        // `isDirty` covers only the active note, so it is checked alongside
+        // `dirtyPaths` rather than instead of it — the two are kept in sync by
+        // useFileSynchronization, and the union is the safe reading.
+        const isTabDirty = dirtyPaths.has(id) || (id === activeNote?.path && isDirty);
+        if (isTabDirty) {
             setDirtyCloseConfirm(id);
             return;
         }
@@ -899,6 +905,9 @@ export function Editor() {
 
     const confirmDirtyClose = () => {
         if (dirtyCloseConfirm) {
+            // The user chose to discard: drop the pending-edit marker so
+            // reopening the note does not immediately re-arm the guard.
+            markPathClean(dirtyCloseConfirm);
             closeTab(dirtyCloseConfirm);
         }
         setDirtyCloseConfirm(null);

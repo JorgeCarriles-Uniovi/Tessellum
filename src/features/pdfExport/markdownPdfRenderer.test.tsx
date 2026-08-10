@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from "vitest";
 import type { FileMetadata } from "../../types";
 import { invokeMock } from "../../test/tauriMocks";
 import { EXPORT_PAGE_HEIGHT_PX, EXPORT_TYPOGRAPHY } from "./pdfExportDomain";
-import { renderMarkdownPdfDocument } from "./markdownPdfRenderer";
+import { renderMarkdownPdfDocument, sanitizeStyleText } from "./markdownPdfRenderer";
 
 function createFile(filename: string): FileMetadata {
     return {
@@ -164,5 +164,72 @@ graph LR
         expect(result.html).toContain("Embedded PDF");
         expect(result.html).toContain("spec.pdf");
         expect(result.html).not.toContain("missing.png");
+    });
+
+    test("renders the terminal callout icon without a DOM-text-to-HTML round trip", async () => {
+        const result = await renderMarkdownPdfDocument({
+            file: createFile("Term.md"),
+            content: "> [!terminal] Build\n> npm run build\n",
+        });
+
+        // The icon must still be present in the exported markup...
+        const parsed = new DOMParser().parseFromString(result.html, "text/html");
+        const terminalCallout = parsed.querySelector('.cm-callout[data-callout-type="terminal"]');
+        expect(terminalCallout).not.toBeNull();
+        expect(terminalCallout!.querySelector(".cm-callout-icon svg")).not.toBeNull();
+    });
+
+    test("the pdf renderer source contains no dangerouslySetInnerHTML sink", async () => {
+        // `import.meta.url` is not a `file:` URL under this repo's Vitest
+        // transform, so `new URL("./markdownPdfRenderer.tsx", import.meta.url)`
+        // throws ("The URL must be of scheme file") rather than resolving.
+        // Build the path from the repo root instead; the assertion itself
+        // (no dangerouslySetInnerHTML / outerHTML sink in this file) is what
+        // guards against the fix being reverted.
+        const path = await import("node:path");
+        const fs = await import("node:fs/promises");
+        const filePath = path.join(process.cwd(), "src/features/pdfExport/markdownPdfRenderer.tsx");
+        const source = await fs.readFile(filePath, "utf8");
+        expect(source).not.toContain("dangerouslySetInnerHTML");
+        expect(source).not.toContain(".outerHTML}");
+    });
+
+    test("style text cannot terminate its own <style> element", () => {
+        expect(sanitizeStyleText(".a{}</style><script>alert(1)</script>")).toBe(
+            ".a{}<\\/style><script>alert(1)<\\/script>"
+        );
+        // Case-insensitive and whitespace-tolerant, matching the HTML parser.
+        expect(sanitizeStyleText("</STYLE >")).toBe("<\\/STYLE >");
+        expect(sanitizeStyleText("</scRIpt>")).toBe("<\\/scRIpt>");
+        // Ordinary CSS is untouched.
+        expect(sanitizeStyleText(".x { color: red; }")).toBe(".x { color: red; }");
+    });
+
+    test("collected mermaid styles are neutralized before entering the document", async () => {
+        const result = await renderMarkdownPdfDocument({
+            file: createFile("Diagram.md"),
+            content: "```mermaid\ngraph TD;A-->B;\n```\n",
+        });
+
+        // Whatever the mermaid version emits, the produced document must contain
+        // exactly one <style> element — a smuggled `</style>` would create more.
+        const parsed = new DOMParser().parseFromString(result.html, "text/html");
+        expect(parsed.querySelectorAll("style").length).toBe(1);
+        expect(parsed.querySelectorAll("script").length).toBe(0);
+    });
+
+    test("math extracted from note text cannot inject markup or link handlers", async () => {
+        const result = await renderMarkdownPdfDocument({
+            file: createFile("Math.md"),
+            content: "Inline $\\href{javascript:alert(1)}{click}$ and $x^2$ here.\n",
+        });
+
+        const parsed = new DOMParser().parseFromString(result.html, "text/html");
+        // The safe formula still renders.
+        expect(parsed.querySelector(".cm-math-inline")).not.toBeNull();
+        // The unsafe one produces no javascript: navigation target anywhere.
+        const anchors = Array.from(parsed.querySelectorAll("a"));
+        expect(anchors.some((a) => (a.getAttribute("href") ?? "").startsWith("javascript:"))).toBe(false);
+        expect(parsed.querySelectorAll("script").length).toBe(0);
     });
 });

@@ -3,7 +3,7 @@ use tauri::State;
 
 use crate::error::TessellumError;
 use crate::models::{AppState, AssetIndex};
-use crate::utils::{normalize_path, sanitize_string, validate_path_in_vault};
+use crate::utils::{is_hidden_or_special, normalize_path, sanitize_string, validate_path_in_vault};
 
 const SUPPORTED_EXTS: &[&str] = &[
 	"png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "tif", "tiff", "avif", "pdf", "html", "htm",
@@ -71,9 +71,22 @@ async fn resolve_asset_inner(
 	}
 	
 	let asset_index = index_guard.as_ref().unwrap();
-	Ok(asset_index
-		.resolve(vault_path, target)
-		.map(|p| to_asset_path(&p)))
+	let Some(resolved) = asset_index.resolve(vault_path, target) else {
+		return Ok(None);
+	};
+
+	// Belt-and-braces: AssetIndex::resolve already enforces both of these on
+	// every return path, but the markdown branch above validates at the command
+	// level too, and containment should not depend on a single implementation.
+	let validated = match validate_path_in_vault(&resolved.to_string_lossy(), vault_path) {
+		Ok(path) => path,
+		Err(_) => return Ok(None),
+	};
+	if !is_supported_asset(&validated) {
+		return Ok(None);
+	}
+
+	Ok(Some(to_asset_path(&validated)))
 }
 
 async fn save_asset_inner(
@@ -137,6 +150,36 @@ async fn save_asset_inner(
 	Ok(normalize_path(&relative.to_string_lossy()))
 }
 
+/// Report whether `path` is safe and available to render in a preview iframe.
+///
+/// The iframe `error` event does not fire for navigation failures — an asset
+/// 403 or 404 still fires `load`, with the error page inside the frame — so the
+/// viewer cannot detect failure after the fact. This gives it a typed answer
+/// before it renders anything.
+#[tauri::command]
+pub async fn validate_preview_file(
+	vault_path: String,
+	path: String,
+) -> Result<bool, TessellumError> {
+	let Ok(resolved) = validate_path_in_vault(&path, &vault_path) else {
+		return Ok(false);
+	};
+	if !resolved.is_file() {
+		return Ok(false);
+	}
+	// Every neighbouring vault-file command excludes hidden/special
+	// directories (.git, .trash, .obsidian, ...) via this helper; without it
+	// here, `<vault>/.git/x.html` would be green-lit for preview.
+	let Ok(vault_root) = Path::new(&vault_path).canonicalize() else {
+		return Ok(false);
+	};
+	let rel_path = resolved.strip_prefix(&vault_root).unwrap_or(&resolved);
+	if is_hidden_or_special(rel_path) {
+		return Ok(false);
+	}
+	Ok(is_supported_asset(&resolved))
+}
+
 #[tauri::command]
 pub async fn resolve_asset(
 	state: State<'_, AppState>,
@@ -170,9 +213,10 @@ pub async fn save_asset(
 
 #[cfg(test)]
 mod tests {
+	use std::fs;
 	use tempfile::tempdir;
 
-	use super::{resolve_asset_inner, save_asset_inner};
+	use super::{resolve_asset_inner, save_asset_inner, validate_preview_file};
 	use crate::db::Database;
 	use crate::models::AppState;
 	use crate::search::SearchIndex;
@@ -299,5 +343,70 @@ mod tests {
 		.unwrap_err();
 
 		assert!(err.to_string().contains("Unsupported file type"));
+	}
+
+	#[tokio::test]
+	async fn validate_preview_file_accepts_an_in_vault_html_file() {
+		let vault = tempdir().unwrap();
+		let page = vault.path().join("Report.html");
+		fs::write(&page, "<h1>hi</h1>").unwrap();
+
+		let ok = validate_preview_file(
+			vault.path().to_string_lossy().to_string(),
+			page.to_string_lossy().to_string(),
+		)
+		.await
+		.unwrap();
+
+		assert!(ok);
+	}
+
+	#[tokio::test]
+	async fn validate_preview_file_rejects_hidden_or_special_paths() {
+		let vault = tempdir().unwrap();
+		let git_dir = vault.path().join(".git");
+		fs::create_dir_all(&git_dir).unwrap();
+		let hidden = git_dir.join("x.html");
+		fs::write(&hidden, "<h1>hidden</h1>").unwrap();
+
+		let ok = validate_preview_file(
+			vault.path().to_string_lossy().to_string(),
+			hidden.to_string_lossy().to_string(),
+		)
+		.await
+		.unwrap();
+
+		assert!(!ok);
+	}
+
+	#[tokio::test]
+	async fn validate_preview_file_rejects_missing_out_of_vault_and_directory_paths() {
+		let parent = tempdir().unwrap();
+		let vault = parent.path().join("vault");
+		let outside = parent.path().join("outside");
+		fs::create_dir_all(&vault).unwrap();
+		fs::create_dir_all(&outside).unwrap();
+		let escaped = outside.join("secret.html");
+		fs::write(&escaped, "<h1>secret</h1>").unwrap();
+
+		let vault_str = vault.to_string_lossy().to_string();
+
+		// Deleted between resolution and render.
+		assert!(!validate_preview_file(
+			vault_str.clone(),
+			vault.join("gone.html").to_string_lossy().to_string()
+		)
+		.await
+		.unwrap());
+
+		// Outside the vault.
+		assert!(!validate_preview_file(vault_str.clone(), escaped.to_string_lossy().to_string())
+			.await
+			.unwrap());
+
+		// A directory is not a previewable file.
+		assert!(!validate_preview_file(vault_str, vault.to_string_lossy().to_string())
+			.await
+			.unwrap());
 	}
 }

@@ -1,5 +1,6 @@
 import {create} from "zustand";
 import {persist} from "zustand/middleware";
+import { getSecret, migratePlaintextSecret, setSecret, SECRET_KEYS } from "../lib/secretStorage";
 
 export interface AiProviderConfig {
     kind: "ollama" | "openai" | "claude";
@@ -76,7 +77,48 @@ export const useAIStore = create<AiStore>()(
         }),
         {
             name: "tessellum:ai",
-            partialize: (s) => ({ providerConfig: s.providerConfig }),
+            // `api_key` is a billed provider credential. Same rule as the git
+            // password in syncStore: memory for the session, OS credential
+            // store at rest, never localStorage. Call `hydrateAiSecret()` once
+            // at startup to load it.
+            partialize: (s) => {
+                const { api_key: _apiKey, ...safeProviderConfig } = s.providerConfig;
+                return { providerConfig: safeProviderConfig };
+            },
         }
     )
 );
+
+const AI_STORAGE_KEY = "tessellum:ai";
+
+/**
+ * Load the AI provider API key from the OS credential store into memory,
+ * migrating any plaintext copy left by an earlier build. Call once at startup.
+ */
+export async function hydrateAiSecret(): Promise<void> {
+    const migrated = await migratePlaintextSecret({
+        storageKey: AI_STORAGE_KEY,
+        secretKey: SECRET_KEYS.aiApiKey,
+        extract: (parsed) =>
+            (parsed as { state?: { providerConfig?: { api_key?: string } } })?.state?.providerConfig?.api_key,
+        strip: (parsed) => {
+            const blob = parsed as { state?: { providerConfig?: Record<string, unknown> } };
+            if (blob?.state?.providerConfig) delete blob.state.providerConfig.api_key;
+            return blob;
+        },
+    });
+
+    const apiKey = migrated ?? (await getSecret(SECRET_KEYS.aiApiKey));
+    if (apiKey) {
+        useAIStore.setState((s) => ({ providerConfig: { ...s.providerConfig, api_key: apiKey } }));
+    }
+}
+
+/**
+ * Write the current in-memory API key through to the OS credential store.
+ * Resolves to `false` (rather than throwing) if the write fails, so the
+ * caller can surface the failure to the user instead of losing it silently.
+ */
+export async function persistAiSecret(): Promise<boolean> {
+    return setSecret(SECRET_KEYS.aiApiKey, useAIStore.getState().providerConfig.api_key ?? "");
+}
